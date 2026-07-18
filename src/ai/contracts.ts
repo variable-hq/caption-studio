@@ -1,6 +1,6 @@
 import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
 
-export type ProviderMode = "local" | "paid" | "synthetic";
+export type ProviderMode = "cloud-free" | "paid" | "synthetic";
 
 export interface TranscriptSegment {
   id: string;

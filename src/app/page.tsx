@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { LocalCompanionClient } from "@/ai/local-companion-client";
+import { CloudProviderClient } from "@/ai/cloud-provider-client";
 import {
   DEFAULT_SOURCE_LANGUAGE,
   DEFAULT_TARGET_LANGUAGE,
@@ -11,7 +11,7 @@ import {
   type SourceLanguage,
 } from "@/domain/languages";
 
-type WorkerState = "checking" | "ready" | "not-running";
+type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
 
 const SAMPLE_CAPTIONS: Record<LanguageLocale, string> = {
   en: "Grace and peace be with you.",
@@ -23,9 +23,6 @@ const SAMPLE_CAPTIONS: Record<LanguageLocale, string> = {
   "zh-Hant": "願恩典與平安與你們同在。",
   vi: "Nguyện ân điển và bình an ở cùng anh chị em.",
 };
-
-const workerUrl =
-  process.env.NEXT_PUBLIC_LOCAL_AI_URL ?? "http://127.0.0.1:4317";
 
 export default function OperatorDashboard() {
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>(
@@ -41,7 +38,7 @@ export default function OperatorDashboard() {
   >("idle");
   const [microphoneError, setMicrophoneError] = useState("");
   const [level, setLevel] = useState(0);
-  const [workerState, setWorkerState] = useState<WorkerState>("checking");
+  const [cloudState, setCloudState] = useState<CloudState>("checking");
   const [fontSize, setFontSize] = useState(48);
   const [textColor, setTextColor] = useState("#ffffff");
   const [backgroundColor, setBackgroundColor] = useState("#101827");
@@ -128,12 +125,12 @@ export default function OperatorDashboard() {
   useEffect(() => {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 1800);
-    const client = new LocalCompanionClient(workerUrl);
+    const client = new CloudProviderClient();
 
     client
       .health(controller.signal)
-      .then((health) => setWorkerState(health.status === "ready" ? "ready" : "not-running"))
-      .catch(() => setWorkerState("not-running"))
+      .then((health) => setCloudState(health.status))
+      .catch(() => setCloudState("unavailable"))
       .finally(() => window.clearTimeout(timeout));
 
     return () => {
@@ -157,17 +154,19 @@ export default function OperatorDashboard() {
         <div className="brand">
           <span className="brandMark" aria-hidden="true">CC</span>
           <div>
-            <p className="eyebrow">Free/local-first prototype</p>
+            <p className="eyebrow">Free cloud prototype</p>
             <h1>Church Live Caption</h1>
           </div>
         </div>
-        <div className={`statusPill ${workerState}`}>
+        <div className={`statusPill ${cloudState}`}>
           <span className="statusDot" aria-hidden="true" />
-          {workerState === "checking"
-            ? "Checking local AI"
-            : workerState === "ready"
-              ? "Local AI ready"
-              : "Local AI not running"}
+          {cloudState === "checking"
+            ? "Checking cloud AI"
+            : cloudState === "ready"
+              ? "Cloud AI ready"
+              : cloudState === "not-configured"
+                ? "Cloud setup needed"
+                : "Cloud AI unavailable"}
         </div>
       </header>
 
@@ -180,7 +179,7 @@ export default function OperatorDashboard() {
             public caption style before connecting the stream to OBS.
           </p>
         </div>
-        <button className="primaryButton" disabled={workerState !== "ready"}>
+        <button className="primaryButton" disabled={cloudState !== "ready"}>
           Start caption session
         </button>
       </section>
@@ -371,27 +370,28 @@ export default function OperatorDashboard() {
           <div className="panelHeading">
             <div>
               <p className="stepNumber">04</p>
-              <h3>Local AI models</h3>
+              <h3>Cloud AI services</h3>
             </div>
           </div>
           <div className="modelRow">
             <span>Transcription</span>
-            <strong>Whisper small multilingual</strong>
-            <small>whisper.cpp · local</small>
+            <strong>Whisper Large V3 Turbo</strong>
+            <small>GroqCloud · free tier</small>
           </div>
           <div className="modelRow">
             <span>Translation</span>
-            <strong>MADLAD-400 3B</strong>
-            <small>one target · local</small>
+            <strong>Llama 3.1 8B Instant</strong>
+            <small>GroqCloud · contextual translation</small>
           </div>
           <div className="workerMessage">
-            <span className={`statusDot ${workerState}`} aria-hidden="true" />
+            <span className={`statusDot ${cloudState}`} aria-hidden="true" />
             <div>
               <strong>
-                {workerState === "ready" ? "Companion connected" : "Companion setup pending"}
+                {cloudState === "ready" ? "Cloud provider connected" : "Cloud setup pending"}
               </strong>
               <p>
-                Models run on this computer. No transcription or translation API charges apply in Phase 1A.
+                AI runs outside this computer. The browser sends short audio chunks
+                through the secure app server and never receives the provider key.
               </p>
             </div>
           </div>

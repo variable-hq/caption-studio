@@ -135,9 +135,14 @@ h1 {
   box-shadow: 0 0 0 4px rgba(46, 157, 104, 0.12);
 }
 
-.not-running .statusDot,
-.statusDot.not-running {
+.not-configured .statusDot,
+.statusDot.not-configured {
   background: var(--amber);
+}
+
+.unavailable .statusDot,
+.statusDot.unavailable {
+  background: #a33b35;
 }
 
 .hero {

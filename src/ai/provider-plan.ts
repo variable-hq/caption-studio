@@ -1,21 +1,26 @@
 export const PROVIDER_PLAN = {
   phase1a: {
-    mode: "local",
+    mode: "cloud-free-tier",
+    hosting: {
+      provider: "Cloudflare Workers",
+      freeRequestLimitPerDay: 100_000,
+    },
     transcription: {
-      provider: "whisper.cpp",
-      model: "Whisper small multilingual",
-      fallbackModels: ["Whisper base multilingual", "Whisper medium multilingual"],
+      provider: "GroqCloud",
+      model: "whisper-large-v3-turbo",
+      recommendedChunkSeconds: 4,
     },
     translation: {
-      provider: "Transformers local worker",
-      model: "google/madlad400-3b-mt",
+      provider: "GroqCloud",
+      model: "llama-3.1-8b-instant",
       maxTargetsPerSession: 1,
     },
+    quotaFallback: "Continue source captions when translation is unavailable",
   },
   phase1b: {
     mode: "paid-optional",
-    transcription: "OpenAI realtime transcription adapter",
-    translation: "OpenAI context-aware translation adapter",
-    keepLocalFallback: true,
+    transcription: "Higher-limit or realtime provider adapter",
+    translation: "Higher-quality context-aware provider adapter",
+    keepProviderContracts: true,
   },
 } as const;

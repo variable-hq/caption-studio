@@ -22,6 +22,8 @@ Treat the following as sensitive:
 ## Development rules
 
 - Keep all provider secrets on the server.
+- Protect deployed inference routes with Cloudflare Access and verify its signed JWT.
+- Fail closed when the Access audience or team domain is missing.
 - Store local secrets only in ignored environment files.
 - Use synthetic or approved test data.
 - Apply least-privilege access and workspace isolation.
