@@ -1,0 +1,57 @@
+name: Bug report
+description: Report reproducible incorrect behavior without including sensitive church data
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for helping improve Church Live Caption. Use synthetic or approved data only.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest safe set of steps that reproduces the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Audio input
+        - Transcription
+        - Translation
+        - Biblical context or glossary
+        - Moderation
+        - OBS overlay
+        - Archive or summary
+        - Authentication or permissions
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, operating system, audio device, and OBS version when relevant.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed credentials, real sermon recordings, private transcripts, and personal information.
+          required: true
