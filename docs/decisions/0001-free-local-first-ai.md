@@ -1,6 +1,6 @@
 # ADR 0001: free/local-first AI providers
 
-- Status: accepted for Phase 1 prototype
+- Status: superseded by ADR 0002
 - Date: 2026-07-19
 
 ## Context
@@ -46,3 +46,9 @@ remains a desirable offline fallback.
 The app depends on `TranscriptionProvider`, `TranslationProvider`, and later
 `SummaryProvider` contracts. Provider choice belongs to session configuration, so
 the dashboard, caption pipeline, archive, and OBS overlay do not depend on a vendor.
+
+## Supersession
+
+The project owner later confirmed that AI inference must run outside the operator's
+Mac. [ADR 0002](0002-free-cloud-first-ai.md) replaces this decision. The local
+companion is not part of the current implementation plan.

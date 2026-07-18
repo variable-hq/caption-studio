@@ -4,9 +4,10 @@ Real-time AI transcription and translation for church services, designed for a c
 
 ## Project status
 
-Phase 1 free/local-first technical prototype. The operator app is being scaffolded
-around interchangeable AI providers so a later paid-model upgrade does not change
-the dashboard or OBS integration.
+Phase 1 free-cloud technical prototype. The web app, secure API routes, and AI
+inference are designed to run outside the operator's computer. Interchangeable
+provider contracts keep a later paid-model upgrade from changing the dashboard or
+OBS integration.
 
 ## Intended user journey
 
@@ -49,17 +50,19 @@ language. Phase 1 assumes Mandarin; Cantonese requires a separate future decisio
 
 - Next.js and TypeScript
 - Browser audio capture
-- A local AI companion using `whisper.cpp` with multilingual Whisper for speech
-- MADLAD-400-3B-MT for the first local translation evaluation
-- Provider interfaces for a later optional OpenAI paid-model upgrade
+- Cloudflare Workers free plan for the Next.js app and server-side provider proxy
+- GroqCloud free plan with `whisper-large-v3-turbo` for multilingual speech
+- GroqCloud `llama-3.1-8b-instant` for contextual translation
+- Provider interfaces for later paid or realtime upgrades
 - Supabase for authentication, settings, sessions, transcripts, and storage
-- Vercel for web hosting
 - OBS Browser Source for the stream overlay
 
 See [Product specification](docs/PRODUCT_SPEC.md), [Architecture](docs/ARCHITECTURE.md), and [Roadmap](docs/ROADMAP.md).
-The model decision and its tradeoffs are recorded in [ADR 0001](docs/decisions/0001-free-local-first-ai.md).
+The current cloud decision and its tradeoffs are recorded in
+[ADR 0002](docs/decisions/0002-free-cloud-first-ai.md). It supersedes the earlier
+local-machine proposal in [ADR 0001](docs/decisions/0001-free-local-first-ai.md).
 
-## Run the operator prototype
+## Develop the operator prototype
 
 Requirements: Node.js 20.9 or newer.
 
@@ -69,11 +72,11 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open `http://localhost:3000`. The dashboard can test a browser-approved microphone,
-configure every Phase 1 language, edit church terms and moderation words, and preview
-caption styling. `Start caption session` remains disabled until the separately installed
-local AI companion reports that its Whisper and MADLAD models are ready. Model files are
-not downloaded by `npm install` and must never be committed.
+Open `http://localhost:3000`. Local development is only for building and testing the
+web app; deployed AI inference runs in GroqCloud. The dashboard can test a
+browser-approved microphone, configure every Phase 1 language, edit church terms and
+moderation words, and preview caption styling. `Start caption session` remains disabled
+until the server-side `GROQ_API_KEY` secret is configured.
 
 Useful checks:
 
@@ -82,11 +85,37 @@ npm test
 npm run typecheck
 npm run lint
 npm run build
+npm run preview
 ```
+
+## Free cloud deployment
+
+1. Create a free GroqCloud project and API key.
+2. Enable Zero Data Retention in GroqCloud Data Controls before using real sermon audio.
+3. Create a Cloudflare Workers project connected to this GitHub repository.
+4. Enable Cloudflare Access for the Worker and allow only approved operator emails.
+5. Add `GROQ_API_KEY` as an encrypted Worker secret, never as a public environment variable.
+6. Add the Access `AUD` and team-domain values as `CLOUDFLARE_ACCESS_AUD` and
+   `CLOUDFLARE_ACCESS_TEAM_DOMAIN` deployment variables.
+7. Use `npm run deploy`, or configure Workers Builds to run the same deployment command.
+
+Cloudflare's Zero Trust onboarding currently asks for payment details even on the
+free plan; its documentation states that the free selection is not charged.
+
+The free plans are suitable for a controlled prototype, not guaranteed unlimited
+production service. The current Groq free plan publishes 20 speech requests per minute,
+2,000 per day, and 28,800 audio seconds per day. Four-second chunks use 15 requests per
+minute and about 1,350 requests for a 90-minute service. The app must stop cleanly or
+continue source captions when any quota is reached. Cloudflare currently includes
+100,000 Worker requests per day. Provider limits can change, so verify them before a
+live service.
 
 ## Important safeguards
 
 - API keys must remain server-side and must never be committed.
+- Cloudflare Access must protect the Worker so anonymous users cannot exhaust AI quota.
+- Raw audio is processed in short-lived requests and is not stored by this app.
+- Groq Zero Data Retention must be enabled before approved real-sermon testing.
 - Sermon recording and retention must be opt-in and visible to operators.
 - AI-generated summaries and biblical references require human review before publication.
 - Biblical context is configurable guidance, not a claim of theological authority.
