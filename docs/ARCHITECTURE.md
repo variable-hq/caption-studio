@@ -6,10 +6,10 @@ This document records a starting architecture, not a locked implementation. Mode
 
 Audio device
   -> operator web app
-  -> authenticated server session
-  -> speech transcription
+  -> local AI companion during Phase 1A
+  -> speech transcription provider
   -> context and glossary processing
-  -> translation
+  -> translation provider
   -> public-display filter
   -> realtime caption channel
   -> read-only OBS browser overlay
@@ -30,6 +30,25 @@ Final transcript segments
 - Live source and translated preview
 - Manual correction and health indicators
 
+### Local AI companion
+
+Phase 1A runs model inference on the church operator's computer so the prototype
+does not incur per-minute API fees. The companion exposes a versioned loopback
+API to the operator app and is responsible for model lifecycle, health, resource
+limits, and converting browser audio into the format expected by the providers.
+
+- Binds to loopback by default and does not expose model endpoints to the LAN.
+- Uses `whisper.cpp` with multilingual Whisper, starting with `small`.
+- Uses MADLAD-400-3B-MT for translation evaluation.
+- Reports model readiness, processing latency, and memory-pressure failures.
+- Does not persist raw audio or transcript content unless the operator explicitly enables recording.
+- Supports a synthetic provider for development and automated tests only.
+
+The hosted dashboard cannot directly ask a cloud server to reach the operator's
+localhost. Before hosted deployment, the companion connection must use a reviewed
+secure browser-to-companion design. The Phase 1A prototype therefore runs the
+dashboard and companion on the same operator computer.
+
 ### Server layer
 
 - Authenticates users and enforces workspace roles
@@ -46,7 +65,25 @@ Final transcript segments
 - Grounded sermon summarization
 - Optional embedding or retrieval over approved glossary and reference data
 
-Exact OpenAI models will be selected during implementation based on current API capabilities, latency, language quality, and cost.
+Provider contracts isolate the application from model vendors:
+
+- `TranscriptionProvider`: local Whisper first; optional realtime paid adapter later
+- `TranslationProvider`: local MADLAD first; optional context-aware paid adapter later
+- `SummaryProvider`: deferred until archival consent and retention are implemented
+
+The local translation model is general-domain. Biblical correctness in Phase 1A
+comes from approved glossary mappings and deterministic terminology processing,
+not from claiming that the base model has theological authority. A paid provider
+may later improve context handling but remains subject to the same glossary and
+human-review rules.
+
+## Language representation
+
+The application stores a product locale separately from the provider's language code.
+English (`en`), Indonesian (`id`), Japanese (`ja`), Korean (`ko-KR`), Tagalog
+(`tl-PH`), and Vietnamese (`vi`) map directly to a spoken language. Chinese
+Simplified (`zh-Hans`) and Chinese Traditional (`zh-Hant`) both map to Chinese
+speech for transcription, followed by the selected script normalization.
 
 ### Supabase
 
@@ -118,10 +155,11 @@ Every persistent record should be scoped to a workspace. Session content should 
 Before implementing the full product, build a narrow prototype and measure:
 
 - end-to-end caption latency
-- transcription quality for Indonesian, English, and the chosen Chinese script
+- transcription quality for every confirmed Phase 1 source language
 - biblical names and mixed-language speech
 - translation consistency across sentence boundaries
 - glossary effectiveness
+- CPU, GPU, and memory behavior on the target operator computer
 - OBS reconnection behavior
 - browser and audio-interface compatibility
-- per-hour operating cost
+- per-hour operating cost, including any later paid-provider comparison

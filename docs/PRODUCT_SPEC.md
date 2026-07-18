@@ -27,6 +27,18 @@ Help churches provide accessible, multilingual live captions without requiring a
 - Publishing sermon transcripts or summaries without an explicit operator action
 - Supporting unlimited simultaneous target languages in the first release
 
+## Confirmed Phase 1 language decision
+
+The Phase 1 source-audio and target-language set is English, Indonesian, Japanese,
+Korean, Tagalog, Chinese, and Vietnamese. Korean covers South Korean usage; there
+is no duplicate "South Korean" option. Chinese supports Simplified and Traditional
+text output. Both Chinese text choices use Chinese speech recognition and Phase 1
+assumes Mandarin rather than Cantonese.
+
+The operator can use automatic source detection or explicitly select any supported
+spoken language. Explicit selection is recommended for live services because it
+reduces ambiguity. One translation target is active per session in the MVP.
+
 ## Core service flow
 
 ### Before the service
@@ -167,17 +179,13 @@ Each keyword entry may include:
 - Recording-enabled sessions can produce a clearly labeled draft summary for human approval.
 - An unauthorized user cannot access operator controls or archived sermons from the overlay URL.
 
-## Decisions required before implementation
+## Decisions still required before later production phases
 
-1. Should Chinese output be Simplified Chinese, Traditional Chinese, or both?
-2. Which source-to-target language combinations are required for the first church?
-3. Which Bible versions are preferred in Indonesian, English, and Chinese, and does the church have permission to use their text?
-4. Should biblical terminology follow a denomination or church-specific tradition? Who approves that profile?
-5. Is one translated language per session sufficient for the MVP?
-6. Will audio come from a room microphone, the mixing console through an audio interface, or both?
-7. What is the acceptable caption latency during a live service?
-8. Does the operator need live manual correction before captions reach OBS?
-9. Should the protected archive preserve unfiltered text, filtered text, both, or neither?
-10. What consent notice, retention period, export policy, and deletion process does the church require?
-11. How many simultaneous services, operators, and viewers are expected?
-12. What should happen when confidence is low: show the best result, delay it, mark it, or hide it?
+1. Which Bible versions are preferred in each target language, and does the church have permission to use their text?
+2. Should biblical terminology follow a denomination or church-specific tradition? Who approves that profile?
+3. What is the acceptable caption latency during a live service?
+4. Does the operator need live manual correction before captions reach OBS?
+5. Should the protected archive preserve unfiltered text, filtered text, both, or neither?
+6. What consent notice, retention period, export policy, and deletion process does the church require?
+7. How many simultaneous services, operators, and viewers are expected?
+8. What should happen when confidence is low: show the best result, delay it, mark it, or hide it?

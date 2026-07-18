@@ -4,7 +4,9 @@ Real-time AI transcription and translation for church services, designed for a c
 
 ## Project status
 
-Planning and collaboration foundation. The application has not been scaffolded yet.
+Phase 1 free/local-first technical prototype. The operator app is being scaffolded
+around interchangeable AI providers so a later paid-model upgrade does not change
+the dashboard or OBS integration.
 
 ## Intended user journey
 
@@ -18,10 +20,24 @@ Planning and collaboration foundation. The application has not been scaffolded y
 8. OBS loads a read-only browser-source URL and displays the live captions.
 9. If recording is enabled, the sermon transcript is stored and can produce a reviewable summary with biblical context.
 
+## Confirmed Phase 1 languages
+
+- English
+- Indonesian
+- Japanese
+- Korean (`ko-KR`; "South Korean" is not a separate language)
+- Tagalog
+- Chinese with Simplified or Traditional transcript output
+- Vietnamese
+
+Every language can be selected as the spoken audio input or translation target.
+For Chinese speech, script is an output preference rather than a different acoustic
+language. Phase 1 assumes Mandarin; Cantonese requires a separate future decision.
+
 ## MVP scope
 
 - Operator dashboard for audio input, languages, glossary, filtering, and display controls
-- Live transcription for Indonesian, English, and Chinese, subject to final language decisions
+- Live transcription for every confirmed Phase 1 source language
 - Translation into one selected target language per session
 - Church glossary and keyword boosting
 - Configurable public-caption word filtering
@@ -33,12 +49,40 @@ Planning and collaboration foundation. The application has not been scaffolded y
 
 - Next.js and TypeScript
 - Browser audio capture
-- OpenAI speech and language APIs, with exact models selected during implementation
+- A local AI companion using `whisper.cpp` with multilingual Whisper for speech
+- MADLAD-400-3B-MT for the first local translation evaluation
+- Provider interfaces for a later optional OpenAI paid-model upgrade
 - Supabase for authentication, settings, sessions, transcripts, and storage
 - Vercel for web hosting
 - OBS Browser Source for the stream overlay
 
 See [Product specification](docs/PRODUCT_SPEC.md), [Architecture](docs/ARCHITECTURE.md), and [Roadmap](docs/ROADMAP.md).
+The model decision and its tradeoffs are recorded in [ADR 0001](docs/decisions/0001-free-local-first-ai.md).
+
+## Run the operator prototype
+
+Requirements: Node.js 20.9 or newer.
+
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Open `http://localhost:3000`. The dashboard can test a browser-approved microphone,
+configure every Phase 1 language, edit church terms and moderation words, and preview
+caption styling. `Start caption session` remains disabled until the separately installed
+local AI companion reports that its Whisper and MADLAD models are ready. Model files are
+not downloaded by `npm install` and must never be committed.
+
+Useful checks:
+
+```bash
+npm test
+npm run typecheck
+npm run lint
+npm run build
+```
 
 ## Important safeguards
 
