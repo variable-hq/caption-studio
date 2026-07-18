@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://github.com/lukaskawira/church-live-caption/security
+    about: Do not publish credentials or sensitive church data in an issue.

@@ -1,0 +1,51 @@
+name: Feature request
+description: Propose a scoped improvement
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or operator problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe the desired behavior without prescribing unnecessary implementation details.
+    validations:
+      required: true
+  - type: dropdown
+    id: user
+    attributes:
+      label: Primary user
+      options:
+        - AV operator
+        - Translator or reviewer
+        - Pastor or ministry leader
+        - Viewer
+        - Contributor
+    validations:
+      required: true
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Areas affected
+      options:
+        - label: Audio or live latency
+        - label: Transcription or translation
+        - label: Biblical context or Bible data licensing
+        - label: Moderation or filtering
+        - label: OBS presentation
+        - label: Privacy, recording, or retention
+        - label: Cost or scalability
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How will the team know this is complete?
+    validations:
+      required: true

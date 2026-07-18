@@ -1,0 +1,37 @@
+name: Product decision
+description: Record a decision that can materially affect product behavior or architecture
+title: "[Decision]: "
+labels:
+  - discussion
+body:
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision needed
+      description: State the question and why it must be decided now.
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options and tradeoffs
+      description: Include privacy, security, ministry, latency, cost, and collaboration implications where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommended option
+      description: State the preferred option and reasoning.
+  - type: input
+    id: approver
+    attributes:
+      label: Decision owner
+      description: Who has authority to approve this decision?
+    validations:
+      required: true
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Consequences and follow-up
+      description: What work or documentation changes after approval?
