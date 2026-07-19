@@ -1,205 +1,211 @@
-# Proposed architecture
+# Architecture
 
-This document records the cloud-first starting architecture. Model and provider choices
-must be validated with approved recordings before a live-service pilot.
+This document describes the current Phase 1 cloud prototype. Proposed archive and
+summary components are intentionally separated at the end so they are not mistaken for
+implemented behavior.
 
-## Live data flow
+## System context
 
 ```text
-Audio device
-  -> operator browser
-  -> short audio chunk over HTTPS
-  -> same-origin Cloudflare Worker API
+Microphone or audio interface
+  -> operator browser (Cloudflare Access protected)
+  -> four-second audio file over HTTPS
+  -> Cloudflare Worker / OpenNext API
   -> Groq Whisper transcription
-  -> church context and glossary processing
-  -> Groq contextual translation
-  -> deterministic preferred terms and public filter
-  -> hibernating Durable Object WebSocket channel
-  -> read-only OBS browser overlay
+  -> Groq Llama contextual translation, unless source equals target
+  -> deterministic glossary and public moderation pipeline
+  -> authenticated live-session API
+  -> SQLite-backed Durable Object
+  -> token-authenticated WebSocket
+  -> OBS Browser Source
 ```
 
-```text
-Final transcript segments
-  -> protected sermon archive, only when enabled
-  -> grounded draft summary
-  -> human review and approval
-```
-
-No transcription or translation model runs on the operator's Mac. The browser still
-captures the selected microphone because that is the source of the live audio.
+The operator's Mac captures audio in the browser but does not run transcription or
+translation models. The prototype has no application database, object storage, sermon
+archive, or summary service.
 
 ## Components
 
-### Operator web app
+### Operator browser
 
-- Audio device selection and level test
-- Session start, pause, resume, and end controls
-- Source and target language selection
-- Glossary, keyword, filter, and display configuration
-- Live source and translated preview
-- Manual correction, quota, latency, and connection indicators
-- Four-second `MediaRecorder` chunks with a bounded two-chunk queue
+The Next.js client provides:
 
-### Cloudflare Worker server layer
+- microphone and browser-visible audio-interface enumeration;
+- explicit microphone permission and a live input meter;
+- source language, target language, glossary, filter, and caption styling controls;
+- a `MediaRecorder` that creates independent four-second audio chunks;
+- a two-chunk in-memory queue to bound latency and memory use;
+- protected source and moderated public-caption previews;
+- active-session time, transcription request count, dropped chunk count, and last
+  end-to-end latency;
+- an OBS URL copy action and session end action; and
+- display-preference persistence in browser `localStorage`.
 
-- Hosts the Next.js dashboard and same-origin API routes
-- Keeps the Groq API key in an encrypted server-side secret
-- Verifies a Cloudflare Access JWT before every inference request
-- Validates language, audio size, prompt size, and request shape
-- Sends short-lived inference requests without storing audio
-- Normalizes provider responses into application contracts
-- Passes rate-limit failures to the operator without exposing provider details
-- Authenticates operators and issues revocable 90-minute overlay credentials
+Glossary text, filter text, audio, captions, and session usage are not persisted by the
+browser after the active page/session. The UI has no pause, manual correction, caption
+history, archive, or summary controls today.
 
-Cloudflare Workers Free currently publishes 100,000 requests per day and 10 ms CPU per
-invocation. The server layer must remain a thin proxy and be measured in the actual
-Workers runtime. Static files do not consume the same dynamic request allocation.
+### Cloudflare Worker and OpenNext
 
-### AI services
+`custom-worker.ts` routes `/overlay` and `/api/live/*` to the live runtime before the
+generated OpenNext handler. Next.js serves the dashboard and `/api/ai/*` routes. The
+Worker environment provides the Durable Object binding, Access configuration, and
+server-only Groq credential.
 
-Phase 1A uses GroqCloud Free:
+Production protection is layered:
 
-- `whisper-large-v3-turbo` for multilingual transcription
-- `llama-3.1-8b-instant` for contextual translation to one target language
+- Cloudflare Access gates the dashboard and all operator/API paths at the edge;
+- readiness, transcription, translation, and live-session mutation handlers also verify
+  the signed Access JWT in application code;
+- `/api/ai/health` returns configuration booleans and model names but no secret; it
+  relies on the deployment's edge Access policy;
+- `/overlay*` and `/api/live/overlay*` are narrowly bypassed at the Access layer and
+  expose no inference or operator mutations; and
+- the WebSocket endpoint validates the session credential inside the Durable Object.
 
-The Whisper prompt includes a bounded set of approved biblical names, Bible books,
-church names, and event vocabulary. Translation receives the current caption, up to
-four recent finalized captions, target script requirements, and bounded preferred-term
-mappings. It is explicitly told not to invent scripture or doctrine.
+Access verification checks issuer and audience against Cloudflare's remote JWKS. JWKS
+loaders are cached by team domain at module scope.
 
-Provider contracts isolate the application from vendors:
+### AI provider layer
 
-- `TranscriptionProvider`: same-origin cloud API now; realtime or paid adapters later
-- `TranslationProvider`: same-origin cloud API now; higher-quality adapters later
-- `SummaryProvider`: deferred until consent and retention are implemented
+Phase 1 uses GroqCloud:
 
-The model is not a theological authority. Approved glossary mappings and human review
-govern biblical terminology. The deterministic caption pipeline applies preferred terms
-and moderation after provider output.
+- `whisper-large-v3-turbo` for transcription; and
+- `llama-3.1-8b-instant` for translation.
 
-### Free-tier quota behavior
+The browser talks only to same-origin APIs and never receives the Groq key. The server
+performs a model-availability check before starting a session.
 
-At the 2026-07-19 decision point, Groq publishes these relevant free limits:
+Transcription is bounded to a 3 MB audio chunk, at most 40 keyword hints, 100 characters
+per hint, and a 900-character provider prompt. The prompt asks Whisper to preserve
+biblical names, Bible books, verse numbers, and church terms.
 
-- Whisper: 20 requests/minute, 2,000 requests/day, 7,200 audio seconds/hour, and
-  28,800 audio seconds/day
-- Llama 3.1 8B Instant: 30 requests/minute, 14,400 requests/day, 6,000 tokens/minute,
-  and 500,000 tokens/day
+Translation is skipped when source and target are the same. Otherwise the model receives
+the current source caption, up to four recent source captions, at most 60 preferred-term
+mappings, and an explicit Simplified or Traditional Chinese output instruction. It is
+told to return translation only and not invent scripture, doctrine, facts, or meaning.
+Provider calls have browser and server timeouts.
 
-Four-second chunks use 15 speech requests per minute and about 1,350 requests for a
-90-minute service. This leaves little room to shorten chunks, so caption latency and
-quota use must be evaluated together. Actual account limits are authoritative and may
-change.
+`TranscriptionProvider` and `TranslationProvider` keep the client independent of a
+specific vendor response shape. Summary interfaces will be introduced only when the
+archive and review design is approved.
 
-The browser must react to `429` responses using `Retry-After`. If transcription quota is
-exhausted, stop cloud captions and show a clear operator error. If only translation is
-unavailable, continue source captions when configured. Phase 1A has no automatic paid
-overage.
+### Deterministic caption pipeline
+
+After AI translation, application code:
+
+1. preserves the source text as the protected browser preview;
+2. applies approved glossary mappings to the translated display form;
+3. applies whole-term public moderation rules; and
+4. publishes only the resulting public text to the live room.
+
+The current UI supports mask rules. The pipeline keeps moderation separate from the
+protected source form so a public filter never silently rewrites what was spoken. No
+protected transcript is sent to OBS or stored in the Durable Object.
+
+### Durable Object and OBS overlay
+
+Creating a session produces a UUID, a 256-bit random token, and a maximum 90-minute
+expiry. The URL stores `sessionId.token` in its fragment. Because fragments stay in the
+browser, the self-contained overlay script extracts the values and supplies the token as
+a WebSocket subprotocol.
+
+The Durable Object stores:
+
+- the SHA-256 token hash;
+- session expiry;
+- current caption style; and
+- the latest moderated public caption.
+
+It accepts monotonically increasing caption sequence numbers, limits public caption
+length, and broadcasts captions and style changes to connected overlays. A new or
+reconnected overlay receives the current style and latest caption. Ending the session or
+the expiry alarm closes sockets and deletes all room storage.
+
+The overlay document has no Next.js asset dependency, provider credential, operator
+control, history request, or archive capability. It renders a transparent 1920 × 1080
+friendly canvas and reconnects with bounded exponential delay.
 
 ## Language representation
 
-The application stores a product locale separately from the provider's language code.
-English (`en`), Indonesian (`id`), Japanese (`ja`), Korean (`ko-KR`), Tagalog
-(`tl-PH`), and Vietnamese (`vi`) map directly to a spoken language. Chinese Simplified
-(`zh-Hans`) and Chinese Traditional (`zh-Hant`) both map to Chinese speech recognition,
-followed by an explicit script instruction during translation.
+The product locale is kept separate from Groq's speech code:
 
-### Deferred Supabase responsibilities
+| Product selection | Locale | Speech code |
+| --- | --- | --- |
+| English | `en` | `en` |
+| Indonesian | `id` | `id` |
+| Japanese | `ja` | `ja` |
+| Korean | `ko-KR` | `ko` |
+| Tagalog | `tl-PH` | `tl` |
+| Chinese (Simplified) | `zh-Hans` | `zh` |
+| Chinese (Traditional) | `zh-Hant` | `zh` |
+| Vietnamese | `vi` | `vi` |
 
-- authentication
-- Postgres records for churches, members, settings, sessions, glossary entries, captions, and summaries
-- row-level security
-- realtime caption distribution or session-event coordination
-- protected object storage only if audio retention is later approved
+Chinese script is a text-output preference rather than a separate acoustic language.
+Automatic Chinese detection resolves to the Simplified product locale; operators should
+select the source explicitly when script-specific handling matters.
 
-Supabase is not required for the first inference test. It is introduced only when the
-OBS channel, workspace authentication, or approved storage needs it.
+## State and retention
 
-### OBS overlay
+| Data | Location | Lifetime |
+| --- | --- | --- |
+| Raw audio chunk | Browser, Worker request, Groq inference | One active inference request |
+| Recent source context | Browser memory | Active page/session |
+| Protected source preview | Browser memory | Active page/session |
+| Moderated public caption | Browser and Durable Object | Active page; latest item until session ends/expires |
+| Caption style | Browser local storage and Durable Object | Browser preference; active room |
+| Token | URL fragment and browser/OBS memory | Active room, maximum 90 minutes |
+| Token hash | Durable Object | Active room, maximum 90 minutes |
+| Session usage counters | Browser memory | Active page/session |
 
-- Separate minimal route from the operator dashboard
-- Session-scoped, read-only access
-- Transparent canvas and configurable caption styling
-- Hibernating WebSocket subscription with reconnect and sequence protection
-- No access to secrets, member data, historical sermons, or operator actions
+Groq may retain provider-side data according to the active organization's Data Controls.
+Zero Data Retention is a deployment prerequisite for approved sermon audio; provider
+usage metadata remains outside this application's control.
 
-Cloudflare Access protects the operator app and inference routes. OBS cannot complete
-an interactive operator login, so `/overlay*` and `/api/live/overlay*` use more-specific
-bypass applications. The Worker validates a random, revocable, read-only session token
-before accepting the WebSocket. Tokens stay in URL fragments and WebSocket subprotocols,
-not query strings.
+## Limits and failure behavior
 
-Each room uses a SQLite-backed Durable Object available on Workers Free. It stores the
-token hash, expiry, and latest public caption only. An alarm revokes the room after 90
-minutes, and ending the operator session deletes its storage immediately. Four-second
-caption events remain far below the current 100,000 daily free request and write limits.
+- The session ends after 90 minutes and allows at most 1,400 caption events.
+- Four-second chunks produce at most about 1,350 transcription attempts in one complete
+  session, before skipped/silent results are considered.
+- When two chunks are already queued, a new chunk is dropped and the operator is warned.
+- A transcription quota, authentication, language-detection, or session-expiry error
+  ends the session.
+- Other transient provider errors are shown while the next queued chunk may retry the
+  normal flow; no caption is fabricated.
+- Translation currently has no source-language fallback. A translation error is visible
+  to the operator and that chunk is not published.
+- The overlay reconnects and restores only the latest public caption, not missed history.
+- Ending or expiring a session invalidates the URL and clears room data.
+- There is no automatic paid provider or overage path.
 
-## Proposed entities
+Current UI usage is session-local. Groq organization limits and Cloudflare account limits
+can be consumed by other applications or concurrent sessions, so provider dashboards are
+the authoritative account-wide meters.
 
-- workspace
-- workspace_member
-- event
-- caption_session
-- language_profile
-- glossary_entry
-- moderation_rule
-- display_profile
-- transcript_segment
-- translation_segment
-- correction
-- sermon_summary
-- bible_reference_profile
-- audit_event
+## Deferred architecture
 
-Every persistent record is scoped to a workspace. Session content carries explicit
-retention and visibility attributes.
+Archive and AI summary work is not part of the live prototype. Before adding it, the
+project needs explicit decisions and a separate threat/privacy design for:
 
-## Caption lifecycle
+- church workspaces, roles, and row-level authorization;
+- consent and recording state visible to operators and participants;
+- source, translated, corrected, and public transcript forms;
+- approved Bible versions, licensing, and reference metadata;
+- summary grounding, uncertainty flags, and human approval;
+- retention, export, deletion, backup, and audit behavior; and
+- storage/provider cost caps.
 
-1. The browser records a short audio chunk.
-2. The server sends it to transcription with a bounded keyword prompt.
-3. Stable transcript text is finalized with timestamps.
-4. Translation uses recent finalized context and approved glossary data.
-5. Deterministic terminology and moderation produce the public form.
-6. The overlay receives a monotonically ordered caption event.
-7. If recording is enabled, only authorized transcript forms are stored.
-8. Corrections create a new revision rather than silently erasing history.
+Supabase or another database remains an option, not a current dependency or decision.
 
-## Failure behavior
+## Validation priorities
 
-- Audio lost: stop sending audio, keep the session open briefly, and prompt reconnection.
-- Internet lost: show the operator that cloud captions are stopped; never fabricate text.
-- Transcription unavailable: stop publishing new captions and surface a clear error.
-- Translation unavailable: optionally continue source-language captions with a warning.
-- Free quota reached: respect provider reset timing and do not switch to paid usage.
-- Realtime channel lost: overlay reconnects and requests the current caption state.
-- Database unavailable: continue only within a bounded, non-recording live mode if safe.
+Before a controlled live pilot, validate with synthetic or approved recordings:
 
-## Security and privacy boundaries
-
-- Browser and OBS clients receive no long-lived provider secrets.
-- Anonymous callers cannot reach inference routes or consume the free Groq quota.
-- Raw audio is not logged or stored by the app and is sent only for active inference.
-- Groq Zero Data Retention is required before approved real-sermon tests.
-- Without ZDR, Groq documents limited reliability or abuse logs that can persist up to
-  30 days; the operator must not assume that default inference is zero-retention.
-- Overlay tokens are random, revocable, scoped to one active session, and expire.
-- Row-level security protects every workspace-scoped table when storage is introduced.
-- Archived sermon content is unavailable to public overlay clients.
-- Logs exclude raw audio and transcript text by default.
-
-## Validation plan
-
-Before implementing the full product, measure:
-
-- end-to-end caption latency with four-second chunks
-- transcription quality for every confirmed source language
-- biblical names, Bible references, accents, and mixed-language speech
-- translation consistency across sentence and chunk boundaries
-- Simplified versus Traditional Chinese output
-- glossary effectiveness and public-filter correctness
-- Groq request, token, and audio quota use for a 90-minute service
-- Cloudflare Worker CPU behavior and audio proxy reliability
-- internet-loss and `429` recovery behavior
-- OBS reconnection, browser, and audio-interface compatibility
-- comparison cost and quality for any later paid-provider candidate
+- every source and target language, accents, mixed-language speech, and Chinese scripts;
+- biblical names, Bible references, numbers, glossary mappings, and filter boundaries;
+- latency and dropped-chunk behavior for an entire service;
+- Groq `429`, timeout, invalid-model, and network-loss behavior;
+- device disconnect and microphone permission failure;
+- Access rejection, bypass route scope, token theft, revocation, and expiry;
+- OBS initial connection, reconnection, styling, and browser-source compatibility; and
+- actual Cloudflare and Groq account usage against the intended Free plans.

@@ -2,190 +2,193 @@
 
 ## Product vision
 
-Help churches provide accessible, multilingual live captions without requiring a specialist translation team, while respecting theological context, privacy, and the practical needs of live-stream operators.
+Help churches provide accessible, multilingual live captions without requiring a
+specialist translation team, while respecting theological context, privacy, free-plan
+constraints, and the needs of a live-stream operator.
 
-## Primary users
+The product assists an operator; it does not replace a human interpreter or theological
+reviewer and must never invent speech, scripture, or doctrine.
 
-- AV operator: configures audio, languages, overlay styling, and session status
-- Translator or reviewer: monitors output and corrects important terms
-- Pastor or ministry leader: approves church vocabulary, biblical references, retention, and summaries
-- Viewer: reads captions in the venue or on a live stream
+## Current prototype users
 
-## Goals
+- **Operator:** selects audio and languages, supplies terms and filter words, styles the
+  caption, starts and ends the session, and copies the OBS URL.
+- **Viewer:** reads the current moderated caption through the stream overlay.
 
-- Produce readable live captions with low enough latency for worship services and sermons.
-- Translate church speech while preserving names, biblical terminology, book names, and ministry vocabulary.
-- Provide a browser overlay that works reliably as an OBS Browser Source.
-- Let each church control vocabulary boosting, public word filtering, display style, and transcript retention.
-- Create reviewable sermon summaries grounded in the actual transcript and approved biblical reference material.
+Reviewer, pastor/approver, administrator, and workspace-member roles belong to the future
+archive and summary product. They are not implemented in the current prototype.
 
-## Non-goals for the first release
-
-- Replacing a human interpreter for pastoral care, doctrine, legal matters, or safety-critical communication
-- Automatically deciding which theological interpretation is correct
-- Training a custom foundation model from private sermons
-- Publishing sermon transcripts or summaries without an explicit operator action
-- Supporting unlimited simultaneous target languages in the first release
-
-## Confirmed Phase 1 language decision
-
-The Phase 1 source-audio and target-language set is English, Indonesian, Japanese,
-Korean, Tagalog, Chinese, and Vietnamese. Korean covers South Korean usage; there
-is no duplicate "South Korean" option. Chinese supports Simplified and Traditional
-text output. Both Chinese text choices use Chinese speech recognition and Phase 1
-assumes Mandarin rather than Cantonese.
-
-The operator can use automatic source detection or explicitly select any supported
-spoken language. Explicit selection is recommended for live services because it
-reduces ambiguity. One translation target is active per session in the MVP.
-
-## Core service flow
+## Implemented service journey
 
 ### Before the service
 
-1. Sign in and select a church workspace.
-2. Create or select an event.
-3. Select the audio input and verify the input level.
-4. Choose the spoken source language or automatic detection.
-5. Choose the caption target language.
-6. Select an approved church glossary and Bible-reference profile.
-7. Configure display style, keyword boosts, moderation rules, recording, and retention.
-8. Copy the private OBS browser-source URL into OBS and run a caption test.
+1. The operator signs in through Cloudflare Access.
+2. The operator chooses a browser-visible microphone or audio interface and confirms its
+   input level.
+3. The operator selects a spoken language or automatic detection and one target language.
+4. The operator optionally enters bounded keyword/preferred-translation pairs and public
+   mask words.
+5. The operator configures font, size, colour, line highlight, transparency, and position.
+   Display preferences can be saved in that browser.
+6. The operator starts a session; the app verifies Access, Groq credentials, and model
+   availability before recording.
+7. The app generates an expiring OBS Browser Source URL for that session.
 
 ### During the service
 
-1. Start the session.
-2. Capture small audio segments or a realtime stream.
-3. Produce interim and final transcript segments.
-4. Apply glossary hints and speaker-approved corrections.
-5. Translate final or stable segments using surrounding context.
-6. Apply the public-display filter without modifying the protected source transcript.
-7. Publish caption events to the OBS overlay.
-8. Show connection, latency, and failure status to the operator.
-9. Allow the operator to pause, clear, correct, or end captions.
+1. The browser records four seconds of audio at a time.
+2. The protected API transcribes the chunk with bounded church/biblical hints.
+3. If source and target differ, the protected API translates with up to four recent
+   source captions and approved term mappings.
+4. Deterministic processing applies preferred translations and masks configured whole
+   terms in the public form.
+5. The operator sees source and public previews, status, latency, dropped chunks, elapsed
+   session time, and transcription request count.
+6. The latest public caption and style are published to the read-only OBS room.
+7. OBS reconnects after temporary channel loss and receives the latest caption.
 
 ### After the service
 
-1. Finalize and store the transcript only if recording was enabled.
-2. Generate a draft summary using the transcript and approved biblical reference profile.
-3. Flag uncertain names, verses, quotations, and theological claims for review.
-4. Let an authorized reviewer edit, approve, export, or delete the transcript and summary.
-5. Apply the workspace retention policy automatically.
+1. The operator ends the session.
+2. The Worker revokes the overlay link, closes sockets, and clears room storage.
+3. The app retains no sermon transcript, summary, or audio.
 
-## Functional requirements
+## Supported languages
 
-### Audio input
+Source audio and target text support:
 
-- Enumerate browser-approved microphones and audio interfaces.
-- Require an explicit permission and input test.
-- Display input level, mute state, connection state, and selected device.
-- Recover gracefully when a device disconnects or the browser changes devices.
-- Never begin long-term recording merely because live captions were started.
+- English (`en`)
+- Indonesian (`id`)
+- Japanese (`ja`)
+- Korean (`ko-KR`)
+- Tagalog (`tl-PH`)
+- Chinese Simplified (`zh-Hans`)
+- Chinese Traditional (`zh-Hant`)
+- Vietnamese (`vi`)
 
-### Transcription
+“South Korean” is not a separate language option. Both Chinese choices use Chinese
+speech recognition and differ in output-script instruction. The Phase 1 assumption is
+Mandarin; Cantonese requires a separate language and model-quality decision.
 
-- Support a configured source language and an optional auto-detect mode.
-- Emit interim captions for responsiveness and final captions for translation and storage.
-- Keep timestamps and confidence or uncertainty indicators when available.
-- Use configurable hints for pastor names, locations, Bible books, biblical names, church terms, and recurring ministry vocabulary.
-- Preserve the source transcript separately from translated and display-filtered text.
+## Current functional requirements
 
-### Translation
+### Audio and transcription
 
-- Translate using recent transcript context rather than isolated words.
-- Preserve names, verse references, numbers, and church glossary mappings.
-- Allow one target language per session in the MVP; multi-language fan-out is a later phase.
-- Mark low-confidence or context-sensitive translation segments for operator review.
-- Do not invent scripture citations or doctrinal conclusions.
+- Browser permission is explicit and the selected input has a visible level meter.
+- Audio is mono with browser echo cancellation and noise suppression requested.
+- Four-second files and a maximum two-chunk queue bound memory and backlog.
+- Source selection can be explicit or automatic; explicit selection is preferred live.
+- The hint prompt preserves biblical names, Bible books, verse numbers, church names,
+  locations, and operator-provided vocabulary.
+- Raw audio is neither logged nor stored by this application.
 
-### Biblical context
+The current provider emits finalized segments only. Interim word-by-word captions,
+confidence indicators, speaker diarization, and device hot-swap recovery are not
+implemented.
 
-The initial design should use retrieval and prompting, not automatic model training:
+### Translation and biblical context
 
-- Church glossary: approved terms, spelling, pronunciation hints, and translations
-- Bible reference profile: approved Bible versions, language, and licensing metadata
-- Ministry profile: church name, service vocabulary, preferred terminology, and optional denomination or tradition notes
-- Retrieval: relevant approved terms and passages are supplied only when useful
-- Review: generated summaries and scripture references remain drafts until approved
+- One target language is active per session.
+- Up to four recent source captions provide bounded context.
+- Approved mappings are requested from the model and enforced deterministically after
+  translation.
+- Chinese output receives an explicit Simplified or Traditional instruction.
+- The model is instructed not to invent Bible verses, doctrine, facts, or unsaid meaning.
 
-The system must distinguish a direct Bible quotation from a paraphrase, an inferred reference, and general theological language.
+The app uses prompting and glossary mappings, not custom model training or a licensed
+Bible retrieval corpus. Output can still be inaccurate and needs validation by the
+church for important names, references, and theological terms.
 
-### Keyword boosting
+### Keywords and public filtering
 
-Each keyword entry may include:
+The prototype accepts up to 40 glossary rows and 40 filter terms. A glossary row can
+provide a canonical source term and a preferred target translation. Keyword terms are
+also sent as bounded transcription hints.
 
-- canonical spelling
-- spoken or phonetic variants
-- source language
-- preferred translation by target language
-- category such as person, place, Bible book, ministry, or event
-- priority
-- active date range
-- workspace-wide or event-only scope
+Public filtering currently masks configured whole terms after translation. It does not
+alter the protected source preview. Replace, hide, scope, priority, phonetic variants,
+and persistent workspace rules are future features.
 
-### Public word filtering
+### Caption display and OBS
 
-- Modes: off, mask, replace, or hide the affected caption segment
-- Rules can be workspace-wide or session-specific.
-- Filtering applies to public display after translation.
-- The operator can choose whether protected archival text stores the original, filtered text, both, or neither.
-- Audit records should show that a rule was applied without exposing restricted text to unauthorized viewers.
-- Filtering must avoid substring mistakes inside harmless words.
+- Font size: 10–72px.
+- Font: sans-serif, serif, or monospace.
+- Text and line-highlight colours.
+- Highlight transparency: 0–100%.
+- Horizontal alignment: left, centre, or right.
+- Vertical placement: top, middle, or bottom.
+- Transparent overlay canvas with per-line background highlight.
+- Read-only, session-scoped URL with automatic reconnect and sequence protection.
+- Saved display preferences are local to the browser and never include the overlay token.
 
-### OBS overlay
+The prototype does not yet offer safe-margin, line-count, outline, transition, or reusable
+server-side display profiles.
 
-- Provide a read-only, session-scoped URL or token.
-- Support transparent background, custom background, font family, font size, color, outline or shadow, alignment, safe margins, line count, and transition timing.
-- Use a stable layout that does not resize the OBS canvas.
-- Reconnect automatically after a temporary network interruption.
-- Never expose operator controls, API keys, or archived sermons through the overlay URL.
+### Usage and cost controls
 
-### Sermon archive and summary
+- Sessions stop after at most 90 minutes.
+- Audio chunks are fixed at four seconds.
+- A session supports one translation target and no automatic paid fallback.
+- A quota response stops the affected live session.
+- The UI shows active-session elapsed time and transcription request progress.
 
-- Recording is opt-in per session unless an administrator explicitly sets another policy.
-- Store source transcript, translated transcript, timestamps, corrections, and summary status separately.
-- Generate structured summary sections such as main theme, outline, key points, mentioned passages, applications, and review warnings.
-- Summaries must be grounded in the transcript. Retrieved Bible material may clarify a reference but must not be presented as words spoken by the preacher.
-- Provide export and deletion controls.
-- Enforce role-based access and retention.
+The usage meter is not an account billing meter. It cannot see concurrent sessions or
+usage by other applications in the same Groq organization or Cloudflare account. Owners
+must keep provider accounts on the intended Free plans and verify their dashboards.
 
-## Roles
+## Prototype acceptance criteria
 
-- Owner: workspace administration, billing, members, policies, and deletion
-- Admin: church settings, approved reference profiles, and retention
-- Operator: service sessions, audio, captions, and display controls
-- Reviewer: transcript corrections and summary approval
-- Viewer: overlay-only access to the current public caption stream
+Code-level acceptance:
 
-## Non-functional requirements
+- An operator can select an input, source, and target.
+- Supported audio is transcribed and translated through protected cloud APIs.
+- A preferred term can affect transcription guidance and translated output.
+- A configured mask changes public output without changing the protected source preview.
+- Style changes reach a connected overlay without restarting the session.
+- An overlay can reconnect and recover the latest public caption.
+- Session end or expiry invalidates its overlay token.
+- Production operator mutations fail closed without valid Access configuration.
+- Audio and sermon transcripts are not persisted by the application.
 
-- Graceful degradation: show source captions if translation fails, and clear status if transcription fails.
-- Reliability: reconnect audio and overlay streams without duplicating finalized captions.
-- Observability: capture latency, failure category, and session health without logging secret or unnecessary sermon content.
-- Accessibility: dashboard supports keyboard navigation and adequate contrast.
-- Security: server-side secrets, least-privilege roles, expiring overlay tokens, and auditable changes.
-- Privacy: consent, retention, export, and deletion are designed before production recording.
-- Cost controls: per-session usage limits, visible usage, and safe shutdown behavior.
+Pilot acceptance still requires evidence from synthetic or explicitly approved tests:
 
-## MVP acceptance criteria
+- acceptable accuracy for every supported language and agreed accents;
+- correct handling of representative biblical names and references;
+- acceptable end-to-end latency and dropped-chunk rate for a full service;
+- verified microphone/audio-interface and OBS compatibility;
+- safe behavior for network loss, provider timeout, quota exhaustion, device loss,
+  Access expiry, token revocation, and Worker-limit exhaustion; and
+- confirmed provider usage within the active account's Free-plan envelope.
 
-- An operator can select an input, source language, and target language.
-- Spoken audio appears as live source and translated captions.
-- A glossary term is recognized and translated according to its configured mapping.
-- A configured moderation rule changes the public caption but not the protected source transcript.
-- Style changes appear in the OBS overlay without restarting the session.
-- Temporary overlay disconnection recovers automatically.
-- Recording-disabled sessions do not persist sermon content.
-- Recording-enabled sessions can produce a clearly labeled draft summary for human approval.
-- An unauthorized user cannot access operator controls or archived sermons from the overlay URL.
+## Deferred archive and summary product
 
-## Decisions still required before later production phases
+The requested sermon archive and biblically contextual summary are valuable but require
+a new consent and data architecture. A future approved design may include:
 
-1. Which Bible versions are preferred in each target language, and does the church have permission to use their text?
-2. Should biblical terminology follow a denomination or church-specific tradition? Who approves that profile?
-3. What is the acceptable caption latency during a live service?
-4. Does the operator need live manual correction before captions reach OBS?
-5. Should the protected archive preserve unfiltered text, filtered text, both, or neither?
-6. What consent notice, retention period, export policy, and deletion process does the church require?
-7. How many simultaneous services, operators, and viewers are expected?
-8. What should happen when confidence is low: show the best result, delay it, mark it, or hide it?
+- explicit recording and retention state visible to the operator;
+- church workspaces and owner, admin, operator, reviewer, and viewer roles;
+- separate source, translated, corrected, and public transcript forms;
+- licensed Bible-reference profiles with version and language metadata;
+- grounded summary sections such as theme, outline, key points, mentioned passages,
+  applications, and uncertainty warnings;
+- human editing and approval before publication;
+- export, deletion, retention expiry, audit, and backup controls; and
+- hard storage and AI cost limits.
+
+A summary must distinguish words actually spoken from a model inference, a paraphrase,
+and retrieved Bible material. It must not manufacture a citation or present retrieved
+text as a preacher's quotation.
+
+## Decisions required before persistent data or a live pilot
+
+1. Which Bible versions and translations may be used, under what licence?
+2. Who approves church-specific theological terminology?
+3. What caption latency and error rate are acceptable for each language?
+4. Is live manual correction required before captions reach OBS?
+5. Should translation failure skip the caption or deliberately fall back to source text?
+6. What is the device-disconnect and internet-loss operating procedure?
+7. For archives, what consent notice, retention period, transcript forms, export, and
+   deletion process are required?
+8. How many simultaneous services, operators, and overlay viewers are expected?
+9. What provider-account monitoring or external hard cap is required beyond the
+   browser-local usage indicator?

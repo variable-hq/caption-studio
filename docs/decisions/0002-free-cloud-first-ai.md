@@ -34,11 +34,23 @@ Raw audio is forwarded in memory and is not stored by the application. Groq Zero
 Retention must be enabled before real sermon audio is approved for testing.
 
 Inference routes verify the Cloudflare Access JWT and fail closed when Access is not
-configured. The future OBS route cannot use interactive operator authentication, so it
-will receive a separate public-path policy only after revocable, read-only overlay tokens
-are implemented. The free Access plan currently covers up to 50 users. Cloudflare's
-onboarding asks for payment details even when the free Zero Trust plan is selected, while
-stating that the free plan will not be charged.
+configured. OBS cannot use interactive operator authentication, so its two public paths
+require a narrower Access bypass plus a revocable, read-only token enforced by the
+Worker. Access-plan eligibility and billing configuration must be verified in the active
+Cloudflare account rather than inferred from this decision record.
+
+## Implementation note (2026-07-20)
+
+The Phase 1A live path is now implemented. A protected operator request creates a
+maximum 90-minute Durable Object room and a random overlay credential. The token is
+placed in the generated URL fragment, supplied to the WebSocket as a subprotocol,
+validated against a stored SHA-256 hash, and revoked on operator end or expiry. The
+deployment therefore requires more-specific Access bypass applications for `/overlay*`
+and `/api/live/overlay*`; no other operator or inference route may share that bypass.
+
+The app also enforces four-second chunks, one target language, a bounded client queue,
+and no automatic paid fallback. Its usage indicator covers only the active browser
+session. It is not an account-wide quota or billing control.
 
 ## Free-tier envelope at decision time
 
@@ -74,6 +86,6 @@ Phase 1A.
 ## Upgrade boundary
 
 Quota exhaustion, latency, translation quality, or reliability can justify a paid
-provider later. `TranscriptionProvider`, `TranslationProvider`, and `SummaryProvider`
-remain stable so that the operator dashboard, caption pipeline, and OBS overlay do not
-depend on Groq or Cloudflare-specific response shapes.
+provider later. `TranscriptionProvider` and `TranslationProvider` isolate the browser
+from Groq response shapes. A summary-provider contract is deliberately deferred until
+the project approves transcript consent, retention, grounding, and review behavior.
