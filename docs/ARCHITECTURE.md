@@ -14,7 +14,7 @@ Audio device
   -> church context and glossary processing
   -> Groq contextual translation
   -> deterministic preferred terms and public filter
-  -> realtime caption channel
+  -> hibernating Durable Object WebSocket channel
   -> read-only OBS browser overlay
 ```
 
@@ -38,7 +38,7 @@ captures the selected microphone because that is the source of the live audio.
 - Glossary, keyword, filter, and display configuration
 - Live source and translated preview
 - Manual correction, quota, latency, and connection indicators
-- Four-second `MediaRecorder` chunks as the first prototype setting
+- Four-second `MediaRecorder` chunks with a bounded two-chunk queue
 
 ### Cloudflare Worker server layer
 
@@ -49,7 +49,7 @@ captures the selected microphone because that is the source of the live audio.
 - Sends short-lived inference requests without storing audio
 - Normalizes provider responses into application contracts
 - Passes rate-limit failures to the operator without exposing provider details
-- Later authenticates users and issues session-scoped overlay credentials
+- Authenticates operators and issues revocable 90-minute overlay credentials
 
 Cloudflare Workers Free currently publishes 100,000 requests per day and 10 ms CPU per
 invocation. The server layer must remain a thin proxy and be measured in the actual
@@ -104,7 +104,7 @@ English (`en`), Indonesian (`id`), Japanese (`ja`), Korean (`ko-KR`), Tagalog
 (`zh-Hans`) and Chinese Traditional (`zh-Hant`) both map to Chinese speech recognition,
 followed by an explicit script instruction during translation.
 
-### Proposed Supabase responsibilities
+### Deferred Supabase responsibilities
 
 - authentication
 - Postgres records for churches, members, settings, sessions, glossary entries, captions, and summaries
@@ -120,13 +120,19 @@ OBS channel, workspace authentication, or approved storage needs it.
 - Separate minimal route from the operator dashboard
 - Session-scoped, read-only access
 - Transparent canvas and configurable caption styling
-- Realtime event subscription with reconnect and duplicate protection
+- Hibernating WebSocket subscription with reconnect and sequence protection
 - No access to secrets, member data, historical sermons, or operator actions
 
 Cloudflare Access protects the operator app and inference routes. OBS cannot complete
-an interactive operator login, so the future overlay route uses a separate public-path
-Access rule plus an app-issued, revocable, read-only session token. No public overlay
-exception is created until that token validation exists.
+an interactive operator login, so `/overlay*` and `/api/live/overlay*` use more-specific
+bypass applications. The Worker validates a random, revocable, read-only session token
+before accepting the WebSocket. Tokens stay in URL fragments and WebSocket subprotocols,
+not query strings.
+
+Each room uses a SQLite-backed Durable Object available on Workers Free. It stores the
+token hash, expiry, and latest public caption only. An alarm revokes the room after 90
+minutes, and ending the operator session deletes its storage immediately. Four-second
+caption events remain far below the current 100,000 daily free request and write limits.
 
 ## Proposed entities
 

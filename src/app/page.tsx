@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { CloudProviderClient } from "@/ai/cloud-provider-client";
 import {
@@ -10,6 +10,8 @@ import {
   type LanguageLocale,
   type SourceLanguage,
 } from "@/domain/languages";
+import { parseGlossaryInput } from "@/live/config";
+import { useLiveCaptionSession } from "@/live/use-live-caption-session";
 
 type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
 
@@ -31,13 +33,6 @@ export default function OperatorDashboard() {
   const [targetLanguage, setTargetLanguage] = useState<LanguageLocale>(
     DEFAULT_TARGET_LANGUAGE,
   );
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState("");
-  const [microphoneState, setMicrophoneState] = useState<
-    "idle" | "requesting" | "active" | "error"
-  >("idle");
-  const [microphoneError, setMicrophoneError] = useState("");
-  const [level, setLevel] = useState(0);
   const [cloudState, setCloudState] = useState<CloudState>("checking");
   const [fontSize, setFontSize] = useState(48);
   const [textColor, setTextColor] = useState("#ffffff");
@@ -46,93 +41,37 @@ export default function OperatorDashboard() {
     "Jesus Christ, Holy Spirit, Bethlehem",
   );
   const [filterText, setFilterText] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  const streamRef = useRef<MediaStream | null>(null);
-  const contextRef = useRef<AudioContext | null>(null);
-  const animationRef = useRef<number | null>(null);
-
-  const stopMicrophone = useCallback(() => {
-    if (animationRef.current !== null) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    void contextRef.current?.close();
-    contextRef.current = null;
-    setLevel(0);
-  }, []);
-
-  const refreshDevices = useCallback(async () => {
-    const availableDevices = await navigator.mediaDevices.enumerateDevices();
-    const microphones = availableDevices.filter(({ kind }) => kind === "audioinput");
-    setDevices(microphones);
-    setSelectedDeviceId((current) => current || microphones[0]?.deviceId || "");
-  }, []);
-
-  const startMicrophone = useCallback(
-    async (deviceId?: string) => {
-      setMicrophoneState("requesting");
-      setMicrophoneError("");
-      stopMicrophone();
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: deviceId ? { deviceId: { exact: deviceId } } : true,
-        });
-        const audioContext = new AudioContext();
-        const source = audioContext.createMediaStreamSource(stream);
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 512;
-        source.connect(analyser);
-
-        const samples = new Uint8Array(analyser.fftSize);
-        const updateLevel = () => {
-          analyser.getByteTimeDomainData(samples);
-          const sumSquares = samples.reduce((sum, sample) => {
-            const centered = (sample - 128) / 128;
-            return sum + centered * centered;
-          }, 0);
-          setLevel(Math.min(1, Math.sqrt(sumSquares / samples.length) * 3));
-          animationRef.current = requestAnimationFrame(updateLevel);
-        };
-
-        streamRef.current = stream;
-        contextRef.current = audioContext;
-        updateLevel();
-        setMicrophoneState("active");
-        await refreshDevices();
-      } catch (error) {
-        setMicrophoneState("error");
-        setMicrophoneError(
-          error instanceof Error ? error.message : "Microphone access failed.",
-        );
-      }
-    },
-    [refreshDevices, stopMicrophone],
+  const style = useMemo(
+    () => ({ fontSize, textColor, backgroundColor }),
+    [backgroundColor, fontSize, textColor],
   );
-
-  useEffect(() => {
-    if (!navigator.mediaDevices) return;
-    navigator.mediaDevices.addEventListener("devicechange", refreshDevices);
-
-    return () => {
-      navigator.mediaDevices.removeEventListener("devicechange", refreshDevices);
-      stopMicrophone();
-    };
-  }, [refreshDevices, stopMicrophone]);
+  const liveSettings = useMemo(
+    () => ({ sourceLanguage, targetLanguage, keywordText, filterText, style }),
+    [filterText, keywordText, sourceLanguage, style, targetLanguage],
+  );
+  const {
+    devices,
+    selectedDeviceId,
+    setSelectedDeviceId,
+    microphoneState,
+    microphoneError,
+    level,
+    liveState,
+    startAudioTest,
+    startSession,
+    stopSession,
+  } = useLiveCaptionSession(liveSettings);
 
   useEffect(() => {
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 1800);
-    const client = new CloudProviderClient();
-
-    client
+    const timeout = window.setTimeout(() => controller.abort(), 1_800);
+    new CloudProviderClient()
       .health(controller.signal)
       .then((health) => setCloudState(health.status))
       .catch(() => setCloudState("unavailable"))
       .finally(() => window.clearTimeout(timeout));
-
     return () => {
       controller.abort();
       window.clearTimeout(timeout);
@@ -140,13 +79,24 @@ export default function OperatorDashboard() {
   }, []);
 
   const keywordCount = useMemo(
-    () => keywordText.split(",").filter((keyword) => keyword.trim()).length,
-    [keywordText],
+    () => parseGlossaryInput(keywordText, targetLanguage).length,
+    [keywordText, targetLanguage],
   );
   const sourceLabel =
     sourceLanguage === "auto"
       ? "Automatic detection"
       : LANGUAGE_OPTIONS.find(({ locale }) => locale === sourceLanguage)?.label;
+  const isLive = liveState.status === "live";
+  const isBusy = liveState.status === "starting" || liveState.status === "stopping";
+  const previewCaption = liveState.latestPublicText || SAMPLE_CAPTIONS[targetLanguage];
+
+  const copyOverlayUrl = async () => {
+    const url = liveState.session?.overlayUrl;
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1_500);
+  };
 
   return (
     <main>
@@ -163,7 +113,7 @@ export default function OperatorDashboard() {
           {cloudState === "checking"
             ? "Checking cloud AI"
             : cloudState === "ready"
-              ? "Cloud AI ready"
+              ? "Cloud AI configured"
               : cloudState === "not-configured"
                 ? "Cloud setup needed"
                 : "Cloud AI unavailable"}
@@ -175,13 +125,36 @@ export default function OperatorDashboard() {
           <p className="sectionLabel">Service setup</p>
           <h2>Make every spoken word easier to follow.</h2>
           <p>
-            Configure the church audio, spoken language, biblical vocabulary, and
-            public caption style before connecting the stream to OBS.
+            Configure church audio, languages, biblical vocabulary, and the public
+            caption style. Live sessions run for at most 90 minutes to preserve
+            free-tier headroom.
           </p>
         </div>
-        <button className="primaryButton" disabled={cloudState !== "ready"}>
-          Start caption session
-        </button>
+        {isLive ? (
+          <button className="dangerButton" onClick={() => void stopSession()}>
+            End caption session
+          </button>
+        ) : (
+          <button
+            className="primaryButton"
+            disabled={cloudState !== "ready" || isBusy}
+            onClick={() => void startSession()}
+          >
+            {isBusy ? "Starting securely…" : "Start caption session"}
+          </button>
+        )}
+      </section>
+
+      <section className={`sessionBanner ${liveState.status}`} aria-live="polite">
+        <div>
+          <strong>{isLive ? "Live caption session" : "Session status"}</strong>
+          <p>{liveState.message}</p>
+        </div>
+        <div className="sessionMetrics">
+          <span>{liveState.sequence} captions</span>
+          <span>{liveState.lastLatencyMs === null ? "—" : `${liveState.lastLatencyMs} ms`}</span>
+          <span>{liveState.droppedChunks} skipped</span>
+        </div>
       </section>
 
       <div className="dashboardGrid">
@@ -198,11 +171,8 @@ export default function OperatorDashboard() {
             Microphone or audio interface
             <select
               value={selectedDeviceId}
-              onChange={(event) => {
-                const deviceId = event.target.value;
-                setSelectedDeviceId(deviceId);
-                if (microphoneState === "active") void startMicrophone(deviceId);
-              }}
+              disabled={isLive || isBusy}
+              onChange={(event) => setSelectedDeviceId(event.target.value)}
             >
               {devices.length === 0 ? (
                 <option value="">Permission required to list devices</option>
@@ -225,10 +195,10 @@ export default function OperatorDashboard() {
 
           <button
             className="secondaryButton"
-            onClick={() => void startMicrophone(selectedDeviceId || undefined)}
-            disabled={microphoneState === "requesting"}
+            onClick={() => void startAudioTest()}
+            disabled={microphoneState === "requesting" || isLive || isBusy}
           >
-            {microphoneState === "active" ? "Restart audio test" : "Enable audio test"}
+            {microphoneState === "active" ? "Audio input ready" : "Enable audio test"}
           </button>
           {microphoneError ? <p className="errorText">{microphoneError}</p> : null}
 
@@ -246,6 +216,7 @@ export default function OperatorDashboard() {
               <select
                 data-testid="source-language"
                 value={sourceLanguage}
+                disabled={isLive || isBusy}
                 onChange={(event) => setSourceLanguage(event.target.value as SourceLanguage)}
               >
                 <option value="auto">Auto detect</option>
@@ -261,6 +232,7 @@ export default function OperatorDashboard() {
               <select
                 data-testid="target-language"
                 value={targetLanguage}
+                disabled={isLive || isBusy}
                 onChange={(event) => setTargetLanguage(event.target.value as LanguageLocale)}
               >
                 {LANGUAGE_OPTIONS.map((language) => (
@@ -272,7 +244,7 @@ export default function OperatorDashboard() {
             </label>
           </div>
           <p className="helpText">
-            Selected source: {sourceLabel}. Explicit selection is recommended during a service.
+            Selected source: {sourceLabel}. Explicit selection is recommended live.
           </p>
         </section>
 
@@ -282,21 +254,25 @@ export default function OperatorDashboard() {
               <p className="stepNumber">Live canvas</p>
               <h3>OBS caption preview</h3>
             </div>
-            <span className="previewBadge">Synthetic sample</span>
+            <span className={`previewBadge ${isLive ? "live" : ""}`}>
+              {isLive ? "Live output" : "Synthetic sample"}
+            </span>
           </div>
           <div className="videoFrame">
             <div
               className="captionPreview"
               data-testid="caption-preview"
-              style={{
-                color: textColor,
-                backgroundColor,
-                fontSize: `${fontSize}px`,
-              }}
+              style={{ color: textColor, backgroundColor, fontSize: `${fontSize}px` }}
             >
-              {SAMPLE_CAPTIONS[targetLanguage]}
+              {previewCaption}
             </div>
           </div>
+          {liveState.latestSourceText ? (
+            <div className="sourceTranscript">
+              <strong>Protected source</strong>
+              <p>{liveState.latestSourceText}</p>
+            </div>
+          ) : null}
           <div className="styleGrid">
             <label>
               Text size <strong>{fontSize}px</strong>
@@ -331,6 +307,19 @@ export default function OperatorDashboard() {
               </span>
             </label>
           </div>
+
+          {liveState.session ? (
+            <div className="obsLinkPanel">
+              <div>
+                <strong>OBS browser-source URL</strong>
+                <p>Read-only, revocable, and valid only for this session.</p>
+              </div>
+              <input value={liveState.session.overlayUrl} readOnly aria-label="OBS browser-source URL" />
+              <button className="secondaryButton" onClick={() => void copyOverlayUrl()}>
+                {copied ? "Copied" : "Copy OBS URL"}
+              </button>
+            </div>
+          ) : null}
         </section>
 
         <section className="panel contextPanel">
@@ -347,11 +336,12 @@ export default function OperatorDashboard() {
               rows={3}
               value={keywordText}
               onChange={(event) => setKeywordText(event.target.value)}
-              placeholder="Jesus Christ, Bethlehem, church ministry name"
+              placeholder="Jesus Christ => Yesus Kristus, Bethlehem"
             />
           </label>
           <p className="helpText">
-            These hints improve recognition. Approved translations will be stored separately per language.
+            Use <code>source =&gt; approved translation</code> for deterministic terms.
+            Other entries still boost transcription recognition.
           </p>
           <label>
             Public caption filter
@@ -362,7 +352,8 @@ export default function OperatorDashboard() {
             />
           </label>
           <p className="privacyNote">
-            Filtering changes only the public caption. Protected source text remains separate.
+            Filtering changes only the public caption. Source text stays in this
+            operator tab and is not stored in the live room.
           </p>
         </section>
 
@@ -376,22 +367,27 @@ export default function OperatorDashboard() {
           <div className="modelRow">
             <span>Transcription</span>
             <strong>Whisper Large V3 Turbo</strong>
-            <small>GroqCloud · free tier</small>
+            <small>4-second chunks</small>
           </div>
           <div className="modelRow">
             <span>Translation</span>
             <strong>Llama 3.1 8B Instant</strong>
-            <small>GroqCloud · contextual translation</small>
+            <small>Biblical context</small>
+          </div>
+          <div className="modelRow">
+            <span>Live delivery</span>
+            <strong>Cloudflare Durable Object</strong>
+            <small>Hibernating WebSocket</small>
           </div>
           <div className="workerMessage">
             <span className={`statusDot ${cloudState}`} aria-hidden="true" />
             <div>
               <strong>
-                {cloudState === "ready" ? "Cloud provider connected" : "Cloud setup pending"}
+                {cloudState === "ready" ? "Cloud configuration found" : "Cloud setup pending"}
               </strong>
               <p>
-                AI runs outside this computer. The browser sends short audio chunks
-                through the secure app server and never receives the provider key.
+                Starting a session performs an authenticated Groq model check. The
+                browser never receives the provider key, and no paid fallback exists.
               </p>
             </div>
           </div>

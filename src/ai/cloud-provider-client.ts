@@ -41,15 +41,36 @@ export class CloudProviderClient
     return (await response.json()) as CloudProviderHealth;
   }
 
+  async readiness(): Promise<CloudProviderHealth> {
+    const response = await fetch("/api/ai/readiness", {
+      method: "POST",
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        await readError(response, "Cloud AI credentials could not be verified."),
+      );
+    }
+
+    return (await response.json()) as CloudProviderHealth;
+  }
+
   async transcribe(request: TranscriptionRequest): Promise<TranscriptSegment[]> {
     const form = new FormData();
-    form.append("audio", request.audio, "caption-audio.webm");
+    const extension = request.audio.type.includes("ogg")
+      ? "ogg"
+      : request.audio.type.includes("mp4")
+        ? "m4a"
+        : "webm";
+    form.append("audio", request.audio, `caption-audio.${extension}`);
     form.append("sourceLanguage", request.sourceLanguage);
     form.append("keywordHints", JSON.stringify(request.keywordHints));
 
     const response = await fetch("/api/ai/transcribe", {
       method: "POST",
       body: form,
+      signal: AbortSignal.timeout(35_000),
     });
 
     if (!response.ok) {
@@ -65,6 +86,7 @@ export class CloudProviderClient
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(request),
+      signal: AbortSignal.timeout(20_000),
     });
 
     if (!response.ok) {

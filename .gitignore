@@ -36,7 +36,6 @@ test-results/
 # Cloudflare Workers
 .open-next/
 .wrangler/
-cloudflare-env.d.ts
 
 # Supabase local state
 .supabase/
