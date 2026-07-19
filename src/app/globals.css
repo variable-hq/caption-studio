@@ -422,7 +422,7 @@ textarea {
 }
 
 .styleGrid {
-  grid-template-columns: 1.2fr 0.8fr 0.8fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 20px;
 }
 
@@ -467,11 +467,12 @@ textarea {
   font-size: 11px;
 }
 
-.styleGrid label:first-child {
+.styleRangeControl {
+  grid-column: 1 / -1;
   grid-template-columns: 1fr auto;
 }
 
-.styleGrid label:first-child input {
+.styleRangeControl input {
   grid-column: 1 / -1;
 }
 

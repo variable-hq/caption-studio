@@ -37,6 +37,18 @@ export class LiveSessionClient {
     }
   }
 
+  async updateStyle(sessionId: string, style: CaptionStyle) {
+    const response = await fetch(`/api/live/session/${sessionId}/style`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ style }),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) {
+      throw new Error(await errorMessage(response, "Could not update the OBS style."));
+    }
+  }
+
   async revoke(sessionId: string) {
     const response = await fetch(`/api/live/session/${sessionId}`, {
       method: "DELETE",

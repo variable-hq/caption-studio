@@ -6,7 +6,10 @@ import {
 } from "@/live/api";
 
 function environment(response = new Response("{}")) {
-  const fetch = vi.fn(async () => response);
+  const fetch = vi.fn(async (request: Request) => {
+    void request;
+    return response;
+  });
   const env: LiveWorkerEnvironment = {
     CAPTION_LOCAL_AUTH_BYPASS: "true",
     CAPTION_ROOMS: {
@@ -61,6 +64,40 @@ describe("live caption worker API", () => {
     expect(response?.status).toBe(503);
   });
 
+  it("normalizes and forwards live OBS style updates", async () => {
+    const { env, fetch } = environment();
+    const sessionId = "12345678-1234-4123-8123-123456789abc";
+    const response = await handleLiveApiRequest(
+      new Request(`https://caption.example/api/live/session/${sessionId}/style`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          style: {
+            fontSize: 500,
+            backgroundTransparency: 45,
+            horizontalAlign: "right",
+            verticalAlign: "middle",
+            fontFamily: "serif",
+          },
+        }),
+      }),
+      env,
+    );
+
+    expect(response?.status).toBe(200);
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    expect(forwarded.url).toBe("https://caption-room/internal/style");
+    await expect(forwarded.json()).resolves.toMatchObject({
+      style: {
+        fontSize: 72,
+        backgroundTransparency: 45,
+        horizontalAlign: "right",
+        verticalAlign: "middle",
+        fontFamily: "serif",
+      },
+    });
+  });
+
   it("rejects malformed public overlay session identifiers", async () => {
     const { env, fetch } = environment();
     const response = await handleLiveApiRequest(
@@ -84,6 +121,9 @@ describe("live caption worker API", () => {
 
     expect(response?.headers.get("content-security-policy")).toContain("default-src 'none'");
     expect(html).toContain("new WebSocket");
+    expect(html).toContain("Math.max(10,Math.min(72");
+    expect(html).toContain("backgroundTransparency");
+    expect(html).toContain("stage.style.alignItems");
     expect(html).not.toContain("/_next/");
   });
 });

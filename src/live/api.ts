@@ -113,6 +113,26 @@ async function publishCaption(
   );
 }
 
+async function updateStyle(
+  request: Request,
+  env: LiveWorkerEnvironment,
+  sessionId: string,
+) {
+  await requireOperator(request, env);
+  const length = Number(request.headers.get("content-length") ?? 0);
+  if (length > 4_096) return json({ error: "Caption style is too large." }, 413);
+  const body = (await request.json().catch(() => ({}))) as {
+    style?: Partial<CaptionStyle>;
+  };
+  return room(env, sessionId).fetch(
+    new Request("https://caption-room/internal/style", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ style: normalizeCaptionStyle(body.style ?? {}) }),
+    }),
+  );
+}
+
 async function revokeSession(
   request: Request,
   env: LiveWorkerEnvironment,
@@ -161,13 +181,16 @@ export async function handleLiveApiRequest(
   }
 
   const match = url.pathname.match(
-    /^\/api\/live\/session\/([0-9a-f-]+)(\/caption)?$/iu,
+    /^\/api\/live\/session\/([0-9a-f-]+)(?:\/(caption|style))?$/iu,
   );
   if (!match || !isLiveSessionId(match[1])) return null;
 
   try {
-    if (match[2] === "/caption" && request.method === "POST") {
+    if (match[2] === "caption" && request.method === "POST") {
       return await publishCaption(request, env, match[1]);
+    }
+    if (match[2] === "style" && request.method === "PUT") {
+      return await updateStyle(request, env, match[1]);
     }
     if (!match[2] && request.method === "DELETE") {
       return await revokeSession(request, env, match[1]);

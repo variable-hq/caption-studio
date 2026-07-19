@@ -11,6 +11,7 @@ import {
   type SourceLanguage,
 } from "@/domain/languages";
 import { parseGlossaryInput } from "@/live/config";
+import type { CaptionStyle } from "@/live/contracts";
 import { useLiveCaptionSession } from "@/live/use-live-caption-session";
 
 type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
@@ -26,6 +27,18 @@ const SAMPLE_CAPTIONS: Record<LanguageLocale, string> = {
   vi: "Nguyện ân điển và bình an ở cùng anh chị em.",
 };
 
+const CAPTION_FONT_STACKS: Record<CaptionStyle["fontFamily"], string> = {
+  "sans-serif": 'Arial, Helvetica, sans-serif',
+  serif: '"Times New Roman", Times, serif',
+  monospace: '"Courier New", Courier, monospace',
+};
+
+function transparentBackground(hex: string, transparency: number) {
+  const channels = hex.match(/[0-9a-f]{2}/gi)?.map((value) => parseInt(value, 16));
+  if (!channels || channels.length !== 3) return "transparent";
+  return `rgba(${channels.join(", ")}, ${(100 - transparency) / 100})`;
+}
+
 export default function OperatorDashboard() {
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>(
     DEFAULT_SOURCE_LANGUAGE,
@@ -37,6 +50,13 @@ export default function OperatorDashboard() {
   const [fontSize, setFontSize] = useState(48);
   const [textColor, setTextColor] = useState("#ffffff");
   const [backgroundColor, setBackgroundColor] = useState("#101827");
+  const [backgroundTransparency, setBackgroundTransparency] = useState(0);
+  const [horizontalAlign, setHorizontalAlign] =
+    useState<CaptionStyle["horizontalAlign"]>("center");
+  const [verticalAlign, setVerticalAlign] =
+    useState<CaptionStyle["verticalAlign"]>("bottom");
+  const [fontFamily, setFontFamily] =
+    useState<CaptionStyle["fontFamily"]>("sans-serif");
   const [keywordText, setKeywordText] = useState(
     "Jesus Christ, Holy Spirit, Bethlehem",
   );
@@ -44,8 +64,24 @@ export default function OperatorDashboard() {
   const [copied, setCopied] = useState(false);
 
   const style = useMemo(
-    () => ({ fontSize, textColor, backgroundColor }),
-    [backgroundColor, fontSize, textColor],
+    () => ({
+      fontSize,
+      textColor,
+      backgroundColor,
+      backgroundTransparency,
+      horizontalAlign,
+      verticalAlign,
+      fontFamily,
+    }),
+    [
+      backgroundColor,
+      backgroundTransparency,
+      fontFamily,
+      fontSize,
+      horizontalAlign,
+      textColor,
+      verticalAlign,
+    ],
   );
   const liveSettings = useMemo(
     () => ({ sourceLanguage, targetLanguage, keywordText, filterText, style }),
@@ -258,11 +294,30 @@ export default function OperatorDashboard() {
               {isLive ? "Live output" : "Synthetic sample"}
             </span>
           </div>
-          <div className="videoFrame">
+          <div
+            className="videoFrame"
+            style={{
+              alignItems:
+                verticalAlign === "top"
+                  ? "flex-start"
+                  : verticalAlign === "middle"
+                    ? "center"
+                    : "flex-end",
+            }}
+          >
             <div
               className="captionPreview"
               data-testid="caption-preview"
-              style={{ color: textColor, backgroundColor, fontSize: `${fontSize}px` }}
+              style={{
+                color: textColor,
+                backgroundColor: transparentBackground(
+                  backgroundColor,
+                  backgroundTransparency,
+                ),
+                fontFamily: CAPTION_FONT_STACKS[fontFamily],
+                fontSize: `${fontSize}px`,
+                textAlign: horizontalAlign,
+              }}
             >
               {previewCaption}
             </div>
@@ -274,15 +329,56 @@ export default function OperatorDashboard() {
             </div>
           ) : null}
           <div className="styleGrid">
-            <label>
+            <label className="styleRangeControl">
               Text size <strong>{fontSize}px</strong>
               <input
                 type="range"
-                min="28"
+                min="10"
                 max="72"
                 value={fontSize}
                 onChange={(event) => setFontSize(Number(event.target.value))}
               />
+            </label>
+            <label>
+              Font type
+              <select
+                value={fontFamily}
+                onChange={(event) =>
+                  setFontFamily(event.target.value as CaptionStyle["fontFamily"])
+                }
+              >
+                <option value="sans-serif">Sans serif</option>
+                <option value="serif">Times serif</option>
+                <option value="monospace">Monospace</option>
+              </select>
+            </label>
+            <label>
+              Horizontal alignment
+              <select
+                value={horizontalAlign}
+                onChange={(event) =>
+                  setHorizontalAlign(
+                    event.target.value as CaptionStyle["horizontalAlign"],
+                  )
+                }
+              >
+                <option value="left">Left</option>
+                <option value="center">Centre</option>
+                <option value="right">Right</option>
+              </select>
+            </label>
+            <label>
+              Vertical position
+              <select
+                value={verticalAlign}
+                onChange={(event) =>
+                  setVerticalAlign(event.target.value as CaptionStyle["verticalAlign"])
+                }
+              >
+                <option value="top">Top</option>
+                <option value="middle">Middle</option>
+                <option value="bottom">Bottom</option>
+              </select>
             </label>
             <label>
               Text colour
@@ -305,6 +401,18 @@ export default function OperatorDashboard() {
                 />
                 {backgroundColor}
               </span>
+            </label>
+            <label className="styleRangeControl">
+              Background transparency <strong>{backgroundTransparency}%</strong>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={backgroundTransparency}
+                onChange={(event) =>
+                  setBackgroundTransparency(Number(event.target.value))
+                }
+              />
             </label>
           </div>
 
