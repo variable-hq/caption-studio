@@ -42,8 +42,8 @@ archive and summary product. They are not implemented in the current prototype.
    source captions and approved term mappings.
 4. Deterministic processing applies preferred translations and masks configured whole
    terms in the public form.
-5. The operator sees source and public previews, status, latency, dropped chunks, elapsed
-   session time, and transcription request count.
+5. The operator sees source and public previews, status, post-recording processing
+   latency, dropped chunks, elapsed session time, and transcription request count.
 6. The latest public caption and style are published to the read-only OBS room.
 7. OBS reconnects after temporary channel loss and receives the latest caption.
 
@@ -159,6 +159,11 @@ Pilot acceptance still requires evidence from synthetic or explicitly approved t
 - safe behavior for network loss, provider timeout, quota exhaustion, device loss,
   Access expiry, token revocation, and Worker-limit exhaustion; and
 - confirmed provider usage within the active account's Free-plan envelope.
+
+The 20 July 2026 production smoke test exercised the core cloud/OBS journey, style
+updates, reconnect, revocation, and edge-access boundaries. It did not sign off language
+quality, a complete 90-minute run, quota/outage behavior, or a real OBS production
+computer. Those remain stakeholder and pilot acceptance work.
 
 ## Deferred archive and summary product
 

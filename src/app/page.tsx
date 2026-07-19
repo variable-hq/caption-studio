@@ -269,7 +269,11 @@ export default function OperatorDashboard() {
         </div>
         <div className="sessionMetrics">
           <span>{liveState.sequence} captions</span>
-          <span>{liveState.lastLatencyMs === null ? "—" : `${liveState.lastLatencyMs} ms`}</span>
+          <span>
+            {liveState.lastLatencyMs === null
+              ? "— processing"
+              : `${liveState.lastLatencyMs} ms processing`}
+          </span>
           <span>{liveState.droppedChunks} skipped</span>
         </div>
       </section>

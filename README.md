@@ -24,6 +24,12 @@ The app does not yet store sermons, generate summaries, support manual correctio
 or track usage across browsers or sessions. Those are later phases that require
 retention, consent, review, and cost decisions.
 
+A production smoke test on 20 July 2026 passed the core microphone-to-cloud-to-OBS
+journey, Access boundaries, live style propagation, reconnect, and session revocation.
+This is evidence for a controlled stakeholder test, not production approval or a
+language-quality sign-off. See the [validation report](docs/VALIDATION_REPORT.md) and
+follow the [stakeholder test guide](docs/STAKEHOLDER_TEST_GUIDE.md).
+
 ## High-level architecture
 
 ```mermaid
@@ -46,7 +52,8 @@ is not sent in the initial page request or a query string.
 
 See [Architecture](docs/ARCHITECTURE.md) for trust boundaries and failure behavior,
 [Product specification](docs/PRODUCT_SPEC.md) for implemented and deferred scope,
-and [Roadmap](docs/ROADMAP.md) for the next phases.
+and [Roadmap](docs/ROADMAP.md) for the next phases. Stakeholder testers should start
+with the [controlled test guide](docs/STAKEHOLDER_TEST_GUIDE.md).
 
 ## Supported languages
 
@@ -156,6 +163,10 @@ The application already generates the OBS URL as part of a live session:
 Anyone holding an active URL can view that session's public captions. Treat it as a
 short-lived credential: do not publish, log, or reuse it. Each link expires after at
 most 90 minutes.
+
+The UI's latency value is cloud **processing** time after a four-second recording chunk
+has completed. Approximate spoken-to-screen time is therefore four seconds plus the
+displayed processing time and normal browser/network rendering delay.
 
 ## Free-plan guardrails
 

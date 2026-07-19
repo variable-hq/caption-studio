@@ -19,7 +19,7 @@ Still required:
 - agree on source-caption fallback and manual-correction requirements; and
 - define archive consent, retention, export, deletion, and transcript-form policy.
 
-## Phase 1A: free cloud live prototype — implemented, validation pending
+## Phase 1A: free cloud live prototype — implemented, controlled testing pending
 
 Implemented in the codebase:
 
@@ -46,19 +46,33 @@ Pending validation:
 Exit condition: representative approved tests meet the agreed accuracy, latency,
 privacy, quota, and recovery thresholds in the deployed cloud environment.
 
-## Current step: stabilization and OBS handoff
+## Stabilization and browser-level OBS handoff — completed
 
-- Remove dead local-provider code and keep dependencies minimal.
-- Enforce request bounds from actual body content.
-- Reconcile README, architecture, product, roadmap, contribution, security, and ADRs
+- Removed dead local-provider code and kept dependencies minimal.
+- Enforced request bounds from actual body content.
+- Reconciled README, architecture, product, roadmap, contribution, security, and ADRs
   with implemented behavior.
-- Run tests, type checking, lint, production build, dependency audit, and diff checks.
-- Produce a concise OBS operator runbook and validate the generated URL on the actual
-  streaming computer with synthetic audio.
-- Record remaining live-pilot risks and an operator fallback procedure.
+- Ran tests, type checking, lint, production/OpenNext builds, dependency audit, and diff
+  checks.
+- Validated the generated URL in a browser-level production smoke test using synthetic
+  virtual audio.
+- Recorded remaining pilot risks and produced a stakeholder test guide.
 
-Exit condition: the branch is reviewable, documentation matches the system, and an
-operator can complete a synthetic OBS rehearsal without developer intervention.
+The actual OBS streaming computer rehearsal remains part of the next gate.
+
+## Current step: controlled stakeholder test
+
+- Follow [Stakeholder test guide](STAKEHOLDER_TEST_GUIDE.md) with consented or synthetic
+  audio.
+- Rehearse on the intended microphone/audio interface and OBS streaming computer.
+- Record results without sermon content, credentials, or active overlay URLs.
+- Test agreed language pairs, church terminology, filter behavior, operator usability,
+  processing latency, and dropped chunks.
+- Confirm Groq and Cloudflare account usage remains inside the intended Free plans.
+- Triage failures and agree explicit quality, latency, recovery, and go/no-go thresholds.
+
+Exit condition: stakeholders record an evidence-based result for each agreed acceptance
+criterion and the owner decides whether Phase 1B work or a limited pilot is appropriate.
 
 ## Phase 1B: reliability and optional provider upgrade
 
