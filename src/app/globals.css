@@ -47,6 +47,7 @@ main {
   padding-bottom: 64px;
 }
 
+
 .topbar {
   min-height: 94px;
   display: flex;
@@ -171,7 +172,8 @@ h1 {
 }
 
 .primaryButton,
-.secondaryButton {
+.secondaryButton,
+.dangerButton {
   border: 0;
   border-radius: 12px;
   padding: 12px 17px;
@@ -189,6 +191,56 @@ h1 {
   width: 100%;
   color: var(--green-dark);
   background: var(--green-soft);
+}
+
+.dangerButton {
+  min-width: 180px;
+  color: white;
+  background: #8e342f;
+  box-shadow: 0 9px 24px rgba(142, 52, 47, 0.18);
+}
+
+.sessionBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 254, 250, 0.82);
+  padding: 15px 18px;
+}
+
+.sessionBanner.live {
+  border-color: #aed2bb;
+  background: #e7f2ea;
+}
+
+.sessionBanner.error {
+  border-color: #e3bab6;
+  background: #faeae8;
+}
+
+.sessionBanner p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sessionMetrics {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sessionMetrics span {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  padding: 6px 9px;
+  color: var(--muted);
+  font: 600 10px var(--font-mono);
 }
 
 .dashboardGrid {
@@ -325,6 +377,12 @@ textarea {
   border-color: #ead8ac;
 }
 
+.previewBadge.live {
+  color: var(--green-dark);
+  background: var(--green-soft);
+  border-color: #b8d8c4;
+}
+
 .videoFrame {
   position: relative;
   display: flex;
@@ -366,6 +424,41 @@ textarea {
 .styleGrid {
   grid-template-columns: 1.2fr 0.8fr 0.8fr;
   margin-top: 20px;
+}
+
+.sourceTranscript,
+.obsLinkPanel {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.68);
+  padding: 14px;
+}
+
+.sourceTranscript p,
+.obsLinkPanel p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.obsLinkPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.obsLinkPanel input {
+  grid-column: 1 / -1;
+  font: 11px var(--font-mono);
+}
+
+.obsLinkPanel .secondaryButton {
+  grid-column: 2;
+  grid-row: 1;
+  width: auto;
 }
 
 .styleGrid strong {
@@ -478,6 +571,15 @@ input[type="color"] {
 
   .previewPanel {
     grid-row: auto;
+  }
+
+  .sessionBanner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sessionMetrics {
+    justify-content: flex-start;
   }
 }
 

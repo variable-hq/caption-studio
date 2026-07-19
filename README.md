@@ -4,10 +4,10 @@ Real-time AI transcription and translation for church services, designed for a c
 
 ## Project status
 
-Phase 1 free-cloud technical prototype. The web app, secure API routes, and AI
-inference are designed to run outside the operator's computer. Interchangeable
-provider contracts keep a later paid-model upgrade from changing the dashboard or
-OBS integration.
+Phase 1 free-cloud live-caption prototype. The operator dashboard records four-second
+browser audio chunks, sends them to protected cloud inference, and publishes only the
+moderated public caption to a tokenized OBS overlay. AI inference and live caption
+coordination run outside the operator's computer.
 
 ## Intended user journey
 
@@ -42,7 +42,7 @@ language. Phase 1 assumes Mandarin; Cantonese requires a separate future decisio
 - Translation into one selected target language per session
 - Church glossary and keyword boosting
 - Configurable public-caption word filtering
-- Transparent, low-latency OBS browser overlay
+- Transparent, reconnecting OBS browser overlay with a revocable session token
 - Optional sermon transcript archive and AI-assisted summary
 - Human review controls for captions, summaries, and biblical references
 
@@ -54,7 +54,8 @@ language. Phase 1 assumes Mandarin; Cantonese requires a separate future decisio
 - GroqCloud free plan with `whisper-large-v3-turbo` for multilingual speech
 - GroqCloud `llama-3.1-8b-instant` for contextual translation
 - Provider interfaces for later paid or realtime upgrades
-- Supabase for authentication, settings, sessions, transcripts, and storage
+- Cloudflare Durable Objects with hibernating WebSockets for ephemeral live delivery
+- Supabase is deferred until approved transcript retention and summaries are built
 - OBS Browser Source for the stream overlay
 
 See [Product specification](docs/PRODUCT_SPEC.md), [Architecture](docs/ARCHITECTURE.md), and [Roadmap](docs/ROADMAP.md).
@@ -73,10 +74,16 @@ npm run dev
 ```
 
 Open `http://localhost:3000`. Local development is only for building and testing the
-web app; deployed AI inference runs in GroqCloud. The dashboard can test a
-browser-approved microphone, configure every Phase 1 language, edit church terms and
-moderation words, and preview caption styling. `Start caption session` remains disabled
-until the server-side `GROQ_API_KEY` secret is configured.
+web app; deployed AI inference runs in GroqCloud. Generate Cloudflare binding types
+after changing `wrangler.jsonc`:
+
+```bash
+npm run cf-typegen
+```
+
+The live session button performs an authenticated Groq model check before requesting
+microphone permission. A session stops after 90 minutes, on quota exhaustion, or when
+the operator ends it.
 
 Useful checks:
 
@@ -97,7 +104,26 @@ npm run preview
 5. Add `GROQ_API_KEY` as an encrypted Worker secret, never as a public environment variable.
 6. Add the Access `AUD` and team-domain values as `CLOUDFLARE_ACCESS_AUD` and
    `CLOUDFLARE_ACCESS_TEAM_DOMAIN` deployment variables.
-7. Use `npm run deploy`, or configure Workers Builds to run the same deployment command.
+7. Keep the operator app and inference routes protected by the approved-email Access policy.
+8. Add more-specific Access bypass applications for `/overlay*` and
+   `/api/live/overlay*`. These paths expose no inference capability and validate the
+   session token inside the Worker; without the bypass, OBS cannot perform interactive login.
+9. Use `npm run deploy`, or configure Workers Builds to run the same deployment command.
+
+The first Durable Object deployment creates the SQLite-backed `CaptionRoom` namespace
+through the migration in `wrangler.jsonc`. Live rooms store only the latest public
+caption and expire automatically. They do not store audio or protected source text.
+
+## OBS browser source
+
+1. Start a caption session in the protected operator dashboard.
+2. Copy the generated OBS browser-source URL. The bearer token is in the URL fragment,
+   so it is not sent in normal page requests.
+3. Add an OBS Browser Source at 1920 × 1080 and paste the URL.
+4. End the operator session to revoke the link immediately.
+
+Anyone holding an active overlay URL can view its public captions. Do not post or reuse
+the URL; create a new session for every service.
 
 Cloudflare's Zero Trust onboarding currently asks for payment details even on the
 free plan; its documentation states that the free selection is not charged.
@@ -105,10 +131,10 @@ free plan; its documentation states that the free selection is not charged.
 The free plans are suitable for a controlled prototype, not guaranteed unlimited
 production service. The current Groq free plan publishes 20 speech requests per minute,
 2,000 per day, and 28,800 audio seconds per day. Four-second chunks use 15 requests per
-minute and about 1,350 requests for a 90-minute service. The app must stop cleanly or
-continue source captions when any quota is reached. Cloudflare currently includes
-100,000 Worker requests per day. Provider limits can change, so verify them before a
-live service.
+minute and at most about 1,350 requests for the enforced 90-minute session. Cloudflare
+currently includes 100,000 Worker and Durable Object requests per day; outgoing overlay
+WebSocket messages are not billed as requests. The app has no paid fallback. Provider
+limits can change, so verify them before a live service.
 
 ## Important safeguards
 
@@ -116,6 +142,8 @@ live service.
 - Cloudflare Access must protect the Worker so anonymous users cannot exhaust AI quota.
 - Raw audio is processed in short-lived requests and is not stored by this app.
 - Groq Zero Data Retention must be enabled before approved real-sermon testing.
+- An OBS token grants read-only access to one ephemeral public-caption room and expires
+  after at most 90 minutes.
 - Sermon recording and retention must be opt-in and visible to operators.
 - AI-generated summaries and biblical references require human review before publication.
 - Biblical context is configurable guidance, not a claim of theological authority.

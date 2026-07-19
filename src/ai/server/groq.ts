@@ -30,6 +30,10 @@ interface GroqChatResponse {
   choices?: Array<{ message?: { content?: string } }>;
 }
 
+interface GroqModelsResponse {
+  data?: Array<{ id?: string }>;
+}
+
 export class GroqProviderError extends Error {
   constructor(
     message: string,
@@ -74,13 +78,25 @@ function apiKey() {
 }
 
 async function groqFetch(path: string, init: RequestInit) {
-  const response = await fetch(`${GROQ_API_URL}${path}`, {
-    ...init,
-    headers: {
-      authorization: `Bearer ${apiKey()}`,
-      ...init.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${GROQ_API_URL}${path}`, {
+      ...init,
+      signal: init.signal ?? AbortSignal.timeout(path.includes("/audio/") ? 30_000 : 15_000),
+      headers: {
+        authorization: `Bearer ${apiKey()}`,
+        ...init.headers,
+      },
+    });
+  } catch (error) {
+    const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+    throw new GroqProviderError(
+      timedOut
+        ? "The cloud AI provider timed out. The caption session remains available to retry."
+        : "The cloud AI provider is unreachable.",
+      timedOut ? 504 : 502,
+    );
+  }
 
   if (!response.ok) {
     const status = response.status === 429 ? 429 : 502;
@@ -96,6 +112,25 @@ async function groqFetch(path: string, init: RequestInit) {
   }
 
   return response;
+}
+
+export async function verifyGroqProvider() {
+  const response = await groqFetch("/models", { method: "GET" });
+  const payload = (await response.json()) as GroqModelsResponse;
+  const modelIds = new Set(payload.data?.flatMap(({ id }) => (id ? [id] : [])));
+  const transcriptionModel =
+    process.env.GROQ_TRANSCRIPTION_MODEL ?? DEFAULT_TRANSCRIPTION_MODEL;
+  const translationModel =
+    process.env.GROQ_TRANSLATION_MODEL ?? DEFAULT_TRANSLATION_MODEL;
+
+  if (!modelIds.has(transcriptionModel) || !modelIds.has(translationModel)) {
+    throw new GroqProviderError(
+      "The configured free AI models are not available to this Groq account.",
+      503,
+    );
+  }
+
+  return getCloudProviderHealth();
 }
 
 function detectedLocale(

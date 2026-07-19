@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "main": ".open-next/worker.js",
+  "main": "custom-worker.ts",
   "name": "church-live-caption",
   "compatibility_date": "2026-07-18",
   "compatibility_flags": ["nodejs_compat"],
@@ -10,5 +10,19 @@
   },
   "observability": {
     "enabled": true
-  }
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CAPTION_ROOMS",
+        "class_name": "CaptionRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["CaptionRoom"]
+    }
+  ]
 }
