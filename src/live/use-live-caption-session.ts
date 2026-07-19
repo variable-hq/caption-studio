@@ -80,6 +80,23 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     settingsRef.current = settings;
   }, [settings]);
 
+  useEffect(() => {
+    const session = sessionRef.current;
+    if (!activeRef.current || !session) return;
+    const style = normalizeCaptionStyle(settings.style);
+    const timeout = window.setTimeout(() => {
+      if (!activeRef.current || sessionRef.current?.sessionId !== session.sessionId) {
+        return;
+      }
+      void liveClientRef.current.updateStyle(session.sessionId, style).catch((error) => {
+        const message =
+          error instanceof Error ? error.message : "Could not update the OBS style.";
+        setLiveState((state) => ({ ...state, message }));
+      });
+    }, 120);
+    return () => window.clearTimeout(timeout);
+  }, [settings.style]);
+
   const stopMicrophone = useCallback(() => {
     if (animationRef.current !== null) {
       cancelAnimationFrame(animationRef.current);
@@ -247,7 +264,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         sequence: sequenceRef.current,
         publicText: forms.publicText,
         targetLanguage: current.targetLanguage,
-        style: normalizeCaptionStyle(current.style),
+        style: normalizeCaptionStyle(settingsRef.current.style),
         publishedAt: new Date().toISOString(),
       };
       const session = sessionRef.current;

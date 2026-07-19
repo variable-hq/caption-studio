@@ -4,10 +4,18 @@ export const AUDIO_CHUNK_MS = 4_000;
 export const MAX_LIVE_SESSION_MS = 90 * 60 * 1_000;
 export const MAX_CAPTION_EVENTS = 1_400;
 
+export type CaptionHorizontalAlign = "left" | "center" | "right";
+export type CaptionVerticalAlign = "top" | "middle" | "bottom";
+export type CaptionFontFamily = "sans-serif" | "serif" | "monospace";
+
 export interface CaptionStyle {
   fontSize: number;
   textColor: string;
   backgroundColor: string;
+  backgroundTransparency: number;
+  horizontalAlign: CaptionHorizontalAlign;
+  verticalAlign: CaptionVerticalAlign;
+  fontFamily: CaptionFontFamily;
 }
 
 export interface PublicCaptionEvent {
@@ -37,13 +45,35 @@ export interface LiveSessionState {
 
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
 
+function boundedInteger(value: unknown, minimum: number, maximum: number, fallback: number) {
+  const number = Number(value);
+  return Number.isFinite(number)
+    ? Math.min(maximum, Math.max(minimum, Math.round(number)))
+    : fallback;
+}
+
 export function normalizeCaptionStyle(input: Partial<CaptionStyle>): CaptionStyle {
   return {
-    fontSize: Math.min(96, Math.max(24, Math.round(Number(input.fontSize) || 48))),
+    fontSize: boundedInteger(input.fontSize, 10, 72, 48),
     textColor: HEX_COLOUR.test(input.textColor ?? "") ? input.textColor! : "#ffffff",
     backgroundColor: HEX_COLOUR.test(input.backgroundColor ?? "")
       ? input.backgroundColor!
       : "#101827",
+    backgroundTransparency: boundedInteger(
+      input.backgroundTransparency,
+      0,
+      100,
+      0,
+    ),
+    horizontalAlign: ["left", "center", "right"].includes(input.horizontalAlign ?? "")
+      ? input.horizontalAlign!
+      : "center",
+    verticalAlign: ["top", "middle", "bottom"].includes(input.verticalAlign ?? "")
+      ? input.verticalAlign!
+      : "bottom",
+    fontFamily: ["sans-serif", "serif", "monospace"].includes(input.fontFamily ?? "")
+      ? input.fontFamily!
+      : "sans-serif",
   };
 }
 

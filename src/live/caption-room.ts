@@ -72,6 +72,10 @@ export class CaptionRoom {
       return this.publishCaption(request);
     }
 
+    if (url.pathname === "/internal/style" && request.method === "POST") {
+      return this.updateStyle(request);
+    }
+
     if (url.pathname === "/internal/session" && request.method === "DELETE") {
       await this.clearRoom("Caption session ended.");
       return new Response(null, { status: 204 });
@@ -160,6 +164,37 @@ export class CaptionRoom {
       }
     }
     return json({ published: true, sequence: event.sequence });
+  }
+
+  private async updateStyle(request: Request) {
+    const configuration = await this.state.storage.get<RoomConfiguration>(
+      "configuration",
+    );
+    if (!configuration || configuration.expiresAt <= Date.now()) {
+      await this.clearRoom("Caption session expired.");
+      return json({ error: "The caption session has expired." }, 410);
+    }
+
+    const body = (await request.json()) as { style?: Partial<CaptionStyle> };
+    const style = normalizeCaptionStyle(body.style ?? {});
+    configuration.style = style;
+    await this.state.storage.put("configuration", configuration);
+
+    const latest = await this.state.storage.get<PublicCaptionEvent>("latest");
+    if (latest) {
+      latest.style = style;
+      await this.state.storage.put("latest", latest);
+    }
+
+    const payload = JSON.stringify({ type: "style", style });
+    for (const socket of this.state.getWebSockets("overlay")) {
+      try {
+        socket.send(payload);
+      } catch {
+        socket.close(1011, "Overlay connection failed.");
+      }
+    }
+    return json({ updated: true, style });
   }
 
   webSocketMessage(socket: WebSocket) {

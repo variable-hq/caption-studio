@@ -5,13 +5,14 @@ const OVERLAY_DOCUMENT = `<!doctype html>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Church Live Caption Overlay</title>
   <style>
-    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:"Avenir Next","Segoe UI",Arial,sans-serif}.stage{display:flex;align-items:flex-end;justify-content:center;width:100%;height:100%;padding:clamp(18px,4vw,64px)}.caption{width:min(1500px,100%);border-radius:12px;padding:10px 18px 14px;text-align:center;font-size:48px;font-weight:750;line-height:1.18;text-wrap:balance;text-shadow:0 2px 5px rgba(0,0,0,.68)}
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:Arial,Helvetica,sans-serif}.stage{display:flex;align-items:flex-end;justify-content:center;width:100%;height:100%;padding:clamp(18px,4vw,64px)}.caption{width:min(1500px,100%);border-radius:12px;padding:10px 18px 14px;text-align:center;font-size:48px;font-weight:750;line-height:1.18;text-wrap:balance;text-shadow:0 2px 5px rgba(0,0,0,.68)}
   </style>
 </head>
 <body>
   <main class="stage"><div class="caption" aria-live="polite"></div></main>
   <script>
     (()=>{
+      const stage=document.querySelector(".stage");
       const caption=document.querySelector(".caption");
       const value=location.hash.slice(1);
       const separator=value.indexOf(".");
@@ -21,11 +22,22 @@ const OVERLAY_DOCUMENT = `<!doctype html>
       let attempt=0;
       let stopped=false;
       let lastSequence=0;
+      const fontFamilies={"sans-serif":"Arial, Helvetica, sans-serif",serif:"Times New Roman, Times, serif",monospace:"Courier New, Courier, monospace"};
+      const withTransparency=(hex,transparency)=>{
+        const value=parseInt(hex.slice(1),16);
+        const alpha=(100-transparency)/100;
+        return "rgba("+(value>>16)+", "+((value>>8)&255)+", "+(value&255)+", "+alpha+")";
+      };
       const applyStyle=style=>{
         if(!style)return;
-        caption.style.fontSize=Math.max(24,Math.min(96,Number(style.fontSize)||48))+"px";
+        caption.style.fontSize=Math.max(10,Math.min(72,Number(style.fontSize)||48))+"px";
         caption.style.color=/^#[0-9a-f]{6}$/i.test(style.textColor||"")?style.textColor:"#ffffff";
-        caption.style.backgroundColor=/^#[0-9a-f]{6}$/i.test(style.backgroundColor||"")?style.backgroundColor:"#101827";
+        const background=/^#[0-9a-f]{6}$/i.test(style.backgroundColor||"")?style.backgroundColor:"#101827";
+        const transparency=Math.max(0,Math.min(100,Number(style.backgroundTransparency)||0));
+        caption.style.backgroundColor=withTransparency(background,transparency);
+        caption.style.textAlign=["left","center","right"].includes(style.horizontalAlign)?style.horizontalAlign:"center";
+        caption.style.fontFamily=fontFamilies[style.fontFamily]||fontFamilies["sans-serif"];
+        stage.style.alignItems={top:"flex-start",middle:"center",bottom:"flex-end"}[style.verticalAlign]||"flex-end";
       };
       const show=event=>{
         if(!event||event.sequence<=lastSequence)return;
@@ -42,7 +54,7 @@ const OVERLAY_DOCUMENT = `<!doctype html>
         socket.onmessage=message=>{
           const payload=JSON.parse(String(message.data));
           applyStyle(payload.style);
-          show(payload.caption);
+          if(payload.caption)show(payload.caption);else if(!caption.textContent)caption.style.backgroundColor="transparent";
         };
         socket.onclose=event=>{
           if(event.code===1000||event.code===1008){stopped=true;caption.textContent=event.code===1008?"This OBS caption link is invalid or expired.":"";return}

@@ -30,11 +30,29 @@ describe("live caption configuration", () => {
         fontSize: 500,
         textColor: "not-a-colour",
         backgroundColor: "#123456",
+        backgroundTransparency: 34,
+        horizontalAlign: "right",
+        verticalAlign: "top",
+        fontFamily: "serif",
       }),
     ).toEqual({
-      fontSize: 96,
+      fontSize: 72,
       textColor: "#ffffff",
       backgroundColor: "#123456",
+      backgroundTransparency: 34,
+      horizontalAlign: "right",
+      verticalAlign: "top",
+      fontFamily: "serif",
+    });
+
+    expect(normalizeCaptionStyle({ fontSize: -20, backgroundTransparency: 120 })).toEqual({
+      fontSize: 10,
+      textColor: "#ffffff",
+      backgroundColor: "#101827",
+      backgroundTransparency: 100,
+      horizontalAlign: "center",
+      verticalAlign: "bottom",
+      fontFamily: "sans-serif",
     });
   });
 });

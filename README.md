@@ -17,7 +17,8 @@ coordination run outside the operator's computer.
 4. The app translates captions into the chosen target language.
 5. Church-specific names, biblical terms, and configured keywords improve recognition and translation.
 6. A configurable moderation filter masks selected words in the public captions.
-7. The operator adjusts font size, text color, background, line count, and placement.
+7. The operator adjusts 10–72px font size, font family, text color, background
+   transparency, and horizontal or vertical placement.
 8. OBS loads a read-only browser-source URL and displays the live captions.
 9. If recording is enabled, the sermon transcript is stored and can produce a reviewable summary with biblical context.
 
