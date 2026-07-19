@@ -31,6 +31,8 @@ const INITIAL_LIVE_STATE: LiveSessionState = {
   message: "Configure the service, then start a caption session.",
   sequence: 0,
   droppedChunks: 0,
+  transcriptionRequests: 0,
+  sessionStartedAt: null,
   latestSourceText: "",
   latestPublicText: "",
   lastLatencyMs: null,
@@ -221,6 +223,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       const startedAt = performance.now();
       const current = settingsRef.current;
       const glossary = parseGlossaryInput(current.keywordText, current.targetLanguage);
+      setLiveState((state) => ({
+        ...state,
+        transcriptionRequests: state.transcriptionRequests + 1,
+      }));
       const segments = await cloudClientRef.current.transcribe({
         audio,
         sourceLanguage: current.sourceLanguage,
@@ -375,6 +381,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         ...INITIAL_LIVE_STATE,
         status: "live",
         message: "Listening. The first caption appears after the first audio chunk.",
+        sessionStartedAt: new Date(
+          new Date(session.expiresAt).getTime() - MAX_LIVE_SESSION_MS,
+        ).toISOString(),
         session,
       });
     } catch (error) {

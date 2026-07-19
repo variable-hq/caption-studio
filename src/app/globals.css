@@ -243,6 +243,61 @@ h1 {
   font: 600 10px var(--font-mono);
 }
 
+.usageTracker {
+  margin-bottom: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 254, 250, 0.82);
+  padding: 15px 18px;
+}
+
+.usageHeading,
+.usageDetails {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.usageHeading p,
+.usageNote {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.usageHeading > span {
+  color: var(--green-dark);
+  font: 700 12px var(--font-mono);
+}
+
+.usageProgress {
+  height: 10px;
+  margin: 12px 0 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8e3;
+}
+
+.usageProgress > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4d9b6a, #76b38b);
+  transition: width 240ms ease;
+}
+
+.usageProgress.warning > span {
+  background: linear-gradient(90deg, #d39a3a, #b95d38);
+}
+
+.usageDetails {
+  color: var(--muted);
+  font: 600 10px var(--font-mono);
+}
+
 .dashboardGrid {
   display: grid;
   grid-template-columns: minmax(320px, 0.85fr) minmax(450px, 1.3fr);
@@ -604,6 +659,12 @@ input[type="color"] {
 
   .sessionMetrics {
     justify-content: flex-start;
+  }
+
+  .usageDetails {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 }
 
