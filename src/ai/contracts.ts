@@ -1,6 +1,6 @@
 import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
 
-export type ProviderMode = "cloud-free" | "paid" | "synthetic";
+export type ProviderMode = "cloud-free" | "paid";
 
 export interface TranscriptSegment {
   id: string;
@@ -9,7 +9,6 @@ export interface TranscriptSegment {
   endedAtMs: number;
   isFinal: boolean;
   detectedLanguage?: LanguageLocale;
-  confidence?: number;
 }
 
 export interface TranscriptionRequest {
@@ -41,10 +40,4 @@ export interface TranslationProvider {
   readonly id: string;
   readonly mode: ProviderMode;
   translate(request: TranslationRequest): Promise<TranslationResult>;
-}
-
-export interface SummaryProvider {
-  readonly id: string;
-  readonly mode: ProviderMode;
-  summarize(transcript: string): Promise<{ text: string; warnings: string[] }>;
 }

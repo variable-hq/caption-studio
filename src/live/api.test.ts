@@ -98,6 +98,36 @@ describe("live caption worker API", () => {
     });
   });
 
+  it("rejects oversized live bodies even without a content-length header", async () => {
+    const { env, fetch } = environment();
+    const sessionId = "12345678-1234-4123-8123-123456789abc";
+    const response = await handleLiveApiRequest(
+      new Request(`https://caption.example/api/live/session/${sessionId}/caption`, {
+        method: "POST",
+        body: JSON.stringify({ publicText: "x".repeat(8_193) }),
+      }),
+      env,
+    );
+
+    expect(response?.status).toBe(413);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed style JSON instead of silently resetting the style", async () => {
+    const { env, fetch } = environment();
+    const sessionId = "12345678-1234-4123-8123-123456789abc";
+    const response = await handleLiveApiRequest(
+      new Request(`https://caption.example/api/live/session/${sessionId}/style`, {
+        method: "PUT",
+        body: "not-json",
+      }),
+      env,
+    );
+
+    expect(response?.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("rejects malformed public overlay session identifiers", async () => {
     const { env, fetch } = environment();
     const response = await handleLiveApiRequest(

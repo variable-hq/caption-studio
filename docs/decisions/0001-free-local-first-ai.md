@@ -43,9 +43,10 @@ remains a desirable offline fallback.
 
 ## Upgrade boundary
 
-The app depends on `TranscriptionProvider`, `TranslationProvider`, and later
-`SummaryProvider` contracts. Provider choice belongs to session configuration, so
-the dashboard, caption pipeline, archive, and OBS overlay do not depend on a vendor.
+The superseded design anticipated transcription, translation, and later summary
+provider contracts. The current cloud implementation retains transcription and
+translation interfaces only; a summary contract will be designed with the future
+archive, consent, and review workflow rather than kept as unused code.
 
 ## Supersession
 

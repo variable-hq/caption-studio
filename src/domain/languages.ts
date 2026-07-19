@@ -3,51 +3,43 @@ export const LANGUAGE_OPTIONS = [
     locale: "en",
     label: "English",
     speechCode: "en",
-    madladCode: "en",
   },
   {
     locale: "id",
     label: "Indonesian",
     speechCode: "id",
-    madladCode: "id",
   },
   {
     locale: "ja",
     label: "Japanese",
     speechCode: "ja",
-    madladCode: "ja",
   },
   {
     locale: "ko-KR",
     label: "Korean",
     speechCode: "ko",
-    madladCode: "ko",
   },
   {
     locale: "tl-PH",
     label: "Tagalog",
     speechCode: "tl",
-    madladCode: "tl",
   },
   {
     locale: "zh-Hans",
     label: "Chinese (Simplified)",
     speechCode: "zh",
-    madladCode: "zh",
     chineseScript: "simplified",
   },
   {
     locale: "zh-Hant",
     label: "Chinese (Traditional)",
     speechCode: "zh",
-    madladCode: "zh",
     chineseScript: "traditional",
   },
   {
     locale: "vi",
     label: "Vietnamese",
     speechCode: "vi",
-    madladCode: "vi",
   },
 ] as const;
 

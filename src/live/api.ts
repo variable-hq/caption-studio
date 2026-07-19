@@ -33,11 +33,61 @@ const JSON_HEADERS = {
   "cache-control": "no-store",
 };
 
+class RequestBodyTooLargeError extends Error {}
+class InvalidRequestBodyError extends Error {}
+
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: JSON_HEADERS,
   });
+}
+
+async function readBody(request: Request, maximumBytes: number) {
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (declaredLength > maximumBytes) throw new RequestBodyTooLargeError();
+
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let receivedBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      receivedBytes += value.byteLength;
+      if (receivedBytes > maximumBytes) {
+        await reader.cancel();
+        throw new RequestBodyTooLargeError();
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(receivedBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(body);
+}
+
+async function readJsonObject(request: Request, maximumBytes: number) {
+  const body = await readBody(request, maximumBytes);
+  if (!body) return {};
+  try {
+    const parsed = JSON.parse(body) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new InvalidRequestBodyError();
+    }
+    return parsed;
+  } catch (error) {
+    if (error instanceof InvalidRequestBodyError) throw error;
+    throw new InvalidRequestBodyError();
+  }
 }
 
 function randomToken() {
@@ -61,10 +111,7 @@ async function requireOperator(request: Request, env: LiveWorkerEnvironment) {
 
 async function createSession(request: Request, env: LiveWorkerEnvironment) {
   await requireOperator(request, env);
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 4_096) return json({ error: "Session configuration is too large." }, 413);
-
-  const body = (await request.json().catch(() => ({}))) as {
+  const body = (await readJsonObject(request, 4_096)) as {
     style?: Partial<CaptionStyle>;
   };
   const style = normalizeCaptionStyle(body.style ?? {});
@@ -102,13 +149,12 @@ async function publishCaption(
   sessionId: string,
 ) {
   await requireOperator(request, env);
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 8_192) return json({ error: "Caption event is too large." }, 413);
+  const body = await readJsonObject(request, 8_192);
   return room(env, sessionId).fetch(
     new Request("https://caption-room/internal/caption", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: await request.text(),
+      body: JSON.stringify(body),
     }),
   );
 }
@@ -119,9 +165,7 @@ async function updateStyle(
   sessionId: string,
 ) {
   await requireOperator(request, env);
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 4_096) return json({ error: "Caption style is too large." }, 413);
-  const body = (await request.json().catch(() => ({}))) as {
+  const body = (await readJsonObject(request, 4_096)) as {
     style?: Partial<CaptionStyle>;
   };
   return room(env, sessionId).fetch(
@@ -173,6 +217,12 @@ export async function handleLiveApiRequest(
     try {
       return await createSession(request, env);
     } catch (error) {
+      if (error instanceof RequestBodyTooLargeError) {
+        return json({ error: "Session configuration is too large." }, 413);
+      }
+      if (error instanceof InvalidRequestBodyError) {
+        return json({ error: "Session configuration is invalid." }, 400);
+      }
       if (error instanceof CloudAccessError) {
         return json({ error: error.message }, error.status);
       }
@@ -197,6 +247,28 @@ export async function handleLiveApiRequest(
     }
     return json({ error: "Unsupported live-session operation." }, 405);
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return json(
+        {
+          error:
+            match[2] === "caption"
+              ? "Caption event is too large."
+              : "Caption style is too large.",
+        },
+        413,
+      );
+    }
+    if (error instanceof InvalidRequestBodyError) {
+      return json(
+        {
+          error:
+            match[2] === "caption"
+              ? "Caption event is invalid."
+              : "Caption style is invalid.",
+        },
+        400,
+      );
+    }
     if (error instanceof CloudAccessError) {
       return json({ error: error.message }, error.status);
     }

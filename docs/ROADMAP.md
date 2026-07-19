@@ -1,99 +1,119 @@
 # Roadmap
 
-## Phase 0: product decisions and safeguards
+Status labels describe the current repository, not proof that a live church pilot has
+passed.
 
-- Record the confirmed source and target languages and Chinese script behavior.
-- Confirm Bible versions, licensing, and theological-profile ownership.
-- Define consent, retention, export, deletion, and archive-filter policy.
-- Agree on latency, quota, scale, and manual-correction requirements.
-- Record decisions in issues, ADRs, and pull requests.
+## Phase 0: core decisions and safeguards — partly complete
 
-Exit condition: no unresolved decision can materially change the pilot architecture.
+Completed:
 
-## Phase 1A: free cloud technical prototype
+- confirmed Phase 1 languages and Chinese script behavior;
+- selected cloud-first hosting and free-tier Groq models;
+- required Cloudflare Access, server-side secrets, Groq ZDR, and no paid fallback; and
+- separated ephemeral live captions from future archive/summary consent.
 
-- Host the Next.js app and server API on Cloudflare Workers Free.
-- Keep the Groq key in an encrypted Worker secret.
-- Protect the Worker with Cloudflare Access and verify its JWT in inference routes.
-- Enable Groq Zero Data Retention before approved sermon testing.
-- Capture a selected browser microphone or audio-interface input.
-- Send four-second audio chunks to Groq `whisper-large-v3-turbo`.
-- Translate one selected target with Groq `llama-3.1-8b-instant`.
-- Accept English, Indonesian, Japanese, Korean, Tagalog, Chinese, or Vietnamese audio.
-- Offer explicit source selection plus automatic detection; prefer explicit selection live.
-- Render Chinese output as Simplified or Traditional while treating spoken Mandarin as Chinese.
-- Apply approved biblical names, church terms, keyword hints, and preferred translations.
-- Apply public filtering after translation without changing protected source text.
-- Surface latency, quota use, `Retry-After`, and internet failures to the operator.
-- Do not store audio or sermon content during the inference prototype.
-- Test every language with synthetic or explicitly approved recordings.
+Still required:
 
-Exit condition: representative approved recordings meet agreed language, biblical-term,
-latency, quota, and reliability thresholds in the deployed cloud environment.
+- approve Bible versions, licensing, and terminology ownership;
+- define acceptable latency, language quality, and failure thresholds;
+- agree on source-caption fallback and manual-correction requirements; and
+- define archive consent, retention, export, deletion, and transcript-form policy.
 
-## Phase 1B: optional paid or realtime upgrade
+## Phase 1A: free cloud live prototype — implemented, validation pending
 
-- Compare the free prototype with paid transcription and translation providers.
-- Prioritize true streaming if four-second chunk latency is unacceptable.
-- Upgrade only where quality, limits, latency, or support justify cost.
-- Keep the existing provider contracts and deterministic glossary/moderation pipeline.
-- Add per-session cost estimates, a hard spending cap, and clean fallback behavior.
+Implemented in the codebase:
 
-Exit condition: the owner has an evidence-based provider choice with documented limits,
-hourly cost, data handling, and outage behavior.
+- Next.js/OpenNext deployment on Cloudflare Workers;
+- encrypted Groq secret and signed Cloudflare Access verification;
+- selected microphone/audio-interface capture and four-second chunks;
+- multilingual Whisper transcription and one-target Llama translation;
+- bounded biblical/church hints, preferred terms, and public masking;
+- source/public previews, status, latency, queue, session-time, and request indicators;
+- expiring Durable Object sessions and a reconnecting, tokenized OBS overlay;
+- 10–72px display controls, per-line highlight/transparency, alignment, and saved
+  browser preferences; and
+- no application audio or transcript storage.
 
-## Phase 2: live captions and OBS
+Pending validation:
 
-- Build authenticated operator sessions.
-- Build the read-only OBS overlay.
-- Create a narrowly scoped public Access path only after overlay-token validation exists.
-- Add display controls and reusable display profiles.
-- Add reconnect, ordering, deduplication, and failure states.
-- Add source-caption fallback when translation is unavailable.
+- full-service tests for every supported source/target language;
+- approved biblical name, reference, accent, and mixed-language samples;
+- latency, dropped chunks, provider quota, Worker CPU/request, and browser compatibility;
+- device loss, internet loss, Access expiry, Groq `429`, timeout, and model outage;
+- overlay reconnect, token expiry/revocation, and OBS production-machine behavior; and
+- account-level confirmation that the pilot stays within both providers' Free plans.
 
-Exit condition: an operator can run a test service and recover safely from common audio,
-network, provider, and overlay failures.
+Exit condition: representative approved tests meet the agreed accuracy, latency,
+privacy, quota, and recovery thresholds in the deployed cloud environment.
 
-## Phase 3: church context and moderation
+## Current step: stabilization and OBS handoff
 
-- Build workspace glossary and keyword management.
-- Add approved Bible-reference profiles.
-- Add public-display moderation rules.
-- Add live manual correction and revision history.
-- Evaluate mixed-language and biblical terminology accuracy.
+- Remove dead local-provider code and keep dependencies minimal.
+- Enforce request bounds from actual body content.
+- Reconcile README, architecture, product, roadmap, contribution, security, and ADRs
+  with implemented behavior.
+- Run tests, type checking, lint, production build, dependency audit, and diff checks.
+- Produce a concise OBS operator runbook and validate the generated URL on the actual
+  streaming computer with synthetic audio.
+- Record remaining live-pilot risks and an operator fallback procedure.
 
-Exit condition: approved terms are handled consistently and moderation does not corrupt
-the protected transcript.
+Exit condition: the branch is reviewable, documentation matches the system, and an
+operator can complete a synthetic OBS rehearsal without developer intervention.
 
-## Phase 4: archive and summaries
+## Phase 1B: reliability and optional provider upgrade
 
-- Add explicit recording and retention controls.
-- Store authorized transcript forms with row-level security.
-- Generate grounded draft sermon summaries.
-- Add reviewer approval, export, and deletion.
-- Add uncertainty and citation checks for scripture references.
+- Add deliberate source-caption fallback only after operator behavior is approved.
+- Improve audio-device disconnect and browser lifecycle recovery.
+- Add pause/clear and optional manual correction with clear sequence semantics.
+- Decide whether true streaming is needed to reduce four-second chunk latency.
+- Compare paid or realtime providers using the same approved recordings.
+- Add account-aware usage monitoring and hard spending controls before enabling any
+  paid path.
 
-Exit condition: authorized users can review a traceable summary, and retention and
-deletion behave as documented.
+Exit condition: the owner has evidence-based reliability and provider decisions with
+documented data handling, costs, limits, and outage behavior.
 
-## Phase 5: production readiness
+## Phase 2: church profiles and moderation
 
-- Threat model and privacy review
-- Load, duration, browser, and audio-device testing
-- Monitoring, audit, usage, cost, and quota controls
-- Backup and deletion verification
-- Accessibility review
-- Deployment and incident runbooks
+- Add authenticated workspaces and roles if server-side configuration is needed.
+- Add persistent glossary management, phonetic variants, categories, and scoping.
+- Add approved Bible-reference profiles with licence metadata.
+- Expand moderation to replace/hide modes and reviewed rule scopes.
+- Add correction/revision history without corrupting protected transcript forms.
 
-Exit condition: the project owner approves a controlled pilot with a rollback plan.
+Exit condition: authorized reviewers control terminology and moderation, and public
+rules never leak or rewrite protected data unexpectedly.
+
+## Phase 3: archive and summaries
+
+- Implement explicit recording consent and retention controls.
+- Store only authorized transcript forms with row-level access control.
+- Generate transcript-grounded draft sermon summaries.
+- Distinguish quotations, paraphrases, inferred references, and retrieved Bible text.
+- Add human review, approval, export, deletion, and audit behavior.
+
+Exit condition: an authorized reviewer can trace, correct, approve, export, and delete a
+summary, and retention behavior matches the documented policy.
+
+## Phase 4: controlled production pilot
+
+- Complete privacy and threat-model reviews.
+- Run duration, load, browser, device, language, and OBS compatibility tests.
+- Add content-safe operational metrics and provider/account alerts.
+- Verify backup and deletion only if persistent storage exists.
+- Complete accessibility and operator usability reviews.
+- Publish deployment, service, fallback, and incident runbooks.
+
+Exit condition: the project owner approves a limited pilot with named operators,
+approved test/service data, monitored limits, and a rollback plan.
 
 ## Later possibilities
 
-- Multiple simultaneous target languages
-- In-room display and mobile caption clients
-- Speaker diarization
-- Translation memory shared across approved church workspaces
-- Human interpreter handoff
-- Search across an approved sermon library
-- Cantonese as a distinct spoken Chinese input
-- Offline or managed-appliance continuity only if the project owner later requests it
+- multiple simultaneous target languages;
+- in-room display and mobile caption clients;
+- speaker diarization;
+- translation memory across approved church workspaces;
+- human interpreter handoff;
+- search across an approved sermon library;
+- Cantonese as a distinct spoken input; and
+- offline or managed-appliance continuity only if the cloud-first constraint changes.

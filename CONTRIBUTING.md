@@ -1,62 +1,106 @@
 # Contributing
 
-Thank you for helping build Church Live Caption.
+Thank you for helping build Church Live Caption. The repository is private and has no
+open-source license; access to collaborate does not grant permission to redistribute
+the code or sermon data.
 
-## Working agreement
+## Before you begin
 
-- Use an issue to describe significant features, product decisions, or bugs.
-- Create a short-lived branch from main.
-- Use focused commits with clear messages.
-- Open a pull request into main.
-- Keep pull requests small enough to review.
-- Require review before merging whenever repository settings allow it.
-- Prefer squash merging so main has a readable history.
-- Never commit credentials, real private sermon data, or unapproved Bible text.
+- Read [README.md](README.md), [SECURITY.md](SECURITY.md), and the relevant document
+  under `docs/`.
+- Use an issue for significant features, bugs, product decisions, or provider changes.
+- Use only synthetic audio or recordings and transcripts explicitly approved for this
+  project.
+- Never put credentials, active overlay URLs, private names, or sermon content in Git,
+  issues, pull requests, test fixtures, screenshots, logs, or chat.
 
-## Branch names
+## Set up the project
 
-Use a short prefix:
+Requirements: Node.js 20.9 or newer and npm.
 
-- feature/short-description
-- fix/short-description
-- docs/short-description
-- chore/short-description
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
 
-Automated work may use agent/short-description.
+Local secrets belong only in ignored environment files. Ask an owner for access to the
+deployment environment; do not ask anyone to paste a secret into an issue or message.
+
+Run these checks before requesting review:
+
+```bash
+npm test
+npm run typecheck
+npm run lint
+npm run build
+git diff --check
+```
+
+Use `npm run preview` when a change affects the Cloudflare runtime or the self-contained
+OBS route. It verifies the bundle and non-Durable-Object routes, but the current OpenNext
+local preview cannot run this internal Durable Object; test room creation, WebSockets,
+expiry, and revocation in a protected Cloudflare test deployment. After changing
+bindings, run `npm run cf-typegen` and review the generated diff before committing it.
+
+## Branch and commit workflow
+
+Create a short-lived branch from the latest `main`:
+
+- `feature/short-description`
+- `fix/short-description`
+- `docs/short-description`
+- `chore/short-description`
+
+Automated work may use `agent/short-description`. Keep commits focused and prefer squash
+merging so `main` has a readable history. Do not rewrite another contributor's branch
+without agreement.
 
 ## Pull requests
 
 A pull request should explain:
 
-- what changed
-- why it changed
-- user or operator impact
-- privacy, security, theological-context, and OBS implications
-- tests or checks performed
-- screenshots or recordings for visible behavior
-- remaining risks or follow-up work
+- what changed and why;
+- user and operator impact;
+- privacy, security, biblical-context, quota, and OBS implications;
+- tests and manual checks performed;
+- screenshots or recordings for visible behavior, using synthetic data; and
+- known limitations and follow-up work.
 
-Draft pull requests are encouraged for early collaboration.
+Keep a pull request small enough to review. Request review before merging whenever
+repository settings allow it. A change to languages, biblical reference material,
+retention, filtering, public URLs, roles, providers, models, or AI behavior must record
+the decision and tradeoffs in the issue, pull request, or an ADR.
 
-## Product decisions
+## Engineering rules
 
-Changes that affect languages, Bible data, theology profiles, content retention, filtering, public URLs, user roles, or AI behavior must record the decision and its tradeoffs in an issue or pull request.
-
-## Data rules
-
-Use synthetic or explicitly approved test audio and transcripts. Remove names and sensitive details from bug reports. Do not paste production keys into issues, logs, screenshots, or chat.
+- Keep provider credentials and Cloudflare Access verification server-side.
+- Fail closed in production when Access configuration is missing.
+- Preserve the separation between protected source text and moderated public text.
+- Do not make `/api/ai/*` or `/api/live/session*` publicly accessible.
+- Treat `/overlay*` and `/api/live/overlay*` as public network paths protected by an
+  expiring, revocable session token.
+- Bound user input, audio, prompt context, queues, session duration, and provider calls.
+- Do not add paid fallback, billing-enabled services, or persistent sermon storage
+  without an explicit owner decision.
+- Do not log raw audio, caption text, glossary content, Access JWTs, or overlay tokens.
+- Add failure and recovery tests for changes to live behavior.
+- Prefer deterministic post-processing for approved terms and public filtering.
 
 ## Review checklist
 
-- The change matches an approved issue or documented requirement.
-- Secrets remain server-side.
-- Workspace data remains isolated.
-- Recording and retention behavior is explicit.
-- Public captions cannot access protected archive data.
-- AI output has a human-review path where appropriate.
-- New behavior includes failure and recovery states.
-- Relevant checks pass.
+- The change matches the documented scope or updates that scope explicitly.
+- No dead code, unused dependency, generated build output, or secret is introduced.
+- All external inputs have type, size, and allowed-value validation.
+- Source, translated, and public forms are not accidentally mixed.
+- Operator-only endpoints still require Cloudflare Access.
+- Overlay clients cannot reach inference, operator controls, or historical content.
+- Session tokens remain short-lived, read-only, revocable, and absent from logs.
+- Free-plan behavior fails visibly without silently switching to paid usage.
+- Documentation matches the implemented behavior.
+- Relevant automated and manual checks pass.
 
-## Local development
+## Security reports
 
-Application setup commands will be added after the technical prototype is scaffolded.
+Do not open a public issue for a vulnerability or exposed credential. Follow the private
+reporting process in [SECURITY.md](SECURITY.md).
