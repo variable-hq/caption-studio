@@ -124,6 +124,8 @@ describe("live caption worker API", () => {
     expect(html).toContain("Math.max(10,Math.min(72");
     expect(html).toContain("backgroundTransparency");
     expect(html).toContain("stage.style.alignItems");
+    expect(html).toContain('class="captionText"');
+    expect(html).toContain("box-decoration-break:clone");
     expect(html).not.toContain("/_next/");
   });
 });
