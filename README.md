@@ -44,6 +44,7 @@ language. Phase 1 assumes Mandarin; Cantonese requires a separate future decisio
 - Church glossary and keyword boosting
 - Configurable public-caption word filtering
 - Browser-local saved caption display preferences
+- Current-session time and transcription-request usage tracker
 - Transparent, reconnecting OBS browser overlay with a revocable session token
 - Optional sermon transcript archive and AI-assisted summary
 - Human review controls for captions, summaries, and biblical references

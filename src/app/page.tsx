@@ -11,7 +11,12 @@ import {
   type SourceLanguage,
 } from "@/domain/languages";
 import { parseGlossaryInput } from "@/live/config";
-import { normalizeCaptionStyle, type CaptionStyle } from "@/live/contracts";
+import {
+  MAX_LIVE_SESSION_MS,
+  MAX_TRANSCRIPTION_REQUESTS,
+  normalizeCaptionStyle,
+  type CaptionStyle,
+} from "@/live/contracts";
 import { useLiveCaptionSession } from "@/live/use-live-caption-session";
 
 type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
@@ -66,6 +71,7 @@ export default function OperatorDashboard() {
   );
   const [filterText, setFilterText] = useState("");
   const [copied, setCopied] = useState(false);
+  const [usageClock, setUsageClock] = useState(() => Date.now());
 
   const style = useMemo(
     () => ({
@@ -165,6 +171,29 @@ export default function OperatorDashboard() {
   const isLive = liveState.status === "live";
   const isBusy = liveState.status === "starting" || liveState.status === "stopping";
   const previewCaption = liveState.latestPublicText || SAMPLE_CAPTIONS[targetLanguage];
+  const sessionStartedMs = liveState.sessionStartedAt
+    ? new Date(liveState.sessionStartedAt).getTime()
+    : null;
+  const elapsedSessionMs = sessionStartedMs
+    ? Math.min(MAX_LIVE_SESSION_MS, Math.max(0, usageClock - sessionStartedMs))
+    : 0;
+  const elapsedSessionMinutes = Math.floor(elapsedSessionMs / 60_000);
+  const elapsedSessionSeconds = Math.floor((elapsedSessionMs % 60_000) / 1_000);
+  const usagePercent = Math.min(
+    100,
+    Math.ceil(
+      Math.max(
+        elapsedSessionMs / MAX_LIVE_SESSION_MS,
+        liveState.transcriptionRequests / MAX_TRANSCRIPTION_REQUESTS,
+      ) * 100,
+    ),
+  );
+
+  useEffect(() => {
+    if (!isLive) return;
+    const interval = window.setInterval(() => setUsageClock(Date.now()), 1_000);
+    return () => window.clearInterval(interval);
+  }, [isLive]);
 
   const copyOverlayUrl = async () => {
     const url = liveState.session?.overlayUrl;
@@ -243,6 +272,39 @@ export default function OperatorDashboard() {
           <span>{liveState.lastLatencyMs === null ? "—" : `${liveState.lastLatencyMs} ms`}</span>
           <span>{liveState.droppedChunks} skipped</span>
         </div>
+      </section>
+
+      <section className="usageTracker" aria-labelledby="session-usage-title">
+        <div className="usageHeading">
+          <div>
+            <strong id="session-usage-title">Session usage</strong>
+            <p>Tracks the app-enforced 90-minute session budget.</p>
+          </div>
+          <span>{usagePercent}%</span>
+        </div>
+        <div
+          className={`usageProgress ${usagePercent >= 80 ? "warning" : ""}`}
+          role="progressbar"
+          aria-label="Live caption session usage"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={usagePercent}
+        >
+          <span style={{ width: `${usagePercent}%` }} />
+        </div>
+        <div className="usageDetails">
+          <span>
+            {elapsedSessionMinutes}m {elapsedSessionSeconds.toString().padStart(2, "0")}s of
+            90m
+          </span>
+          <span>
+            {liveState.transcriptionRequests.toLocaleString()} of{" "}
+            {MAX_TRANSCRIPTION_REQUESTS.toLocaleString()} transcription requests
+          </span>
+        </div>
+        <p className="usageNote">
+          This does not include Groq usage from other browsers, apps, or sessions.
+        </p>
       </section>
 
       <div className="dashboardGrid">

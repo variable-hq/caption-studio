@@ -2,6 +2,9 @@ import type { LanguageLocale } from "@/domain/languages";
 
 export const AUDIO_CHUNK_MS = 4_000;
 export const MAX_LIVE_SESSION_MS = 90 * 60 * 1_000;
+export const MAX_TRANSCRIPTION_REQUESTS = Math.floor(
+  MAX_LIVE_SESSION_MS / AUDIO_CHUNK_MS,
+);
 export const MAX_CAPTION_EVENTS = 1_400;
 
 export type CaptionHorizontalAlign = "left" | "center" | "right";
@@ -37,6 +40,8 @@ export interface LiveSessionState {
   message: string;
   sequence: number;
   droppedChunks: number;
+  transcriptionRequests: number;
+  sessionStartedAt: string | null;
   latestSourceText: string;
   latestPublicText: string;
   lastLatencyMs: number | null;

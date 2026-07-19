@@ -5,9 +5,19 @@ import {
   parseModerationInput,
   preferredTermMap,
 } from "@/live/config";
-import { normalizeCaptionStyle } from "@/live/contracts";
+import {
+  AUDIO_CHUNK_MS,
+  MAX_LIVE_SESSION_MS,
+  MAX_TRANSCRIPTION_REQUESTS,
+  normalizeCaptionStyle,
+} from "@/live/contracts";
 
 describe("live caption configuration", () => {
+  it("derives the session transcription request cap from the audio cadence", () => {
+    expect(MAX_TRANSCRIPTION_REQUESTS).toBe(1_350);
+    expect(MAX_TRANSCRIPTION_REQUESTS).toBe(MAX_LIVE_SESSION_MS / AUDIO_CHUNK_MS);
+  });
+
   it("parses recognition hints and target-language preferred terms", () => {
     const glossary = parseGlossaryInput(
       "Jesus Christ => Yesus Kristus, Nebuchadnezzar",
