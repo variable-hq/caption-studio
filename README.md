@@ -17,8 +17,8 @@ coordination run outside the operator's computer.
 4. The app translates captions into the chosen target language.
 5. Church-specific names, biblical terms, and configured keywords improve recognition and translation.
 6. A configurable moderation filter masks selected words in the public captions.
-7. The operator adjusts 10–72px font size, font family, text color, background
-   transparency, and horizontal or vertical placement.
+7. The operator adjusts 10–72px font size, font family, text color, per-line
+   highlight transparency, and horizontal or vertical placement.
 8. OBS loads a read-only browser-source URL and displays the live captions.
 9. If recording is enabled, the sermon transcript is stored and can produce a reviewable summary with biblical context.
 
@@ -43,6 +43,7 @@ language. Phase 1 assumes Mandarin; Cantonese requires a separate future decisio
 - Translation into one selected target language per session
 - Church glossary and keyword boosting
 - Configurable public-caption word filtering
+- Browser-local saved caption display preferences
 - Transparent, reconnecting OBS browser overlay with a revocable session token
 - Optional sermon transcript archive and AI-assisted summary
 - Human review controls for captions, summaries, and biblical references

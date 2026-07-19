@@ -11,10 +11,12 @@ import {
   type SourceLanguage,
 } from "@/domain/languages";
 import { parseGlossaryInput } from "@/live/config";
-import type { CaptionStyle } from "@/live/contracts";
+import { normalizeCaptionStyle, type CaptionStyle } from "@/live/contracts";
 import { useLiveCaptionSession } from "@/live/use-live-caption-session";
 
 type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
+
+const CAPTION_PREFERENCE_KEY = "church-live-caption:caption-style:v1";
 
 const SAMPLE_CAPTIONS: Record<LanguageLocale, string> = {
   en: "Grace and peace be with you.",
@@ -57,6 +59,8 @@ export default function OperatorDashboard() {
     useState<CaptionStyle["verticalAlign"]>("bottom");
   const [fontFamily, setFontFamily] =
     useState<CaptionStyle["fontFamily"]>("sans-serif");
+  const [savedStyleFingerprint, setSavedStyleFingerprint] = useState("");
+  const [preferenceError, setPreferenceError] = useState("");
   const [keywordText, setKeywordText] = useState(
     "Jesus Christ, Holy Spirit, Bethlehem",
   );
@@ -87,6 +91,10 @@ export default function OperatorDashboard() {
     () => ({ sourceLanguage, targetLanguage, keywordText, filterText, style }),
     [filterText, keywordText, sourceLanguage, style, targetLanguage],
   );
+  const styleFingerprint = useMemo(
+    () => JSON.stringify(normalizeCaptionStyle(style)),
+    [style],
+  );
   const {
     devices,
     selectedDeviceId,
@@ -114,6 +122,38 @@ export default function OperatorDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    let saved: CaptionStyle | null = null;
+    let loadError = "";
+    try {
+      const stored = window.localStorage.getItem(CAPTION_PREFERENCE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as unknown;
+      if (!parsed || typeof parsed !== "object") {
+        throw new Error("Saved caption preferences are invalid.");
+      }
+      saved = normalizeCaptionStyle(parsed as Partial<CaptionStyle>);
+    } catch {
+      loadError = "Saved preferences could not be loaded.";
+    }
+    const loaded = saved;
+    const timeout = window.setTimeout(() => {
+      if (!loaded) {
+        setPreferenceError(loadError);
+        return;
+      }
+      setFontSize(loaded.fontSize);
+      setTextColor(loaded.textColor);
+      setBackgroundColor(loaded.backgroundColor);
+      setBackgroundTransparency(loaded.backgroundTransparency);
+      setHorizontalAlign(loaded.horizontalAlign);
+      setVerticalAlign(loaded.verticalAlign);
+      setFontFamily(loaded.fontFamily);
+      setSavedStyleFingerprint(JSON.stringify(loaded));
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
   const keywordCount = useMemo(
     () => parseGlossaryInput(keywordText, targetLanguage).length,
     [keywordText, targetLanguage],
@@ -132,6 +172,18 @@ export default function OperatorDashboard() {
     await navigator.clipboard.writeText(url);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1_500);
+  };
+
+  const saveCaptionPreferences = () => {
+    try {
+      const normalized = normalizeCaptionStyle(style);
+      const serialized = JSON.stringify(normalized);
+      window.localStorage.setItem(CAPTION_PREFERENCE_KEY, serialized);
+      setSavedStyleFingerprint(serialized);
+      setPreferenceError("");
+    } catch {
+      setPreferenceError("Caption preferences could not be saved in this browser.");
+    }
   };
 
   return (
@@ -310,16 +362,22 @@ export default function OperatorDashboard() {
               data-testid="caption-preview"
               style={{
                 color: textColor,
-                backgroundColor: transparentBackground(
-                  backgroundColor,
-                  backgroundTransparency,
-                ),
                 fontFamily: CAPTION_FONT_STACKS[fontFamily],
                 fontSize: `${fontSize}px`,
                 textAlign: horizontalAlign,
               }}
             >
-              {previewCaption}
+              <span
+                className="captionPreviewText"
+                style={{
+                  backgroundColor: transparentBackground(
+                    backgroundColor,
+                    backgroundTransparency,
+                  ),
+                }}
+              >
+                {previewCaption}
+              </span>
             </div>
           </div>
           {liveState.latestSourceText ? (
@@ -414,6 +472,23 @@ export default function OperatorDashboard() {
                 }
               />
             </label>
+          </div>
+          <div className="captionPreferenceActions">
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={saveCaptionPreferences}
+            >
+              Save caption preferences
+            </button>
+            <p aria-live="polite" className={preferenceError ? "errorText" : "helpText"}>
+              {preferenceError ||
+                (savedStyleFingerprint === styleFingerprint
+                  ? "Saved on this browser."
+                  : savedStyleFingerprint
+                    ? "Caption preferences have unsaved changes."
+                    : "Caption preferences are not saved yet.")}
+            </p>
           </div>
 
           {liveState.session ? (

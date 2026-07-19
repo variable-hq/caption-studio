@@ -5,18 +5,19 @@ const OVERLAY_DOCUMENT = `<!doctype html>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Church Live Caption Overlay</title>
   <style>
-    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:Arial,Helvetica,sans-serif}.stage{display:flex;align-items:flex-end;justify-content:center;width:100%;height:100%;padding:clamp(18px,4vw,64px)}.caption{width:min(1500px,100%);border-radius:12px;padding:10px 18px 14px;text-align:center;font-size:48px;font-weight:750;line-height:1.18;text-wrap:balance;text-shadow:0 2px 5px rgba(0,0,0,.68)}
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:Arial,Helvetica,sans-serif}.stage{display:flex;align-items:flex-end;justify-content:center;width:100%;height:100%;padding:clamp(18px,4vw,64px)}.caption{width:min(1500px,100%);padding:10px 18px 14px;text-align:center;font-size:48px;font-weight:750;line-height:1.18;text-wrap:balance;text-shadow:0 2px 5px rgba(0,0,0,.68)}.captionText{border-radius:.18em;padding:.12em .3em .16em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
   </style>
 </head>
 <body>
-  <main class="stage"><div class="caption" aria-live="polite"></div></main>
+  <main class="stage"><div class="caption" aria-live="polite"><span class="captionText"></span></div></main>
   <script>
     (()=>{
       const stage=document.querySelector(".stage");
       const caption=document.querySelector(".caption");
+      const captionText=document.querySelector(".captionText");
       const value=location.hash.slice(1);
       const separator=value.indexOf(".");
-      if(separator<1){caption.textContent="This OBS caption link is invalid or expired.";return}
+      if(separator<1){captionText.textContent="This OBS caption link is invalid or expired.";return}
       const session=value.slice(0,separator);
       const token=value.slice(separator+1);
       let attempt=0;
@@ -34,7 +35,7 @@ const OVERLAY_DOCUMENT = `<!doctype html>
         caption.style.color=/^#[0-9a-f]{6}$/i.test(style.textColor||"")?style.textColor:"#ffffff";
         const background=/^#[0-9a-f]{6}$/i.test(style.backgroundColor||"")?style.backgroundColor:"#101827";
         const transparency=Math.max(0,Math.min(100,Number(style.backgroundTransparency)||0));
-        caption.style.backgroundColor=withTransparency(background,transparency);
+        captionText.style.backgroundColor=withTransparency(background,transparency);
         caption.style.textAlign=["left","center","right"].includes(style.horizontalAlign)?style.horizontalAlign:"center";
         caption.style.fontFamily=fontFamilies[style.fontFamily]||fontFamilies["sans-serif"];
         stage.style.alignItems={top:"flex-start",middle:"center",bottom:"flex-end"}[style.verticalAlign]||"flex-end";
@@ -42,9 +43,9 @@ const OVERLAY_DOCUMENT = `<!doctype html>
       const show=event=>{
         if(!event||event.sequence<=lastSequence)return;
         lastSequence=event.sequence;
-        caption.textContent=event.publicText||"";
+        captionText.textContent=event.publicText||"";
         applyStyle(event.style);
-        caption.style.backgroundColor=event.publicText?caption.style.backgroundColor:"transparent";
+        if(!event.publicText)captionText.style.backgroundColor="transparent";
       };
       const connect=()=>{
         if(stopped)return;
@@ -54,13 +55,13 @@ const OVERLAY_DOCUMENT = `<!doctype html>
         socket.onmessage=message=>{
           const payload=JSON.parse(String(message.data));
           applyStyle(payload.style);
-          if(payload.caption)show(payload.caption);else if(!caption.textContent)caption.style.backgroundColor="transparent";
+          if(payload.caption)show(payload.caption);else if(!captionText.textContent)captionText.style.backgroundColor="transparent";
         };
         socket.onclose=event=>{
-          if(event.code===1000||event.code===1008){stopped=true;caption.textContent=event.code===1008?"This OBS caption link is invalid or expired.":"";return}
-          if(attempt>=5){stopped=true;caption.textContent="This OBS caption link is invalid, expired, or unavailable.";return}
-          caption.textContent="Caption connection interrupted. Reconnecting…";
-          caption.style.backgroundColor="transparent";
+          if(event.code===1000||event.code===1008){stopped=true;captionText.textContent=event.code===1008?"This OBS caption link is invalid or expired.":"";captionText.style.backgroundColor="transparent";return}
+          if(attempt>=5){stopped=true;captionText.textContent="This OBS caption link is invalid, expired, or unavailable.";captionText.style.backgroundColor="transparent";return}
+          captionText.textContent="Caption connection interrupted. Reconnecting…";
+          captionText.style.backgroundColor="transparent";
           attempt+=1;
           setTimeout(connect,Math.min(10000,1000*2**attempt));
         };
