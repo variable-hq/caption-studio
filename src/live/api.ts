@@ -6,13 +6,18 @@ import { captionTokenHash } from "@/live/caption-room";
 import {
   MAX_LIVE_SESSION_MS,
   isLiveSessionId,
+  isLiveSessionControlAction,
   normalizeCaptionStyle,
   type CaptionStyle,
-  type LiveSessionControlAction,
   type LiveSessionControlRequest,
   type LiveSessionDetails,
 } from "@/live/contracts";
 import { isLanguageLocale } from "@/domain/languages";
+import {
+  InvalidRequestBodyError,
+  RequestBodyTooLargeError,
+  readJsonObject,
+} from "@/http/request-body";
 import { overlayDocumentResponse } from "@/live/overlay-document";
 
 interface DurableObjectStubLike {
@@ -35,68 +40,11 @@ const JSON_HEADERS = {
   "content-type": "application/json",
   "cache-control": "no-store",
 };
-const LIVE_SESSION_CONTROL_ACTIONS: LiveSessionControlAction[] = [
-  "pause",
-  "resume",
-  "clear",
-  "show-test",
-];
-
-class RequestBodyTooLargeError extends Error {}
-class InvalidRequestBodyError extends Error {}
-
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: JSON_HEADERS,
   });
-}
-
-async function readBody(request: Request, maximumBytes: number) {
-  const declaredLength = Number(request.headers.get("content-length") ?? 0);
-  if (declaredLength > maximumBytes) throw new RequestBodyTooLargeError();
-
-  if (!request.body) return "";
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let receivedBytes = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      receivedBytes += value.byteLength;
-      if (receivedBytes > maximumBytes) {
-        await reader.cancel();
-        throw new RequestBodyTooLargeError();
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  const body = new Uint8Array(receivedBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    body.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder().decode(body);
-}
-
-async function readJsonObject(request: Request, maximumBytes: number) {
-  const body = await readBody(request, maximumBytes);
-  if (!body) return {};
-  try {
-    const parsed = JSON.parse(body) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new InvalidRequestBodyError();
-    }
-    return parsed;
-  } catch (error) {
-    if (error instanceof InvalidRequestBodyError) throw error;
-    throw new InvalidRequestBodyError();
-  }
 }
 
 function randomToken() {
@@ -135,8 +83,6 @@ async function createSession(request: Request, env: LiveWorkerEnvironment) {
         tokenHash: await captionTokenHash(overlayToken),
         expiresAt,
         style,
-        paused: false,
-        lastSequence: 0,
       }),
     }),
   );
@@ -163,7 +109,7 @@ async function controlSession(
   const body = (await readJsonObject(request, 4_096)) as Partial<
     LiveSessionControlRequest
   >;
-  if (!body.action || !LIVE_SESSION_CONTROL_ACTIONS.includes(body.action)) {
+  if (!isLiveSessionControlAction(body.action)) {
     throw new InvalidRequestBodyError();
   }
 

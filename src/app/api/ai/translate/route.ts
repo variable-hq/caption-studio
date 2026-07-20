@@ -10,8 +10,13 @@ import {
   CloudAccessError,
   requireCloudAccess,
 } from "@/auth/cloudflare-access";
+import {
+  InvalidRequestBodyError,
+  RequestBodyTooLargeError,
+  readJsonObject,
+} from "@/http/request-body";
 
-const MAX_REQUEST_CHARACTERS = 32_000;
+const MAX_REQUEST_BYTES = 32_000;
 
 function errorResponse(error: unknown) {
   if (error instanceof CloudAccessError) {
@@ -26,26 +31,28 @@ function errorResponse(error: unknown) {
       },
     );
   }
+  if (error instanceof RequestBodyTooLargeError) {
+    return NextResponse.json(
+      { error: "The translation request is too large." },
+      { status: 413 },
+    );
+  }
+  if (error instanceof InvalidRequestBodyError) {
+    return NextResponse.json(
+      { error: "The translation request is invalid." },
+      { status: 400 },
+    );
+  }
   return NextResponse.json({ error: "Cloud translation failed." }, { status: 500 });
 }
 
 export async function POST(request: Request) {
   try {
     await requireCloudAccess(request);
-    const contentLength = Number(request.headers.get("content-length") ?? 0);
-    if (contentLength > MAX_REQUEST_CHARACTERS) {
-      return NextResponse.json({ error: "The translation request is too large." }, { status: 413 });
-    }
-    const rawBody = await request.text();
-    if (rawBody.length > MAX_REQUEST_CHARACTERS) {
-      return NextResponse.json({ error: "The translation request is too large." }, { status: 413 });
-    }
-    let body: Partial<TranslationRequest>;
-    try {
-      body = JSON.parse(rawBody) as Partial<TranslationRequest>;
-    } catch {
-      return NextResponse.json({ error: "The translation request is invalid." }, { status: 400 });
-    }
+    const body = (await readJsonObject(
+      request,
+      MAX_REQUEST_BYTES,
+    )) as Partial<TranslationRequest>;
     if (!body.text?.trim() || body.text.length > 4_000) {
       return NextResponse.json(
         { error: "Translation text must be between 1 and 4,000 characters." },
@@ -62,7 +69,9 @@ export async function POST(request: Request) {
     }
 
     const preferredTerms =
-      body.preferredTerms && typeof body.preferredTerms === "object"
+      body.preferredTerms &&
+      typeof body.preferredTerms === "object" &&
+      !Array.isArray(body.preferredTerms)
         ? Object.fromEntries(
             Object.entries(body.preferredTerms)
               .filter(

@@ -76,6 +76,27 @@ so deployed control behavior and a real 1920 × 1080 OBS Browser Source rehearsa
 post-merge gates. This original production smoke report remains evidence for the earlier
 baseline and does not retroactively claim the new controls were deployed or live-tested.
 
+### Post-control sanitization
+
+The subsequent sanitization pass removed unused provider response fields and redundant
+room-initialization values, consolidated the live-control allowlist, and moved JSON and
+multipart parsing behind one received-byte limiter. It also removed GitHub Actions as a
+build path in the preceding workflow cleanup; this pass documents the connected
+Cloudflare Workers build as the sole automatic publisher. Local validation on 20 July
+2026 produced:
+
+- 10 passing Vitest files with 49 tests, including received-byte, multipart, JSON-value,
+  content-type, audio-type, and AI-route boundary coverage;
+- TypeScript, strict unused local/parameter checks, ESLint, and `git diff --check` passes;
+- successful Next.js production and OpenNext Cloudflare builds;
+- zero known vulnerabilities reported by `npm audit`; and
+- local Worker route results of dashboard `200`, overlay `200`, malformed overlay
+  session `400`, and protected readiness `503` without local Access configuration.
+
+This sanitization result is local branch evidence only. It does not replace the required
+post-merge Cloudflare deployment check or the outstanding Durable Object and real OBS
+rehearsal.
+
 ## Not validated
 
 - quality for every supported source/target language, accent, or Chinese script;

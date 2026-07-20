@@ -329,7 +329,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
       const translation =
         detectedLanguage === current.targetLanguage
-          ? { text: sourceText, providerLatencyMs: 0 }
+          ? { text: sourceText }
           : await cloudClientRef.current.translate({
               text: sourceText,
               sourceLanguage: detectedLanguage,

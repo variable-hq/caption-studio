@@ -51,6 +51,8 @@ privacy, quota, and recovery thresholds in the deployed cloud environment.
 ## Stabilization and browser-level OBS handoff — completed
 
 - Removed dead local-provider code and kept dependencies minimal.
+- Kept GitHub as source review only and made the connected Cloudflare Workers build the
+  sole automatic build/deployment path.
 - Enforced request bounds from actual body content.
 - Reconciled README, architecture, product, roadmap, contribution, security, and ADRs
   with implemented behavior.

@@ -36,6 +36,8 @@ follow the [stakeholder test guide](docs/STAKEHOLDER_TEST_GUIDE.md).
 
 ```mermaid
 flowchart LR
+  Repo["Private GitHub repository<br/>source and pull requests only"] -->|"main push"| Build["Cloudflare Workers Builds<br/>OpenNext build and deploy"]
+  Build --> Worker
   Mic["Microphone or audio interface"] --> Browser["Operator browser<br/>MediaRecorder, queue, preview"]
   Access["Cloudflare Access<br/>approved operators"] --> Worker["Cloudflare Worker<br/>Next.js and protected APIs"]
   Browser -->|"4-second audio chunks over HTTPS"| Worker
@@ -45,6 +47,10 @@ flowchart LR
   Pipeline --> Room["Durable Object<br/>latest public caption only"]
   Room -->|"tokenized WebSocket"| OBS["OBS Browser Source<br/>self-contained overlay"]
 ```
+
+GitHub stores and reviews the source code but does not build or deploy it. The repository
+intentionally has no GitHub Actions workflow. A push to `main` is consumed by the
+connected Cloudflare Workers build, which owns the production OpenNext build and deploy.
 
 Cloudflare Access protects the dashboard, inference APIs, and operator session APIs.
 The two OBS paths bypass interactive Access because OBS cannot sign in; the Worker
@@ -112,6 +118,9 @@ npm run build
 npm run preview
 ```
 
+There is no GitHub Actions fallback. Contributors must run the relevant checks locally
+before review; a successful Cloudflare deployment is not a substitute for those checks.
+
 `npm run preview` still verifies the OpenNext/Worker bundle and non-Durable-Object routes.
 Wrangler is expected to warn that this internal Durable Object is unavailable locally.
 
@@ -148,8 +157,12 @@ an issue, or include it in screenshots. `wrangler.jsonc` declares the SQLite-bac
    Cloudflare Access policy.
 6. Add more-specific Access bypass applications for `/overlay*` and
    `/api/live/overlay*`; these routes have no AI capability and enforce the session token.
-7. Deploy with `npm run deploy` or an equivalent Cloudflare Workers Build.
-8. Verify the dashboard requires Access, provider readiness passes, a session can be
+7. Confirm the Cloudflare Workers build is connected to this repository and targets
+   `main`. Merge the reviewed change and verify that Cloudflare reports a successful
+   build and deployment. Owners may use `npm run deploy` only as a deliberate manual
+   recovery path.
+8. Verify the deployed revision, confirm the dashboard requires Access, provider
+   readiness passes, a session can be
    ended, an expired OBS URL fails, and no secret appears in browser developer tools.
 
 ## OBS Browser Source
