@@ -39,6 +39,12 @@ npm run build
 git diff --check
 ```
 
+This repository intentionally has no GitHub Actions workflow. Local validation is a
+required contributor responsibility: include the commands and results in the pull
+request. After merge, Cloudflare's connected Workers build—not GitHub—builds and deploys
+`main`. Do not add a GitHub-hosted build or deployment workflow without an explicit owner
+decision about duplicated compute, credentials, and cost.
+
 Use `npm run preview` when a change affects the Cloudflare runtime or the self-contained
 OBS route. It verifies the bundle and non-Durable-Object routes, but the current OpenNext
 local preview cannot run this internal Durable Object; test room creation, WebSockets,
@@ -83,6 +89,8 @@ the decision and tradeoffs in the issue, pull request, or an ADR.
 - Treat `/overlay*` and `/api/live/overlay*` as public network paths protected by an
   expiring, revocable session token.
 - Bound user input, audio, prompt context, queues, session duration, and provider calls.
+- Enforce request limits against bytes actually received before parsing JSON or multipart
+  bodies; do not trust `Content-Length` alone.
 - Do not add paid fallback, billing-enabled services, or persistent sermon storage
   without an explicit owner decision.
 - Do not log raw audio, caption text, glossary content, Access JWTs, or overlay tokens.

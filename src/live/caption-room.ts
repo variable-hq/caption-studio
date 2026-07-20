@@ -1,9 +1,9 @@
 import { isLanguageLocale } from "@/domain/languages";
 import {
   MAX_CAPTION_EVENTS,
+  isLiveSessionControlAction,
   normalizeCaptionStyle,
   type CaptionStyle,
-  type LiveSessionControlAction,
   type LiveSessionControlRequest,
   type LiveSessionControlResponse,
   type PublicCaptionEvent,
@@ -41,13 +41,6 @@ type StyleMutationResult =
 
 const JSON_HEADERS = { "content-type": "application/json" };
 const OVERLAY_PROTOCOL = "church-caption-v1";
-const CONTROL_ACTIONS: LiveSessionControlAction[] = [
-  "pause",
-  "resume",
-  "clear",
-  "show-test",
-];
-
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -240,7 +233,7 @@ export class CaptionRoom {
 
   private async controlSession(request: Request) {
     const body = (await request.json()) as Partial<LiveSessionControlRequest>;
-    if (!body.action || !CONTROL_ACTIONS.includes(body.action)) {
+    if (!isLiveSessionControlAction(body.action)) {
       return json({ error: "Invalid live-session control." }, 400);
     }
     const action = body.action;

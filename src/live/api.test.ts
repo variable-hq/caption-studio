@@ -52,12 +52,19 @@ describe("live caption worker API", () => {
     expect(overlayUrl.hash.split(".")[1]).toHaveLength(43);
     expect(fetch).toHaveBeenCalledOnce();
     const initialization = fetch.mock.calls[0][0] as Request;
-    await expect(initialization.json()).resolves.toMatchObject({
-      paused: false,
-      lastSequence: 0,
+    await expect(initialization.json()).resolves.toEqual({
+      tokenHash: expect.any(String),
+      expiresAt: expect.any(Number),
       style: {
+        fontSize: 52,
+        textColor: "#ffffff",
+        backgroundColor: "#101827",
+        backgroundTransparency: 0,
         horizontalMarginPercent: 4,
         verticalMarginPercent: 6,
+        horizontalAlign: "center",
+        verticalAlign: "bottom",
+        fontFamily: "sans-serif",
       },
     });
   });

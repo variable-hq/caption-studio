@@ -23,7 +23,24 @@ export interface CaptionStyle {
   fontFamily: CaptionFontFamily;
 }
 
-export type LiveSessionControlAction = "pause" | "resume" | "clear" | "show-test";
+export const LIVE_SESSION_CONTROL_ACTIONS = [
+  "pause",
+  "resume",
+  "clear",
+  "show-test",
+] as const;
+
+export type LiveSessionControlAction =
+  (typeof LIVE_SESSION_CONTROL_ACTIONS)[number];
+
+export function isLiveSessionControlAction(
+  value: unknown,
+): value is LiveSessionControlAction {
+  return (
+    typeof value === "string" &&
+    LIVE_SESSION_CONTROL_ACTIONS.some((action) => action === value)
+  );
+}
 
 export interface LiveSessionControlRequest {
   action: LiveSessionControlAction;

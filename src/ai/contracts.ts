@@ -1,12 +1,9 @@
 import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
 
-export type ProviderMode = "cloud-free" | "paid";
+export type ProviderMode = "cloud-free";
 
 export interface TranscriptSegment {
-  id: string;
   text: string;
-  startedAtMs: number;
-  endedAtMs: number;
   isFinal: boolean;
   detectedLanguage?: LanguageLocale;
 }
@@ -27,7 +24,6 @@ export interface TranslationRequest {
 
 export interface TranslationResult {
   text: string;
-  providerLatencyMs: number;
 }
 
 export interface TranscriptionProvider {

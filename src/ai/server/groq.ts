@@ -19,9 +19,6 @@ interface GroqTranscriptResponse {
   text?: string;
   language?: string;
   segments?: Array<{
-    id?: number;
-    start?: number;
-    end?: number;
     text?: string;
   }>;
 }
@@ -226,7 +223,6 @@ export async function transcribeWithGroq(input: {
     if (speechCode) form.append("language", speechCode);
   }
 
-  const startedAt = performance.now();
   const response = await groqFetch("/audio/transcriptions", {
     method: "POST",
     body: form,
@@ -238,11 +234,8 @@ export async function transcribeWithGroq(input: {
   if (payload.segments?.length) {
     return payload.segments
       .filter((segment) => segment.text?.trim())
-      .map((segment, index) => ({
-        id: `groq-${Date.now()}-${segment.id ?? index}`,
+      .map((segment) => ({
         text: segment.text!.trim(),
-        startedAtMs: Math.round((segment.start ?? 0) * 1000),
-        endedAtMs: Math.round((segment.end ?? 0) * 1000),
         isFinal: true,
         detectedLanguage,
       }));
@@ -253,10 +246,7 @@ export async function transcribeWithGroq(input: {
 
   return [
     {
-      id: `groq-${Date.now()}-0`,
       text,
-      startedAtMs: 0,
-      endedAtMs: Math.round(performance.now() - startedAt),
       isFinal: true,
       detectedLanguage,
     },
@@ -271,7 +261,6 @@ export async function translateWithGroq(
     throw new GroqProviderError("Unsupported language selection.", 400);
   }
 
-  const startedAt = performance.now();
   const response = await groqFetch("/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -290,8 +279,5 @@ export async function translateWithGroq(
     throw new GroqProviderError("The cloud translation response was empty.", 502);
   }
 
-  return {
-    text,
-    providerLatencyMs: Math.round(performance.now() - startedAt),
-  };
+  return { text };
 }

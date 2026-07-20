@@ -24,6 +24,23 @@ The operator's Mac captures audio in the browser but does not run transcription 
 translation models. The prototype has no application database, object storage, sermon
 archive, or summary service.
 
+## Source and deployment path
+
+```mermaid
+flowchart LR
+  Contributor["Contributor workstation<br/>local validation"] --> PR["Private GitHub repository<br/>branch and pull request"]
+  PR -->|"merge to main"| Build["Cloudflare Workers Builds"]
+  Build --> Bundle["OpenNext Worker and static assets"]
+  Bundle --> Runtime["Cloudflare Worker<br/>production runtime"]
+```
+
+GitHub is the source-review system only. The repository has no GitHub Actions workflow,
+so a push does not consume a GitHub-hosted runner or deploy from GitHub. Cloudflare's
+connected build watches `main`, creates the OpenNext bundle, and publishes the Worker.
+Cloudflare deployment status is therefore authoritative; contributors run tests, strict
+type checking, lint, and builds locally before merge. The manual `npm run deploy` command
+is an owner-controlled recovery path, not the normal collaboration flow.
+
 ## Components
 
 ### Operator browser
@@ -69,6 +86,12 @@ Production protection is layered:
 Access verification checks issuer and audience against Cloudflare's remote JWKS. JWKS
 loaders are cached by team domain at module scope.
 
+All JSON and multipart operator requests pass through a shared streaming body reader.
+It rejects an oversized declared `Content-Length`, also counts the bytes actually
+received when that header is absent or inaccurate, and parses only after the byte limit
+passes. Route-specific validation then bounds audio, languages, keyword hints, prompt
+context, caption text, control actions, and styles.
+
 ### AI provider layer
 
 Phase 1 uses GroqCloud:
@@ -79,9 +102,10 @@ Phase 1 uses GroqCloud:
 The browser talks only to same-origin APIs and never receives the Groq key. The server
 performs a model-availability check before starting a session.
 
-Transcription is bounded to a 3 MB audio chunk, at most 40 keyword hints, 100 characters
-per hint, and a 900-character provider prompt. The prompt asks Whisper to preserve
-biblical names, Bible books, verse numbers, and church terms.
+Transcription accepts only WebM, Ogg, or MP4 audio and is bounded to a 3 MB chunk, at
+most 40 keyword hints, 100 characters per hint, a bounded multipart request, and a
+900-character provider prompt. The prompt asks Whisper to preserve biblical names,
+Bible books, verse numbers, and church terms.
 
 Translation is skipped when source and target are the same. Otherwise the model receives
 the current source caption, up to four recent source captions, at most 60 preferred-term
@@ -90,8 +114,10 @@ told to return translation only and not invent scripture, doctrine, facts, or me
 Provider calls have browser and server timeouts.
 
 `TranscriptionProvider` and `TranslationProvider` keep the client independent of a
-specific vendor response shape. Summary interfaces will be introduced only when the
-archive and review design is approved.
+specific vendor response shape. Only fields used by the live pipeline cross the
+same-origin API boundary; unused provider segment identifiers, timings, and provider-only
+latency fields are discarded. Summary interfaces will be introduced only when the archive
+and review design is approved.
 
 ### Deterministic caption pipeline
 

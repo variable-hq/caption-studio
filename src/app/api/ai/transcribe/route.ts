@@ -9,9 +9,15 @@ import {
   CloudAccessError,
   requireCloudAccess,
 } from "@/auth/cloudflare-access";
+import {
+  InvalidRequestBodyError,
+  RequestBodyTooLargeError,
+  readFormData,
+} from "@/http/request-body";
 
 const MAX_AUDIO_BYTES = 3 * 1024 * 1024;
 const MAX_REQUEST_BYTES = MAX_AUDIO_BYTES + 16 * 1024;
+const SUPPORTED_AUDIO_TYPES = new Set(["audio/mp4", "audio/ogg", "audio/webm"]);
 
 function errorResponse(error: unknown) {
   if (error instanceof CloudAccessError) {
@@ -26,20 +32,25 @@ function errorResponse(error: unknown) {
       },
     );
   }
+  if (error instanceof RequestBodyTooLargeError) {
+    return NextResponse.json(
+      { error: "The transcription request is too large." },
+      { status: 413 },
+    );
+  }
+  if (error instanceof InvalidRequestBodyError) {
+    return NextResponse.json(
+      { error: "The transcription request is invalid." },
+      { status: 400 },
+    );
+  }
   return NextResponse.json({ error: "Cloud transcription failed." }, { status: 500 });
 }
 
 export async function POST(request: Request) {
   try {
     await requireCloudAccess(request);
-    const contentLength = Number(request.headers.get("content-length") ?? 0);
-    if (contentLength > MAX_REQUEST_BYTES) {
-      return NextResponse.json(
-        { error: "The transcription request is too large." },
-        { status: 413 },
-      );
-    }
-    const form = await request.formData();
+    const form = await readFormData(request, MAX_REQUEST_BYTES);
     const audio = form.get("audio");
     const sourceLanguage = String(form.get("sourceLanguage") ?? "auto");
     const keywordHintsValue = String(form.get("keywordHints") ?? "[]");
@@ -53,6 +64,13 @@ export async function POST(request: Request) {
         { status: 413 },
       );
     }
+    const audioType = audio.type.split(";", 1)[0].toLowerCase();
+    if (!SUPPORTED_AUDIO_TYPES.has(audioType)) {
+      return NextResponse.json(
+        { error: "Audio must be WebM, Ogg, or MP4." },
+        { status: 415 },
+      );
+    }
     if (sourceLanguage !== "auto" && !isLanguageLocale(sourceLanguage)) {
       return NextResponse.json({ error: "Unsupported source language." }, { status: 400 });
     }
@@ -64,12 +82,11 @@ export async function POST(request: Request) {
     let keywordHints: string[] = [];
     try {
       const parsed = JSON.parse(keywordHintsValue) as unknown;
-      if (Array.isArray(parsed)) {
-        keywordHints = parsed
-          .filter((value): value is string => typeof value === "string")
-          .slice(0, 40)
-          .map((value) => value.slice(0, 100));
-      }
+      if (!Array.isArray(parsed)) throw new InvalidRequestBodyError();
+      keywordHints = parsed
+        .filter((value): value is string => typeof value === "string")
+        .slice(0, 40)
+        .map((value) => value.slice(0, 100));
     } catch {
       return NextResponse.json({ error: "Keyword hints are invalid." }, { status: 400 });
     }

@@ -78,6 +78,10 @@ setting.
 
 ## Deployment requirements
 
+- Keep deployment credentials and runtime secrets in Cloudflare. GitHub stores source
+  and pull requests only; the repository has no GitHub Actions deployment workflow.
+- Treat the connected Cloudflare build as the production publisher and verify its
+  deployed revision after every merge to `main`.
 - Store `GROQ_API_KEY` only as an encrypted Worker secret.
 - Never expose secrets through `NEXT_PUBLIC_` variables or client bundles.
 - Configure and verify both the Access audience and team domain in production.
@@ -100,7 +104,8 @@ setting.
   release; assess findings rather than applying unreviewed force upgrades.
 - Remove unused packages and dead provider code instead of leaving dormant attack
   surface.
-- Validate request size from the received body, not only `Content-Length`.
+- Validate request size from the received body before parsing JSON or multipart data,
+  not only from `Content-Length`.
 - Keep provider prompts, recent context, glossary entries, and output sizes bounded.
 - Avoid raw exception details in public responses.
 
