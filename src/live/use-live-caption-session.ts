@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CloudProviderClient } from "@/ai/cloud-provider-client";
 import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
+import { chooseAudioInputDevice } from "@/live/audio-devices";
 import { parseGlossaryInput, parseModerationInput, preferredTermMap } from "@/live/config";
 import {
   AUDIO_CHUNK_MS,
@@ -112,11 +113,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     setMicrophoneState("idle");
   }, []);
 
-  const refreshDevices = useCallback(async () => {
+  const refreshDevices = useCallback(async (activeDeviceId?: string) => {
     const availableDevices = await navigator.mediaDevices.enumerateDevices();
     const microphones = availableDevices.filter(({ kind }) => kind === "audioinput");
     setDevices(microphones);
-    setSelectedDeviceId((current) => current || microphones[0]?.deviceId || "");
+    setSelectedDeviceId((current) =>
+      chooseAudioInputDevice(microphones, current, activeDeviceId),
+    );
   }, []);
 
   const chooseDevice = useCallback(
@@ -170,7 +173,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         audioContextRef.current = audioContext;
         updateLevel();
         setMicrophoneState("active");
-        await refreshDevices();
+        await refreshDevices(stream.getAudioTracks()[0]?.getSettings().deviceId);
         return stream;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Microphone access failed.";
@@ -220,6 +223,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
   const processChunk = useCallback(
     async (audio: Blob) => {
+      // This measures cloud processing after MediaRecorder completes a four-second chunk.
+      // It intentionally excludes recording time and is not spoken-to-screen latency.
       const startedAt = performance.now();
       const current = settingsRef.current;
       const glossary = parseGlossaryInput(current.keywordText, current.targetLanguage);

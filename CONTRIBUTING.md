@@ -11,6 +11,8 @@ the code or sermon data.
 - Use an issue for significant features, bugs, product decisions, or provider changes.
 - Use only synthetic audio or recordings and transcripts explicitly approved for this
   project.
+- Follow [the stakeholder test guide](docs/STAKEHOLDER_TEST_GUIDE.md) for deployed
+  rehearsals and keep the test evidence content-free.
 - Never put credentials, active overlay URLs, private names, or sermon content in Git,
   issues, pull requests, test fixtures, screenshots, logs, or chat.
 

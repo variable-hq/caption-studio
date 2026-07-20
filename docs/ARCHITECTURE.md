@@ -37,7 +37,7 @@ The Next.js client provides:
 - a two-chunk in-memory queue to bound latency and memory use;
 - protected source and moderated public-caption previews;
 - active-session time, transcription request count, dropped chunk count, and last
-  end-to-end latency;
+  post-recording cloud processing latency;
 - an OBS URL copy action and session end action; and
 - display-preference persistence in browser `localStorage`.
 
@@ -126,6 +126,10 @@ The overlay document has no Next.js asset dependency, provider credential, opera
 control, history request, or archive capability. It renders a transparent 1920 × 1080
 friendly canvas and reconnects with bounded exponential delay.
 
+The overlay retries abnormal connection closures five times with delays of 2, 4, 8, 10,
+and 10 seconds. A revoked or otherwise unreachable URL can therefore show a reconnecting
+message for roughly 34 seconds before it settles on its terminal unavailable message.
+
 ## Language representation
 
 The product locale is kept separate from Groq's speech code:
@@ -167,6 +171,9 @@ usage metadata remains outside this application's control.
 - The session ends after 90 minutes and allows at most 1,400 caption events.
 - Four-second chunks produce at most about 1,350 transcription attempts in one complete
   session, before skipped/silent results are considered.
+- The dashboard latency metric starts after a four-second chunk finishes recording. It
+  measures upload, transcription, translation, processing, and publication; approximate
+  spoken-to-screen time is four seconds plus that value and rendering delay.
 - When two chunks are already queued, a new chunk is dropped and the operator is warned.
 - A transcription quota, authentication, language-detection, or session-expiry error
   ends the session.
