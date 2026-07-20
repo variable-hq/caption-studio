@@ -17,22 +17,12 @@ import {
   normalizeCaptionStyle,
   type CaptionStyle,
 } from "@/live/contracts";
+import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { useLiveCaptionSession } from "@/live/use-live-caption-session";
 
 type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
 
 const CAPTION_PREFERENCE_KEY = "church-live-caption:caption-style:v1";
-
-const SAMPLE_CAPTIONS: Record<LanguageLocale, string> = {
-  en: "Grace and peace be with you.",
-  id: "Kasih karunia dan damai sejahtera menyertai kamu.",
-  ja: "恵みと平安があなたがたにありますように。",
-  "ko-KR": "은혜와 평강이 여러분과 함께하기를 바랍니다.",
-  "tl-PH": "Sumainyo ang biyaya at kapayapaan.",
-  "zh-Hans": "愿恩典与平安与你们同在。",
-  "zh-Hant": "願恩典與平安與你們同在。",
-  vi: "Nguyện ân điển và bình an ở cùng anh chị em.",
-};
 
 const CAPTION_FONT_STACKS: Record<CaptionStyle["fontFamily"], string> = {
   "sans-serif": 'Arial, Helvetica, sans-serif',
@@ -58,6 +48,8 @@ export default function OperatorDashboard() {
   const [textColor, setTextColor] = useState("#ffffff");
   const [backgroundColor, setBackgroundColor] = useState("#101827");
   const [backgroundTransparency, setBackgroundTransparency] = useState(0);
+  const [horizontalMarginPercent, setHorizontalMarginPercent] = useState(4);
+  const [verticalMarginPercent, setVerticalMarginPercent] = useState(6);
   const [horizontalAlign, setHorizontalAlign] =
     useState<CaptionStyle["horizontalAlign"]>("center");
   const [verticalAlign, setVerticalAlign] =
@@ -71,6 +63,7 @@ export default function OperatorDashboard() {
   );
   const [filterText, setFilterText] = useState("");
   const [copied, setCopied] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const [usageClock, setUsageClock] = useState(() => Date.now());
 
   const style = useMemo(
@@ -79,6 +72,8 @@ export default function OperatorDashboard() {
       textColor,
       backgroundColor,
       backgroundTransparency,
+      horizontalMarginPercent,
+      verticalMarginPercent,
       horizontalAlign,
       verticalAlign,
       fontFamily,
@@ -89,8 +84,10 @@ export default function OperatorDashboard() {
       fontFamily,
       fontSize,
       horizontalAlign,
+      horizontalMarginPercent,
       textColor,
       verticalAlign,
+      verticalMarginPercent,
     ],
   );
   const liveSettings = useMemo(
@@ -109,8 +106,14 @@ export default function OperatorDashboard() {
     microphoneError,
     level,
     liveState,
+    controlAction,
+    endRetryRequired,
     startAudioTest,
     startSession,
+    pauseSession,
+    resumeSession,
+    clearCaption,
+    showTestCaption,
     stopSession,
   } = useLiveCaptionSession(liveSettings);
 
@@ -152,6 +155,8 @@ export default function OperatorDashboard() {
       setTextColor(loaded.textColor);
       setBackgroundColor(loaded.backgroundColor);
       setBackgroundTransparency(loaded.backgroundTransparency);
+      setHorizontalMarginPercent(loaded.horizontalMarginPercent);
+      setVerticalMarginPercent(loaded.verticalMarginPercent);
       setHorizontalAlign(loaded.horizontalAlign);
       setVerticalAlign(loaded.verticalAlign);
       setFontFamily(loaded.fontFamily);
@@ -168,9 +173,15 @@ export default function OperatorDashboard() {
     sourceLanguage === "auto"
       ? "Automatic detection"
       : LANGUAGE_OPTIONS.find(({ locale }) => locale === sourceLanguage)?.label;
+  const hasActiveSession = Boolean(liveState.session);
   const isLive = liveState.status === "live";
-  const isBusy = liveState.status === "starting" || liveState.status === "stopping";
-  const previewCaption = liveState.latestPublicText || SAMPLE_CAPTIONS[targetLanguage];
+  const isPaused = liveState.status === "paused";
+  const isBusy = ["starting", "pausing", "resuming", "ending"].includes(
+    liveState.status,
+  );
+  const previewCaption = hasActiveSession
+    ? liveState.latestPublicText
+    : SAMPLE_CAPTIONS[targetLanguage];
   const sessionStartedMs = liveState.sessionStartedAt
     ? new Date(liveState.sessionStartedAt).getTime()
     : null;
@@ -190,10 +201,10 @@ export default function OperatorDashboard() {
   );
 
   useEffect(() => {
-    if (!isLive) return;
+    if (!hasActiveSession) return;
     const interval = window.setInterval(() => setUsageClock(Date.now()), 1_000);
     return () => window.clearInterval(interval);
-  }, [isLive]);
+  }, [hasActiveSession]);
 
   const copyOverlayUrl = async () => {
     const url = liveState.session?.overlayUrl;
@@ -247,24 +258,19 @@ export default function OperatorDashboard() {
             free-tier headroom.
           </p>
         </div>
-        {isLive ? (
-          <button className="dangerButton" onClick={() => void stopSession()}>
-            End caption session
-          </button>
-        ) : (
-          <button
-            className="primaryButton"
-            disabled={cloudState !== "ready" || isBusy}
-            onClick={() => void startSession()}
-          >
-            {isBusy ? "Starting securely…" : "Start caption session"}
-          </button>
-        )}
       </section>
 
       <section className={`sessionBanner ${liveState.status}`} aria-live="polite">
         <div>
-          <strong>{isLive ? "Live caption session" : "Session status"}</strong>
+          <strong>
+            {isLive
+              ? "Live caption session"
+              : isPaused
+                ? "Paused caption session"
+                : hasActiveSession
+                  ? "Caption session needs attention"
+                  : "Session status"}
+          </strong>
           <p>{liveState.message}</p>
         </div>
         <div className="sessionMetrics">
@@ -275,6 +281,100 @@ export default function OperatorDashboard() {
               : `${liveState.lastLatencyMs} ms processing`}
           </span>
           <span>{liveState.droppedChunks} skipped</span>
+        </div>
+      </section>
+
+      <section className="liveControls" aria-labelledby="live-controls-title">
+        <div>
+          <strong id="live-controls-title">Live controls</strong>
+          <p>
+            Pause keeps this session and OBS URL. End permanently revokes the URL.
+          </p>
+        </div>
+        <div className="liveControlActions">
+          {!hasActiveSession ? (
+            <button
+              className="primaryButton"
+              disabled={cloudState !== "ready" || isBusy}
+              onClick={() => {
+                setConfirmEnd(false);
+                void startSession();
+              }}
+            >
+              {liveState.status === "starting" ? "Starting securely…" : "Start session"}
+            </button>
+          ) : (
+            <>
+              {isPaused || liveState.status === "resuming" ? (
+                <button
+                  className="primaryButton compactButton"
+                  disabled={isBusy || controlAction !== null}
+                  onClick={() => void resumeSession()}
+                >
+                  {liveState.status === "resuming" ? "Resuming…" : "Resume capture"}
+                </button>
+              ) : (
+                <button
+                  className="secondaryButton compactButton"
+                  disabled={isBusy || controlAction !== null}
+                  onClick={() => void pauseSession()}
+                >
+                  {liveState.status === "pausing"
+                    ? "Pausing…"
+                    : liveState.status === "error"
+                      ? "Retry pause"
+                      : "Pause capture"}
+                </button>
+              )}
+              <button
+                className="secondaryButton compactButton"
+                disabled={isBusy || controlAction !== null}
+                onClick={() => void clearCaption()}
+              >
+                {controlAction === "clear" ? "Clearing…" : "Clear caption"}
+              </button>
+              <button
+                className="secondaryButton compactButton"
+                disabled={!isPaused || isBusy || controlAction !== null}
+                onClick={() => void showTestCaption()}
+              >
+                {controlAction === "show-test" ? "Showing…" : "Show test caption"}
+              </button>
+              {confirmEnd ? (
+                <span className="endConfirmation">
+                  <button
+                    className="secondaryButton compactButton"
+                    disabled={isBusy}
+                    onClick={() => setConfirmEnd(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="dangerButton compactButton"
+                    disabled={isBusy || controlAction !== null}
+                    onClick={() => {
+                      setConfirmEnd(false);
+                      void stopSession();
+                    }}
+                  >
+                    {liveState.status === "ending" ? "Ending…" : "Confirm end"}
+                  </button>
+                </span>
+              ) : (
+                <button
+                  className="dangerButton compactButton"
+                  disabled={isBusy || controlAction !== null}
+                  onClick={() => setConfirmEnd(true)}
+                >
+                  {liveState.status === "ending"
+                    ? "Ending…"
+                    : endRetryRequired
+                      ? "Retry end"
+                      : "End session"}
+                </button>
+              )}
+            </>
+          )}
         </div>
       </section>
 
@@ -370,7 +470,7 @@ export default function OperatorDashboard() {
               <select
                 data-testid="source-language"
                 value={sourceLanguage}
-                disabled={isLive || isBusy}
+                disabled={hasActiveSession || isBusy}
                 onChange={(event) => setSourceLanguage(event.target.value as SourceLanguage)}
               >
                 <option value="auto">Auto detect</option>
@@ -386,7 +486,7 @@ export default function OperatorDashboard() {
               <select
                 data-testid="target-language"
                 value={targetLanguage}
-                disabled={isLive || isBusy}
+                disabled={hasActiveSession || isBusy}
                 onChange={(event) => setTargetLanguage(event.target.value as LanguageLocale)}
               >
                 {LANGUAGE_OPTIONS.map((language) => (
@@ -408,42 +508,49 @@ export default function OperatorDashboard() {
               <p className="stepNumber">Live canvas</p>
               <h3>OBS caption preview</h3>
             </div>
-            <span className={`previewBadge ${isLive ? "live" : ""}`}>
-              {isLive ? "Live output" : "Synthetic sample"}
+            <span
+              className={`previewBadge ${isLive ? "live" : isPaused ? "paused" : ""}`}
+            >
+              {isLive ? "Live output" : isPaused ? "Paused output" : "Synthetic sample"}
             </span>
           </div>
-          <div
-            className="videoFrame"
-            style={{
-              alignItems:
-                verticalAlign === "top"
-                  ? "flex-start"
-                  : verticalAlign === "middle"
-                    ? "center"
-                    : "flex-end",
-            }}
-          >
+          <div className="videoFrame">
             <div
-              className="captionPreview"
-              data-testid="caption-preview"
+              className="previewSafeArea"
               style={{
-                color: textColor,
-                fontFamily: CAPTION_FONT_STACKS[fontFamily],
-                fontSize: `${fontSize}px`,
-                textAlign: horizontalAlign,
+                inset: `${verticalMarginPercent}% ${horizontalMarginPercent}%`,
+                alignItems:
+                  verticalAlign === "top"
+                    ? "flex-start"
+                    : verticalAlign === "middle"
+                      ? "center"
+                      : "flex-end",
               }}
             >
-              <span
-                className="captionPreviewText"
+              <div
+                className="captionPreview"
+                data-testid="caption-preview"
                 style={{
-                  backgroundColor: transparentBackground(
-                    backgroundColor,
-                    backgroundTransparency,
-                  ),
+                  color: textColor,
+                  fontFamily: CAPTION_FONT_STACKS[fontFamily],
+                  fontSize: `${fontSize}px`,
+                  textAlign: horizontalAlign,
                 }}
               >
-                {previewCaption}
-              </span>
+                <span
+                  className="captionPreviewText"
+                  style={{
+                    backgroundColor: previewCaption
+                      ? transparentBackground(
+                          backgroundColor,
+                          backgroundTransparency,
+                        )
+                      : "transparent",
+                  }}
+                >
+                  {previewCaption}
+                </span>
+              </div>
             </div>
           </div>
           {liveState.latestSourceText ? (
@@ -538,6 +645,30 @@ export default function OperatorDashboard() {
                 }
               />
             </label>
+            <label className="styleRangeControl">
+              Horizontal safe margin <strong>{horizontalMarginPercent}%</strong>
+              <input
+                type="range"
+                min="0"
+                max="20"
+                value={horizontalMarginPercent}
+                onChange={(event) =>
+                  setHorizontalMarginPercent(Number(event.target.value))
+                }
+              />
+            </label>
+            <label className="styleRangeControl">
+              Vertical safe margin <strong>{verticalMarginPercent}%</strong>
+              <input
+                type="range"
+                min="0"
+                max="20"
+                value={verticalMarginPercent}
+                onChange={(event) =>
+                  setVerticalMarginPercent(Number(event.target.value))
+                }
+              />
+            </label>
           </div>
           <div className="captionPreferenceActions">
             <button
@@ -584,6 +715,7 @@ export default function OperatorDashboard() {
             <textarea
               rows={3}
               value={keywordText}
+              disabled={hasActiveSession}
               onChange={(event) => setKeywordText(event.target.value)}
               placeholder="Jesus Christ => Yesus Kristus, Bethlehem"
             />
@@ -596,6 +728,7 @@ export default function OperatorDashboard() {
             Public caption filter
             <input
               value={filterText}
+              disabled={hasActiveSession}
               onChange={(event) => setFilterText(event.target.value)}
               placeholder="Comma-separated words to mask"
             />

@@ -8,8 +8,11 @@ import {
   isLiveSessionId,
   normalizeCaptionStyle,
   type CaptionStyle,
+  type LiveSessionControlAction,
+  type LiveSessionControlRequest,
   type LiveSessionDetails,
 } from "@/live/contracts";
+import { isLanguageLocale } from "@/domain/languages";
 import { overlayDocumentResponse } from "@/live/overlay-document";
 
 interface DurableObjectStubLike {
@@ -32,6 +35,12 @@ const JSON_HEADERS = {
   "content-type": "application/json",
   "cache-control": "no-store",
 };
+const LIVE_SESSION_CONTROL_ACTIONS: LiveSessionControlAction[] = [
+  "pause",
+  "resume",
+  "clear",
+  "show-test",
+];
 
 class RequestBodyTooLargeError extends Error {}
 class InvalidRequestBodyError extends Error {}
@@ -126,6 +135,8 @@ async function createSession(request: Request, env: LiveWorkerEnvironment) {
         tokenHash: await captionTokenHash(overlayToken),
         expiresAt,
         style,
+        paused: false,
+        lastSequence: 0,
       }),
     }),
   );
@@ -141,6 +152,37 @@ async function createSession(request: Request, env: LiveWorkerEnvironment) {
     expiresAt: new Date(expiresAt).toISOString(),
   };
   return json(details, 201);
+}
+
+async function controlSession(
+  request: Request,
+  env: LiveWorkerEnvironment,
+  sessionId: string,
+) {
+  await requireOperator(request, env);
+  const body = (await readJsonObject(request, 4_096)) as Partial<
+    LiveSessionControlRequest
+  >;
+  if (!body.action || !LIVE_SESSION_CONTROL_ACTIONS.includes(body.action)) {
+    throw new InvalidRequestBodyError();
+  }
+
+  const control: LiveSessionControlRequest = { action: body.action };
+  if (body.action === "show-test") {
+    if (!body.targetLanguage || !isLanguageLocale(body.targetLanguage)) {
+      throw new InvalidRequestBodyError();
+    }
+    control.targetLanguage = body.targetLanguage;
+    control.style = normalizeCaptionStyle(body.style ?? {});
+  }
+
+  return room(env, sessionId).fetch(
+    new Request("https://caption-room/internal/control", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(control),
+    }),
+  );
 }
 
 async function publishCaption(
@@ -231,7 +273,7 @@ export async function handleLiveApiRequest(
   }
 
   const match = url.pathname.match(
-    /^\/api\/live\/session\/([0-9a-f-]+)(?:\/(caption|style))?$/iu,
+    /^\/api\/live\/session\/([0-9a-f-]+)(?:\/(caption|style|control))?$/iu,
   );
   if (!match || !isLiveSessionId(match[1])) return null;
 
@@ -241,6 +283,9 @@ export async function handleLiveApiRequest(
     }
     if (match[2] === "style" && request.method === "PUT") {
       return await updateStyle(request, env, match[1]);
+    }
+    if (match[2] === "control" && request.method === "POST") {
+      return await controlSession(request, env, match[1]);
     }
     if (!match[2] && request.method === "DELETE") {
       return await revokeSession(request, env, match[1]);
@@ -253,7 +298,9 @@ export async function handleLiveApiRequest(
           error:
             match[2] === "caption"
               ? "Caption event is too large."
-              : "Caption style is too large.",
+              : match[2] === "control"
+                ? "Caption control is too large."
+                : "Caption style is too large.",
         },
         413,
       );
@@ -264,7 +311,9 @@ export async function handleLiveApiRequest(
           error:
             match[2] === "caption"
               ? "Caption event is invalid."
-              : "Caption style is invalid.",
+              : match[2] === "control"
+                ? "Caption control is invalid."
+                : "Caption style is invalid.",
         },
         400,
       );

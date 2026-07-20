@@ -11,11 +11,13 @@ import {
   MAX_LIVE_SESSION_MS,
   normalizeCaptionStyle,
   type CaptionStyle,
+  type LiveSessionControlAction,
   type LiveSessionDetails,
   type LiveSessionState,
   type PublicCaptionEvent,
 } from "@/live/contracts";
 import { LiveSessionClient } from "@/live/session-client";
+import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { keywordHints } from "@/pipeline/glossary";
 
@@ -25,6 +27,11 @@ interface LiveCaptionSettings {
   keywordText: string;
   filterText: string;
   style: CaptionStyle;
+}
+
+interface QueuedChunk {
+  audio: Blob;
+  generation: number;
 }
 
 const INITIAL_LIVE_STATE: LiveSessionState = {
@@ -61,6 +68,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const [microphoneError, setMicrophoneError] = useState("");
   const [level, setLevel] = useState(0);
   const [liveState, setLiveState] = useState<LiveSessionState>(INITIAL_LIVE_STATE);
+  const [controlAction, setControlAction] =
+    useState<LiveSessionControlAction | null>(null);
+  const [endRetryRequired, setEndRetryRequired] = useState(false);
 
   const settingsRef = useRef(settings);
   const streamRef = useRef<MediaStream | null>(null);
@@ -68,9 +78,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const animationRef = useRef<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recorderTimerRef = useRef<number | null>(null);
-  const queueRef = useRef<Blob[]>([]);
+  const queueRef = useRef<QueuedChunk[]>([]);
   const processingRef = useRef(false);
-  const activeRef = useRef(false);
+  const captureAbortRef = useRef<AbortController | null>(null);
+  const sessionActiveRef = useRef(false);
+  const capturingRef = useRef(false);
+  const captureGenerationRef = useRef(0);
+  const serverPausedRef = useRef(false);
   const endingRef = useRef(false);
   const sessionRef = useRef<LiveSessionDetails | null>(null);
   const recentContextRef = useRef<string[]>([]);
@@ -85,10 +99,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
   useEffect(() => {
     const session = sessionRef.current;
-    if (!activeRef.current || !session) return;
+    if (!sessionActiveRef.current || !session) return;
     const style = normalizeCaptionStyle(settings.style);
     const timeout = window.setTimeout(() => {
-      if (!activeRef.current || sessionRef.current?.sessionId !== session.sessionId) {
+      if (
+        !sessionActiveRef.current ||
+        sessionRef.current?.sessionId !== session.sessionId
+      ) {
         return;
       }
       void liveClientRef.current.updateStyle(session.sessionId, style).catch((error) => {
@@ -185,48 +202,105 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     [refreshDevices, stopMicrophone],
   );
 
+  const stopRecorder = useCallback(() => {
+    if (recorderTimerRef.current !== null) {
+      window.clearTimeout(recorderTimerRef.current);
+      recorderTimerRef.current = null;
+    }
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
+      recorder.stop();
+    }
+  }, []);
+
+  const stopCapture = useCallback(() => {
+    capturingRef.current = false;
+    captureGenerationRef.current += 1;
+    captureAbortRef.current?.abort();
+    captureAbortRef.current = null;
+    queueRef.current = [];
+    stopRecorder();
+    stopMicrophone();
+  }, [stopMicrophone, stopRecorder]);
+
   const endSession = useCallback(
     async (message = "Caption session ended.", failed = false) => {
       if (endingRef.current) return;
       endingRef.current = true;
-      activeRef.current = false;
-      queueRef.current = [];
+      setControlAction(null);
+      stopCapture();
       if (sessionTimerRef.current !== null) {
         window.clearTimeout(sessionTimerRef.current);
         sessionTimerRef.current = null;
       }
-      if (recorderRef.current && recorderRef.current.state !== "inactive") {
-        recorderRef.current.stop();
-      }
-      recorderRef.current = null;
-      if (recorderTimerRef.current !== null) {
-        window.clearTimeout(recorderTimerRef.current);
-        recorderTimerRef.current = null;
-      }
 
       const session = sessionRef.current;
-      sessionRef.current = null;
-      if (session) {
-        await liveClientRef.current.revoke(session.sessionId).catch(() => undefined);
+      if (!session) {
+        sessionActiveRef.current = false;
+        setEndRetryRequired(false);
+        setLiveState((current) => ({
+          ...current,
+          status: failed ? "error" : "idle",
+          message,
+          session: null,
+        }));
+        endingRef.current = false;
+        return;
       }
-      stopMicrophone();
+
       setLiveState((current) => ({
         ...current,
-        status: failed ? "error" : "idle",
-        message,
-        session: null,
+        status: "ending",
+        message: "Ending the caption session and revoking its OBS URL…",
       }));
-      endingRef.current = false;
+      try {
+        await liveClientRef.current.revoke(session.sessionId);
+        sessionRef.current = null;
+        sessionActiveRef.current = false;
+        serverPausedRef.current = false;
+        setEndRetryRequired(false);
+        setLiveState((current) => ({
+          ...current,
+          status: failed ? "error" : "idle",
+          message,
+          latestSourceText: "",
+          latestPublicText: "",
+          session: null,
+        }));
+      } catch (error) {
+        const detail =
+          error instanceof Error ? error.message : "The OBS URL could not be revoked.";
+        setEndRetryRequired(true);
+        setLiveState((current) => ({
+          ...current,
+          status: "error",
+          message: `Audio stopped, but OBS revocation was not confirmed. Retry end. ${detail}`,
+          session,
+        }));
+      } finally {
+        endingRef.current = false;
+      }
     },
-    [stopMicrophone],
+    [stopCapture],
   );
 
   const processChunk = useCallback(
-    async (audio: Blob) => {
+    async (audio: Blob, generation: number) => {
+      const isCurrentCapture = () =>
+        sessionActiveRef.current &&
+        capturingRef.current &&
+        generation === captureGenerationRef.current;
+      if (!isCurrentCapture()) return;
+
       // This measures cloud processing after MediaRecorder completes a four-second chunk.
       // It intentionally excludes recording time and is not spoken-to-screen latency.
       const startedAt = performance.now();
       const current = settingsRef.current;
+      const signal = captureAbortRef.current?.signal;
+      if (!signal) return;
       const glossary = parseGlossaryInput(current.keywordText, current.targetLanguage);
       setLiveState((state) => ({
         ...state,
@@ -236,9 +310,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         audio,
         sourceLanguage: current.sourceLanguage,
         keywordHints: keywordHints(glossary),
-      });
+      }, signal);
+      if (!isCurrentCapture()) return;
+
       const finalSegments = segments.filter(({ isFinal, text }) => isFinal && text.trim());
-      if (!finalSegments.length || !activeRef.current) return;
+      if (!finalSegments.length) return;
 
       const sourceText = finalSegments.map(({ text }) => text.trim()).join(" ");
       const detectedLanguage =
@@ -260,8 +336,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               targetLanguage: current.targetLanguage,
               recentContext: recentContextRef.current,
               preferredTerms: preferredTermMap(glossary, current.targetLanguage),
-            });
-      if (!activeRef.current) return;
+            }, signal);
+      if (!isCurrentCapture()) return;
 
       const forms = prepareCaptionForms({
         sourceText,
@@ -279,8 +355,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         publishedAt: new Date().toISOString(),
       };
       const session = sessionRef.current;
-      if (!session) return;
+      if (!session || !isCurrentCapture()) return;
       await liveClientRef.current.publish(session.sessionId, event);
+      if (!isCurrentCapture()) return;
 
       recentContextRef.current = [...recentContextRef.current, sourceText].slice(-4);
       setLiveState((state) => ({
@@ -301,13 +378,20 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     if (processingRef.current) return;
     processingRef.current = true;
     try {
-      while (activeRef.current && queueRef.current.length) {
+      while (sessionActiveRef.current && capturingRef.current && queueRef.current.length) {
         const chunk = queueRef.current.shift();
         if (!chunk) continue;
         try {
-          await processChunk(chunk);
+          await processChunk(chunk.audio, chunk.generation);
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Caption processing failed.";
+          if (
+            !capturingRef.current ||
+            chunk.generation !== captureGenerationRef.current
+          ) {
+            continue;
+          }
+          const message =
+            error instanceof Error ? error.message : "Caption processing failed.";
           if (/quota|expired|language could not be detected|authentication/i.test(message)) {
             await endSession(message, true);
             break;
@@ -321,8 +405,15 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, [endSession, processChunk]);
 
   const enqueueChunk = useCallback(
-    (chunk: Blob) => {
-      if (!activeRef.current || chunk.size === 0) return;
+    (audio: Blob, generation: number) => {
+      if (
+        !sessionActiveRef.current ||
+        !capturingRef.current ||
+        generation !== captureGenerationRef.current ||
+        audio.size === 0
+      ) {
+        return;
+      }
       if (queueRef.current.length >= 2) {
         setLiveState((state) => ({
           ...state,
@@ -331,15 +422,65 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         }));
         return;
       }
-      queueRef.current.push(chunk);
+      queueRef.current.push({ audio, generation });
       void drainQueue();
     },
     [drainQueue],
   );
 
+  const startRecorder = useCallback(
+    (stream: MediaStream, generation: number) => {
+      const startRecorderChunk = () => {
+        if (
+          !sessionActiveRef.current ||
+          !capturingRef.current ||
+          generation !== captureGenerationRef.current
+        ) {
+          return;
+        }
+        const chunks: Blob[] = [];
+        const recorder = new MediaRecorder(stream, recorderOptions());
+        recorderRef.current = recorder;
+        recorder.ondataavailable = ({ data }) => {
+          if (data.size) chunks.push(data);
+        };
+        recorder.onerror = () => {
+          if (generation === captureGenerationRef.current) {
+            void endSession("The browser audio recorder stopped unexpectedly.", true);
+          }
+        };
+        recorder.onstop = () => {
+          if (recorderRef.current === recorder) recorderRef.current = null;
+          if (
+            !sessionActiveRef.current ||
+            !capturingRef.current ||
+            generation !== captureGenerationRef.current
+          ) {
+            return;
+          }
+          const mimeType = recorder.mimeType || chunks[0]?.type || "audio/webm";
+          enqueueChunk(new Blob(chunks, { type: mimeType }), generation);
+          startRecorderChunk();
+        };
+        recorder.start();
+        recorderTimerRef.current = window.setTimeout(() => {
+          recorderTimerRef.current = null;
+          if (recorder.state === "recording") recorder.stop();
+        }, AUDIO_CHUNK_MS);
+      };
+      startRecorderChunk();
+    },
+    [endSession, enqueueChunk],
+  );
+
   const startSession = useCallback(async () => {
-    if (activeRef.current || endingRef.current) return;
-    setLiveState({ ...INITIAL_LIVE_STATE, status: "starting", message: "Verifying cloud AI…" });
+    if (sessionActiveRef.current || endingRef.current) return;
+    setEndRetryRequired(false);
+    setLiveState({
+      ...INITIAL_LIVE_STATE,
+      status: "starting",
+      message: "Verifying cloud AI…",
+    });
     try {
       if (typeof MediaRecorder === "undefined") {
         throw new Error("This browser does not support live audio recording.");
@@ -349,37 +490,20 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       const style = normalizeCaptionStyle(settingsRef.current.style);
       const session = await liveClientRef.current.create(style);
       sessionRef.current = session;
+      sessionActiveRef.current = true;
+      serverPausedRef.current = false;
       recentContextRef.current = [];
       sequenceRef.current = 0;
       queueRef.current = [];
-      activeRef.current = true;
-
-      const startRecorderChunk = () => {
-        if (!activeRef.current) return;
-        const chunks: Blob[] = [];
-        const recorder = new MediaRecorder(stream, recorderOptions());
-        recorderRef.current = recorder;
-        recorder.ondataavailable = ({ data }) => {
-          if (data.size) chunks.push(data);
-        };
-        recorder.onerror = () => {
-          void endSession("The browser audio recorder stopped unexpectedly.", true);
-        };
-        recorder.onstop = () => {
-          if (!activeRef.current) return;
-          const mimeType = recorder.mimeType || chunks[0]?.type || "audio/webm";
-          enqueueChunk(new Blob(chunks, { type: mimeType }));
-          startRecorderChunk();
-        };
-        recorder.start();
-        recorderTimerRef.current = window.setTimeout(() => {
-          if (recorder.state === "recording") recorder.stop();
-        }, AUDIO_CHUNK_MS);
-      };
-      startRecorderChunk();
+      captureGenerationRef.current += 1;
+      const generation = captureGenerationRef.current;
+      captureAbortRef.current = new AbortController();
+      capturingRef.current = true;
+      startRecorder(stream, generation);
       sessionTimerRef.current = window.setTimeout(() => {
         void endSession(
           "The 90-minute free-tier session limit was reached. Start a new session if needed.",
+          true,
         );
       }, Math.min(MAX_LIVE_SESSION_MS, new Date(session.expiresAt).getTime() - Date.now()));
       setLiveState({
@@ -392,20 +516,163 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         session,
       });
     } catch (error) {
-      activeRef.current = false;
+      stopCapture();
       const session = sessionRef.current;
       sessionRef.current = null;
+      sessionActiveRef.current = false;
       if (session) {
         await liveClientRef.current.revoke(session.sessionId).catch(() => undefined);
       }
-      stopMicrophone();
       setLiveState({
         ...INITIAL_LIVE_STATE,
         status: "error",
         message: error instanceof Error ? error.message : "Caption session could not start.",
       });
     }
-  }, [endSession, enqueueChunk, ensureMicrophone, selectedDeviceId, stopMicrophone]);
+  }, [endSession, ensureMicrophone, selectedDeviceId, startRecorder, stopCapture]);
+
+  const pauseSession = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session || endingRef.current || serverPausedRef.current) return;
+    setControlAction("pause");
+    setLiveState((state) => ({
+      ...state,
+      status: "pausing",
+      message: "Stopping audio and clearing the OBS caption…",
+    }));
+    stopCapture();
+    try {
+      await liveClientRef.current.control(session.sessionId, "pause");
+      serverPausedRef.current = true;
+      setLiveState((state) => ({
+        ...state,
+        status: "paused",
+        message: "Paused. Audio and cloud AI are stopped; the OBS URL remains active.",
+        latestSourceText: "",
+        latestPublicText: "",
+      }));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "The OBS caption could not be cleared.";
+      setLiveState((state) => ({
+        ...state,
+        status: "error",
+        message: `Audio stopped, but server pause was not confirmed. Retry pause or end the session. ${message}`,
+      }));
+    } finally {
+      setControlAction(null);
+    }
+  }, [stopCapture]);
+
+  const resumeSession = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session || endingRef.current || !serverPausedRef.current) return;
+    setControlAction("resume");
+    setLiveState((state) => ({
+      ...state,
+      status: "resuming",
+      message: "Reopening the selected audio input…",
+    }));
+    let serverResumed = false;
+    try {
+      if (typeof MediaRecorder === "undefined") {
+        throw new Error("This browser does not support live audio recording.");
+      }
+      const stream = await ensureMicrophone(selectedDeviceId || undefined);
+      await liveClientRef.current.control(session.sessionId, "resume");
+      serverResumed = true;
+      serverPausedRef.current = false;
+      captureGenerationRef.current += 1;
+      const generation = captureGenerationRef.current;
+      captureAbortRef.current = new AbortController();
+      capturingRef.current = true;
+      queueRef.current = [];
+      startRecorder(stream, generation);
+      setLiveState((state) => ({
+        ...state,
+        status: "live",
+        message: "Listening again. The OBS URL and session expiry are unchanged.",
+        latestSourceText: "",
+        latestPublicText: "",
+      }));
+    } catch (error) {
+      stopCapture();
+      if (serverResumed) {
+        try {
+          await liveClientRef.current.control(session.sessionId, "pause");
+          serverPausedRef.current = true;
+        } catch {
+          serverPausedRef.current = false;
+        }
+      }
+      const message = error instanceof Error ? error.message : "Capture could not resume.";
+      setLiveState((state) => ({
+        ...state,
+        status: serverPausedRef.current ? "paused" : "error",
+        message: serverPausedRef.current
+          ? `Still paused. ${message}`
+          : `Audio is stopped, but server pause was not confirmed. Retry pause or end the session. ${message}`,
+      }));
+    } finally {
+      setControlAction(null);
+    }
+  }, [ensureMicrophone, selectedDeviceId, startRecorder, stopCapture]);
+
+  const clearCaption = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session || endingRef.current) return;
+    setControlAction("clear");
+    try {
+      await liveClientRef.current.control(session.sessionId, "clear");
+      setLiveState((state) => ({
+        ...state,
+        message: state.status === "paused"
+          ? "Paused. The OBS caption is clear."
+          : "The OBS caption was cleared. The next live caption can replace it.",
+        latestSourceText: "",
+        latestPublicText: "",
+      }));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "The OBS caption could not be cleared.";
+      setLiveState((state) => ({ ...state, message }));
+    } finally {
+      setControlAction(null);
+    }
+  }, []);
+
+  const showTestCaption = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session || !serverPausedRef.current || endingRef.current) return;
+    setControlAction("show-test");
+    try {
+      const current = settingsRef.current;
+      const response = await liveClientRef.current.control(
+        session.sessionId,
+        "show-test",
+        {
+          targetLanguage: current.targetLanguage,
+          style: normalizeCaptionStyle(current.style),
+        },
+      );
+      if (typeof response.sequence === "number") {
+        sequenceRef.current = Math.max(sequenceRef.current, response.sequence);
+      }
+      setLiveState((state) => ({
+        ...state,
+        message: "Synthetic test caption shown. Resume clears it before live audio restarts.",
+        sequence: response.sequence ?? state.sequence,
+        latestSourceText: "",
+        latestPublicText: SAMPLE_CAPTIONS[current.targetLanguage],
+      }));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "The test caption could not be shown.";
+      setLiveState((state) => ({ ...state, message }));
+    } finally {
+      setControlAction(null);
+    }
+  }, []);
 
   useEffect(() => {
     if (!navigator.mediaDevices) return;
@@ -414,16 +681,16 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     navigator.mediaDevices.addEventListener("devicechange", onDeviceChange);
     return () => {
       navigator.mediaDevices.removeEventListener("devicechange", onDeviceChange);
-      activeRef.current = false;
-      if (recorderTimerRef.current !== null) {
-        window.clearTimeout(recorderTimerRef.current);
-      }
-      if (recorderRef.current?.state !== "inactive") recorderRef.current?.stop();
+      sessionActiveRef.current = false;
+      capturingRef.current = false;
+      captureGenerationRef.current += 1;
+      queueRef.current = [];
+      stopRecorder();
       const session = sessionRef.current;
       if (session) void liveClient.revoke(session.sessionId);
       stopMicrophone();
     };
-  }, [refreshDevices, stopMicrophone]);
+  }, [refreshDevices, stopMicrophone, stopRecorder]);
 
   return {
     devices,
@@ -433,8 +700,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     microphoneError,
     level,
     liveState,
+    controlAction,
+    endRetryRequired,
     startAudioTest: () => ensureMicrophone(selectedDeviceId || undefined),
     startSession,
+    pauseSession,
+    resumeSession,
+    clearCaption,
+    showTestCaption,
     stopSession: () => endSession(),
   };
 }

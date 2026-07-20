@@ -78,6 +78,7 @@ export async function POST(request: Request) {
       audio,
       sourceLanguage: sourceLanguage as SourceLanguage,
       keywordHints,
+      signal: request.signal,
     });
     return NextResponse.json({ segments }, { headers: { "cache-control": "no-store" } });
   } catch (error) {

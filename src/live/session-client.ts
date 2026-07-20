@@ -1,5 +1,7 @@
 import type {
   CaptionStyle,
+  LiveSessionControlAction,
+  LiveSessionControlResponse,
   LiveSessionDetails,
   PublicCaptionEvent,
 } from "@/live/contracts";
@@ -47,6 +49,23 @@ export class LiveSessionClient {
     if (!response.ok) {
       throw new Error(await errorMessage(response, "Could not update the OBS style."));
     }
+  }
+
+  async control(
+    sessionId: string,
+    action: LiveSessionControlAction,
+    options?: { targetLanguage?: PublicCaptionEvent["targetLanguage"]; style?: CaptionStyle },
+  ) {
+    const response = await fetch(`/api/live/session/${sessionId}/control`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action, ...options }),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) {
+      throw new Error(await errorMessage(response, "Could not update the live caption controls."));
+    }
+    return (await response.json()) as LiveSessionControlResponse;
   }
 
   async revoke(sessionId: string) {

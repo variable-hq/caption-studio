@@ -56,7 +56,10 @@ export class CloudProviderClient
     return (await response.json()) as CloudProviderHealth;
   }
 
-  async transcribe(request: TranscriptionRequest): Promise<TranscriptSegment[]> {
+  async transcribe(
+    request: TranscriptionRequest,
+    signal?: AbortSignal,
+  ): Promise<TranscriptSegment[]> {
     const form = new FormData();
     const extension = request.audio.type.includes("ogg")
       ? "ogg"
@@ -70,7 +73,9 @@ export class CloudProviderClient
     const response = await fetch("/api/ai/transcribe", {
       method: "POST",
       body: form,
-      signal: AbortSignal.timeout(35_000),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(35_000)])
+        : AbortSignal.timeout(35_000),
     });
 
     if (!response.ok) {
@@ -81,12 +86,17 @@ export class CloudProviderClient
     return payload.segments;
   }
 
-  async translate(request: TranslationRequest): Promise<TranslationResult> {
+  async translate(
+    request: TranslationRequest,
+    signal?: AbortSignal,
+  ): Promise<TranslationResult> {
     const response = await fetch("/api/ai/translate", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(request),
-      signal: AbortSignal.timeout(20_000),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(20_000)])
+        : AbortSignal.timeout(20_000),
     });
 
     if (!response.ok) {

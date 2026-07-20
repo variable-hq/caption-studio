@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildTranscriptionPrompt,
   buildTranslationMessages,
+  transcribeWithGroq,
   verifyGroqProvider,
 } from "@/ai/server/groq";
 
@@ -53,5 +54,25 @@ describe("Groq cloud provider prompts", () => {
       "https://api.groq.com/openai/v1/models",
       expect.objectContaining({ method: "GET" }),
     );
+  });
+
+  it("propagates capture cancellation to the Groq transcription request", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ text: "Grace", language: "english" })),
+    );
+    const controller = new AbortController();
+    controller.abort();
+
+    await transcribeWithGroq({
+      audio: new Blob(["audio"], { type: "audio/webm" }),
+      sourceLanguage: "en",
+      keywordHints: [],
+      signal: controller.signal,
+    });
+
+    const init = vi.mocked(fetch).mock.calls[0][1];
+    expect(init?.signal?.aborted).toBe(true);
   });
 });

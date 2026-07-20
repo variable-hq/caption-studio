@@ -80,9 +80,10 @@ function apiKey() {
 async function groqFetch(path: string, init: RequestInit) {
   let response: Response;
   try {
+    const timeout = AbortSignal.timeout(path.includes("/audio/") ? 30_000 : 15_000);
     response = await fetch(`${GROQ_API_URL}${path}`, {
       ...init,
-      signal: init.signal ?? AbortSignal.timeout(path.includes("/audio/") ? 30_000 : 15_000),
+      signal: init.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
       headers: {
         authorization: `Bearer ${apiKey()}`,
         ...init.headers,
@@ -208,6 +209,7 @@ export async function transcribeWithGroq(input: {
   audio: Blob;
   sourceLanguage: SourceLanguage;
   keywordHints: string[];
+  signal?: AbortSignal;
 }): Promise<TranscriptSegment[]> {
   const form = new FormData();
   form.append("file", input.audio, "caption-audio.webm");
@@ -228,6 +230,7 @@ export async function transcribeWithGroq(input: {
   const response = await groqFetch("/audio/transcriptions", {
     method: "POST",
     body: form,
+    signal: input.signal,
   });
   const payload = (await response.json()) as GroqTranscriptResponse;
   const detectedLanguage = detectedLocale(payload.language, input.sourceLanguage);
@@ -262,6 +265,7 @@ export async function transcribeWithGroq(input: {
 
 export async function translateWithGroq(
   request: TranslationRequest,
+  signal?: AbortSignal,
 ): Promise<TranslationResult> {
   if (!isLanguageLocale(request.sourceLanguage) || !isLanguageLocale(request.targetLanguage)) {
     throw new GroqProviderError("Unsupported language selection.", 400);
@@ -277,6 +281,7 @@ export async function translateWithGroq(
       temperature: 0.1,
       max_completion_tokens: 512,
     }),
+    signal,
   });
   const payload = (await response.json()) as GroqChatResponse;
   const text = payload.choices?.[0]?.message?.content?.trim();

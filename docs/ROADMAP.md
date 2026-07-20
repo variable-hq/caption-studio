@@ -31,7 +31,9 @@ Implemented in the codebase:
 - source/public previews, status, latency, queue, session-time, and request indicators;
 - expiring Durable Object sessions and a reconnecting, tokenized OBS overlay;
 - 10–72px display controls, per-line highlight/transparency, alignment, and saved
-  browser preferences; and
+  browser preferences;
+- 0–20% OBS safe margins plus pause/resume, clear, synthetic test, and confirmed end
+  controls; and
 - no application audio or transcript storage.
 
 Pending validation:
@@ -65,6 +67,8 @@ The actual OBS streaming computer rehearsal remains part of the next gate.
 - Follow [Stakeholder test guide](STAKEHOLDER_TEST_GUIDE.md) with consented or synthetic
   audio.
 - Rehearse on the intended microphone/audio interface and OBS streaming computer.
+- Verify pause/resume, clear, paused-only test captions, confirmed end, and safe margins
+  during the OBS rehearsal.
 - Record results without sermon content, credentials, or active overlay URLs.
 - Test agreed language pairs, church terminology, filter behavior, operator usability,
   processing latency, and dropped chunks.
@@ -78,7 +82,7 @@ criterion and the owner decides whether Phase 1B work or a limited pilot is appr
 
 - Add deliberate source-caption fallback only after operator behavior is approved.
 - Improve audio-device disconnect and browser lifecycle recovery.
-- Add pause/clear and optional manual correction with clear sequence semantics.
+- Add optional manual correction with clear revision and audit semantics.
 - Decide whether true streaming is needed to reduce four-second chunk latency.
 - Compare paid or realtime providers using the same approved recordings.
 - Add account-aware usage monitoring and hard spending controls before enabling any

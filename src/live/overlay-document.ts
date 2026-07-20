@@ -5,7 +5,7 @@ const OVERLAY_DOCUMENT = `<!doctype html>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Church Live Caption Overlay</title>
   <style>
-    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:Arial,Helvetica,sans-serif}.stage{display:flex;align-items:flex-end;justify-content:center;width:100%;height:100%;padding:clamp(18px,4vw,64px)}.caption{width:min(1500px,100%);padding:10px 18px 14px;text-align:center;font-size:48px;font-weight:750;line-height:1.18;text-wrap:balance;text-shadow:0 2px 5px rgba(0,0,0,.68)}.captionText{border-radius:.18em;padding:.12em .3em .16em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:Arial,Helvetica,sans-serif}.stage{display:flex;align-items:flex-end;justify-content:center;width:100%;height:100%;padding:6vh 4vw}.caption{width:min(1500px,100%);padding:10px 18px 14px;text-align:center;font-size:48px;font-weight:750;line-height:1.18;text-wrap:balance;text-shadow:0 2px 5px rgba(0,0,0,.68)}.captionText{border-radius:.18em;padding:.12em .3em .16em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
   </style>
 </head>
 <body>
@@ -29,6 +29,11 @@ const OVERLAY_DOCUMENT = `<!doctype html>
         const alpha=(100-transparency)/100;
         return "rgba("+(value>>16)+", "+((value>>8)&255)+", "+(value&255)+", "+alpha+")";
       };
+      const bounded=(value,minimum,maximum,fallback)=>{
+        const number=Number(value);
+        return Number.isFinite(number)?Math.max(minimum,Math.min(maximum,Math.round(number))):fallback;
+      };
+      const clear=()=>{captionText.textContent="";captionText.style.backgroundColor="transparent"};
       const applyStyle=style=>{
         if(!style)return;
         caption.style.fontSize=Math.max(10,Math.min(72,Number(style.fontSize)||48))+"px";
@@ -39,6 +44,7 @@ const OVERLAY_DOCUMENT = `<!doctype html>
         caption.style.textAlign=["left","center","right"].includes(style.horizontalAlign)?style.horizontalAlign:"center";
         caption.style.fontFamily=fontFamilies[style.fontFamily]||fontFamilies["sans-serif"];
         stage.style.alignItems={top:"flex-start",middle:"center",bottom:"flex-end"}[style.verticalAlign]||"flex-end";
+        stage.style.padding=bounded(style.verticalMarginPercent,0,20,6)+"vh "+bounded(style.horizontalMarginPercent,0,20,4)+"vw";
       };
       const show=event=>{
         if(!event||event.sequence<=lastSequence)return;
@@ -54,6 +60,7 @@ const OVERLAY_DOCUMENT = `<!doctype html>
         socket.onopen=()=>{attempt=0};
         socket.onmessage=message=>{
           const payload=JSON.parse(String(message.data));
+          if(payload.type==="clear"){clear();return}
           applyStyle(payload.style);
           if(payload.caption)show(payload.caption);else if(!captionText.textContent)captionText.style.backgroundColor="transparent";
         };

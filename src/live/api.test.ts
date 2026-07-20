@@ -51,6 +51,15 @@ describe("live caption worker API", () => {
     expect(overlayUrl.hash).toContain(payload.sessionId);
     expect(overlayUrl.hash.split(".")[1]).toHaveLength(43);
     expect(fetch).toHaveBeenCalledOnce();
+    const initialization = fetch.mock.calls[0][0] as Request;
+    await expect(initialization.json()).resolves.toMatchObject({
+      paused: false,
+      lastSequence: 0,
+      style: {
+        horizontalMarginPercent: 4,
+        verticalMarginPercent: 6,
+      },
+    });
   });
 
   it("fails closed when an operator endpoint has no Access configuration", async () => {
@@ -75,6 +84,8 @@ describe("live caption worker API", () => {
           style: {
             fontSize: 500,
             backgroundTransparency: 45,
+            horizontalMarginPercent: 25,
+            verticalMarginPercent: -2,
             horizontalAlign: "right",
             verticalAlign: "middle",
             fontFamily: "serif",
@@ -91,11 +102,93 @@ describe("live caption worker API", () => {
       style: {
         fontSize: 72,
         backgroundTransparency: 45,
+        horizontalMarginPercent: 20,
+        verticalMarginPercent: 0,
         horizontalAlign: "right",
         verticalAlign: "middle",
         fontFamily: "serif",
       },
     });
+  });
+
+  it("validates and forwards live session controls", async () => {
+    const { env, fetch } = environment(
+      new Response(JSON.stringify({ action: "show-test", paused: true, sequence: 4 })),
+    );
+    const sessionId = "12345678-1234-4123-8123-123456789abc";
+    const response = await handleLiveApiRequest(
+      new Request(`https://caption.example/api/live/session/${sessionId}/control`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "show-test",
+          targetLanguage: "id",
+          style: { horizontalMarginPercent: 40, verticalMarginPercent: 8 },
+        }),
+      }),
+      env,
+    );
+
+    expect(response?.status).toBe(200);
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    expect(forwarded.url).toBe("https://caption-room/internal/control");
+    await expect(forwarded.json()).resolves.toMatchObject({
+      action: "show-test",
+      targetLanguage: "id",
+      style: {
+        horizontalMarginPercent: 20,
+        verticalMarginPercent: 8,
+      },
+    });
+  });
+
+  it("rejects invalid control actions before they reach the room", async () => {
+    const { env, fetch } = environment();
+    const sessionId = "12345678-1234-4123-8123-123456789abc";
+    const response = await handleLiveApiRequest(
+      new Request(`https://caption.example/api/live/session/${sessionId}/control`, {
+        method: "POST",
+        body: JSON.stringify({ action: "rewind" }),
+      }),
+      env,
+    );
+
+    expect(response?.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["pause", "resume", "clear", "show-test"])(
+    "fails closed for the %s control without Access configuration",
+    async (action) => {
+      const { env, fetch } = environment();
+      delete env.CAPTION_LOCAL_AUTH_BYPASS;
+      const sessionId = "12345678-1234-4123-8123-123456789abc";
+      const response = await handleLiveApiRequest(
+        new Request(`https://caption.example/api/live/session/${sessionId}/control`, {
+          method: "POST",
+          body: JSON.stringify({ action, targetLanguage: "en", style: {} }),
+        }),
+        env,
+      );
+
+      expect(response?.status).toBe(503);
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("bounds live control request bodies", async () => {
+    const { env, fetch } = environment();
+    const sessionId = "12345678-1234-4123-8123-123456789abc";
+    const response = await handleLiveApiRequest(
+      new Request(`https://caption.example/api/live/session/${sessionId}/control`, {
+        method: "POST",
+        body: JSON.stringify({ action: "clear", padding: "x".repeat(4_097) }),
+      }),
+      env,
+    );
+
+    expect(response?.status).toBe(413);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("rejects oversized live bodies even without a content-length header", async () => {
@@ -153,6 +246,9 @@ describe("live caption worker API", () => {
     expect(html).toContain("new WebSocket");
     expect(html).toContain("Math.max(10,Math.min(72");
     expect(html).toContain("backgroundTransparency");
+    expect(html).toContain("horizontalMarginPercent");
+    expect(html).toContain("verticalMarginPercent");
+    expect(html).toContain('payload.type==="clear"');
     expect(html).toContain("stage.style.alignItems");
     expect(html).toContain('class="captionText"');
     expect(html).toContain("box-decoration-break:clone");
