@@ -1,19 +1,52 @@
+import { isLanguageLocale } from "@/domain/languages";
 import {
   MAX_CAPTION_EVENTS,
   normalizeCaptionStyle,
   type CaptionStyle,
+  type LiveSessionControlAction,
+  type LiveSessionControlRequest,
+  type LiveSessionControlResponse,
   type PublicCaptionEvent,
 } from "@/live/contracts";
-import { isLanguageLocale } from "@/domain/languages";
+import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 
 interface RoomConfiguration {
   tokenHash: string;
   expiresAt: number;
   style: CaptionStyle;
+  paused: boolean;
+  lastSequence: number;
 }
+
+type CaptionMutationResult =
+  | { kind: "caption"; event: PublicCaptionEvent }
+  | { kind: "expired" }
+  | { kind: "invalid" }
+  | { kind: "paused" };
+
+type ControlMutationResult =
+  | {
+      kind: "control";
+      response: LiveSessionControlResponse;
+      caption?: PublicCaptionEvent;
+      clear: boolean;
+    }
+  | { kind: "expired" }
+  | { kind: "invalid" }
+  | { kind: "not-paused" };
+
+type StyleMutationResult =
+  | { kind: "style"; style: CaptionStyle }
+  | { kind: "expired" };
 
 const JSON_HEADERS = { "content-type": "application/json" };
 const OVERLAY_PROTOCOL = "church-caption-v1";
+const CONTROL_ACTIONS: LiveSessionControlAction[] = [
+  "pause",
+  "resume",
+  "clear",
+  "show-test",
+];
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -39,6 +72,33 @@ function overlayToken(request: Request) {
   return protocols.find((value) => value !== OVERLAY_PROTOCOL) ?? null;
 }
 
+function normalizedConfiguration(
+  configuration: RoomConfiguration,
+  latest?: PublicCaptionEvent,
+): RoomConfiguration {
+  return {
+    ...configuration,
+    style: normalizeCaptionStyle(configuration.style ?? {}),
+    paused: configuration.paused === true,
+    lastSequence: Math.max(
+      Number.isInteger(configuration.lastSequence) ? configuration.lastSequence : 0,
+      latest?.sequence ?? 0,
+    ),
+  };
+}
+
+function validCaptionBody(body: Partial<PublicCaptionEvent>, lastSequence: number) {
+  return (
+    Number.isInteger(body.sequence) &&
+    body.sequence! > lastSequence &&
+    body.sequence! <= MAX_CAPTION_EVENTS &&
+    typeof body.publicText === "string" &&
+    body.publicText.length <= 2_000 &&
+    typeof body.targetLanguage === "string" &&
+    isLanguageLocale(body.targetLanguage)
+  );
+}
+
 export class CaptionRoom {
   constructor(private readonly state: DurableObjectState) {}
 
@@ -58,6 +118,8 @@ export class CaptionRoom {
         tokenHash: body.tokenHash,
         expiresAt: body.expiresAt,
         style: normalizeCaptionStyle(body.style ?? {}),
+        paused: false,
+        lastSequence: 0,
       };
       await this.state.storage.put("configuration", configuration);
       await this.state.storage.setAlarm(configuration.expiresAt);
@@ -74,6 +136,10 @@ export class CaptionRoom {
 
     if (url.pathname === "/internal/style" && request.method === "POST") {
       return this.updateStyle(request);
+    }
+
+    if (url.pathname === "/internal/control" && request.method === "POST") {
+      return this.controlSession(request);
     }
 
     if (url.pathname === "/internal/session" && request.method === "DELETE") {
@@ -107,12 +173,13 @@ export class CaptionRoom {
     server.serializeAttachment({ role: "overlay" });
 
     const latest = await this.state.storage.get<PublicCaptionEvent>("latest");
+    const current = normalizedConfiguration(configuration, latest);
     server.send(
       JSON.stringify({
         type: "ready",
-        expiresAt: new Date(configuration.expiresAt).toISOString(),
+        expiresAt: new Date(current.expiresAt).toISOString(),
         caption: latest ?? null,
-        style: latest?.style ?? configuration.style,
+        style: latest?.style ?? current.style,
       }),
     );
 
@@ -124,77 +191,175 @@ export class CaptionRoom {
   }
 
   private async publishCaption(request: Request) {
-    const configuration = await this.state.storage.get<RoomConfiguration>(
-      "configuration",
+    const body = (await request.json()) as Partial<PublicCaptionEvent>;
+    const result = await this.state.storage.transaction<CaptionMutationResult>(
+      async (transaction) => {
+        const [storedConfiguration, latest] = await Promise.all([
+          transaction.get<RoomConfiguration>("configuration"),
+          transaction.get<PublicCaptionEvent>("latest"),
+        ]);
+        if (!storedConfiguration || storedConfiguration.expiresAt <= Date.now()) {
+          return { kind: "expired" };
+        }
+        const configuration = normalizedConfiguration(storedConfiguration, latest);
+        if (configuration.paused) return { kind: "paused" };
+        if (!validCaptionBody(body, configuration.lastSequence)) {
+          return { kind: "invalid" };
+        }
+
+        const event: PublicCaptionEvent = {
+          sequence: body.sequence!,
+          publicText: body.publicText!,
+          targetLanguage: body.targetLanguage!,
+          style: normalizeCaptionStyle(body.style ?? configuration.style),
+          publishedAt: new Date().toISOString(),
+        };
+        configuration.lastSequence = event.sequence;
+        await Promise.all([
+          transaction.put("configuration", configuration),
+          transaction.put("latest", event),
+        ]);
+        return { kind: "caption", event };
+      },
     );
-    if (!configuration || configuration.expiresAt <= Date.now()) {
+
+    if (result.kind === "expired") {
       await this.clearRoom("Caption session expired.");
       return json({ error: "The caption session has expired." }, 410);
     }
-
-    const body = (await request.json()) as Partial<PublicCaptionEvent>;
-    const previous = await this.state.storage.get<PublicCaptionEvent>("latest");
-    if (
-      !Number.isInteger(body.sequence) ||
-      body.sequence! <= (previous?.sequence ?? 0) ||
-      body.sequence! > MAX_CAPTION_EVENTS ||
-      typeof body.publicText !== "string" ||
-      body.publicText.length > 2_000 ||
-      typeof body.targetLanguage !== "string" ||
-      !isLanguageLocale(body.targetLanguage)
-    ) {
+    if (result.kind === "paused") {
+      return json({ error: "The caption session is paused." }, 409);
+    }
+    if (result.kind === "invalid") {
       return json({ error: "Invalid or out-of-order public caption." }, 400);
     }
 
-    const event: PublicCaptionEvent = {
-      sequence: body.sequence!,
-      publicText: body.publicText,
-      targetLanguage: body.targetLanguage,
-      style: normalizeCaptionStyle(body.style ?? configuration.style),
-      publishedAt: new Date().toISOString(),
-    };
-    await this.state.storage.put("latest", event);
+    this.broadcast({ type: "caption", caption: result.event });
+    return json({ published: true, sequence: result.event.sequence });
+  }
 
-    const payload = JSON.stringify({ type: "caption", caption: event });
-    for (const socket of this.state.getWebSockets("overlay")) {
-      try {
-        socket.send(payload);
-      } catch {
-        socket.close(1011, "Overlay connection failed.");
-      }
+  private async controlSession(request: Request) {
+    const body = (await request.json()) as Partial<LiveSessionControlRequest>;
+    if (!body.action || !CONTROL_ACTIONS.includes(body.action)) {
+      return json({ error: "Invalid live-session control." }, 400);
     }
-    return json({ published: true, sequence: event.sequence });
+    const action = body.action;
+
+    const result = await this.state.storage.transaction<ControlMutationResult>(
+      async (transaction) => {
+        const [storedConfiguration, latest] = await Promise.all([
+          transaction.get<RoomConfiguration>("configuration"),
+          transaction.get<PublicCaptionEvent>("latest"),
+        ]);
+        if (!storedConfiguration || storedConfiguration.expiresAt <= Date.now()) {
+          return { kind: "expired" };
+        }
+        const configuration = normalizedConfiguration(storedConfiguration, latest);
+
+        if (action === "show-test") {
+          if (!configuration.paused) return { kind: "not-paused" };
+          if (
+            !body.targetLanguage ||
+            !isLanguageLocale(body.targetLanguage) ||
+            configuration.lastSequence >= MAX_CAPTION_EVENTS
+          ) {
+            return { kind: "invalid" };
+          }
+          const event: PublicCaptionEvent = {
+            sequence: configuration.lastSequence + 1,
+            publicText: SAMPLE_CAPTIONS[body.targetLanguage],
+            targetLanguage: body.targetLanguage,
+            style: normalizeCaptionStyle(body.style ?? configuration.style),
+            publishedAt: new Date().toISOString(),
+          };
+          configuration.lastSequence = event.sequence;
+          await Promise.all([
+            transaction.put("configuration", configuration),
+            transaction.put("latest", event),
+          ]);
+          return {
+            kind: "control",
+            response: {
+              action,
+              paused: true,
+              sequence: event.sequence,
+            },
+            caption: event,
+            clear: false,
+          };
+        }
+
+        if (action === "pause") configuration.paused = true;
+        if (action === "resume") configuration.paused = false;
+        await Promise.all([
+          transaction.put("configuration", configuration),
+          transaction.delete("latest"),
+        ]);
+        return {
+          kind: "control",
+          response: { action, paused: configuration.paused },
+          clear: true,
+        };
+      },
+    );
+
+    if (result.kind === "expired") {
+      await this.clearRoom("Caption session expired.");
+      return json({ error: "The caption session has expired." }, 410);
+    }
+    if (result.kind === "not-paused") {
+      return json({ error: "Pause the caption session before showing a test." }, 409);
+    }
+    if (result.kind === "invalid") {
+      return json({ error: "Invalid live-session control." }, 400);
+    }
+
+    if (result.clear) this.broadcast({ type: "clear" });
+    if (result.caption) this.broadcast({ type: "caption", caption: result.caption });
+    return json(result.response);
   }
 
   private async updateStyle(request: Request) {
-    const configuration = await this.state.storage.get<RoomConfiguration>(
-      "configuration",
+    const body = (await request.json()) as { style?: Partial<CaptionStyle> };
+    const style = normalizeCaptionStyle(body.style ?? {});
+    const result = await this.state.storage.transaction<StyleMutationResult>(
+      async (transaction) => {
+        const [storedConfiguration, latest] = await Promise.all([
+          transaction.get<RoomConfiguration>("configuration"),
+          transaction.get<PublicCaptionEvent>("latest"),
+        ]);
+        if (!storedConfiguration || storedConfiguration.expiresAt <= Date.now()) {
+          return { kind: "expired" };
+        }
+        const configuration = normalizedConfiguration(storedConfiguration, latest);
+        configuration.style = style;
+        await transaction.put("configuration", configuration);
+        if (latest) {
+          latest.style = style;
+          await transaction.put("latest", latest);
+        }
+        return { kind: "style", style };
+      },
     );
-    if (!configuration || configuration.expiresAt <= Date.now()) {
+
+    if (result.kind === "expired") {
       await this.clearRoom("Caption session expired.");
       return json({ error: "The caption session has expired." }, 410);
     }
 
-    const body = (await request.json()) as { style?: Partial<CaptionStyle> };
-    const style = normalizeCaptionStyle(body.style ?? {});
-    configuration.style = style;
-    await this.state.storage.put("configuration", configuration);
+    this.broadcast({ type: "style", style: result.style });
+    return json({ updated: true, style: result.style });
+  }
 
-    const latest = await this.state.storage.get<PublicCaptionEvent>("latest");
-    if (latest) {
-      latest.style = style;
-      await this.state.storage.put("latest", latest);
-    }
-
-    const payload = JSON.stringify({ type: "style", style });
+  private broadcast(payload: unknown) {
+    const message = JSON.stringify(payload);
     for (const socket of this.state.getWebSockets("overlay")) {
       try {
-        socket.send(payload);
+        socket.send(message);
       } catch {
         socket.close(1011, "Overlay connection failed.");
       }
     }
-    return json({ updated: true, style });
   }
 
   webSocketMessage(socket: WebSocket) {

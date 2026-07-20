@@ -74,18 +74,21 @@ export async function POST(request: Request) {
           )
         : {};
 
-    const result = await translateWithGroq({
-      text: body.text,
-      sourceLanguage: body.sourceLanguage,
-      targetLanguage: body.targetLanguage,
-      recentContext: Array.isArray(body.recentContext)
-        ? body.recentContext
-            .filter((value): value is string => typeof value === "string")
-            .slice(-4)
-            .map((value) => value.slice(0, 1_000))
-        : [],
-      preferredTerms,
-    });
+    const result = await translateWithGroq(
+      {
+        text: body.text,
+        sourceLanguage: body.sourceLanguage,
+        targetLanguage: body.targetLanguage,
+        recentContext: Array.isArray(body.recentContext)
+          ? body.recentContext
+              .filter((value): value is string => typeof value === "string")
+              .slice(-4)
+              .map((value) => value.slice(0, 1_000))
+          : [],
+        preferredTerms,
+      },
+      request.signal,
+    );
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return errorResponse(error);

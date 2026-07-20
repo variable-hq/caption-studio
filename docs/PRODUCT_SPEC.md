@@ -28,8 +28,9 @@ archive and summary product. They are not implemented in the current prototype.
 3. The operator selects a spoken language or automatic detection and one target language.
 4. The operator optionally enters bounded keyword/preferred-translation pairs and public
    mask words.
-5. The operator configures font, size, colour, line highlight, transparency, and position.
-   Display preferences can be saved in that browser.
+5. The operator configures font, size, colour, line highlight, transparency, position,
+   and horizontal/vertical safe margins. Display preferences can be saved in that
+   browser.
 6. The operator starts a session; the app verifies Access, Groq credentials, and model
    availability before recording.
 7. The app generates an expiring OBS Browser Source URL for that session.
@@ -46,11 +47,14 @@ archive and summary product. They are not implemented in the current prototype.
    latency, dropped chunks, elapsed session time, and transcription request count.
 6. The latest public caption and style are published to the read-only OBS room.
 7. OBS reconnects after temporary channel loss and receives the latest caption.
+8. The operator can Pause capture and AI without changing the OBS URL, Clear the current
+   public caption, or show a localized synthetic test while paused.
 
 ### After the service
 
-1. The operator ends the session.
-2. The Worker revokes the overlay link, closes sockets, and clears room storage.
+1. The operator selects End and confirms the irreversible action.
+2. The Worker revokes the overlay link, closes sockets, and clears room storage. If
+   revocation cannot be confirmed, the dashboard keeps the session available for retry.
 3. The app retains no sermon transcript, summary, or audio.
 
 ## Supported languages
@@ -117,12 +121,18 @@ and persistent workspace rules are future features.
 - Highlight transparency: 0–100%.
 - Horizontal alignment: left, centre, or right.
 - Vertical placement: top, middle, or bottom.
+- Horizontal and vertical safe margins: 0–20%, defaulting to 4% and 6%.
 - Transparent overlay canvas with per-line background highlight.
 - Read-only, session-scoped URL with automatic reconnect and sequence protection.
 - Saved display preferences are local to the browser and never include the overlay token.
 
-The prototype does not yet offer safe-margin, line-count, outline, transition, or reusable
-server-side display profiles.
+Pause stops microphone capture, clears queued audio and public display, and blocks late
+caption writes while keeping the original URL and expiry. Resume clears any synthetic
+test before capture restarts. Clear does not pause capture, so the next valid live
+caption may replace the blank display.
+
+The prototype does not yet offer line-count, outline, transition, or reusable server-side
+display profiles.
 
 ### Usage and cost controls
 
@@ -145,6 +155,9 @@ Code-level acceptance:
 - A preferred term can affect transcription guidance and translated output.
 - A configured mask changes public output without changing the protected source preview.
 - Style changes reach a connected overlay without restarting the session.
+- Pause stops AI requests, clears OBS, and Resume retains the session URL and expiry.
+- Clear survives overlay reload; paused-only test captions make no AI request.
+- Safe margins are bounded, saved, restored, and propagated live.
 - An overlay can reconnect and recover the latest public caption.
 - Session end or expiry invalidates its overlay token.
 - Production operator mutations fail closed without valid Access configuration.

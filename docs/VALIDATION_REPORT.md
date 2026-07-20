@@ -53,6 +53,29 @@ The local preview emits the documented warning that the internal Durable Object 
 run in the same local Worker configuration. Durable Object behavior was therefore
 validated against the deployed environment, not the local preview.
 
+### Live-control and safe-margin extension
+
+The subsequent control extension adds atomic Pause/Resume/Clear/test behavior, confirmed
+End, and 0–20% OBS safe margins. The feature-branch validation completed on 20 July 2026
+includes:
+
+- 41 passing Vitest tests, including Access enforcement, control validation, paused-room
+  rejection, caption-versus-Pause ordering, sequence preservation, margin normalization,
+  and AI-request cancellation propagation;
+- strict TypeScript checks, ESLint, `git diff --check`, Next.js production build, and
+  OpenNext Cloudflare bundle generation;
+- zero reported npm audit vulnerabilities;
+- desktop and 390px mobile dashboard inspection with no horizontal overflow, a clean
+  browser console, and measured 4%/6% preview guide insets; and
+- local Worker route smoke results: dashboard `200`, overlay document `200`, malformed
+  socket request `400`, and a valid-shaped operator control request failing closed at
+  `503` when local Access configuration is absent.
+
+The internal Durable Object remains unavailable in the local OpenNext preview by design,
+so deployed control behavior and a real 1920 × 1080 OBS Browser Source rehearsal remain
+post-merge gates. This original production smoke report remains evidence for the earlier
+baseline and does not retroactively claim the new controls were deployed or live-tested.
+
 ## Not validated
 
 - quality for every supported source/target language, accent, or Chinese script;

@@ -15,7 +15,9 @@ The current codebase implements the Phase 1 cloud prototype:
 - source and public-caption previews;
 - 10–72px caption size, font, colour, per-line highlight, transparency, and
   horizontal or vertical alignment;
+- 0–20% horizontal and vertical OBS safe margins;
 - browser-local saved display preferences;
+- Start, Pause/Resume, Clear, paused-only synthetic test, and confirmed End controls;
 - active-session time and transcription-request usage indicators; and
 - an expiring, revocable OBS URL backed by a Durable Object WebSocket.
 
@@ -157,8 +159,13 @@ The application already generates the OBS URL as part of a live session:
 1. Sign in to the operator dashboard and start a caption session.
 2. Copy the generated Browser Source URL.
 3. In OBS, add **Browser**, use a 1920 × 1080 canvas, and paste the URL.
-4. Confirm the transparent overlay connects and receives a synthetic test caption.
-5. End the session after the service; this revokes the link and clears the room.
+4. Pause capture and select **Show test caption** to verify the transparent overlay,
+   style, alignment, and safe margins without making an AI request.
+5. Resume capture. Pause stops microphone capture and Groq calls while preserving the
+   same URL and original session expiry.
+6. Use **Clear caption** to blank the public overlay without ending its session.
+7. Select **End session**, then **Confirm end**, after the service. This revokes the link
+   and clears the room; failed revocation remains visible and can be retried.
 
 Anyone holding an active URL can view that session's public captions. Treat it as a
 short-lived credential: do not publish, log, or reuse it. Each link expires after at
@@ -173,6 +180,8 @@ displayed processing time and normal browser/network rendering delay.
 The app enforces a 90-minute session, four-second transcription chunks, one target
 language, a bounded two-chunk queue, bounded prompt and request sizes, and no automatic
 paid-provider fallback. A Groq `429` ends the session rather than purchasing capacity.
+Pause, Clear, Resume, and Show test caption use only low-volume Worker/Durable Object
+requests. The synthetic test caption does not call Groq.
 
 These controls cannot guarantee account-wide free usage: Groq limits apply to the
 organization and Cloudflare limits apply to the account, while the UI meter covers only

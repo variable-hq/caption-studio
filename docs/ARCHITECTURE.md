@@ -33,17 +33,20 @@ The Next.js client provides:
 - microphone and browser-visible audio-interface enumeration;
 - explicit microphone permission and a live input meter;
 - source language, target language, glossary, filter, and caption styling controls;
+- a live control bar for pause/resume, clear, synthetic test, and confirmed end;
 - a `MediaRecorder` that creates independent four-second audio chunks;
 - a two-chunk in-memory queue to bound latency and memory use;
 - protected source and moderated public-caption previews;
 - active-session time, transcription request count, dropped chunk count, and last
   post-recording cloud processing latency;
-- an OBS URL copy action and session end action; and
+- an OBS URL copy action and protected session end action; and
 - display-preference persistence in browser `localStorage`.
 
 Glossary text, filter text, audio, captions, and session usage are not persisted by the
-browser after the active page/session. The UI has no pause, manual correction, caption
-history, archive, or summary controls today.
+browser after the active page/session. The UI has no manual correction, caption history,
+archive, or summary controls today. Pause stops browser capture, discards queued chunks,
+and keeps the existing room and expiry. The session clock continues while the
+transcription-request count does not.
 
 ### Cloudflare Worker and OpenNext
 
@@ -114,13 +117,21 @@ The Durable Object stores:
 
 - the SHA-256 token hash;
 - session expiry;
-- current caption style; and
+- current caption style;
+- paused state and the last accepted sequence number; and
 - the latest moderated public caption.
 
 It accepts monotonically increasing caption sequence numbers, limits public caption
-length, and broadcasts captions and style changes to connected overlays. A new or
+length, and broadcasts captions, clears, and style changes to connected overlays. Room
+storage transactions serialize caption/control mutations: a caption either commits
+before Pause and is then cleared, or arrives afterward and is rejected. A new or
 reconnected overlay receives the current style and latest caption. Ending the session or
 the expiry alarm closes sockets and deletes all room storage.
+
+The protected control endpoint accepts Pause, Resume, Clear, and Show test. Pause and
+Resume clear the display, Pause blocks live-caption writes, and Show test is permitted
+only while paused. Test content comes from bounded application constants and never calls
+the AI provider.
 
 The overlay document has no Next.js asset dependency, provider credential, operator
 control, history request, or archive capability. It renders a transparent 1920 × 1080
@@ -158,6 +169,7 @@ select the source explicitly when script-specific handling matters.
 | Protected source preview | Browser memory | Active page/session |
 | Moderated public caption | Browser and Durable Object | Active page; latest item until session ends/expires |
 | Caption style | Browser local storage and Durable Object | Browser preference; active room |
+| Paused state and last sequence | Durable Object | Active room, maximum 90 minutes |
 | Token | URL fragment and browser/OBS memory | Active room, maximum 90 minutes |
 | Token hash | Durable Object | Active room, maximum 90 minutes |
 | Session usage counters | Browser memory | Active page/session |
@@ -175,6 +187,9 @@ usage metadata remains outside this application's control.
   measures upload, transcription, translation, processing, and publication; approximate
   spoken-to-screen time is four seconds plus that value and rendering delay.
 - When two chunks are already queued, a new chunk is dropped and the operator is warned.
+- Pausing deliberately discards queued audio without counting it as a dropped chunk;
+  paused time still counts toward the 90-minute room expiry.
+- Safe margins are bounded to 0–20% per axis and use viewport-relative units in OBS.
 - A transcription quota, authentication, language-detection, or session-expiry error
   ends the session.
 - Other transient provider errors are shown while the next queued chunk may retry the

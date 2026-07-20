@@ -16,9 +16,25 @@ export interface CaptionStyle {
   textColor: string;
   backgroundColor: string;
   backgroundTransparency: number;
+  horizontalMarginPercent: number;
+  verticalMarginPercent: number;
   horizontalAlign: CaptionHorizontalAlign;
   verticalAlign: CaptionVerticalAlign;
   fontFamily: CaptionFontFamily;
+}
+
+export type LiveSessionControlAction = "pause" | "resume" | "clear" | "show-test";
+
+export interface LiveSessionControlRequest {
+  action: LiveSessionControlAction;
+  targetLanguage?: LanguageLocale;
+  style?: CaptionStyle;
+}
+
+export interface LiveSessionControlResponse {
+  action: LiveSessionControlAction;
+  paused: boolean;
+  sequence?: number;
 }
 
 export interface PublicCaptionEvent {
@@ -36,7 +52,15 @@ export interface LiveSessionDetails {
 }
 
 export interface LiveSessionState {
-  status: "idle" | "starting" | "live" | "stopping" | "error";
+  status:
+    | "idle"
+    | "starting"
+    | "live"
+    | "pausing"
+    | "paused"
+    | "resuming"
+    | "ending"
+    | "error";
   message: string;
   sequence: number;
   droppedChunks: number;
@@ -69,6 +93,18 @@ export function normalizeCaptionStyle(input: Partial<CaptionStyle>): CaptionStyl
       0,
       100,
       0,
+    ),
+    horizontalMarginPercent: boundedInteger(
+      input.horizontalMarginPercent,
+      0,
+      20,
+      4,
+    ),
+    verticalMarginPercent: boundedInteger(
+      input.verticalMarginPercent,
+      0,
+      20,
+      6,
     ),
     horizontalAlign: ["left", "center", "right"].includes(input.horizontalAlign ?? "")
       ? input.horizontalAlign!
