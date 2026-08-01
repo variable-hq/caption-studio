@@ -36,11 +36,13 @@ The app does not yet store sermons, generate summaries, support manual correctio
 or aggregate usage across services and provider accounts. Those are later phases that require
 retention, consent, review, and cost decisions.
 
-A production smoke test on 20 July 2026 passed the core microphone-to-cloud-to-OBS
-journey, Access boundaries, live style propagation, reconnect, and session revocation.
-This is evidence for a controlled stakeholder test, not production approval or a
-language-quality sign-off. See the [validation report](docs/VALIDATION_REPORT.md) and
-follow the [stakeholder test guide](docs/STAKEHOLDER_TEST_GUIDE.md).
+The 20 July 2026 production smoke test passed the original microphone-to-cloud-to-OBS
+journey and Access boundaries. The reusable Main-channel implementation and current
+operator layout have separate automated and browser-level evidence; their deployed
+Durable Object, shared-link, takeover, and real-OBS checks remain rollout gates. This is
+evidence for a controlled stakeholder test, not production approval or a language-quality
+sign-off. See the [validation report](docs/VALIDATION_REPORT.md) and follow the
+[stakeholder test guide](docs/STAKEHOLDER_TEST_GUIDE.md).
 
 ## High-level architecture
 
@@ -124,13 +126,22 @@ Available checks:
 ```bash
 npm test
 npm run typecheck
+npx tsc --noEmit --noUnusedLocals --noUnusedParameters
 npm run lint
 npm run build
+npx opennextjs-cloudflare build
+npm audit
+git diff --check
 npm run preview
 ```
 
 There is no GitHub Actions fallback. Contributors must run the relevant checks locally
 before review; a successful Cloudflare deployment is not a substitute for those checks.
+
+For operator-layout or caption-style changes, also verify a 1200px desktop viewport and
+a 390px mobile viewport in a real browser. Confirm that the preview responds while each
+appearance control is being adjusted, controls remain reachable, and neither viewport
+has horizontal overflow.
 
 `npm run preview` still verifies the OpenNext/Worker bundle and non-Durable-Object routes.
 Wrangler is expected to warn that this internal Durable Object is unavailable locally.

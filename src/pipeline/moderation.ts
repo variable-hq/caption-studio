@@ -1,9 +1,7 @@
-export type ModerationMode = "mask" | "replace" | "hide-segment";
-
 export interface ModerationRule {
   id: string;
   term: string;
-  mode: ModerationMode;
+  mode: "mask" | "replace" | "hide-segment";
   replacement?: string;
   matchInsideWords?: boolean;
   enabled?: boolean;

@@ -163,6 +163,9 @@ Code-level acceptance:
 - A preferred term can affect transcription guidance and translated output.
 - A configured mask changes public output without changing the protected source preview.
 - Style changes reach a connected overlay without restarting the service.
+- Appearance controls update the dashboard design preview continuously before Save.
+- Setup keeps audio, languages, terminology, and service details on the left, with the
+  preview, appearance controls, and OBS Browser Source on the right at desktop widths.
 - Pause stops AI requests, clears OBS, and Resume retains the reusable URL and expiry.
 - Clear survives overlay reload; idle-or-paused test captions make no AI request.
 - Safe margins are bounded, saved, restored, and propagated live.

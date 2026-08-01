@@ -8,10 +8,6 @@ export const MAX_TRANSCRIPTION_REQUESTS = Math.floor(
 export const MAX_CAPTION_EVENTS = 1_400;
 export const MAIN_CHANNEL_ID = "main" as const;
 
-export type CaptionHorizontalAlign = "left" | "center" | "right";
-export type CaptionVerticalAlign = "top" | "middle" | "bottom";
-export type CaptionFontFamily = "sans-serif" | "serif" | "monospace";
-
 export interface CaptionStyle {
   fontSize: number;
   textColor: string;
@@ -19,12 +15,12 @@ export interface CaptionStyle {
   backgroundTransparency: number;
   horizontalMarginPercent: number;
   verticalMarginPercent: number;
-  horizontalAlign: CaptionHorizontalAlign;
-  verticalAlign: CaptionVerticalAlign;
-  fontFamily: CaptionFontFamily;
+  horizontalAlign: "left" | "center" | "right";
+  verticalAlign: "top" | "middle" | "bottom";
+  fontFamily: "sans-serif" | "serif" | "monospace";
 }
 
-export const LIVE_SESSION_CONTROL_ACTIONS = [
+const LIVE_SESSION_CONTROL_ACTIONS = [
   "pause",
   "resume",
   "clear",

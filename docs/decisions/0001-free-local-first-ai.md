@@ -3,6 +3,9 @@
 - Status: superseded by ADR 0002
 - Date: 2026-07-19
 
+This file is retained as historical decision context. It does not describe the current
+runtime, operator console, deployment path, or provider configuration.
+
 ## Context
 
 The project needs multilingual live captions without committing the church to API
