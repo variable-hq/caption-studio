@@ -6,6 +6,7 @@ export const MAX_TRANSCRIPTION_REQUESTS = Math.floor(
   MAX_LIVE_SESSION_MS / AUDIO_CHUNK_MS,
 );
 export const MAX_CAPTION_EVENTS = 1_400;
+export const MAIN_CHANNEL_ID = "main" as const;
 
 export type CaptionHorizontalAlign = "left" | "center" | "right";
 export type CaptionVerticalAlign = "top" | "middle" | "bottom";
@@ -42,6 +43,8 @@ export function isLiveSessionControlAction(
   );
 }
 
+export type ChannelStatus = "unconfigured" | "idle" | "live" | "paused";
+
 export interface LiveSessionControlRequest {
   action: LiveSessionControlAction;
   targetLanguage?: LanguageLocale;
@@ -50,26 +53,42 @@ export interface LiveSessionControlRequest {
 
 export interface LiveSessionControlResponse {
   action: LiveSessionControlAction;
-  paused: boolean;
+  status: Exclude<ChannelStatus, "unconfigured">;
   sequence?: number;
 }
 
-export interface PublicCaptionEvent {
-  sequence: number;
+export interface PublicCaptionRequest {
   publicText: string;
   targetLanguage: LanguageLocale;
   style: CaptionStyle;
+}
+
+export interface PublicCaptionEvent extends PublicCaptionRequest {
+  sequence: number;
   publishedAt: string;
 }
 
-export interface LiveSessionDetails {
-  sessionId: string;
-  overlayUrl: string;
+export interface ObsChannelDetails {
+  channelId: typeof MAIN_CHANNEL_ID;
+  configured: boolean;
+  status: ChannelStatus;
+  overlayUrl: string | null;
+  style: CaptionStyle | null;
+  startedAt: string | null;
+  expiresAt: string | null;
+  transcriptionRequests: number;
+}
+
+export interface LiveServiceDetails {
+  channelId: typeof MAIN_CHANNEL_ID;
+  controllerToken: string;
+  startedAt: string;
   expiresAt: string;
 }
 
 export interface LiveSessionState {
   status:
+    | "loading-channel"
     | "idle"
     | "starting"
     | "live"
@@ -77,17 +96,25 @@ export interface LiveSessionState {
     | "paused"
     | "resuming"
     | "ending"
+    | "taken-over"
     | "error";
   message: string;
   sequence: number;
   droppedChunks: number;
   transcriptionRequests: number;
-  sessionStartedAt: string | null;
   latestSourceText: string;
   latestPublicText: string;
   lastLatencyMs: number | null;
-  session: LiveSessionDetails | null;
+  channel: ObsChannelDetails | null;
+  service: LiveServiceDetails | null;
 }
+
+export type LiveApiErrorCode =
+  | "channel_in_use"
+  | "channel_not_configured"
+  | "controller_replaced"
+  | "invalid_overlay_key"
+  | "transcription_limit_reached";
 
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
 
@@ -123,20 +150,20 @@ export function normalizeCaptionStyle(input: Partial<CaptionStyle>): CaptionStyl
       20,
       6,
     ),
-    horizontalAlign: ["left", "center", "right"].includes(input.horizontalAlign ?? "")
+    horizontalAlign: ["left", "center", "right"].includes(
+      input.horizontalAlign ?? "",
+    )
       ? input.horizontalAlign!
       : "center",
-    verticalAlign: ["top", "middle", "bottom"].includes(input.verticalAlign ?? "")
+    verticalAlign: ["top", "middle", "bottom"].includes(
+      input.verticalAlign ?? "",
+    )
       ? input.verticalAlign!
       : "bottom",
-    fontFamily: ["sans-serif", "serif", "monospace"].includes(input.fontFamily ?? "")
+    fontFamily: ["sans-serif", "serif", "monospace"].includes(
+      input.fontFamily ?? "",
+    )
       ? input.fontFamily!
       : "sans-serif",
   };
-}
-
-export function isLiveSessionId(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
 }

@@ -97,6 +97,36 @@ This sanitization result is local branch evidence only. It does not replace the 
 post-merge Cloudflare deployment check or the outstanding Durable Object and real OBS
 rehearsal.
 
+### Reusable Main channel and operator-console branch
+
+The current feature branch replaces per-service URLs with one encrypted, reusable Main
+channel and separates guided Setup from the streamlined Live console. Local automated
+validation covers idempotent channel creation, AES-GCM token recovery, Access and body
+bounds, server-assigned sequence order, idle/paused tests, End-with-URL-retention,
+service expiry, controller conflicts, confirmed takeover, stale-controller rejection,
+explicit rotation, and the self-contained overlay contract.
+
+Current branch evidence on 1 August 2026:
+
+- 11 passing Vitest files with 60 tests, including atomic request-ceiling enforcement
+  and paused-state reservation rejection;
+- strict TypeScript, explicit unused-local/parameter checks, ESLint, Cloudflare type
+  generation, Next.js production build, and OpenNext bundle/preview pass;
+- the 1200px desktop and 390px mobile Setup layouts were rendered in a real browser with
+  no horizontal overflow; the mobile accordion reduced the initial page length while
+  preserving reachable Start and OBS actions;
+- local Worker smoke checks returned `200` for the dashboard, self-contained overlay,
+  and AI health route, failed the protected channel route closed without Access, and
+  rejected a non-WebSocket overlay request with `426`; and
+- the patched dependency tree uses Next.js 16.2.12, Wrangler 4.118.0, and Sharp 0.35.2
+  and reports zero vulnerabilities through `npm audit`.
+
+There is no claim yet for deployed Durable Object behavior, real OBS reuse, collaborator
+takeover, Cloudflare secret configuration, or post-merge production routes.
+
+Those outstanding items remain rollout gates. This section does not retroactively alter
+the 20 July production baseline, which exercised the previous temporary-link design.
+
 ## Not validated
 
 - quality for every supported source/target language, accent, or Chinese script;

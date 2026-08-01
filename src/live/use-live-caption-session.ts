@@ -11,12 +11,12 @@ import {
   MAX_LIVE_SESSION_MS,
   normalizeCaptionStyle,
   type CaptionStyle,
+  type LiveServiceDetails,
   type LiveSessionControlAction,
-  type LiveSessionDetails,
   type LiveSessionState,
-  type PublicCaptionEvent,
+  type PublicCaptionRequest,
 } from "@/live/contracts";
-import { LiveSessionClient } from "@/live/session-client";
+import { LiveApiError, LiveSessionClient } from "@/live/session-client";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { keywordHints } from "@/pipeline/glossary";
@@ -34,17 +34,19 @@ interface QueuedChunk {
   generation: number;
 }
 
+const CONTROLLER_STORAGE_KEY = "church-live-caption:main-controller:v1";
+
 const INITIAL_LIVE_STATE: LiveSessionState = {
-  status: "idle",
-  message: "Configure the service, then start a caption session.",
+  status: "loading-channel",
+  message: "Loading the Main OBS channel…",
   sequence: 0,
   droppedChunks: 0,
   transcriptionRequests: 0,
-  sessionStartedAt: null,
   latestSourceText: "",
   latestPublicText: "",
   lastLatencyMs: null,
-  session: null,
+  channel: null,
+  service: null,
 };
 
 const RECORDER_TYPES = [
@@ -59,6 +61,10 @@ function recorderOptions() {
   return mimeType ? { mimeType, audioBitsPerSecond: 64_000 } : undefined;
 }
 
+function isControllerReplaced(error: unknown) {
+  return error instanceof LiveApiError && error.code === "controller_replaced";
+}
+
 export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
@@ -70,7 +76,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const [liveState, setLiveState] = useState<LiveSessionState>(INITIAL_LIVE_STATE);
   const [controlAction, setControlAction] =
     useState<LiveSessionControlAction | null>(null);
+  const [channelAction, setChannelAction] = useState<
+    "create" | "rotate" | "save-style" | null
+  >(null);
   const [endRetryRequired, setEndRetryRequired] = useState(false);
+  const [takeoverRequired, setTakeoverRequired] = useState(false);
+  const [rotationRecoveryRequired, setRotationRecoveryRequired] = useState(false);
 
   const settingsRef = useRef(settings);
   const streamRef = useRef<MediaStream | null>(null);
@@ -81,14 +92,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const queueRef = useRef<QueuedChunk[]>([]);
   const processingRef = useRef(false);
   const captureAbortRef = useRef<AbortController | null>(null);
-  const sessionActiveRef = useRef(false);
   const capturingRef = useRef(false);
   const captureGenerationRef = useRef(0);
-  const serverPausedRef = useRef(false);
   const endingRef = useRef(false);
-  const sessionRef = useRef<LiveSessionDetails | null>(null);
+  const serviceRef = useRef<LiveServiceDetails | null>(null);
   const recentContextRef = useRef<string[]>([]);
-  const sequenceRef = useRef(0);
   const sessionTimerRef = useRef<number | null>(null);
   const cloudClientRef = useRef(new CloudProviderClient());
   const liveClientRef = useRef(new LiveSessionClient());
@@ -96,26 +104,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
-
-  useEffect(() => {
-    const session = sessionRef.current;
-    if (!sessionActiveRef.current || !session) return;
-    const style = normalizeCaptionStyle(settings.style);
-    const timeout = window.setTimeout(() => {
-      if (
-        !sessionActiveRef.current ||
-        sessionRef.current?.sessionId !== session.sessionId
-      ) {
-        return;
-      }
-      void liveClientRef.current.updateStyle(session.sessionId, style).catch((error) => {
-        const message =
-          error instanceof Error ? error.message : "Could not update the OBS style.";
-        setLiveState((state) => ({ ...state, message }));
-      });
-    }, 120);
-    return () => window.clearTimeout(timeout);
-  }, [settings.style]);
 
   const stopMicrophone = useCallback(() => {
     if (animationRef.current !== null) {
@@ -226,26 +214,51 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     stopMicrophone();
   }, [stopMicrophone, stopRecorder]);
 
-  const endSession = useCallback(
-    async (message = "Caption session ended.", failed = false) => {
+  const clearServiceTimer = useCallback(() => {
+    if (sessionTimerRef.current !== null) {
+      window.clearTimeout(sessionTimerRef.current);
+      sessionTimerRef.current = null;
+    }
+  }, []);
+
+  const handleTakenOver = useCallback(
+    (message = "Control of the Main channel moved to another operator.") => {
+      stopCapture();
+      clearServiceTimer();
+      window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
+      serviceRef.current = null;
+      setEndRetryRequired(false);
+      setTakeoverRequired(false);
+      setControlAction(null);
+      setLiveState((current) => ({
+        ...current,
+        status: "taken-over",
+        message,
+        latestSourceText: "",
+        latestPublicText: "",
+        service: null,
+        channel: current.channel
+          ? { ...current.channel, status: "live" }
+          : current.channel,
+      }));
+    },
+    [clearServiceTimer, stopCapture],
+  );
+
+  const endService = useCallback(
+    async (message = "Live service ended. The reusable OBS URL is ready for next time.", failed = false) => {
       if (endingRef.current) return;
       endingRef.current = true;
       setControlAction(null);
       stopCapture();
-      if (sessionTimerRef.current !== null) {
-        window.clearTimeout(sessionTimerRef.current);
-        sessionTimerRef.current = null;
-      }
-
-      const session = sessionRef.current;
-      if (!session) {
-        sessionActiveRef.current = false;
-        setEndRetryRequired(false);
+      clearServiceTimer();
+      const service = serviceRef.current;
+      if (!service) {
         setLiveState((current) => ({
           ...current,
           status: failed ? "error" : "idle",
           message,
-          session: null,
+          service: null,
         }));
         endingRef.current = false;
         return;
@@ -254,13 +267,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         status: "ending",
-        message: "Ending the caption session and revoking its OBS URL…",
+        message: "Ending the live service and clearing OBS…",
       }));
       try {
-        await liveClientRef.current.revoke(session.sessionId);
-        sessionRef.current = null;
-        sessionActiveRef.current = false;
-        serverPausedRef.current = false;
+        await liveClientRef.current.endService(service.controllerToken);
+        window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
+        serviceRef.current = null;
         setEndRetryRequired(false);
         setLiveState((current) => ({
           ...current,
@@ -268,54 +280,75 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           message,
           latestSourceText: "",
           latestPublicText: "",
-          session: null,
+          service: null,
+          channel: current.channel
+            ? {
+                ...current.channel,
+                status: "idle",
+                startedAt: null,
+                expiresAt: null,
+              }
+            : current.channel,
         }));
       } catch (error) {
-        const detail =
-          error instanceof Error ? error.message : "The OBS URL could not be revoked.";
-        setEndRetryRequired(true);
-        setLiveState((current) => ({
-          ...current,
-          status: "error",
-          message: `Audio stopped, but OBS revocation was not confirmed. Retry end. ${detail}`,
-          session,
-        }));
+        if (isControllerReplaced(error)) {
+          handleTakenOver();
+        } else {
+          const detail =
+            error instanceof Error ? error.message : "Service deactivation failed.";
+          setEndRetryRequired(true);
+          setLiveState((current) => ({
+            ...current,
+            status: "error",
+            message: `Audio stopped, but service deactivation was not confirmed. Retry End. ${detail}`,
+            service,
+          }));
+        }
       } finally {
         endingRef.current = false;
       }
     },
-    [stopCapture],
+    [clearServiceTimer, handleTakenOver, stopCapture],
   );
 
   const processChunk = useCallback(
     async (audio: Blob, generation: number) => {
       const isCurrentCapture = () =>
-        sessionActiveRef.current &&
+        Boolean(serviceRef.current) &&
         capturingRef.current &&
         generation === captureGenerationRef.current;
       if (!isCurrentCapture()) return;
 
-      // This measures cloud processing after MediaRecorder completes a four-second chunk.
-      // It intentionally excludes recording time and is not spoken-to-screen latency.
+      // Cloud latency starts after a four-second MediaRecorder chunk completes.
       const startedAt = performance.now();
       const current = settingsRef.current;
       const signal = captureAbortRef.current?.signal;
       if (!signal) return;
+      const serviceAtStart = serviceRef.current;
+      if (!serviceAtStart) return;
+      // Check the controller immediately before paid-capable provider work. A takeover
+      // therefore stops the displaced tab before its next transcription request.
+      const lease = await liveClientRef.current.validateController(
+        serviceAtStart.controllerToken,
+      );
+      if (!isCurrentCapture()) return;
       const glossary = parseGlossaryInput(current.keywordText, current.targetLanguage);
       setLiveState((state) => ({
         ...state,
-        transcriptionRequests: state.transcriptionRequests + 1,
+        transcriptionRequests: lease.transcriptionRequests,
       }));
-      const segments = await cloudClientRef.current.transcribe({
-        audio,
-        sourceLanguage: current.sourceLanguage,
-        keywordHints: keywordHints(glossary),
-      }, signal);
+      const segments = await cloudClientRef.current.transcribe(
+        {
+          audio,
+          sourceLanguage: current.sourceLanguage,
+          keywordHints: keywordHints(glossary),
+        },
+        signal,
+      );
       if (!isCurrentCapture()) return;
 
       const finalSegments = segments.filter(({ isFinal, text }) => isFinal && text.trim());
       if (!finalSegments.length) return;
-
       const sourceText = finalSegments.map(({ text }) => text.trim()).join(" ");
       const detectedLanguage =
         current.sourceLanguage === "auto"
@@ -330,13 +363,16 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       const translation =
         detectedLanguage === current.targetLanguage
           ? { text: sourceText }
-          : await cloudClientRef.current.translate({
-              text: sourceText,
-              sourceLanguage: detectedLanguage,
-              targetLanguage: current.targetLanguage,
-              recentContext: recentContextRef.current,
-              preferredTerms: preferredTermMap(glossary, current.targetLanguage),
-            }, signal);
+          : await cloudClientRef.current.translate(
+              {
+                text: sourceText,
+                sourceLanguage: detectedLanguage,
+                targetLanguage: current.targetLanguage,
+                recentContext: recentContextRef.current,
+                preferredTerms: preferredTermMap(glossary, current.targetLanguage),
+              },
+              signal,
+            );
       if (!isCurrentCapture()) return;
 
       const forms = prepareCaptionForms({
@@ -346,17 +382,17 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         glossary,
         moderationRules: parseModerationInput(current.filterText),
       });
-      sequenceRef.current += 1;
-      const event: PublicCaptionEvent = {
-        sequence: sequenceRef.current,
+      const event: PublicCaptionRequest = {
         publicText: forms.publicText,
         targetLanguage: current.targetLanguage,
         style: normalizeCaptionStyle(settingsRef.current.style),
-        publishedAt: new Date().toISOString(),
       };
-      const session = sessionRef.current;
-      if (!session || !isCurrentCapture()) return;
-      await liveClientRef.current.publish(session.sessionId, event);
+      const service = serviceRef.current;
+      if (!service || !isCurrentCapture()) return;
+      const published = await liveClientRef.current.publish(
+        service.controllerToken,
+        event,
+      );
       if (!isCurrentCapture()) return;
 
       recentContextRef.current = [...recentContextRef.current, sourceText].slice(-4);
@@ -365,7 +401,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         message: forms.hiddenFromPublicDisplay
           ? "A filtered caption was hidden from the public overlay."
           : "Caption published to the OBS overlay.",
-        sequence: event.sequence,
+        sequence: published.sequence,
         latestSourceText: forms.protectedSourceText,
         latestPublicText: forms.publicText,
         lastLatencyMs: Math.round(performance.now() - startedAt),
@@ -378,22 +414,29 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     if (processingRef.current) return;
     processingRef.current = true;
     try {
-      while (sessionActiveRef.current && capturingRef.current && queueRef.current.length) {
+      while (serviceRef.current && capturingRef.current && queueRef.current.length) {
         const chunk = queueRef.current.shift();
         if (!chunk) continue;
         try {
           await processChunk(chunk.audio, chunk.generation);
         } catch (error) {
-          if (
-            !capturingRef.current ||
-            chunk.generation !== captureGenerationRef.current
-          ) {
+          if (!capturingRef.current || chunk.generation !== captureGenerationRef.current) {
             continue;
+          }
+          if (isControllerReplaced(error)) {
+            handleTakenOver();
+            break;
           }
           const message =
             error instanceof Error ? error.message : "Caption processing failed.";
-          if (/quota|expired|language could not be detected|authentication/i.test(message)) {
-            await endSession(message, true);
+          if (
+            (error instanceof LiveApiError &&
+              error.code === "transcription_limit_reached") ||
+            /quota|expired|event limit|language could not be detected|authentication/i.test(
+              message,
+            )
+          ) {
+            await endService(message, true);
             break;
           }
           setLiveState((state) => ({ ...state, status: "live", message }));
@@ -402,12 +445,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     } finally {
       processingRef.current = false;
     }
-  }, [endSession, processChunk]);
+  }, [endService, handleTakenOver, processChunk]);
 
   const enqueueChunk = useCallback(
     (audio: Blob, generation: number) => {
       if (
-        !sessionActiveRef.current ||
+        !serviceRef.current ||
         !capturingRef.current ||
         generation !== captureGenerationRef.current ||
         audio.size === 0
@@ -432,7 +475,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     (stream: MediaStream, generation: number) => {
       const startRecorderChunk = () => {
         if (
-          !sessionActiveRef.current ||
+          !serviceRef.current ||
           !capturingRef.current ||
           generation !== captureGenerationRef.current
         ) {
@@ -446,13 +489,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         };
         recorder.onerror = () => {
           if (generation === captureGenerationRef.current) {
-            void endSession("The browser audio recorder stopped unexpectedly.", true);
+            void endService("The browser audio recorder stopped unexpectedly.", true);
           }
         };
         recorder.onstop = () => {
           if (recorderRef.current === recorder) recorderRef.current = null;
           if (
-            !sessionActiveRef.current ||
+            !serviceRef.current ||
             !capturingRef.current ||
             generation !== captureGenerationRef.current
           ) {
@@ -470,224 +513,461 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       };
       startRecorderChunk();
     },
-    [endSession, enqueueChunk],
+    [endService, enqueueChunk],
   );
 
-  const startSession = useCallback(async () => {
-    if (sessionActiveRef.current || endingRef.current) return;
-    setEndRetryRequired(false);
-    setLiveState({
-      ...INITIAL_LIVE_STATE,
-      status: "starting",
-      message: "Verifying cloud AI…",
-    });
-    try {
-      if (typeof MediaRecorder === "undefined") {
-        throw new Error("This browser does not support live audio recording.");
-      }
-      await cloudClientRef.current.readiness();
-      const stream = await ensureMicrophone(selectedDeviceId || undefined);
-      const style = normalizeCaptionStyle(settingsRef.current.style);
-      const session = await liveClientRef.current.create(style);
-      sessionRef.current = session;
-      sessionActiveRef.current = true;
-      serverPausedRef.current = false;
-      recentContextRef.current = [];
-      sequenceRef.current = 0;
-      queueRef.current = [];
-      captureGenerationRef.current += 1;
-      const generation = captureGenerationRef.current;
-      captureAbortRef.current = new AbortController();
-      capturingRef.current = true;
-      startRecorder(stream, generation);
+  const armServiceTimer = useCallback(
+    (service: LiveServiceDetails) => {
+      clearServiceTimer();
       sessionTimerRef.current = window.setTimeout(() => {
-        void endSession(
-          "The 90-minute free-tier session limit was reached. Start a new session if needed.",
+        void endService(
+          "The 90-minute free-tier service limit was reached. The reusable OBS URL remains ready.",
           true,
         );
-      }, Math.min(MAX_LIVE_SESSION_MS, new Date(session.expiresAt).getTime() - Date.now()));
+      }, Math.min(MAX_LIVE_SESSION_MS, new Date(service.expiresAt).getTime() - Date.now()));
+    },
+    [clearServiceTimer, endService],
+  );
+
+  const loadChannel = useCallback(async () => {
+    setLiveState((current) => ({
+      ...current,
+      status: "loading-channel",
+      message: "Loading the Main OBS channel…",
+    }));
+    try {
+      const channel = await liveClientRef.current.getChannel();
+      setRotationRecoveryRequired(false);
+      const storedController = window.sessionStorage.getItem(CONTROLLER_STORAGE_KEY);
+      if (
+        channel.configured &&
+        (channel.status === "live" || channel.status === "paused") &&
+        storedController &&
+        channel.startedAt &&
+        channel.expiresAt
+      ) {
+        try {
+          await liveClientRef.current.control(
+            channel.status === "live" ? "pause" : "clear",
+            storedController,
+          );
+          const recovered: LiveServiceDetails = {
+            channelId: channel.channelId,
+            controllerToken: storedController,
+            startedAt: channel.startedAt,
+            expiresAt: channel.expiresAt,
+          };
+          serviceRef.current = recovered;
+          armServiceTimer(recovered);
+          setLiveState({
+            ...INITIAL_LIVE_STATE,
+            status: "paused",
+            message: "Recovered this operator tab in a safe paused state.",
+            channel: { ...channel, status: "paused" },
+            service: recovered,
+            transcriptionRequests: channel.transcriptionRequests,
+          });
+          return;
+        } catch {
+          window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
+        }
+      } else if (channel.status === "idle") {
+        window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
+      }
+
       setLiveState({
         ...INITIAL_LIVE_STATE,
-        status: "live",
-        message: "Listening. The first caption appears after the first audio chunk.",
-        sessionStartedAt: new Date(
-          new Date(session.expiresAt).getTime() - MAX_LIVE_SESSION_MS,
-        ).toISOString(),
-        session,
+        status: "idle",
+        message: channel.configured
+          ? channel.status === "idle"
+            ? "Main OBS channel ready. Complete setup, then start captions."
+            : "The Main channel is currently controlled by another operator."
+          : "Create the Main OBS channel, then add its reusable URL to OBS.",
+        channel,
+        transcriptionRequests: channel.transcriptionRequests,
       });
     } catch (error) {
-      stopCapture();
-      const session = sessionRef.current;
-      sessionRef.current = null;
-      sessionActiveRef.current = false;
-      if (session) {
-        await liveClientRef.current.revoke(session.sessionId).catch(() => undefined);
-      }
+      setRotationRecoveryRequired(
+        error instanceof LiveApiError && error.code === "invalid_overlay_key",
+      );
       setLiveState({
         ...INITIAL_LIVE_STATE,
         status: "error",
-        message: error instanceof Error ? error.message : "Caption session could not start.",
+        message: error instanceof Error ? error.message : "The Main channel could not load.",
       });
     }
-  }, [endSession, ensureMicrophone, selectedDeviceId, startRecorder, stopCapture]);
+  }, [armServiceTimer]);
+
+  useEffect(() => {
+    void loadChannel();
+  }, [loadChannel]);
+
+  useEffect(() => {
+    const service = serviceRef.current;
+    if (!service) return;
+    const style = normalizeCaptionStyle(settings.style);
+    const timeout = window.setTimeout(() => {
+      if (serviceRef.current?.controllerToken !== service.controllerToken) return;
+      void liveClientRef.current
+        .updateStyle(style, service.controllerToken)
+        .catch((error) => {
+          if (isControllerReplaced(error)) {
+            handleTakenOver();
+            return;
+          }
+          setLiveState((state) => ({
+            ...state,
+            message: error instanceof Error ? error.message : "OBS style update failed.",
+          }));
+        });
+    }, 120);
+    return () => window.clearTimeout(timeout);
+  }, [handleTakenOver, settings.style]);
+
+  const createChannel = useCallback(async () => {
+    if (channelAction) return;
+    setChannelAction("create");
+    try {
+      const channel = await liveClientRef.current.createChannel(
+        normalizeCaptionStyle(settingsRef.current.style),
+      );
+      setRotationRecoveryRequired(false);
+      setLiveState((current) => ({
+        ...current,
+        status: "idle",
+        message: "Main OBS channel created. Copy the URL into OBS and show a test caption.",
+        channel,
+      }));
+    } catch (error) {
+      setLiveState((current) => ({
+        ...current,
+        status: "error",
+        message: error instanceof Error ? error.message : "OBS channel creation failed.",
+      }));
+    } finally {
+      setChannelAction(null);
+    }
+  }, [channelAction]);
+
+  const rotateChannel = useCallback(async () => {
+    if (channelAction || serviceRef.current) return;
+    setChannelAction("rotate");
+    try {
+      const channel = await liveClientRef.current.rotateChannel();
+      setRotationRecoveryRequired(false);
+      setLiveState((current) => ({
+        ...current,
+        status: "idle",
+        message: "OBS URL rotated. Replace the old Browser Source URL in OBS.",
+        latestPublicText: "",
+        channel,
+      }));
+    } catch (error) {
+      setLiveState((current) => ({
+        ...current,
+        status: "error",
+        message: error instanceof Error ? error.message : "OBS URL rotation failed.",
+      }));
+    } finally {
+      setChannelAction(null);
+    }
+  }, [channelAction]);
+
+  const saveChannelStyle = useCallback(async () => {
+    if (!liveState.channel?.configured || channelAction) return;
+    setChannelAction("save-style");
+    try {
+      const service = serviceRef.current;
+      const style = normalizeCaptionStyle(settingsRef.current.style);
+      await liveClientRef.current.updateStyle(style, service?.controllerToken);
+      setLiveState((current) => ({
+        ...current,
+        message: "Caption appearance saved to the shared Main channel.",
+        channel: current.channel ? { ...current.channel, style } : current.channel,
+      }));
+    } catch (error) {
+      if (isControllerReplaced(error)) handleTakenOver();
+      else {
+        setLiveState((current) => ({
+          ...current,
+          message: error instanceof Error ? error.message : "Caption style save failed.",
+        }));
+      }
+    } finally {
+      setChannelAction(null);
+    }
+  }, [channelAction, handleTakenOver, liveState.channel?.configured]);
+
+  const startSession = useCallback(
+    async (takeover = false) => {
+      if (serviceRef.current || endingRef.current) return;
+      setEndRetryRequired(false);
+      setTakeoverRequired(false);
+      setLiveState((current) => ({
+        ...current,
+        status: "starting",
+        message: takeover ? "Taking control of the Main channel…" : "Verifying cloud AI…",
+        sequence: 0,
+        droppedChunks: 0,
+        transcriptionRequests: 0,
+        latestSourceText: "",
+        latestPublicText: "",
+        lastLatencyMs: null,
+      }));
+      try {
+        if (!liveState.channel?.configured) {
+          throw new Error("Create the Main OBS channel before starting captions.");
+        }
+        if (typeof MediaRecorder === "undefined") {
+          throw new Error("This browser does not support live audio recording.");
+        }
+        await cloudClientRef.current.readiness();
+        const stream = await ensureMicrophone(selectedDeviceId || undefined);
+        const service = await liveClientRef.current.startService(
+          normalizeCaptionStyle(settingsRef.current.style),
+          takeover,
+        );
+        serviceRef.current = service;
+        window.sessionStorage.setItem(
+          CONTROLLER_STORAGE_KEY,
+          service.controllerToken,
+        );
+        recentContextRef.current = [];
+        queueRef.current = [];
+        captureGenerationRef.current += 1;
+        const generation = captureGenerationRef.current;
+        captureAbortRef.current = new AbortController();
+        capturingRef.current = true;
+        startRecorder(stream, generation);
+        armServiceTimer(service);
+        setLiveState((current) => ({
+          ...current,
+          status: "live",
+          message: takeover
+            ? "Takeover complete. Listening for the next caption."
+            : "Listening. The first caption appears after the first audio chunk.",
+          service,
+          channel: current.channel
+            ? {
+                ...current.channel,
+                status: "live",
+                startedAt: service.startedAt,
+                expiresAt: service.expiresAt,
+              }
+            : current.channel,
+        }));
+      } catch (error) {
+        if (error instanceof LiveApiError && error.code === "channel_in_use") {
+          stopMicrophone();
+          setTakeoverRequired(true);
+          setLiveState((current) => ({
+            ...current,
+            status: "idle",
+            message: "Another operator is live. Confirm takeover only if you intend to replace them.",
+            channel: current.channel
+              ? {
+                  ...current.channel,
+                  status: "live",
+                  expiresAt: error.expiresAt ?? current.channel.expiresAt,
+                }
+              : current.channel,
+          }));
+          return;
+        }
+        stopMicrophone();
+        setLiveState((current) => ({
+          ...current,
+          status: "error",
+          message: error instanceof Error ? error.message : "Live service could not start.",
+        }));
+      }
+    },
+    [
+      armServiceTimer,
+      ensureMicrophone,
+      liveState.channel?.configured,
+      selectedDeviceId,
+      startRecorder,
+      stopMicrophone,
+    ],
+  );
 
   const pauseSession = useCallback(async () => {
-    const session = sessionRef.current;
-    if (!session || endingRef.current || serverPausedRef.current) return;
+    const service = serviceRef.current;
+    if (!service || endingRef.current || !capturingRef.current) return;
     setControlAction("pause");
-    setLiveState((state) => ({
-      ...state,
+    setLiveState((current) => ({
+      ...current,
       status: "pausing",
-      message: "Stopping audio and clearing the OBS caption…",
+      message: "Stopping capture and clearing OBS…",
     }));
     stopCapture();
     try {
-      await liveClientRef.current.control(session.sessionId, "pause");
-      serverPausedRef.current = true;
-      setLiveState((state) => ({
-        ...state,
+      await liveClientRef.current.control("pause", service.controllerToken);
+      setLiveState((current) => ({
+        ...current,
         status: "paused",
-        message: "Paused. Audio and cloud AI are stopped; the OBS URL remains active.",
+        message: "Paused. The URL and 90-minute expiry are unchanged.",
         latestSourceText: "",
         latestPublicText: "",
+        channel: current.channel ? { ...current.channel, status: "paused" } : null,
       }));
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "The OBS caption could not be cleared.";
-      setLiveState((state) => ({
-        ...state,
-        status: "error",
-        message: `Audio stopped, but server pause was not confirmed. Retry pause or end the session. ${message}`,
-      }));
+      if (isControllerReplaced(error)) handleTakenOver();
+      else {
+        setLiveState((current) => ({
+          ...current,
+          status: "error",
+          message: `Audio stopped, but server pause was not confirmed. ${
+            error instanceof Error ? error.message : "Retry Pause or End."
+          }`,
+        }));
+      }
     } finally {
       setControlAction(null);
     }
-  }, [stopCapture]);
+  }, [handleTakenOver, stopCapture]);
 
   const resumeSession = useCallback(async () => {
-    const session = sessionRef.current;
-    if (!session || endingRef.current || !serverPausedRef.current) return;
+    const service = serviceRef.current;
+    if (!service || endingRef.current) return;
     setControlAction("resume");
-    setLiveState((state) => ({
-      ...state,
+    setLiveState((current) => ({
+      ...current,
       status: "resuming",
       message: "Reopening the selected audio input…",
     }));
-    let serverResumed = false;
     try {
-      if (typeof MediaRecorder === "undefined") {
-        throw new Error("This browser does not support live audio recording.");
-      }
       const stream = await ensureMicrophone(selectedDeviceId || undefined);
-      await liveClientRef.current.control(session.sessionId, "resume");
-      serverResumed = true;
-      serverPausedRef.current = false;
+      await liveClientRef.current.control("resume", service.controllerToken);
       captureGenerationRef.current += 1;
       const generation = captureGenerationRef.current;
       captureAbortRef.current = new AbortController();
       capturingRef.current = true;
       queueRef.current = [];
       startRecorder(stream, generation);
-      setLiveState((state) => ({
-        ...state,
+      setLiveState((current) => ({
+        ...current,
         status: "live",
-        message: "Listening again. The OBS URL and session expiry are unchanged.",
-        latestSourceText: "",
+        message: "Listening again. The reusable OBS URL and expiry are unchanged.",
         latestPublicText: "",
+        channel: current.channel ? { ...current.channel, status: "live" } : null,
       }));
     } catch (error) {
       stopCapture();
-      if (serverResumed) {
-        try {
-          await liveClientRef.current.control(session.sessionId, "pause");
-          serverPausedRef.current = true;
-        } catch {
-          serverPausedRef.current = false;
-        }
+      if (isControllerReplaced(error)) handleTakenOver();
+      else {
+        setLiveState((current) => ({
+          ...current,
+          status: "paused",
+          message: `Still paused. ${
+            error instanceof Error ? error.message : "Capture could not resume."
+          }`,
+        }));
       }
-      const message = error instanceof Error ? error.message : "Capture could not resume.";
-      setLiveState((state) => ({
-        ...state,
-        status: serverPausedRef.current ? "paused" : "error",
-        message: serverPausedRef.current
-          ? `Still paused. ${message}`
-          : `Audio is stopped, but server pause was not confirmed. Retry pause or end the session. ${message}`,
-      }));
     } finally {
       setControlAction(null);
     }
-  }, [ensureMicrophone, selectedDeviceId, startRecorder, stopCapture]);
+  }, [ensureMicrophone, handleTakenOver, selectedDeviceId, startRecorder, stopCapture]);
 
   const clearCaption = useCallback(async () => {
-    const session = sessionRef.current;
-    if (!session || endingRef.current) return;
+    if (!liveState.channel?.configured || endingRef.current) return;
     setControlAction("clear");
     try {
-      await liveClientRef.current.control(session.sessionId, "clear");
-      setLiveState((state) => ({
-        ...state,
-        message: state.status === "paused"
-          ? "Paused. The OBS caption is clear."
-          : "The OBS caption was cleared. The next live caption can replace it.",
+      await liveClientRef.current.control(
+        "clear",
+        serviceRef.current?.controllerToken,
+      );
+      setLiveState((current) => ({
+        ...current,
+        message:
+          current.status === "paused"
+            ? "Paused. The OBS caption is clear."
+            : "OBS is clear. The next valid caption may replace it.",
         latestSourceText: "",
         latestPublicText: "",
       }));
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "The OBS caption could not be cleared.";
-      setLiveState((state) => ({ ...state, message }));
+      if (isControllerReplaced(error)) handleTakenOver();
+      else {
+        setLiveState((current) => ({
+          ...current,
+          message: error instanceof Error ? error.message : "OBS could not be cleared.",
+        }));
+      }
     } finally {
       setControlAction(null);
     }
-  }, []);
+  }, [handleTakenOver, liveState.channel?.configured]);
 
   const showTestCaption = useCallback(async () => {
-    const session = sessionRef.current;
-    if (!session || !serverPausedRef.current || endingRef.current) return;
+    if (!liveState.channel?.configured || liveState.status === "live") return;
     setControlAction("show-test");
     try {
       const current = settingsRef.current;
       const response = await liveClientRef.current.control(
-        session.sessionId,
         "show-test",
+        serviceRef.current?.controllerToken,
         {
           targetLanguage: current.targetLanguage,
           style: normalizeCaptionStyle(current.style),
         },
       );
-      if (typeof response.sequence === "number") {
-        sequenceRef.current = Math.max(sequenceRef.current, response.sequence);
-      }
       setLiveState((state) => ({
         ...state,
-        message: "Synthetic test caption shown. Resume clears it before live audio restarts.",
+        message:
+          state.status === "paused"
+            ? "Synthetic test shown. Resume clears it before live audio restarts."
+            : "Synthetic test shown in the reusable OBS source.",
         sequence: response.sequence ?? state.sequence,
         latestSourceText: "",
         latestPublicText: SAMPLE_CAPTIONS[current.targetLanguage],
+        channel: state.channel
+          ? { ...state.channel, style: normalizeCaptionStyle(current.style) }
+          : state.channel,
       }));
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "The test caption could not be shown.";
-      setLiveState((state) => ({ ...state, message }));
+      if (isControllerReplaced(error)) handleTakenOver();
+      else {
+        setLiveState((current) => ({
+          ...current,
+          message: error instanceof Error ? error.message : "Test caption failed.",
+        }));
+      }
     } finally {
       setControlAction(null);
     }
-  }, []);
+  }, [handleTakenOver, liveState.channel?.configured, liveState.status]);
+
+  useEffect(() => {
+    const onPageHide = () => {
+      const service = serviceRef.current;
+      if (!service) return;
+      stopCapture();
+      void fetch("/api/live/channel/control", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-caption-controller": service.controllerToken,
+        },
+        body: JSON.stringify({ action: "pause" }),
+        keepalive: true,
+      });
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [stopCapture]);
 
   useEffect(() => {
     if (!navigator.mediaDevices) return;
-    const liveClient = liveClientRef.current;
     const onDeviceChange = () => void refreshDevices();
     navigator.mediaDevices.addEventListener("devicechange", onDeviceChange);
     return () => {
       navigator.mediaDevices.removeEventListener("devicechange", onDeviceChange);
-      sessionActiveRef.current = false;
       capturingRef.current = false;
       captureGenerationRef.current += 1;
       queueRef.current = [];
       stopRecorder();
-      const session = sessionRef.current;
-      if (session) void liveClient.revoke(session.sessionId);
       stopMicrophone();
     };
   }, [refreshDevices, stopMicrophone, stopRecorder]);
@@ -701,13 +981,21 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     level,
     liveState,
     controlAction,
+    channelAction,
     endRetryRequired,
+    takeoverRequired,
+    rotationRecoveryRequired,
+    cancelTakeover: () => setTakeoverRequired(false),
     startAudioTest: () => ensureMicrophone(selectedDeviceId || undefined),
+    createChannel,
+    rotateChannel,
+    saveChannelStyle,
     startSession,
     pauseSession,
     resumeSession,
     clearCaption,
     showTestCaption,
-    stopSession: () => endSession(),
+    stopSession: () => endService(),
+    reloadChannel: loadChannel,
   };
 }

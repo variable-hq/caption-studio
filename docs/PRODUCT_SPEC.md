@@ -12,7 +12,7 @@ reviewer and must never invent speech, scripture, or doctrine.
 ## Current prototype users
 
 - **Operator:** selects audio and languages, supplies terms and filter words, styles the
-  caption, starts and ends the session, and copies the OBS URL.
+  caption, manages the reusable Main OBS channel, and controls a live service.
 - **Viewer:** reads the current moderated caption through the stream overlay.
 
 Reviewer, pastor/approver, administrator, and workspace-member roles belong to the future
@@ -29,11 +29,12 @@ archive and summary product. They are not implemented in the current prototype.
 4. The operator optionally enters bounded keyword/preferred-translation pairs and public
    mask words.
 5. The operator configures font, size, colour, line highlight, transparency, position,
-   and horizontal/vertical safe margins. Display preferences can be saved in that
-   browser.
-6. The operator starts a session; the app verifies Access, Groq credentials, and model
-   availability before recording.
-7. The app generates an expiring OBS Browser Source URL for that session.
+   and horizontal/vertical safe margins. The shared channel style and browser fallback
+   can be saved.
+6. On first use, an approved operator creates the reusable Main OBS channel, copies its
+   URL into a 1920 × 1080 Browser Source, and shows/clears a synthetic test while idle.
+7. The operator starts a 90-minute service; the app verifies Access, Groq credentials,
+   model availability, microphone access, and exclusive controller ownership.
 
 ### During the service
 
@@ -44,18 +45,22 @@ archive and summary product. They are not implemented in the current prototype.
 4. Deterministic processing applies preferred translations and masks configured whole
    terms in the public form.
 5. The operator sees source and public previews, status, post-recording processing
-   latency, dropped chunks, elapsed session time, and transcription request count.
-6. The latest public caption and style are published to the read-only OBS room.
+   latency, dropped chunks, elapsed service time, and transcription request count.
+6. The latest public caption and style are published to the read-only Main OBS channel.
 7. OBS reconnects after temporary channel loss and receives the latest caption.
-8. The operator can Pause capture and AI without changing the OBS URL, Clear the current
-   public caption, or show a localized synthetic test while paused.
+8. The operator can Pause capture and AI without changing the OBS URL or expiry, Clear
+   the current public caption, or show a localized synthetic test while paused.
+9. A second operator is blocked unless they explicitly confirm takeover. Takeover clears
+   OBS, replaces controller ownership, and causes stale operations to stop the old mic.
 
 ### After the service
 
-1. The operator selects End and confirms the irreversible action.
-2. The Worker revokes the overlay link, closes sockets, and clears room storage. If
-   revocation cannot be confirmed, the dashboard keeps the session available for retry.
-3. The app retains no sermon transcript, summary, or audio.
+1. The operator selects End and confirms it.
+2. The Worker stops the service and clears public/controller state. If deactivation
+   cannot be confirmed, the dashboard retains controller state and offers Retry End.
+3. The OBS URL and shared style remain ready for the next service. Only a separately
+   confirmed Rotate action revokes the bearer URL and requires updating OBS.
+4. The app retains no sermon transcript, summary, or audio.
 
 ## Supported languages
 
@@ -92,7 +97,7 @@ implemented.
 
 ### Translation and biblical context
 
-- One target language is active per session.
+- One target language is active per service.
 - Up to four recent source captions provide bounded context.
 - Approved mappings are requested from the model and enforced deterministically after
   translation.
@@ -123,26 +128,28 @@ and persistent workspace rules are future features.
 - Vertical placement: top, middle, or bottom.
 - Horizontal and vertical safe margins: 0–20%, defaulting to 4% and 6%.
 - Transparent overlay canvas with per-line background highlight.
-- Read-only, session-scoped URL with automatic reconnect and sequence protection.
-- Saved display preferences are local to the browser and never include the overlay token.
+- One read-only reusable Main-channel URL with automatic reconnect, server-assigned
+  sequence protection, and explicit rotation.
+- The shared style persists in the channel; the browser preference remains a fallback.
+  Neither browser storage contains the OBS token.
 
 Pause stops microphone capture, clears queued audio and public display, and blocks late
 caption writes while keeping the original URL and expiry. Resume clears any synthetic
 test before capture restarts. Clear does not pause capture, so the next valid live
 caption may replace the blank display.
 
-The prototype does not yet offer line-count, outline, transition, or reusable server-side
-display profiles.
+The prototype does not yet offer line-count, outline, transition, multiple channels, or
+named display profiles.
 
 ### Usage and cost controls
 
-- Sessions stop after at most 90 minutes.
+- Active services stop after at most 90 minutes; paused time still counts.
 - Audio chunks are fixed at four seconds.
-- A session supports one translation target and no automatic paid fallback.
-- A quota response stops the affected live session.
-- The UI shows active-session elapsed time and transcription request progress.
+- A service supports one translation target and no automatic paid fallback.
+- A quota response stops the affected service without revoking its OBS URL.
+- The UI shows active-service elapsed time and transcription request progress.
 
-The usage meter is not an account billing meter. It cannot see concurrent sessions or
+The usage meter is not an account billing meter. It cannot see concurrent services or
 usage by other applications in the same Groq organization or Cloudflare account. Owners
 must keep provider accounts on the intended Free plans and verify their dashboards.
 
@@ -154,12 +161,14 @@ Code-level acceptance:
 - Supported audio is transcribed and translated through protected cloud APIs.
 - A preferred term can affect transcription guidance and translated output.
 - A configured mask changes public output without changing the protected source preview.
-- Style changes reach a connected overlay without restarting the session.
-- Pause stops AI requests, clears OBS, and Resume retains the session URL and expiry.
-- Clear survives overlay reload; paused-only test captions make no AI request.
+- Style changes reach a connected overlay without restarting the service.
+- Pause stops AI requests, clears OBS, and Resume retains the reusable URL and expiry.
+- Clear survives overlay reload; idle-or-paused test captions make no AI request.
 - Safe margins are bounded, saved, restored, and propagated live.
 - An overlay can reconnect and recover the latest public caption.
-- Session end or expiry invalidates its overlay token.
+- End and expiry clear OBS while preserving the reusable URL; Rotate invalidates it.
+- Second starts fail with `channel_in_use`; confirmed takeover rejects stale controllers.
+- Reload with the same tab controller recovers in a safe paused state.
 - Production operator mutations fail closed without valid Access configuration.
 - Audio and sermon transcripts are not persisted by the application.
 

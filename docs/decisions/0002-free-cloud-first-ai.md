@@ -52,6 +52,20 @@ The app also enforces four-second chunks, one target language, a bounded client 
 and no automatic paid fallback. Its usage indicator covers only the active browser
 session. It is not an account-wide quota or billing control.
 
+## Reusable-channel amendment (2026-08-01)
+
+The per-service room credential is superseded by one reusable Main-channel URL. A
+server-only `OBS_CHANNEL_ENCRYPTION_KEY` encrypts the recoverable OBS token, while its
+hash still validates the public read-only WebSocket. Each live service receives a
+different tab-scoped controller credential and retains the 90-minute limit. End and
+expiry clear service/public state but preserve the OBS URL; only explicit confirmed
+rotation revokes it. A confirmed takeover atomically replaces controller ownership.
+
+This uses the existing SQLite Durable Object binding and constant-size storage. It adds
+no paid resource, account-wide usage meter, sermon archive, or paid fallback. The Access
+bypass remains limited to `/overlay*` and `/api/live/overlay*`; all Main-channel
+retrieval, control, takeover, End, and rotation routes remain Access protected.
+
 ## Free-tier envelope at decision time
 
 The published Groq free limits for both Whisper models are 20 requests per minute,

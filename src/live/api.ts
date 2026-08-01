@@ -1,24 +1,26 @@
+import { CloudAccessError, requireCloudAccess } from "@/auth/cloudflare-access";
+import { isLanguageLocale } from "@/domain/languages";
 import {
-  CloudAccessError,
-  requireCloudAccess,
-} from "@/auth/cloudflare-access";
+  ChannelEncryptionError,
+  decryptOverlayToken,
+  encryptOverlayToken,
+} from "@/live/channel-crypto";
 import { captionTokenHash } from "@/live/caption-room";
 import {
-  MAX_LIVE_SESSION_MS,
-  isLiveSessionId,
+  MAIN_CHANNEL_ID,
   isLiveSessionControlAction,
   normalizeCaptionStyle,
   type CaptionStyle,
+  type ChannelStatus,
   type LiveSessionControlRequest,
-  type LiveSessionDetails,
+  type ObsChannelDetails,
 } from "@/live/contracts";
-import { isLanguageLocale } from "@/domain/languages";
+import { overlayDocumentResponse } from "@/live/overlay-document";
 import {
   InvalidRequestBodyError,
   RequestBodyTooLargeError,
   readJsonObject,
 } from "@/http/request-body";
-import { overlayDocumentResponse } from "@/live/overlay-document";
 
 interface DurableObjectStubLike {
   fetch(request: Request): Promise<Response>;
@@ -34,28 +36,43 @@ export interface LiveWorkerEnvironment {
   CLOUDFLARE_ACCESS_AUD?: string;
   CLOUDFLARE_ACCESS_TEAM_DOMAIN?: string;
   CAPTION_LOCAL_AUTH_BYPASS?: string;
+  OBS_CHANNEL_ENCRYPTION_KEY?: string;
+}
+
+interface InternalChannelDetails {
+  configured: boolean;
+  encryptedToken?: string;
+  status: ChannelStatus;
+  style?: CaptionStyle;
+  startedAt?: number | null;
+  expiresAt?: number | null;
+  transcriptionRequests?: number;
 }
 
 const JSON_HEADERS = {
   "content-type": "application/json",
   "cache-control": "no-store",
 };
+const CONTROLLER_HEADER = "x-caption-controller";
+
 function json(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: JSON_HEADERS,
-  });
+  return new Response(JSON.stringify(payload), { status, headers: JSON_HEADERS });
 }
 
 function randomToken() {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
 }
 
-function room(env: LiveWorkerEnvironment, sessionId: string) {
-  return env.CAPTION_ROOMS.get(env.CAPTION_ROOMS.idFromName(sessionId));
+function channelRoom(env: LiveWorkerEnvironment) {
+  return env.CAPTION_ROOMS.get(
+    env.CAPTION_ROOMS.idFromName(`channel:${MAIN_CHANNEL_ID}`),
+  );
 }
 
 async function requireOperator(request: Request, env: LiveWorkerEnvironment) {
@@ -66,45 +83,232 @@ async function requireOperator(request: Request, env: LiveWorkerEnvironment) {
   });
 }
 
-async function createSession(request: Request, env: LiveWorkerEnvironment) {
-  await requireOperator(request, env);
-  const body = (await readJsonObject(request, 4_096)) as {
-    style?: Partial<CaptionStyle>;
+async function internalJson<T>(response: Response) {
+  return (await response.clone().json()) as T;
+}
+
+async function controllerHash(request: Request) {
+  const token = request.headers.get(CONTROLLER_HEADER)?.trim();
+  return token ? captionTokenHash(token) : undefined;
+}
+
+function overlayUrl(request: Request, token: string) {
+  const url = new URL("/overlay", request.url);
+  url.hash = `${MAIN_CHANNEL_ID}.${token}`;
+  return url.toString();
+}
+
+function optionalStyle(value: unknown) {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new InvalidRequestBodyError();
+  }
+  return normalizeCaptionStyle(value as Partial<CaptionStyle>);
+}
+
+async function publicChannelDetails(
+  request: Request,
+  env: LiveWorkerEnvironment,
+  internal: InternalChannelDetails,
+): Promise<ObsChannelDetails> {
+  if (!internal.configured) {
+    return {
+      channelId: MAIN_CHANNEL_ID,
+      configured: false,
+      status: "unconfigured",
+      overlayUrl: null,
+      style: null,
+      startedAt: null,
+      expiresAt: null,
+      transcriptionRequests: 0,
+    };
+  }
+  if (!internal.encryptedToken) {
+    throw new ChannelEncryptionError("The reusable OBS credential is unavailable.");
+  }
+  const token = await decryptOverlayToken(
+    internal.encryptedToken,
+    env.OBS_CHANNEL_ENCRYPTION_KEY,
+  );
+  return {
+    channelId: MAIN_CHANNEL_ID,
+    configured: true,
+    status: internal.status,
+    overlayUrl: overlayUrl(request, token),
+    style: normalizeCaptionStyle(internal.style ?? {}),
+    startedAt:
+      typeof internal.startedAt === "number"
+        ? new Date(internal.startedAt).toISOString()
+        : null,
+    expiresAt:
+      typeof internal.expiresAt === "number"
+        ? new Date(internal.expiresAt).toISOString()
+        : null,
+    transcriptionRequests: Number.isSafeInteger(internal.transcriptionRequests)
+      ? Math.max(0, internal.transcriptionRequests ?? 0)
+      : 0,
   };
-  const style = normalizeCaptionStyle(body.style ?? {});
-  const sessionId = crypto.randomUUID();
-  const overlayToken = randomToken();
-  const expiresAt = Date.now() + MAX_LIVE_SESSION_MS;
-  const internalResponse = await room(env, sessionId).fetch(
-    new Request("https://caption-room/internal/initialize", {
+}
+
+async function getChannel(request: Request, env: LiveWorkerEnvironment) {
+  await requireOperator(request, env);
+  const response = await channelRoom(env).fetch(
+    new Request("https://caption-room/internal/channel"),
+  );
+  if (!response.ok) return response;
+  return json(
+    await publicChannelDetails(
+      request,
+      env,
+      await internalJson<InternalChannelDetails>(response),
+    ),
+  );
+}
+
+async function createChannel(request: Request, env: LiveWorkerEnvironment) {
+  await requireOperator(request, env);
+  const body = (await readJsonObject(request, 4_096)) as { style?: unknown };
+  const style = optionalStyle(body.style);
+  const token = randomToken();
+  const response = await channelRoom(env).fetch(
+    new Request("https://caption-room/internal/channel", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        tokenHash: await captionTokenHash(overlayToken),
-        expiresAt,
-        style,
+        tokenHash: await captionTokenHash(token),
+        encryptedToken: await encryptOverlayToken(
+          token,
+          env.OBS_CHANNEL_ENCRYPTION_KEY,
+        ),
+        ...(style ? { style } : {}),
       }),
     }),
   );
-  if (!internalResponse.ok) {
-    return json({ error: "Could not initialize the live caption room." }, 502);
-  }
-
-  const overlayUrl = new URL("/overlay", request.url);
-  overlayUrl.hash = `${sessionId}.${overlayToken}`;
-  const details: LiveSessionDetails = {
-    sessionId,
-    overlayUrl: overlayUrl.toString(),
-    expiresAt: new Date(expiresAt).toISOString(),
-  };
-  return json(details, 201);
+  if (!response.ok) return response;
+  return json(
+    await publicChannelDetails(
+      request,
+      env,
+      await internalJson<InternalChannelDetails>(response),
+    ),
+    response.status,
+  );
 }
 
-async function controlSession(
-  request: Request,
-  env: LiveWorkerEnvironment,
-  sessionId: string,
-) {
+async function rotateChannel(request: Request, env: LiveWorkerEnvironment) {
+  await requireOperator(request, env);
+  const token = randomToken();
+  const response = await channelRoom(env).fetch(
+    new Request("https://caption-room/internal/rotate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        tokenHash: await captionTokenHash(token),
+        encryptedToken: await encryptOverlayToken(
+          token,
+          env.OBS_CHANNEL_ENCRYPTION_KEY,
+        ),
+      }),
+    }),
+  );
+  if (!response.ok) return response;
+  return json(
+    await publicChannelDetails(
+      request,
+      env,
+      await internalJson<InternalChannelDetails>(response),
+    ),
+  );
+}
+
+async function startService(request: Request, env: LiveWorkerEnvironment) {
+  await requireOperator(request, env);
+  const body = (await readJsonObject(request, 4_096)) as {
+    style?: unknown;
+    takeover?: unknown;
+  };
+  if (body.takeover !== undefined && typeof body.takeover !== "boolean") {
+    throw new InvalidRequestBodyError();
+  }
+  const style = optionalStyle(body.style);
+  const token = randomToken();
+  const response = await channelRoom(env).fetch(
+    new Request("https://caption-room/internal/service", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        controllerHash: await captionTokenHash(token),
+        ...(style ? { style } : {}),
+        takeover: body.takeover === true,
+      }),
+    }),
+  );
+  if (!response.ok) return response;
+  const details = await internalJson<{
+    status: "live";
+    startedAt: string;
+    expiresAt: string;
+  }>(response);
+  return json({
+    channelId: MAIN_CHANNEL_ID,
+    controllerToken: token,
+    startedAt: details.startedAt,
+    expiresAt: details.expiresAt,
+  });
+}
+
+async function endService(request: Request, env: LiveWorkerEnvironment) {
+  await requireOperator(request, env);
+  return channelRoom(env).fetch(
+    new Request("https://caption-room/internal/service", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ controllerHash: await controllerHash(request) }),
+    }),
+  );
+}
+
+async function publishCaption(request: Request, env: LiveWorkerEnvironment) {
+  await requireOperator(request, env);
+  const body = await readJsonObject(request, 8_192);
+  return channelRoom(env).fetch(
+    new Request("https://caption-room/internal/caption", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...body, controllerHash: await controllerHash(request) }),
+    }),
+  );
+}
+
+async function validateLease(request: Request, env: LiveWorkerEnvironment) {
+  await requireOperator(request, env);
+  return channelRoom(env).fetch(
+    new Request("https://caption-room/internal/lease", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ controllerHash: await controllerHash(request) }),
+    }),
+  );
+}
+
+async function updateStyle(request: Request, env: LiveWorkerEnvironment) {
+  await requireOperator(request, env);
+  const body = (await readJsonObject(request, 4_096)) as { style?: unknown };
+  const style = optionalStyle(body.style);
+  if (!style) throw new InvalidRequestBodyError();
+  return channelRoom(env).fetch(
+    new Request("https://caption-room/internal/style", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        style,
+        controllerHash: await controllerHash(request),
+      }),
+    }),
+  );
+}
+
+async function controlChannel(request: Request, env: LiveWorkerEnvironment) {
   await requireOperator(request, env);
   const body = (await readJsonObject(request, 4_096)) as Partial<
     LiveSessionControlRequest
@@ -112,17 +316,18 @@ async function controlSession(
   if (!isLiveSessionControlAction(body.action)) {
     throw new InvalidRequestBodyError();
   }
-
-  const control: LiveSessionControlRequest = { action: body.action };
+  const control: LiveSessionControlRequest & { controllerHash?: string } = {
+    action: body.action,
+    controllerHash: await controllerHash(request),
+  };
   if (body.action === "show-test") {
     if (!body.targetLanguage || !isLanguageLocale(body.targetLanguage)) {
       throw new InvalidRequestBodyError();
     }
     control.targetLanguage = body.targetLanguage;
-    control.style = normalizeCaptionStyle(body.style ?? {});
+    control.style = optionalStyle(body.style);
   }
-
-  return room(env, sessionId).fetch(
+  return channelRoom(env).fetch(
     new Request("https://caption-room/internal/control", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -131,59 +336,32 @@ async function controlSession(
   );
 }
 
-async function publishCaption(
-  request: Request,
-  env: LiveWorkerEnvironment,
-  sessionId: string,
-) {
-  await requireOperator(request, env);
-  const body = await readJsonObject(request, 8_192);
-  return room(env, sessionId).fetch(
-    new Request("https://caption-room/internal/caption", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  );
-}
-
-async function updateStyle(
-  request: Request,
-  env: LiveWorkerEnvironment,
-  sessionId: string,
-) {
-  await requireOperator(request, env);
-  const body = (await readJsonObject(request, 4_096)) as {
-    style?: Partial<CaptionStyle>;
-  };
-  return room(env, sessionId).fetch(
-    new Request("https://caption-room/internal/style", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ style: normalizeCaptionStyle(body.style ?? {}) }),
-    }),
-  );
-}
-
-async function revokeSession(
-  request: Request,
-  env: LiveWorkerEnvironment,
-  sessionId: string,
-) {
-  await requireOperator(request, env);
-  return room(env, sessionId).fetch(
-    new Request("https://caption-room/internal/session", { method: "DELETE" }),
-  );
-}
-
-async function connectOverlay(
-  request: Request,
-  env: LiveWorkerEnvironment,
-  sessionId: string,
-) {
-  return room(env, sessionId).fetch(
+async function connectOverlay(request: Request, env: LiveWorkerEnvironment) {
+  return channelRoom(env).fetch(
     new Request("https://caption-room/internal/connect", request),
   );
+}
+
+function protectedError(error: unknown, operation: string) {
+  if (error instanceof RequestBodyTooLargeError) {
+    return json({ error: `${operation} is too large.` }, 413);
+  }
+  if (error instanceof InvalidRequestBodyError) {
+    return json({ error: `${operation} is invalid.` }, 400);
+  }
+  if (error instanceof CloudAccessError) {
+    return json({ error: error.message }, error.status);
+  }
+  if (error instanceof ChannelEncryptionError) {
+    return json(
+      {
+        error: "Reusable OBS channel encryption is unavailable.",
+        code: "invalid_overlay_key",
+      },
+      503,
+    );
+  }
+  return json({ error: `${operation} failed.` }, 500);
 }
 
 export async function handleLiveApiRequest(
@@ -195,78 +373,61 @@ export async function handleLiveApiRequest(
     return overlayDocumentResponse();
   }
   if (url.pathname === "/api/live/overlay" && request.method === "GET") {
-    const sessionId = url.searchParams.get("session") ?? "";
-    return isLiveSessionId(sessionId)
-      ? connectOverlay(request, env, sessionId)
-      : json({ error: "Invalid OBS session." }, 400);
+    return url.searchParams.get("channel") === MAIN_CHANNEL_ID
+      ? connectOverlay(request, env)
+      : json({ error: "Invalid OBS channel." }, 400);
   }
-
-  if (url.pathname === "/api/live/session" && request.method === "POST") {
-    try {
-      return await createSession(request, env);
-    } catch (error) {
-      if (error instanceof RequestBodyTooLargeError) {
-        return json({ error: "Session configuration is too large." }, 413);
-      }
-      if (error instanceof InvalidRequestBodyError) {
-        return json({ error: "Session configuration is invalid." }, 400);
-      }
-      if (error instanceof CloudAccessError) {
-        return json({ error: error.message }, error.status);
-      }
-      return json({ error: "Could not create the caption session." }, 500);
-    }
-  }
-
-  const match = url.pathname.match(
-    /^\/api\/live\/session\/([0-9a-f-]+)(?:\/(caption|style|control))?$/iu,
-  );
-  if (!match || !isLiveSessionId(match[1])) return null;
 
   try {
-    if (match[2] === "caption" && request.method === "POST") {
-      return await publishCaption(request, env, match[1]);
+    if (url.pathname === "/api/live/channel") {
+      if (request.method === "GET") return await getChannel(request, env);
+      if (request.method === "POST") return await createChannel(request, env);
+      return json({ error: "Unsupported OBS channel operation." }, 405);
     }
-    if (match[2] === "style" && request.method === "PUT") {
-      return await updateStyle(request, env, match[1]);
+    if (url.pathname === "/api/live/channel/rotate") {
+      return request.method === "POST"
+        ? await rotateChannel(request, env)
+        : json({ error: "Unsupported OBS channel rotation operation." }, 405);
     }
-    if (match[2] === "control" && request.method === "POST") {
-      return await controlSession(request, env, match[1]);
+    if (url.pathname === "/api/live/channel/service") {
+      if (request.method === "POST") return await startService(request, env);
+      if (request.method === "DELETE") return await endService(request, env);
+      return json({ error: "Unsupported live-service operation." }, 405);
     }
-    if (!match[2] && request.method === "DELETE") {
-      return await revokeSession(request, env, match[1]);
+    if (url.pathname === "/api/live/channel/caption") {
+      return request.method === "POST"
+        ? await publishCaption(request, env)
+        : json({ error: "Unsupported live-caption operation." }, 405);
     }
-    return json({ error: "Unsupported live-session operation." }, 405);
+    if (url.pathname === "/api/live/channel/lease") {
+      return request.method === "POST"
+        ? await validateLease(request, env)
+        : json({ error: "Unsupported controller-lease operation." }, 405);
+    }
+    if (url.pathname === "/api/live/channel/style") {
+      return request.method === "PUT"
+        ? await updateStyle(request, env)
+        : json({ error: "Unsupported caption-style operation." }, 405);
+    }
+    if (url.pathname === "/api/live/channel/control") {
+      return request.method === "POST"
+        ? await controlChannel(request, env)
+        : json({ error: "Unsupported live-control operation." }, 405);
+    }
+    if (url.pathname.startsWith("/api/live/")) {
+      return json({ error: "Live route not found." }, 404);
+    }
   } catch (error) {
-    if (error instanceof RequestBodyTooLargeError) {
-      return json(
-        {
-          error:
-            match[2] === "caption"
-              ? "Caption event is too large."
-              : match[2] === "control"
-                ? "Caption control is too large."
-                : "Caption style is too large.",
-        },
-        413,
-      );
-    }
-    if (error instanceof InvalidRequestBodyError) {
-      return json(
-        {
-          error:
-            match[2] === "caption"
-              ? "Caption event is invalid."
-              : match[2] === "control"
-                ? "Caption control is invalid."
-                : "Caption style is invalid.",
-        },
-        400,
-      );
-    }
-    if (error instanceof CloudAccessError) {
-      return json({ error: error.message }, error.status);
-    }
-    return json({ error: "The live-session operation failed." }, 500);
+    const label = url.pathname.includes("caption")
+      ? "Caption event"
+      : url.pathname.includes("style")
+        ? "Caption style"
+        : url.pathname.includes("control")
+          ? "Live control"
+          : url.pathname.includes("service")
+            ? "Live service"
+            : "OBS channel operation";
+    return protectedError(error, label);
   }
+  return null;
 }

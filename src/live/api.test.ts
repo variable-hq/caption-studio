@@ -1,130 +1,294 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  handleLiveApiRequest,
-  type LiveWorkerEnvironment,
-} from "@/live/api";
+import { encryptOverlayToken } from "@/live/channel-crypto";
+import { handleLiveApiRequest, type LiveWorkerEnvironment } from "@/live/api";
 
-function environment(response = new Response("{}")) {
-  const fetch = vi.fn(async (request: Request) => {
-    void request;
-    return response;
-  });
+const ENCRYPTION_KEY = "test-observer-channel-key-32-bytes-minimum";
+
+function environment(
+  handler?: (request: Request) => Promise<Response> | Response,
+) {
+  const fetch = vi.fn(
+    async (request: Request) => {
+      if (handler) return handler(request);
+        const url = new URL(request.url);
+        if (url.pathname === "/internal/channel" && request.method === "GET") {
+          return Response.json({ configured: false, status: "unconfigured" });
+        }
+        if (url.pathname === "/internal/channel" && request.method === "POST") {
+          const body = (await request.clone().json()) as {
+            encryptedToken: string;
+            style: unknown;
+          };
+          return Response.json(
+            {
+              configured: true,
+              encryptedToken: body.encryptedToken,
+              status: "idle",
+              style: body.style,
+              startedAt: null,
+              expiresAt: null,
+            },
+            { status: 201 },
+          );
+        }
+        return Response.json({ ok: true });
+      },
+  );
+  const idFromName = vi.fn((name) => name);
   const env: LiveWorkerEnvironment = {
     CAPTION_LOCAL_AUTH_BYPASS: "true",
+    OBS_CHANNEL_ENCRYPTION_KEY: ENCRYPTION_KEY,
     CAPTION_ROOMS: {
-      idFromName: (name) => name,
+      idFromName,
       get: () => ({ fetch }),
     },
   };
-  return { env, fetch };
+  return { env, fetch, idFromName };
 }
 
-describe("live caption worker API", () => {
+describe("reusable OBS channel worker API", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("creates a short-lived overlay URL with the token only in the fragment", async () => {
+  it("loads an unconfigured channel without requiring the encryption secret", async () => {
+    const { env, idFromName } = environment();
+    delete env.OBS_CHANNEL_ENCRYPTION_KEY;
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel"),
+      env,
+    );
+
+    expect(response?.status).toBe(200);
+    await expect(response!.json()).resolves.toMatchObject({
+      channelId: "main",
+      configured: false,
+      status: "unconfigured",
+      overlayUrl: null,
+    });
+    expect(idFromName).toHaveBeenCalledWith("channel:main");
+  });
+
+  it("creates an encrypted reusable URL with its token only in the fragment", async () => {
     const { env, fetch } = environment();
     const response = await handleLiveApiRequest(
-      new Request("https://caption.example/api/live/session", {
+      new Request("https://caption.example/api/live/channel", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          style: {
-            fontSize: 52,
-            textColor: "#ffffff",
-            backgroundColor: "#101827",
-          },
-        }),
+        body: JSON.stringify({ style: { fontSize: 52 } }),
       }),
       env,
     );
 
     expect(response?.status).toBe(201);
-    const payload = (await response!.json()) as {
-      sessionId: string;
-      overlayUrl: string;
-    };
+    const payload = (await response!.json()) as { overlayUrl: string };
     const overlayUrl = new URL(payload.overlayUrl);
+    const token = overlayUrl.hash.split(".")[1];
     expect(overlayUrl.pathname).toBe("/overlay");
     expect(overlayUrl.search).toBe("");
-    expect(overlayUrl.hash).toContain(payload.sessionId);
-    expect(overlayUrl.hash.split(".")[1]).toHaveLength(43);
-    expect(fetch).toHaveBeenCalledOnce();
+    expect(overlayUrl.hash).toMatch(/^#main\./u);
+    expect(token).toHaveLength(43);
+
     const initialization = fetch.mock.calls[0][0] as Request;
-    await expect(initialization.json()).resolves.toEqual({
-      tokenHash: expect.any(String),
-      expiresAt: expect.any(Number),
-      style: {
-        fontSize: 52,
-        textColor: "#ffffff",
-        backgroundColor: "#101827",
-        backgroundTransparency: 0,
-        horizontalMarginPercent: 4,
-        verticalMarginPercent: 6,
-        horizontalAlign: "center",
-        verticalAlign: "bottom",
-        fontFamily: "sans-serif",
-      },
+    const internal = (await initialization.json()) as {
+      tokenHash: string;
+      encryptedToken: string;
+      style: { fontSize: number; horizontalMarginPercent: number };
+    };
+    expect(internal.tokenHash).toHaveLength(64);
+    expect(internal.encryptedToken).not.toContain(token);
+    expect(internal.style).toMatchObject({
+      fontSize: 52,
+      horizontalMarginPercent: 4,
     });
   });
 
-  it("fails closed when an operator endpoint has no Access configuration", async () => {
-    const { env } = environment();
+  it("fails closed without Access configuration", async () => {
+    const { env, fetch } = environment();
     delete env.CAPTION_LOCAL_AUTH_BYPASS;
     const response = await handleLiveApiRequest(
-      new Request("https://caption.example/api/live/session", { method: "POST" }),
+      new Request("https://caption.example/api/live/channel"),
       env,
     );
 
     expect(response?.status).toBe(503);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("normalizes and forwards live OBS style updates", async () => {
-    const { env, fetch } = environment();
-    const sessionId = "12345678-1234-4123-8123-123456789abc";
+  it("fails secret-safely when channel creation has no encryption key", async () => {
+    const { env } = environment();
+    delete env.OBS_CHANNEL_ENCRYPTION_KEY;
     const response = await handleLiveApiRequest(
-      new Request(`https://caption.example/api/live/session/${sessionId}/style`, {
+      new Request("https://caption.example/api/live/channel", {
+        method: "POST",
+        body: JSON.stringify({ style: {} }),
+      }),
+      env,
+    );
+
+    expect(response?.status).toBe(503);
+    const payload = (await response!.json()) as { error: string };
+    expect(payload.error).toBe("Reusable OBS channel encryption is unavailable.");
+    expect(payload.error).not.toContain(ENCRYPTION_KEY);
+  });
+
+  it("decrypts the stored URL only for a protected channel read", async () => {
+    const encryptedToken = await encryptOverlayToken("reusable-token", ENCRYPTION_KEY);
+    const { env } = environment(async () =>
+      Response.json({
+        configured: true,
+        encryptedToken,
+        status: "idle",
+        style: {},
+        startedAt: null,
+        expiresAt: null,
+      }),
+    );
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel"),
+      env,
+    );
+    const payload = (await response!.json()) as { overlayUrl: string };
+
+    expect(payload.overlayUrl).toBe(
+      "https://caption.example/overlay#main.reusable-token",
+    );
+  });
+
+  it("starts a service with a hashed controller and returns only the raw lease", async () => {
+    const { env, fetch } = environment(async () =>
+      Response.json({
+        status: "live",
+        startedAt: "2026-08-01T00:00:00.000Z",
+        expiresAt: "2026-08-01T01:30:00.000Z",
+      }),
+    );
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/service", {
+        method: "POST",
+        body: JSON.stringify({ style: {}, takeover: true }),
+      }),
+      env,
+    );
+    const payload = (await response!.json()) as { controllerToken: string };
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    const body = (await forwarded.json()) as {
+      controllerHash: string;
+      takeover: boolean;
+    };
+
+    expect(response?.status).toBe(200);
+    expect(payload.controllerToken).toHaveLength(43);
+    expect(body.controllerHash).toHaveLength(64);
+    expect(body.controllerHash).not.toBe(payload.controllerToken);
+    expect(body.takeover).toBe(true);
+  });
+
+  it("preserves the shared channel style when a start omits a style", async () => {
+    const { env, fetch } = environment(async () =>
+      Response.json({
+        status: "live",
+        startedAt: "2026-08-01T00:00:00.000Z",
+        expiresAt: "2026-08-01T01:30:00.000Z",
+      }),
+    );
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/service", {
+        method: "POST",
+        body: JSON.stringify({ takeover: false }),
+      }),
+      env,
+    );
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    const body = (await forwarded.json()) as Record<string, unknown>;
+
+    expect(response?.status).toBe(200);
+    expect(body).not.toHaveProperty("style");
+  });
+
+  it("passes through a channel-in-use conflict without returning a controller", async () => {
+    const { env } = environment(async () =>
+      Response.json(
+        { error: "Already live", code: "channel_in_use" },
+        { status: 409 },
+      ),
+    );
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/service", {
+        method: "POST",
+        body: JSON.stringify({ style: {} }),
+      }),
+      env,
+    );
+
+    expect(response?.status).toBe(409);
+    await expect(response!.json()).resolves.toEqual({
+      error: "Already live",
+      code: "channel_in_use",
+    });
+  });
+
+  it("hashes controller headers and normalizes shared style updates", async () => {
+    const { env, fetch } = environment();
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/style", {
         method: "PUT",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-caption-controller": "controller-secret",
+        },
         body: JSON.stringify({
           style: {
             fontSize: 500,
-            backgroundTransparency: 45,
             horizontalMarginPercent: 25,
             verticalMarginPercent: -2,
-            horizontalAlign: "right",
-            verticalAlign: "middle",
-            fontFamily: "serif",
           },
         }),
       }),
       env,
     );
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    const body = (await forwarded.json()) as {
+      controllerHash: string;
+      style: CaptionStyleShape;
+    };
 
     expect(response?.status).toBe(200);
-    const forwarded = fetch.mock.calls[0][0] as Request;
     expect(forwarded.url).toBe("https://caption-room/internal/style");
-    await expect(forwarded.json()).resolves.toMatchObject({
-      style: {
-        fontSize: 72,
-        backgroundTransparency: 45,
-        horizontalMarginPercent: 20,
-        verticalMarginPercent: 0,
-        horizontalAlign: "right",
-        verticalAlign: "middle",
-        fontFamily: "serif",
-      },
+    expect(body.controllerHash).toHaveLength(64);
+    expect(body.controllerHash).not.toContain("controller-secret");
+    expect(body.style).toMatchObject({
+      fontSize: 72,
+      horizontalMarginPercent: 20,
+      verticalMarginPercent: 0,
     });
   });
 
-  it("validates and forwards live session controls", async () => {
-    const { env, fetch } = environment(
-      new Response(JSON.stringify({ action: "show-test", paused: true, sequence: 4 })),
+  it("validates a controller lease without forwarding the raw credential", async () => {
+    const { env, fetch } = environment(async () =>
+      Response.json({ valid: true, status: "live", expiresAt: "2026-08-01T01:30:00Z" }),
     );
-    const sessionId = "12345678-1234-4123-8123-123456789abc";
     const response = await handleLiveApiRequest(
-      new Request(`https://caption.example/api/live/session/${sessionId}/control`, {
+      new Request("https://caption.example/api/live/channel/lease", {
+        method: "POST",
+        headers: { "x-caption-controller": "controller-secret" },
+      }),
+      env,
+    );
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    const body = (await forwarded.json()) as { controllerHash: string };
+
+    expect(response?.status).toBe(200);
+    expect(forwarded.url).toBe("https://caption-room/internal/lease");
+    expect(body.controllerHash).toHaveLength(64);
+    expect(body.controllerHash).not.toContain("controller-secret");
+  });
+
+  it("validates and forwards idle or paused synthetic controls", async () => {
+    const { env, fetch } = environment(async () =>
+      Response.json({ action: "show-test", status: "idle", sequence: 4 }),
+    );
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/control", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -135,89 +299,38 @@ describe("live caption worker API", () => {
       }),
       env,
     );
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    const body = (await forwarded.json()) as { style: CaptionStyleShape };
 
     expect(response?.status).toBe(200);
-    const forwarded = fetch.mock.calls[0][0] as Request;
-    expect(forwarded.url).toBe("https://caption-room/internal/control");
-    await expect(forwarded.json()).resolves.toMatchObject({
-      action: "show-test",
-      targetLanguage: "id",
-      style: {
-        horizontalMarginPercent: 20,
-        verticalMarginPercent: 8,
-      },
+    expect(body.style).toMatchObject({
+      horizontalMarginPercent: 20,
+      verticalMarginPercent: 8,
     });
   });
 
-  it("rejects invalid control actions before they reach the room", async () => {
+  it.each([
+    ["invalid control", "/api/live/channel/control", { action: "rewind" }, 400],
+    ["oversized control", "/api/live/channel/control", { action: "clear", padding: "x".repeat(4_097) }, 413],
+    ["oversized caption", "/api/live/channel/caption", { publicText: "x".repeat(8_193) }, 413],
+  ])("rejects %s before the room", async (_label, path, body, status) => {
     const { env, fetch } = environment();
-    const sessionId = "12345678-1234-4123-8123-123456789abc";
     const response = await handleLiveApiRequest(
-      new Request(`https://caption.example/api/live/session/${sessionId}/control`, {
+      new Request(`https://caption.example${path}`, {
         method: "POST",
-        body: JSON.stringify({ action: "rewind" }),
+        body: JSON.stringify(body),
       }),
       env,
     );
 
-    expect(response?.status).toBe(400);
+    expect(response?.status).toBe(status);
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it.each(["pause", "resume", "clear", "show-test"])(
-    "fails closed for the %s control without Access configuration",
-    async (action) => {
-      const { env, fetch } = environment();
-      delete env.CAPTION_LOCAL_AUTH_BYPASS;
-      const sessionId = "12345678-1234-4123-8123-123456789abc";
-      const response = await handleLiveApiRequest(
-        new Request(`https://caption.example/api/live/session/${sessionId}/control`, {
-          method: "POST",
-          body: JSON.stringify({ action, targetLanguage: "en", style: {} }),
-        }),
-        env,
-      );
-
-      expect(response?.status).toBe(503);
-      expect(fetch).not.toHaveBeenCalled();
-    },
-  );
-
-  it("bounds live control request bodies", async () => {
+  it("rejects malformed style JSON instead of resetting shared style", async () => {
     const { env, fetch } = environment();
-    const sessionId = "12345678-1234-4123-8123-123456789abc";
     const response = await handleLiveApiRequest(
-      new Request(`https://caption.example/api/live/session/${sessionId}/control`, {
-        method: "POST",
-        body: JSON.stringify({ action: "clear", padding: "x".repeat(4_097) }),
-      }),
-      env,
-    );
-
-    expect(response?.status).toBe(413);
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it("rejects oversized live bodies even without a content-length header", async () => {
-    const { env, fetch } = environment();
-    const sessionId = "12345678-1234-4123-8123-123456789abc";
-    const response = await handleLiveApiRequest(
-      new Request(`https://caption.example/api/live/session/${sessionId}/caption`, {
-        method: "POST",
-        body: JSON.stringify({ publicText: "x".repeat(8_193) }),
-      }),
-      env,
-    );
-
-    expect(response?.status).toBe(413);
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it("rejects malformed style JSON instead of silently resetting the style", async () => {
-    const { env, fetch } = environment();
-    const sessionId = "12345678-1234-4123-8123-123456789abc";
-    const response = await handleLiveApiRequest(
-      new Request(`https://caption.example/api/live/session/${sessionId}/style`, {
+      new Request("https://caption.example/api/live/channel/style", {
         method: "PUT",
         body: "not-json",
       }),
@@ -228,10 +341,10 @@ describe("live caption worker API", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("rejects malformed public overlay session identifiers", async () => {
+  it("rejects malformed public channel identifiers", async () => {
     const { env, fetch } = environment();
     const response = await handleLiveApiRequest(
-      new Request("https://caption.example/api/live/overlay?session=not-valid", {
+      new Request("https://caption.example/api/live/overlay?channel=other", {
         headers: { upgrade: "websocket" },
       }),
       env,
@@ -241,7 +354,7 @@ describe("live caption worker API", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("serves a self-contained overlay without protected Next.js assets", async () => {
+  it("serves a self-contained persistent overlay without protected assets", async () => {
     const { env } = environment();
     const response = await handleLiveApiRequest(
       new Request("https://caption.example/overlay"),
@@ -251,14 +364,20 @@ describe("live caption worker API", () => {
 
     expect(response?.headers.get("content-security-policy")).toContain("default-src 'none'");
     expect(html).toContain("new WebSocket");
-    expect(html).toContain("Math.max(10,Math.min(72");
+    expect(html).toContain("?channel=");
+    expect(html).toContain("attempt>=12");
     expect(html).toContain("backgroundTransparency");
     expect(html).toContain("horizontalMarginPercent");
-    expect(html).toContain("verticalMarginPercent");
     expect(html).toContain('payload.type==="clear"');
-    expect(html).toContain("stage.style.alignItems");
-    expect(html).toContain('class="captionText"');
-    expect(html).toContain("box-decoration-break:clone");
+    expect(html).toContain('captionText.textContent?withTransparency');
+    expect(html).toContain('event.code===4001');
     expect(html).not.toContain("/_next/");
+    expect(html).not.toContain("connection interrupted");
   });
 });
+
+interface CaptionStyleShape {
+  fontSize: number;
+  horizontalMarginPercent: number;
+  verticalMarginPercent: number;
+}
