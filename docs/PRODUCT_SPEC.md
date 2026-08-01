@@ -29,8 +29,9 @@ archive and summary product. They are not implemented in the current prototype.
 4. The operator optionally enters bounded keyword/preferred-translation pairs and public
    mask words.
 5. The operator configures font, size, colour, line highlight, transparency, position,
-   and horizontal/vertical safe margins. The shared channel style and browser fallback
-   can be saved.
+   and horizontal/vertical safe margins beside the preview. Each change updates the
+   dashboard preview immediately; the shared channel style and browser fallback can then
+   be saved.
 6. On first use, an approved operator creates the reusable Main OBS channel, copies its
    URL into a 1920 × 1080 Browser Source, and shows/clears a synthetic test while idle.
 7. The operator starts a 90-minute service; the app verifies Access, Groq credentials,

@@ -115,6 +115,8 @@ Current branch evidence on 1 August 2026:
 - the 1200px desktop and 390px mobile Setup layouts were rendered in a real browser with
   no horizontal overflow; the mobile accordion reduced the initial page length while
   preserving reachable Start and OBS actions;
+- follow-up browser validation confirmed the requested Setup grouping and immediate
+  preview changes for 48–72px text sizing, right alignment, and 70% transparency;
 - local Worker smoke checks returned `200` for the dashboard, self-contained overlay,
   and AI health route, failed the protected channel route closed without Access, and
   rejected a non-WebSocket overlay request with `426`; and
