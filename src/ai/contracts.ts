@@ -1,7 +1,5 @@
 import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
 
-export type ProviderMode = "cloud-free";
-
 export interface TranscriptSegment {
   text: string;
   isFinal: boolean;
@@ -28,12 +26,12 @@ export interface TranslationResult {
 
 export interface TranscriptionProvider {
   readonly id: string;
-  readonly mode: ProviderMode;
+  readonly mode: "cloud-free";
   transcribe(request: TranscriptionRequest): Promise<TranscriptSegment[]>;
 }
 
 export interface TranslationProvider {
   readonly id: string;
-  readonly mode: ProviderMode;
+  readonly mode: "cloud-free";
   translate(request: TranslationRequest): Promise<TranslationResult>;
 }

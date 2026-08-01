@@ -1,4 +1,4 @@
-# Validation report — 20 July 2026
+# Validation report — updated 1 August 2026
 
 ## Decision
 
@@ -128,6 +128,37 @@ takeover, Cloudflare secret configuration, or post-merge production routes.
 
 Those outstanding items remain rollout gates. This section does not retroactively alter
 the 20 July production baseline, which exercised the previous temporary-link design.
+
+### Documentation and code-hygiene QA — 1 August 2026
+
+The live-preview and Setup-layout branch received a final documentation, dependency,
+export-surface, build, and responsive-browser review before stakeholder handoff:
+
+- all maintained current documentation was reconciled with the two-column Setup layout,
+  continuous appearance preview, reusable-link lifecycle, local validation commands,
+  Cloudflare-only deployment path, and remaining rollout gates; historical ADR 0001 stays
+  explicitly superseded and ADR 0002 now marks the disposable-room note as historical;
+- the dependency audit found no removable package: each runtime and development package
+  is used by application code, type checking, tests, lint, OpenNext, Wrangler, or build;
+- six unnecessary public type/constant exports were removed or made module-private;
+- the unused dependency/export/type audit passed after excluding file discovery for
+  `open-next.config.ts`, a convention-loaded entry point whose use is confirmed by the
+  successful OpenNext build;
+- all 11 Vitest files and 60 tests passed, together with strict unused-local/parameter
+  TypeScript checks, ESLint, Cloudflare type generation, Next.js production build,
+  OpenNext Cloudflare bundle generation, `npm audit` with zero vulnerabilities, and
+  `git diff --check`;
+- real-browser QA at 1200px confirmed the left column contains Audio and languages,
+  Church terminology and filtering, and Service details, while the right contains
+  Caption preview, Caption appearance, and OBS Browser Source;
+- appearance QA confirmed a live 72px preview, right alignment, and 70% transparency
+  (`rgba(16, 24, 39, 0.3)`), with no browser warnings or errors; and
+- the 390 × 844 mobile check preserved the same logical order in one column with a 390px
+  document width and no horizontal overflow.
+
+The local Next.js server cannot serve the custom Worker-owned `/api/live/channel` route;
+its local `404` remains an expected environment limitation, not a deployed channel test.
+The production gates listed below therefore remain unchanged.
 
 ## Not validated
 

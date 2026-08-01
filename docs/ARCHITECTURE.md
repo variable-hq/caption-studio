@@ -120,9 +120,9 @@ Provider calls have browser and server timeouts.
 
 `TranscriptionProvider` and `TranslationProvider` keep the client independent of a
 specific vendor response shape. Only fields used by the live pipeline cross the
-same-origin API boundary; unused provider segment identifiers, timings, and provider-only
-latency fields are discarded. Summary interfaces will be introduced only when the archive
-and review design is approved.
+same-origin API boundary; unused provider segment identifiers, timings, provider-only
+latency fields, and dormant provider modes are not retained. Summary interfaces will be
+introduced only when the archive and review design is approved.
 
 ### Deterministic caption pipeline
 
@@ -220,7 +220,8 @@ select the source explicitly when script-specific handling matters.
 | OBS token hash and channel sequence | Durable Object | Channel lifetime |
 | Controller token/hash | Tab `sessionStorage` / Durable Object | Active service, maximum 90 minutes |
 | Service state, timestamps, and event count | Durable Object | Active service; state resets on End/expiry |
-| Service usage counters | Browser memory | Active page/service |
+| Reserved transcription-request count | Durable Object | Active service; resets on End/expiry |
+| Dropped-chunk and processing-latency metrics | Browser memory | Active page/service |
 
 Groq may retain provider-side data according to the active organization's Data Controls.
 Zero Data Retention is a deployment prerequisite for approved sermon audio; provider
@@ -271,6 +272,16 @@ project needs explicit decisions and a separate threat/privacy design for:
 - storage/provider cost caps.
 
 Supabase or another database remains an option, not a current dependency or decision.
+
+## Code and dependency boundary
+
+The production dependency surface is deliberately small: Next.js, React, React DOM, and
+`jose` for Cloudflare Access JWT verification. Cloudflare/OpenNext, Wrangler, TypeScript,
+ESLint, Vitest, and type packages are development-only build or validation dependencies.
+The project contains no local-model runtime, database client, analytics SDK, paid-provider
+fallback, or sermon-storage library. Convention-loaded build files are verified through
+the OpenNext build rather than deleted solely because a static import graph cannot see
+their loader.
 
 ## Validation priorities
 

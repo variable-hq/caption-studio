@@ -31,7 +31,7 @@ Implemented in the codebase:
 - source/public previews, status, latency, queue, service-time, and request indicators;
 - one encrypted, reusable Main OBS channel with a reconnecting read-only overlay;
 - 10–72px display controls, per-line highlight/transparency, alignment, and saved
-  browser preferences;
+  browser preferences, with continuous design-preview updates;
 - 0–20% OBS safe margins plus Setup/Live layouts, pause/resume, clear, idle/paused test,
   confirmed End, explicit URL rotation, and confirmed takeover controls; and
 - no application audio or transcript storage.
@@ -57,6 +57,9 @@ privacy, quota, and recovery thresholds in the deployed cloud environment.
 - Enforced request bounds from actual body content.
 - Reconciled README, architecture, product, roadmap, contribution, security, and ADRs
   with implemented behavior.
+- Audited imports, exports, files, and packages; removed unnecessary public type/export
+  surface while retaining the convention-loaded OpenNext configuration and every
+  dependency required by runtime, build, type checking, lint, tests, or deployment.
 - Ran tests, type checking, lint, production/OpenNext builds, dependency audit, and diff
   checks.
 - Validated the generated URL in a browser-level production smoke test using synthetic
@@ -72,6 +75,8 @@ The actual OBS streaming computer rehearsal remains part of the next gate.
 - Rehearse on the intended microphone/audio interface and OBS streaming computer.
 - Create the Main channel once, install it in OBS, and verify idle test/clear before
   starting microphone capture.
+- Confirm the desktop Setup grouping and the single-column mobile flow, and verify every
+  appearance control updates the dashboard preview continuously before saving.
 - Verify pause/resume, clear, idle/paused tests, confirmed End, URL reuse across two
   services, confirmed takeover, explicit rotation on synthetic setup, and safe margins.
 - Record results without sermon content, credentials, or active overlay URLs.

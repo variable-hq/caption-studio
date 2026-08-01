@@ -39,13 +39,14 @@ require a narrower Access bypass plus a revocable, read-only token enforced by t
 Worker. Access-plan eligibility and billing configuration must be verified in the active
 Cloudflare account rather than inferred from this decision record.
 
-## Implementation note (2026-07-20)
+## Initial disposable-room implementation (2026-07-20, superseded)
 
-The Phase 1A live path is now implemented. A protected operator request creates a
+The first Phase 1A live path used a protected operator request to create a
 maximum 90-minute Durable Object room and a random overlay credential. The token is
 placed in the generated URL fragment, supplied to the WebSocket as a subprotocol,
-validated against a stored SHA-256 hash, and revoked on operator end or expiry. The
-deployment therefore requires more-specific Access bypass applications for `/overlay*`
+validated against a stored SHA-256 hash, and was revoked on operator end or expiry. The
+reusable-channel amendment below replaces that credential lifecycle. The deployment
+still requires more-specific Access bypass applications for `/overlay*`
 and `/api/live/overlay*`; no other operator or inference route may share that bypass.
 
 The app also enforces four-second chunks, one target language, a bounded client queue,

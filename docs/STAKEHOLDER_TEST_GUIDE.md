@@ -34,36 +34,40 @@ cannot be confirmed by the project owner.
 3. Select the spoken source explicitly and choose one target language.
 4. Add one safe test mapping, such as `Bethlehem => Betlehem`, if appropriate for the
    chosen target. Add one synthetic filter word that is safe to say in the rehearsal.
-5. Configure text size, font, colour, per-line highlight, transparency, position, and
-   horizontal/vertical safe margins. Save the appearance and reload once to confirm the
-   shared Main-channel style returns.
-6. If this deployment has no Main channel, select **Create OBS channel**. Copy the URL
+5. On desktop, confirm audio/languages, terminology, and service details are grouped on
+   the left, while preview, appearance, and OBS setup are on the right. At 390px mobile
+   width, confirm the same sections form one reachable column without horizontal scroll.
+6. Configure text size, font, colour, per-line highlight, transparency, position, and
+   horizontal/vertical safe margins. Confirm the dashboard preview changes during each
+   adjustment, then save the appearance and reload once to confirm the shared Main-channel
+   style returns.
+7. If this deployment has no Main channel, select **Create OBS channel**. Copy the URL
    directly into the 1920 × 1080 OBS Browser Source. Existing deployments should return
    the same URL to every approved collaborator; never put it in test evidence.
-7. Before starting capture, select **Show test** and confirm localized synthetic text,
+8. Before starting capture, select **Show test** and confirm localized synthetic text,
    style, and safe margins in OBS without microphone or transcription-request activity.
    Select **Clear OBS**, refresh the Browser Source, and confirm it remains blank.
-8. Start captions. Select **Pause**, confirm the meter stops, OBS clears, the URL stays
+9. Start captions. Select **Pause**, confirm the meter stops, OBS clears, the URL stays
    unchanged, and transcription requests stop increasing. Show and clear another test,
    then select **Resume** and confirm the test clears before listening restarts.
-9. Speak short, approved test phrases containing names, numbers, and a reference, for
+10. Speak short, approved test phrases containing names, numbers, and a reference, for
    example: “Today we read John chapter three, verse sixteen. The Holy Spirit brings
    hope.” Do not paste or record licensed Bible text as test evidence.
-10. Confirm the protected source preview and the public translated preview are sensible.
+11. Confirm the protected source preview and the public translated preview are sensible.
    Verify the glossary mapping and public mask without expecting the source preview to
    be rewritten.
-11. Confirm OBS shows only the public caption. Change each display setting while live and
+12. Confirm OBS shows only the public caption. Change each display setting while live and
    confirm the overlay updates without restarting.
-12. Note caption count, skipped count, and the displayed processing-latency range. The
+13. Note caption count, skipped count, and the displayed processing-latency range. The
     normal spoken-to-screen delay is about four seconds plus that processing value.
-13. Refresh the OBS Browser Source and confirm the latest public caption and style
+14. Refresh the OBS Browser Source and confirm the latest public caption and style
     return. In a second Access-approved browser, attempt Start and confirm it is blocked;
     then use the explicit takeover confirmation with synthetic audio. Confirm the first
     operator stops when its next stale request is rejected.
-14. Select **End service**, cancel once, then confirm End. Confirm OBS becomes blank but
+15. Select **End service**, cancel once, then confirm End. Confirm OBS becomes blank but
     the URL remains unchanged. Start and End a second short service and verify the same
     Browser Source receives it without editing OBS.
-15. In a controlled synthetic setup, open Advanced link security, cancel Rotate once,
+16. In a controlled synthetic setup, open Advanced link security, cancel Rotate once,
     then confirm it. Verify the old Browser Source stops and the replacement URL works.
     Do not rotate a production URL without the owner and OBS operator present.
 
@@ -77,6 +81,7 @@ cannot be confirmed by the project owner.
 | Biblical terms | Agreed names/references are recognizable; mapping is applied where tested. |
 | Public safety | Configured mask affects public text without changing protected source text. |
 | OBS | Public captions and all chosen styles appear at the intended canvas position. |
+| Layout | Desktop grouping is correct; mobile is reachable with no horizontal overflow; appearance changes update the preview continuously. |
 | Controls | Pause stops capture/AI and clears OBS; Resume retains URL/expiry; idle and paused tests make no AI request. |
 | Ownership | A second start is blocked; confirmed takeover replaces the prior controller without mixed captions. |
 | Recovery | Reload recovers the same controller paused; End preserves the URL; Rotate alone invalidates it. |

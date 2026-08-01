@@ -34,8 +34,11 @@ Run these checks before requesting review:
 ```bash
 npm test
 npm run typecheck
+npx tsc --noEmit --noUnusedLocals --noUnusedParameters
 npm run lint
 npm run build
+npx opennextjs-cloudflare build
+npm audit
 git diff --check
 ```
 
@@ -47,9 +50,15 @@ decision about duplicated compute, credentials, and cost.
 
 Use `npm run preview` when a change affects the Cloudflare runtime or the self-contained
 OBS route. It verifies the bundle and non-Durable-Object routes, but the current OpenNext
-local preview cannot run this internal Durable Object; test room creation, WebSockets,
-expiry, and revocation in a protected Cloudflare test deployment. After changing
-bindings, run `npm run cf-typegen` and review the generated diff before committing it.
+local preview cannot run this internal Durable Object; test channel creation, WebSockets,
+service expiry, controller takeover, and OBS-link rotation in a protected Cloudflare test
+deployment. After changing bindings, run `npm run cf-typegen` and review the generated
+diff before committing it.
+
+For visible operator-console changes, test at 1200px desktop and 390px mobile widths in
+a real browser. Confirm keyboard focus, reachable controls, no horizontal overflow, and
+continuous preview updates while appearance ranges or colours are being changed. Use
+only synthetic caption text in screenshots or recordings.
 
 ## Branch and commit workflow
 
@@ -87,7 +96,7 @@ the decision and tradeoffs in the issue, pull request, or an ADR.
 - Preserve the separation between protected source text and moderated public text.
 - Do not make `/api/ai/*` or `/api/live/channel*` publicly accessible.
 - Treat `/overlay*` and `/api/live/overlay*` as public network paths protected by an
-  reusable, explicitly rotatable channel token.
+  explicitly rotatable reusable channel token.
 - Bound user input, audio, prompt context, queues, session duration, and provider calls.
 - Enforce request limits against bytes actually received before parsing JSON or multipart
   bodies; do not trust `Content-Length` alone.
@@ -101,6 +110,8 @@ the decision and tradeoffs in the issue, pull request, or an ADR.
 
 - The change matches the documented scope or updates that scope explicitly.
 - No dead code, unused dependency, generated build output, or secret is introduced.
+- Convention-loaded entry files such as `open-next.config.ts` are retained even when a
+  static unused-file scanner cannot observe the tool that loads them.
 - All external inputs have type, size, and allowed-value validation.
 - Source, translated, and public forms are not accidentally mixed.
 - Operator-only endpoints still require Cloudflare Access.

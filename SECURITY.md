@@ -109,8 +109,10 @@ setting.
 - Commit the npm lockfile and review dependency changes in pull requests.
 - Run `npm audit`, tests, type checking, lint, build, and `git diff --check` before a
   release; assess findings rather than applying unreviewed force upgrades.
-- Remove unused packages and dead provider code instead of leaving dormant attack
-  surface.
+- Run strict unused-local/parameter checks and an export/dependency audit; remove unused
+  packages, exports, and dead provider code instead of leaving dormant attack surface.
+- Verify convention-loaded build entry points before deleting anything reported only by
+  static analysis. `open-next.config.ts` is loaded by the Cloudflare build CLI.
 - Validate request size from the received body before parsing JSON or multipart data,
   not only from `Content-Length`.
 - Keep provider prompts, recent context, glossary entries, and output sizes bounded.
