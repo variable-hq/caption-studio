@@ -24,7 +24,8 @@ The current codebase implements the Phase 1 cloud prototype:
   horizontal or vertical alignment;
 - 0–20% horizontal and vertical OBS safe margins;
 - shared Main-channel style plus a browser-local fallback preference;
-- guided Setup and compact Live operator layouts;
+- guided two-column Setup and compact Live operator layouts, with appearance controls
+  beside the live-updating caption preview;
 - Start, Pause/Resume, Clear, idle-or-paused synthetic test, confirmed End, and
   confirmed takeover controls;
 - active-service time and transcription-request usage indicators; and

@@ -146,7 +146,7 @@ function StyleEditor({
             max="72"
             value={style.fontSize}
             aria-label={`Text size ${style.fontSize}px`}
-            onChange={(event) => setFontSize(Number(event.target.value))}
+            onInput={(event) => setFontSize(Number(event.currentTarget.value))}
           />
         </label>
         <label>
@@ -197,7 +197,7 @@ function StyleEditor({
               type="color"
               value={style.textColor}
               aria-label={`Text colour ${style.textColor}`}
-              onChange={(event) => setTextColor(event.target.value)}
+              onInput={(event) => setTextColor(event.currentTarget.value)}
             />
             <code>{style.textColor}</code>
           </span>
@@ -209,7 +209,7 @@ function StyleEditor({
               type="color"
               value={style.backgroundColor}
               aria-label={`Caption background ${style.backgroundColor}`}
-              onChange={(event) => setBackgroundColor(event.target.value)}
+              onInput={(event) => setBackgroundColor(event.currentTarget.value)}
             />
             <code>{style.backgroundColor}</code>
           </span>
@@ -224,8 +224,8 @@ function StyleEditor({
             max="100"
             value={style.backgroundTransparency}
             aria-label={`Background transparency ${style.backgroundTransparency}%`}
-            onChange={(event) =>
-              setBackgroundTransparency(Number(event.target.value))
+            onInput={(event) =>
+              setBackgroundTransparency(Number(event.currentTarget.value))
             }
           />
         </label>
@@ -239,8 +239,8 @@ function StyleEditor({
             max="20"
             value={style.horizontalMarginPercent}
             aria-label={`Horizontal safe margin ${style.horizontalMarginPercent}%`}
-            onChange={(event) =>
-              setHorizontalMarginPercent(Number(event.target.value))
+            onInput={(event) =>
+              setHorizontalMarginPercent(Number(event.currentTarget.value))
             }
           />
         </label>
@@ -254,8 +254,8 @@ function StyleEditor({
             max="20"
             value={style.verticalMarginPercent}
             aria-label={`Vertical safe margin ${style.verticalMarginPercent}%`}
-            onChange={(event) =>
-              setVerticalMarginPercent(Number(event.target.value))
+            onInput={(event) =>
+              setVerticalMarginPercent(Number(event.currentTarget.value))
             }
           />
         </label>
@@ -756,11 +756,6 @@ export default function OperatorDashboard() {
                 </div>
               </details>
 
-              <details className="setupSection">
-                <summary><span>03</span> Caption appearance</summary>
-                <div className="sectionBody"><StyleEditor {...styleEditorProps} /></div>
-              </details>
-
               <details className="setupSection serviceDetails">
                 <summary><span>AI</span> Service details</summary>
                 <div className="sectionBody modelSummary">
@@ -773,6 +768,10 @@ export default function OperatorDashboard() {
 
             <aside className="setupPreviewColumn">
               <CaptionPreview caption={SAMPLE_CAPTIONS[targetLanguage]} style={style} badge="Design preview" />
+              <details className="setupSection appearanceSection" open>
+                <summary><span>03</span> Caption appearance</summary>
+                <div className="sectionBody"><StyleEditor {...styleEditorProps} /></div>
+              </details>
               <section className="obsSetupCard" aria-labelledby="obs-setup-title">
                 <div className="sectionHeading">
                   <div>

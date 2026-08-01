@@ -328,11 +328,6 @@ code {
   gap: 16px;
 }
 
-.setupPreviewColumn {
-  position: sticky;
-  top: 16px;
-}
-
 .setupSection,
 .previewCard,
 .obsSetupCard,

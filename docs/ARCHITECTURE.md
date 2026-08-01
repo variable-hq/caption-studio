@@ -49,9 +49,13 @@ The Next.js client provides:
 
 - microphone and browser-visible audio-interface enumeration;
 - explicit microphone permission and a live input meter;
-- a guided Setup workspace followed by a compact Live operator console;
+- a guided Setup workspace with audio, language, terminology, and service information
+  in the left column and preview, appearance, and OBS controls in the right column,
+  followed by a compact Live operator console;
 - source language, target language, glossary, filter, and shared caption-style controls;
 - primary pause/resume and clear controls, plus secondary test, copy, and confirmed End;
+- input-event-driven appearance controls so range and colour changes update the
+  dashboard preview continuously before they are saved;
 - a `MediaRecorder` that creates independent four-second audio chunks;
 - a two-chunk in-memory queue to bound latency and memory use;
 - protected source and moderated public-caption previews;
