@@ -1,80 +1,159 @@
 import type {
   CaptionStyle,
+  LiveApiErrorCode,
+  LiveServiceDetails,
   LiveSessionControlAction,
   LiveSessionControlResponse,
-  LiveSessionDetails,
-  PublicCaptionEvent,
+  ObsChannelDetails,
+  PublicCaptionRequest,
 } from "@/live/contracts";
 
-async function errorMessage(response: Response, fallback: string) {
-  const payload = (await response.json().catch(() => null)) as
-    | { error?: string }
-    | null;
-  return payload?.error ?? fallback;
+interface ErrorPayload {
+  error?: string;
+  code?: LiveApiErrorCode;
+  expiresAt?: string | null;
+}
+
+export class LiveApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: LiveApiErrorCode,
+    readonly expiresAt?: string | null,
+  ) {
+    super(message);
+  }
+}
+
+async function requireSuccess(response: Response, fallback: string) {
+  if (response.ok) return response;
+  const payload = (await response.json().catch(() => null)) as ErrorPayload | null;
+  throw new LiveApiError(
+    payload?.error ?? fallback,
+    response.status,
+    payload?.code,
+    payload?.expiresAt,
+  );
+}
+
+function controllerHeaders(controllerToken?: string) {
+  return controllerToken
+    ? { "x-caption-controller": controllerToken }
+    : undefined;
 }
 
 export class LiveSessionClient {
-  async create(style: CaptionStyle): Promise<LiveSessionDetails> {
-    const response = await fetch("/api/live/session", {
+  async getChannel(): Promise<ObsChannelDetails> {
+    const response = await fetch("/api/live/channel", {
+      signal: AbortSignal.timeout(8_000),
+    });
+    await requireSuccess(response, "Could not load the Main OBS channel.");
+    return (await response.json()) as ObsChannelDetails;
+  }
+
+  async createChannel(style: CaptionStyle): Promise<ObsChannelDetails> {
+    const response = await fetch("/api/live/channel", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ style }),
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) {
-      throw new Error(await errorMessage(response, "Could not create the OBS session."));
-    }
-    return (await response.json()) as LiveSessionDetails;
+    await requireSuccess(response, "Could not create the Main OBS channel.");
+    return (await response.json()) as ObsChannelDetails;
   }
 
-  async publish(sessionId: string, event: PublicCaptionEvent) {
-    const response = await fetch(`/api/live/session/${sessionId}/caption`, {
+  async rotateChannel(): Promise<ObsChannelDetails> {
+    const response = await fetch("/api/live/channel/rotate", {
+      method: "POST",
+      signal: AbortSignal.timeout(10_000),
+    });
+    await requireSuccess(response, "Could not rotate the Main OBS channel URL.");
+    return (await response.json()) as ObsChannelDetails;
+  }
+
+  async startService(
+    style: CaptionStyle,
+    takeover = false,
+  ): Promise<LiveServiceDetails> {
+    const response = await fetch("/api/live/channel/service", {
       method: "POST",
       headers: { "content-type": "application/json" },
+      body: JSON.stringify({ style, takeover }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    await requireSuccess(response, "Could not start the live service.");
+    return (await response.json()) as LiveServiceDetails;
+  }
+
+  async endService(controllerToken: string) {
+    const response = await fetch("/api/live/channel/service", {
+      method: "DELETE",
+      headers: controllerHeaders(controllerToken),
+      signal: AbortSignal.timeout(5_000),
+    });
+    await requireSuccess(response, "Could not end the live service.");
+  }
+
+  async publish(controllerToken: string, event: PublicCaptionRequest) {
+    const response = await fetch("/api/live/channel/caption", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...controllerHeaders(controllerToken),
+      },
       body: JSON.stringify(event),
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) {
-      throw new Error(await errorMessage(response, "Could not publish the OBS caption."));
-    }
+    await requireSuccess(response, "Could not publish the OBS caption.");
+    return (await response.json()) as { published: true; sequence: number };
   }
 
-  async updateStyle(sessionId: string, style: CaptionStyle) {
-    const response = await fetch(`/api/live/session/${sessionId}/style`, {
+  async validateController(controllerToken: string) {
+    const response = await fetch("/api/live/channel/lease", {
+      method: "POST",
+      headers: controllerHeaders(controllerToken),
+      signal: AbortSignal.timeout(5_000),
+    });
+    await requireSuccess(response, "Could not validate control of the Main channel.");
+    return (await response.json()) as {
+      valid: true;
+      status: "live";
+      expiresAt: string;
+      transcriptionRequests: number;
+    };
+  }
+
+  async updateStyle(style: CaptionStyle, controllerToken?: string) {
+    const response = await fetch("/api/live/channel/style", {
       method: "PUT",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...controllerHeaders(controllerToken),
+      },
       body: JSON.stringify({ style }),
       signal: AbortSignal.timeout(5_000),
     });
-    if (!response.ok) {
-      throw new Error(await errorMessage(response, "Could not update the OBS style."));
-    }
+    await requireSuccess(response, "Could not update the OBS style.");
   }
 
   async control(
-    sessionId: string,
     action: LiveSessionControlAction,
-    options?: { targetLanguage?: PublicCaptionEvent["targetLanguage"]; style?: CaptionStyle },
+    controllerToken?: string,
+    options?: {
+      targetLanguage?: PublicCaptionRequest["targetLanguage"];
+      style?: CaptionStyle;
+    },
   ) {
-    const response = await fetch(`/api/live/session/${sessionId}/control`, {
+    const response = await fetch("/api/live/channel/control", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...controllerHeaders(controllerToken),
+      },
       body: JSON.stringify({ action, ...options }),
       signal: AbortSignal.timeout(5_000),
     });
-    if (!response.ok) {
-      throw new Error(await errorMessage(response, "Could not update the live caption controls."));
-    }
+    await requireSuccess(response, "Could not update the live caption controls.");
     return (await response.json()) as LiveSessionControlResponse;
-  }
-
-  async revoke(sessionId: string) {
-    const response = await fetch(`/api/live/session/${sessionId}`, {
-      method: "DELETE",
-      signal: AbortSignal.timeout(5_000),
-    });
-    if (!response.ok && response.status !== 404) {
-      throw new Error(await errorMessage(response, "Could not close the OBS session."));
-    }
   }
 }

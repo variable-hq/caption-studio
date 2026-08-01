@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { CaptionRoom } from "@/live/caption-room";
+import { MAX_TRANSCRIPTION_REQUESTS } from "@/live/contracts";
+
+const CONTROLLER_A = "a".repeat(64);
+const CONTROLLER_B = "b".repeat(64);
+const TOKEN_A = "1".repeat(64);
+const TOKEN_B = "2".repeat(64);
 
 class FakeStorage {
   readonly values = new Map<string, unknown>();
+  alarm: number | null = null;
   private transactionTail = Promise.resolve();
 
   async get<T>(key: string) {
@@ -22,7 +29,13 @@ class FakeStorage {
     this.values.clear();
   }
 
-  async setAlarm() {}
+  async setAlarm(value: number) {
+    this.alarm = value;
+  }
+
+  async deleteAlarm() {
+    this.alarm = null;
+  }
 
   async transaction<T>(closure: (transaction: FakeStorage) => Promise<T>) {
     const previous = this.transactionTail;
@@ -41,12 +54,15 @@ class FakeStorage {
 
 class FakeSocket {
   readonly messages: string[] = [];
+  readonly closes: Array<{ code?: number; reason?: string }> = [];
 
   send(message: string) {
     this.messages.push(message);
   }
 
-  close() {}
+  close(code?: number, reason?: string) {
+    this.closes.push({ code, reason });
+  }
 }
 
 function roomFixture() {
@@ -60,109 +76,95 @@ function roomFixture() {
   return { room: new CaptionRoom(state), socket, storage };
 }
 
-function request(path: string, body: unknown) {
+function request(
+  path: string,
+  body?: unknown,
+  method: "POST" | "DELETE" | "GET" = "POST",
+) {
   return new Request(`https://caption-room${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    method,
+    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
 }
 
-describe("caption room controls", () => {
-  it("keeps sequence order while pausing, clearing, testing, and resuming", async () => {
-    const { room, socket, storage } = roomFixture();
-    const expiresAt = Date.now() + 60_000;
+async function createChannel(room: CaptionRoom) {
+  return room.fetch(
+    request("/internal/channel", {
+      tokenHash: TOKEN_A,
+      encryptedToken: "encrypted-a",
+      style: { fontSize: 56 },
+    }),
+  );
+}
+
+async function startService(
+  room: CaptionRoom,
+  controllerHash = CONTROLLER_A,
+  takeover = false,
+) {
+  return room.fetch(
+    request("/internal/service", {
+      controllerHash,
+      takeover,
+      style: { fontSize: 60 },
+    }),
+  );
+}
+
+function caption(controllerHash = CONTROLLER_A, publicText = "Grace and peace") {
+  return {
+    controllerHash,
+    publicText,
+    targetLanguage: "en",
+    style: { horizontalMarginPercent: 8 },
+  };
+}
+
+describe("reusable caption channel", () => {
+  it("creates the Main channel idempotently and preserves the first credential", async () => {
+    const { room, storage } = roomFixture();
+    expect((await createChannel(room)).status).toBe(201);
     expect(
       (
         await room.fetch(
-          request("/internal/initialize", {
-            tokenHash: "hash",
-            expiresAt,
-            style: {},
+          request("/internal/channel", {
+            tokenHash: TOKEN_B,
+            encryptedToken: "encrypted-b",
+            style: { fontSize: 10 },
           }),
         )
       ).status,
-    ).toBe(200);
+    ).toBe(201);
 
-    expect(
-      (
-        await room.fetch(
-          request("/internal/caption", {
-            sequence: 1,
-            publicText: "Live caption",
-            targetLanguage: "en",
-            style: {},
-          }),
-        )
-      ).status,
-    ).toBe(200);
-
-    const pause = await room.fetch(
-      request("/internal/control", { action: "pause" }),
-    );
-    await expect(pause.json()).resolves.toMatchObject({ paused: true });
-    expect(await storage.get("latest")).toBeUndefined();
-
-    expect(
-      (
-        await room.fetch(
-          request("/internal/caption", {
-            sequence: 2,
-            publicText: "Late caption",
-            targetLanguage: "en",
-            style: {},
-          }),
-        )
-      ).status,
-    ).toBe(409);
-
-    const test = await room.fetch(
-      request("/internal/control", {
-        action: "show-test",
-        targetLanguage: "id",
-        style: { horizontalMarginPercent: 12, verticalMarginPercent: 9 },
-      }),
-    );
-    await expect(test.json()).resolves.toMatchObject({
-      action: "show-test",
-      paused: true,
-      sequence: 2,
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      tokenHash: TOKEN_A,
+      encryptedToken: "encrypted-a",
+      status: "idle",
+      style: { fontSize: 56 },
     });
-    await expect(storage.get("latest")).resolves.toMatchObject({
-      sequence: 2,
-      targetLanguage: "id",
-      style: { horizontalMarginPercent: 12, verticalMarginPercent: 9 },
+  });
+
+  it("blocks a second start and atomically replaces the controller on takeover", async () => {
+    const { room, socket } = roomFixture();
+    await createChannel(room);
+    expect((await startService(room)).status).toBe(200);
+
+    const conflict = await startService(room, CONTROLLER_B);
+    expect(conflict.status).toBe(409);
+    await expect(conflict.json()).resolves.toMatchObject({ code: "channel_in_use" });
+
+    expect((await startService(room, CONTROLLER_B, true)).status).toBe(200);
+    const stale = await room.fetch(request("/internal/caption", caption()));
+    expect(stale.status).toBe(409);
+    await expect(stale.json()).resolves.toMatchObject({
+      code: "controller_replaced",
     });
 
-    await room.fetch(request("/internal/control", { action: "clear" }));
-    expect(await storage.get("latest")).toBeUndefined();
-    await room.fetch(request("/internal/control", { action: "resume" }));
-
-    expect(
-      (
-        await room.fetch(
-          request("/internal/caption", {
-            sequence: 2,
-            publicText: "Repeated sequence",
-            targetLanguage: "en",
-            style: {},
-          }),
-        )
-      ).status,
-    ).toBe(400);
-    expect(
-      (
-        await room.fetch(
-          request("/internal/caption", {
-            sequence: 3,
-            publicText: "Resumed caption",
-            targetLanguage: "en",
-            style: {},
-          }),
-        )
-      ).status,
-    ).toBe(200);
-
+    const published = await room.fetch(
+      request("/internal/caption", caption(CONTROLLER_B)),
+    );
+    await expect(published.json()).resolves.toMatchObject({ sequence: 1 });
     expect(socket.messages.map((message) => JSON.parse(message))).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "clear" }),
@@ -171,73 +173,293 @@ describe("caption room controls", () => {
     );
   });
 
-  it("requires pause before showing a test caption", async () => {
+  it("assigns monotonic sequences across tests, clears, services, and restarts", async () => {
     const { room } = roomFixture();
-    await room.fetch(
-      request("/internal/initialize", {
-        tokenHash: "hash",
-        expiresAt: Date.now() + 60_000,
-        style: {},
-      }),
-    );
+    await createChannel(room);
 
-    const response = await room.fetch(
+    const idleTest = await room.fetch(
       request("/internal/control", {
         action: "show-test",
-        targetLanguage: "en",
+        targetLanguage: "id",
         style: {},
       }),
     );
-    expect(response.status).toBe(409);
-  });
+    await expect(idleTest.json()).resolves.toMatchObject({ sequence: 1 });
+    await room.fetch(request("/internal/control", { action: "clear" }));
 
-  it("orders an in-flight caption before Pause and leaves OBS clear", async () => {
-    const { room, socket } = roomFixture();
+    await startService(room);
+    await expect(
+      (await room.fetch(request("/internal/caption", caption()))).json(),
+    ).resolves.toMatchObject({ sequence: 2 });
     await room.fetch(
-      request("/internal/initialize", {
-        tokenHash: "hash",
-        expiresAt: Date.now() + 60_000,
-        style: {},
+      request("/internal/control", {
+        action: "pause",
+        controllerHash: CONTROLLER_A,
       }),
     );
-
-    const caption = room.fetch(
-      request("/internal/caption", {
-        sequence: 1,
-        publicText: "In-flight caption",
-        targetLanguage: "en",
-        style: {},
+    await expect(
+      (
+        await room.fetch(
+          request("/internal/control", {
+            action: "show-test",
+            controllerHash: CONTROLLER_A,
+            targetLanguage: "ja",
+            style: {},
+          }),
+        )
+      ).json(),
+    ).resolves.toMatchObject({ sequence: 3 });
+    await room.fetch(
+      request("/internal/control", {
+        action: "resume",
+        controllerHash: CONTROLLER_A,
       }),
     );
-    const pause = room.fetch(request("/internal/control", { action: "pause" }));
-    const [captionResponse, pauseResponse] = await Promise.all([caption, pause]);
+    await expect(
+      (await room.fetch(request("/internal/caption", caption()))).json(),
+    ).resolves.toMatchObject({ sequence: 4 });
 
-    expect(captionResponse.status).toBe(200);
-    expect(pauseResponse.status).toBe(200);
-    expect(JSON.parse(socket.messages.at(-1)!)).toEqual({ type: "clear" });
+    await room.fetch(
+      request(
+        "/internal/service",
+        { controllerHash: CONTROLLER_A },
+        "DELETE",
+      ),
+    );
+    await startService(room, CONTROLLER_B);
+    await expect(
+      (
+        await room.fetch(
+          request("/internal/caption", caption(CONTROLLER_B, "Next service")),
+        )
+      ).json(),
+    ).resolves.toMatchObject({ sequence: 5 });
   });
 
-  it.each(["pause", "resume", "clear", "show-test"])(
-    "expires the %s control and clears room state",
-    async (action) => {
-      const { room, storage } = roomFixture();
-      storage.values.set("configuration", {
-        tokenHash: "hash",
-        expiresAt: Date.now() - 1,
-        style: {},
-        paused: false,
-        lastSequence: 0,
-      });
+  it("allows tests while idle or paused but never while live", async () => {
+    const { room } = roomFixture();
+    await createChannel(room);
+    expect(
+      (
+        await room.fetch(
+          request("/internal/control", {
+            action: "show-test",
+            targetLanguage: "ko-KR",
+            style: {},
+          }),
+        )
+      ).status,
+    ).toBe(200);
 
-      const response = await room.fetch(
-        request("/internal/control", {
-          action,
-          targetLanguage: "en",
-          style: {},
-        }),
-      );
-      expect(response.status).toBe(410);
-      expect(storage.values.size).toBe(0);
-    },
-  );
+    await startService(room);
+    expect(
+      (
+        await room.fetch(
+          request("/internal/control", {
+            action: "show-test",
+            controllerHash: CONTROLLER_A,
+            targetLanguage: "ko-KR",
+            style: {},
+          }),
+        )
+      ).status,
+    ).toBe(409);
+  });
+
+  it("requires the current controller for active captions, controls, and styles", async () => {
+    const { room } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+
+    for (const [path, body] of [
+      ["/internal/caption", caption(CONTROLLER_B)],
+      ["/internal/control", { action: "pause", controllerHash: CONTROLLER_B }],
+      ["/internal/style", { style: {}, controllerHash: CONTROLLER_B }],
+    ] as const) {
+      const response = await room.fetch(request(path, body));
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "controller_replaced",
+      });
+    }
+  });
+
+  it("validates the controller before provider work and rejects it after takeover", async () => {
+    const { room } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+
+    const valid = await room.fetch(
+      request("/internal/lease", { controllerHash: CONTROLLER_A }),
+    );
+    expect(valid.status).toBe(200);
+    await expect(valid.json()).resolves.toMatchObject({
+      valid: true,
+      status: "live",
+      transcriptionRequests: 1,
+    });
+
+    await startService(room, CONTROLLER_B, true);
+    const stale = await room.fetch(
+      request("/internal/lease", { controllerHash: CONTROLLER_A }),
+    );
+    expect(stale.status).toBe(409);
+    await expect(stale.json()).resolves.toMatchObject({
+      code: "controller_replaced",
+    });
+  });
+
+  it("enforces the transcription ceiling atomically across controller leases", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    const configuration = await storage.get<Record<string, unknown>>("configuration");
+    await storage.put("configuration", {
+      ...configuration,
+      transcriptionRequests: MAX_TRANSCRIPTION_REQUESTS - 1,
+    });
+
+    const finalLease = await room.fetch(
+      request("/internal/lease", { controllerHash: CONTROLLER_A }),
+    );
+    expect(finalLease.status).toBe(200);
+    await expect(finalLease.json()).resolves.toMatchObject({
+      transcriptionRequests: MAX_TRANSCRIPTION_REQUESTS,
+    });
+
+    const blocked = await room.fetch(
+      request("/internal/lease", { controllerHash: CONTROLLER_A }),
+    );
+    expect(blocked.status).toBe(429);
+    await expect(blocked.json()).resolves.toMatchObject({
+      code: "transcription_limit_reached",
+    });
+  });
+
+  it("does not reserve a transcription request while paused", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(
+      request("/internal/control", {
+        action: "pause",
+        controllerHash: CONTROLLER_A,
+      }),
+    );
+
+    const blocked = await room.fetch(
+      request("/internal/lease", { controllerHash: CONTROLLER_A }),
+    );
+    expect(blocked.status).toBe(410);
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      transcriptionRequests: 0,
+    });
+  });
+
+  it("ends a service without deleting or changing the reusable OBS credential", async () => {
+    const { room, storage, socket } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(request("/internal/caption", caption()));
+
+    const response = await room.fetch(
+      request(
+        "/internal/service",
+        { controllerHash: CONTROLLER_A },
+        "DELETE",
+      ),
+    );
+    expect(response.status).toBe(204);
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      tokenHash: TOKEN_A,
+      encryptedToken: "encrypted-a",
+      status: "idle",
+      lastSequence: 1,
+    });
+    expect(await storage.get("latest")).toBeUndefined();
+    expect(JSON.parse(socket.messages.at(-1)!)).toMatchObject({
+      type: "state",
+      status: "idle",
+    });
+  });
+
+  it("rotates only while idle and closes sockets using the revocation code", async () => {
+    const { room, socket, storage } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    expect(
+      (
+        await room.fetch(
+          request("/internal/rotate", {
+            tokenHash: TOKEN_B,
+            encryptedToken: "encrypted-b",
+          }),
+        )
+      ).status,
+    ).toBe(409);
+
+    await room.fetch(
+      request(
+        "/internal/service",
+        { controllerHash: CONTROLLER_A },
+        "DELETE",
+      ),
+    );
+    expect(
+      (
+        await room.fetch(
+          request("/internal/rotate", {
+            tokenHash: TOKEN_B,
+            encryptedToken: "encrypted-b",
+          }),
+        )
+      ).status,
+    ).toBe(200);
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      tokenHash: TOKEN_B,
+      encryptedToken: "encrypted-b",
+      status: "idle",
+    });
+    expect(socket.closes.at(-1)).toEqual({
+      code: 4001,
+      reason: "OBS channel link rotated.",
+    });
+  });
+
+  it("expires only the active service and leaves the channel ready", async () => {
+    const { room, storage, socket } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(request("/internal/caption", caption()));
+
+    await room.alarm();
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      tokenHash: TOKEN_A,
+      status: "idle",
+    });
+    expect(await storage.get("latest")).toBeUndefined();
+    expect(JSON.parse(socket.messages.at(-1)!)).toMatchObject({
+      type: "state",
+      status: "idle",
+    });
+  });
+
+  it("serializes a caption immediately before takeover and leaves OBS clear", async () => {
+    const { room, socket, storage } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+
+    const pendingCaption = room.fetch(request("/internal/caption", caption()));
+    const pendingTakeover = startService(room, CONTROLLER_B, true);
+    const [captionResponse, takeoverResponse] = await Promise.all([
+      pendingCaption,
+      pendingTakeover,
+    ]);
+    expect(captionResponse.status).toBe(200);
+    expect(takeoverResponse.status).toBe(200);
+    expect(await storage.get("latest")).toBeUndefined();
+    expect(
+      socket.messages.map((message) => JSON.parse(message)).at(-3),
+    ).toEqual({ type: "clear" });
+  });
 });

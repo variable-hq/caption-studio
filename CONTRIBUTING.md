@@ -85,9 +85,9 @@ the decision and tradeoffs in the issue, pull request, or an ADR.
 - Keep provider credentials and Cloudflare Access verification server-side.
 - Fail closed in production when Access configuration is missing.
 - Preserve the separation between protected source text and moderated public text.
-- Do not make `/api/ai/*` or `/api/live/session*` publicly accessible.
+- Do not make `/api/ai/*` or `/api/live/channel*` publicly accessible.
 - Treat `/overlay*` and `/api/live/overlay*` as public network paths protected by an
-  expiring, revocable session token.
+  reusable, explicitly rotatable channel token.
 - Bound user input, audio, prompt context, queues, session duration, and provider calls.
 - Enforce request limits against bytes actually received before parsing JSON or multipart
   bodies; do not trust `Content-Length` alone.
@@ -105,7 +105,8 @@ the decision and tradeoffs in the issue, pull request, or an ADR.
 - Source, translated, and public forms are not accidentally mixed.
 - Operator-only endpoints still require Cloudflare Access.
 - Overlay clients cannot reach inference, operator controls, or historical content.
-- Session tokens remain short-lived, read-only, revocable, and absent from logs.
+- The OBS token remains read-only, encrypted for protected recovery, explicitly
+  rotatable, and absent from logs; controller credentials remain tab-scoped and short-lived.
 - Free-plan behavior fails visibly without silently switching to paid usage.
 - Documentation matches the implemented behavior.
 - Relevant automated and manual checks pass.

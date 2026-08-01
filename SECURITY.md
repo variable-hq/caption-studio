@@ -24,30 +24,34 @@ The deployment has two intentional access classes:
 | Dashboard and Next.js app | Cloudflare Access | Operator UI |
 | `/api/ai/health` | Deployment-level Cloudflare Access | Non-secret configuration status |
 | `/api/ai/readiness`, `/transcribe`, `/translate` | Access JWT plus server-side Groq secret | Provider verification and AI inference |
-| `/api/live/session*` | Cloudflare Access JWT | Create, publish, style, and revoke a session |
+| `/api/live/channel*` | Cloudflare Access JWT | Create, retrieve, control, take over, end, and rotate the Main channel |
 | `/overlay*` | Public network path; no operator capability | Self-contained OBS page |
-| `/api/live/overlay*` | Expiring session token and read-only WebSocket | Current public caption stream |
+| `/api/live/overlay*` | Reusable channel token and read-only WebSocket | Current public caption stream |
 
 The OBS paths need a more-specific Cloudflare Access bypass because OBS cannot complete
 interactive sign-in. Do not broaden that bypass to the dashboard, inference routes, or
-operator session routes.
+operator channel routes.
 
 ## Overlay credential model
 
-- A session receives a cryptographically random token and a UUID.
-- The generated URL holds both in its fragment. URL fragments are not sent in the
-  initial HTTP request.
-- Overlay JavaScript passes the token as a WebSocket subprotocol; the Worker hashes and
-  compares it before accepting the connection.
-- The token grants read-only access to one room, expires after at most 90 minutes, and
-  is revoked when the operator ends the session.
-- The Durable Object stores only the token hash, expiry, style, and latest public
-  caption; it deletes the room at expiry or revocation.
+- The single Main channel receives a cryptographically random 256-bit OBS token.
+- The reusable URL keeps `main.token` in its fragment, which is not sent in the initial
+  document request. Overlay JavaScript sends the token only as a WebSocket subprotocol.
+- The Durable Object keeps the token hash for validation and an AES-GCM-encrypted copy
+  for retrieval by Cloudflare Access-approved collaborators. The encryption key is a
+  separate encrypted Worker secret and never reaches the browser.
+- Starting a service creates a different 256-bit controller credential. Its hash gates
+  captions, style changes, and live controls; the raw value stays in tab `sessionStorage`
+  and expires with the 90-minute service.
+- A confirmed takeover atomically replaces the controller hash. Stale operations fail
+  and the displaced browser stops capture when it receives that response.
+- End and expiry clear public content and controller state while retaining the OBS URL.
+  Only confirmed rotation changes the OBS token, closes sockets, and revokes the old URL.
 
-An active overlay URL remains a bearer credential. Anyone who receives it can read that
-session's public captions. Do not post it, log it, put it in analytics, reuse it, or show
-it in screenshots. OBS and browser history on the streaming computer may retain the URL,
-so use a newly generated URL for every service.
+The reusable overlay URL is a long-lived bearer credential. Anyone who receives it can
+read public captions whenever the channel publishes them. Do not post it, log it, put it
+in analytics, or show it in screenshots. If it may have leaked, end the active service,
+rotate the link, and replace the Browser Source URL in OBS.
 
 ## Data handling
 
@@ -82,7 +86,9 @@ setting.
   and pull requests only; the repository has no GitHub Actions deployment workflow.
 - Treat the connected Cloudflare build as the production publisher and verify its
   deployed revision after every merge to `main`.
-- Store `GROQ_API_KEY` only as an encrypted Worker secret.
+- Store `GROQ_API_KEY` and `OBS_CHANNEL_ENCRYPTION_KEY` only as encrypted Worker secrets.
+- Generate the OBS encryption value with at least 32 random characters. If it is lost
+  or changed, use the authenticated rotation recovery path and update OBS.
 - Never expose secrets through `NEXT_PUBLIC_` variables or client bundles.
 - Configure and verify both the Access audience and team domain in production.
 - Fail closed when Access is absent or invalid; local authentication bypass is never a
@@ -94,8 +100,9 @@ setting.
 - Use the SQLite-backed Durable Object binding declared in `wrangler.jsonc`.
 - Keep logs free of audio, captions, prompts, glossary terms, JWTs, and overlay URLs.
 - Review Cloudflare routes after every domain or Access-application change.
-- Test revocation, expiry, malformed IDs, invalid tokens, oversized bodies, and provider
-  failures with synthetic data before a live pilot.
+- Test takeover, controller replacement, End-with-link-retention, explicit rotation,
+  service expiry, the server-owned 1,350-request ceiling, malformed channel IDs, invalid
+  tokens, oversized bodies, and provider failures with synthetic data before a live pilot.
 
 ## Dependency and code hygiene
 
@@ -113,8 +120,9 @@ setting.
 
 If a secret or token is exposed:
 
-1. End the affected live session if an overlay URL is involved.
-2. Rotate the Groq key or invalidate the affected Cloudflare Access session as needed.
+1. End the active service and rotate the OBS link if its URL may be exposed.
+2. Rotate the Groq or OBS encryption key, or invalidate the affected Cloudflare Access
+   session, as appropriate. Rotating the encryption key also requires rotating the OBS URL.
 3. Check Worker and provider logs for time, routes, and usage metadata without copying
    sermon content into the incident record.
 4. Remove the exposed material from the source location and repository history where

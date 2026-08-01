@@ -28,12 +28,12 @@ Implemented in the codebase:
 - selected microphone/audio-interface capture and four-second chunks;
 - multilingual Whisper transcription and one-target Llama translation;
 - bounded biblical/church hints, preferred terms, and public masking;
-- source/public previews, status, latency, queue, session-time, and request indicators;
-- expiring Durable Object sessions and a reconnecting, tokenized OBS overlay;
+- source/public previews, status, latency, queue, service-time, and request indicators;
+- one encrypted, reusable Main OBS channel with a reconnecting read-only overlay;
 - 10–72px display controls, per-line highlight/transparency, alignment, and saved
   browser preferences;
-- 0–20% OBS safe margins plus pause/resume, clear, synthetic test, and confirmed end
-  controls; and
+- 0–20% OBS safe margins plus Setup/Live layouts, pause/resume, clear, idle/paused test,
+  confirmed End, explicit URL rotation, and confirmed takeover controls; and
 - no application audio or transcript storage.
 
 Pending validation:
@@ -42,7 +42,8 @@ Pending validation:
 - approved biblical name, reference, accent, and mixed-language samples;
 - latency, dropped chunks, provider quota, Worker CPU/request, and browser compatibility;
 - device loss, internet loss, Access expiry, Groq `429`, timeout, and model outage;
-- overlay reconnect, token expiry/revocation, and OBS production-machine behavior; and
+- overlay reconnect, End-with-URL-retention, controller replacement, takeover, explicit
+  link rotation, and OBS production-machine behavior; and
 - account-level confirmation that the pilot stays within both providers' Free plans.
 
 Exit condition: representative approved tests meet the agreed accuracy, latency,
@@ -69,8 +70,10 @@ The actual OBS streaming computer rehearsal remains part of the next gate.
 - Follow [Stakeholder test guide](STAKEHOLDER_TEST_GUIDE.md) with consented or synthetic
   audio.
 - Rehearse on the intended microphone/audio interface and OBS streaming computer.
-- Verify pause/resume, clear, paused-only test captions, confirmed end, and safe margins
-  during the OBS rehearsal.
+- Create the Main channel once, install it in OBS, and verify idle test/clear before
+  starting microphone capture.
+- Verify pause/resume, clear, idle/paused tests, confirmed End, URL reuse across two
+  services, confirmed takeover, explicit rotation on synthetic setup, and safe margins.
 - Record results without sermon content, credentials, or active overlay URLs.
 - Test agreed language pairs, church terminology, filter behavior, operator usability,
   processing latency, and dropped chunks.

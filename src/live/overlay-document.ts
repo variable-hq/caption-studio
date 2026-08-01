@@ -17,8 +17,8 @@ const OVERLAY_DOCUMENT = `<!doctype html>
       const captionText=document.querySelector(".captionText");
       const value=location.hash.slice(1);
       const separator=value.indexOf(".");
-      if(separator<1){captionText.textContent="This OBS caption link is invalid or expired.";return}
-      const session=value.slice(0,separator);
+      if(separator<1){return}
+      const channel=value.slice(0,separator);
       const token=value.slice(separator+1);
       let attempt=0;
       let stopped=false;
@@ -40,7 +40,7 @@ const OVERLAY_DOCUMENT = `<!doctype html>
         caption.style.color=/^#[0-9a-f]{6}$/i.test(style.textColor||"")?style.textColor:"#ffffff";
         const background=/^#[0-9a-f]{6}$/i.test(style.backgroundColor||"")?style.backgroundColor:"#101827";
         const transparency=Math.max(0,Math.min(100,Number(style.backgroundTransparency)||0));
-        captionText.style.backgroundColor=withTransparency(background,transparency);
+        captionText.style.backgroundColor=captionText.textContent?withTransparency(background,transparency):"transparent";
         caption.style.textAlign=["left","center","right"].includes(style.horizontalAlign)?style.horizontalAlign:"center";
         caption.style.fontFamily=fontFamilies[style.fontFamily]||fontFamilies["sans-serif"];
         stage.style.alignItems={top:"flex-start",middle:"center",bottom:"flex-end"}[style.verticalAlign]||"flex-end";
@@ -56,21 +56,19 @@ const OVERLAY_DOCUMENT = `<!doctype html>
       const connect=()=>{
         if(stopped)return;
         const scheme=location.protocol==="https:"?"wss:":"ws:";
-        const socket=new WebSocket(scheme+"//"+location.host+"/api/live/overlay?session="+encodeURIComponent(session),["church-caption-v1",token]);
+        const socket=new WebSocket(scheme+"//"+location.host+"/api/live/overlay?channel="+encodeURIComponent(channel),["church-caption-v1",token]);
         socket.onopen=()=>{attempt=0};
         socket.onmessage=message=>{
           const payload=JSON.parse(String(message.data));
-          if(payload.type==="clear"){clear();return}
+          if(payload.type==="clear"||payload.type==="state"&&payload.status==="idle"){clear();return}
           applyStyle(payload.style);
-          if(payload.caption)show(payload.caption);else if(!captionText.textContent)captionText.style.backgroundColor="transparent";
+          if(payload.caption)show(payload.caption);else if(payload.type==="ready")clear();
         };
         socket.onclose=event=>{
-          if(event.code===1000||event.code===1008){stopped=true;captionText.textContent=event.code===1008?"This OBS caption link is invalid or expired.":"";captionText.style.backgroundColor="transparent";return}
-          if(attempt>=5){stopped=true;captionText.textContent="This OBS caption link is invalid, expired, or unavailable.";captionText.style.backgroundColor="transparent";return}
-          captionText.textContent="Caption connection interrupted. Reconnecting…";
-          captionText.style.backgroundColor="transparent";
+          if(event.code===1000||event.code===1008||event.code===4001){stopped=true;clear();return}
+          if(attempt>=12){stopped=true;clear();return}
           attempt+=1;
-          setTimeout(connect,Math.min(10000,1000*2**attempt));
+          setTimeout(connect,Math.min(30000,1000*2**attempt));
         };
         socket.onerror=()=>socket.close();
       };
