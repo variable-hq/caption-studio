@@ -559,7 +559,7 @@ export default function OperatorDashboard() {
         <div className="brand">
           <span className="brandMark" aria-hidden="true">CC</span>
           <div>
-            <p className="eyebrow">Church operator console</p>
+            <p className="eyebrow">Live translation console</p>
             <h1>Church Live Caption</h1>
           </div>
         </div>
@@ -702,8 +702,8 @@ export default function OperatorDashboard() {
         <>
           <div className="setupIntro">
             <div>
-              <p className="eyebrow">Guided setup</p>
-              <h2>Prepare audio, captions, and OBS before going live.</h2>
+              <p className="eyebrow">Service setup</p>
+              <h2>Configure the service.</h2>
             </div>
             <ol className="setupSteps" aria-label="Setup progress">
               <li>Audio</li>

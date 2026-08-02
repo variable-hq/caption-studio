@@ -33,7 +33,8 @@ Implemented in the codebase:
 - 10–72px display controls, per-line highlight/transparency, alignment, and saved
   browser preferences, with continuous design-preview updates;
 - 0–20% OBS safe margins plus Setup/Live layouts, pause/resume, clear, idle/paused test,
-  confirmed End, explicit URL rotation, and confirmed takeover controls; and
+  confirmed End, explicit URL rotation, and confirmed takeover controls;
+- a minimal monochrome operator theme with independently configurable OBS caption output;
 - no application audio or transcript storage.
 
 Pending validation:
@@ -77,6 +78,8 @@ The actual OBS streaming computer rehearsal remains part of the next gate.
   starting microphone capture.
 - Confirm the desktop Setup grouping and the single-column mobile flow, and verify every
   appearance control updates the dashboard preview continuously before saving.
+- Confirm the monochrome hierarchy, focus visibility, status legibility without colour,
+  and sufficient control contrast on the intended operator displays.
 - Verify pause/resume, clear, idle/paused tests, confirmed End, URL reuse across two
   services, confirmed takeover, explicit rotation on synthetic setup, and safe margins.
 - Record results without sermon content, credentials, or active overlay URLs.
