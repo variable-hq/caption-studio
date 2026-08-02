@@ -14,7 +14,8 @@ import {
 
 describe("live caption configuration", () => {
   it("derives the session transcription request cap from the audio cadence", () => {
-    expect(MAX_TRANSCRIPTION_REQUESTS).toBe(1_350);
+    expect(AUDIO_CHUNK_MS).toBe(6_000);
+    expect(MAX_TRANSCRIPTION_REQUESTS).toBe(900);
     expect(MAX_TRANSCRIPTION_REQUESTS).toBe(MAX_LIVE_SESSION_MS / AUDIO_CHUNK_MS);
   });
 

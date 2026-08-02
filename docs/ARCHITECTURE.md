@@ -9,10 +9,10 @@ implemented behavior.
 ```text
 Microphone or audio interface
   -> operator browser (Cloudflare Access protected)
-  -> four-second audio file over HTTPS
+  -> six-second audio file over HTTPS
   -> Cloudflare Worker / OpenNext API
   -> Groq Whisper transcription
-  -> Groq Llama contextual translation, unless source equals target
+  -> Groq GPT-OSS 20B contextual translation, unless source equals target
   -> deterministic glossary and public moderation pipeline
   -> authenticated Main-channel API with controller lease
   -> SQLite-backed Durable Object with constant-size shared state
@@ -58,7 +58,7 @@ The Next.js client provides:
 - primary pause/resume and clear controls, plus secondary test, copy, and confirmed End;
 - input-event-driven appearance controls so range and colour changes update the
   dashboard preview continuously before they are saved;
-- a `MediaRecorder` that creates independent four-second audio chunks;
+- a `MediaRecorder` that creates independent six-second audio chunks;
 - a two-chunk in-memory queue to bound latency and memory use;
 - protected source and moderated public-caption previews;
 - active-service time, transcription request count, dropped chunk count, and last
@@ -104,7 +104,13 @@ context, caption text, control actions, and styles.
 Phase 1 uses GroqCloud:
 
 - `whisper-large-v3-turbo` for transcription; and
-- `llama-3.1-8b-instant` for translation.
+- `openai/gpt-oss-20b` for translation, with low reasoning effort and a bounded
+  256-token completion.
+
+The deprecated Free-tier value `llama-3.1-8b-instant` is treated as stale even when it
+remains in a dashboard-managed `GROQ_TRANSLATION_MODEL` variable, so an old deployment
+override cannot silently defeat the migration. Other explicit model overrides remain
+supported and must pass the normal model-availability readiness check.
 
 The browser talks only to same-origin APIs and never receives the Groq key. The server
 performs a model-availability check before starting a service.
@@ -115,8 +121,9 @@ most 40 keyword hints, 100 characters per hint, a bounded multipart request, and
 Bible books, verse numbers, and church terms.
 
 Translation is skipped when source and target are the same. Otherwise the model receives
-the current source caption, up to four recent source captions, at most 60 preferred-term
-mappings, and an explicit Simplified or Traditional Chinese output instruction. It is
+the current source caption, up to four recent source captions, only preferred-term
+mappings relevant to that text/context, and an explicit Simplified or Traditional
+Chinese output instruction. It is
 told to return translation only and not invent scripture, doctrine, facts, or meaning.
 Provider calls have browser and server timeouts.
 
@@ -163,7 +170,7 @@ The Durable Object stores:
 The Durable Object assigns monotonically increasing sequence numbers, limits public
 caption length, and broadcasts captions, clears, style, and service-state changes.
 Transactions serialize caption/control/takeover mutations. Before each transcription
-chunk, the browser validates its controller lease and atomically reserves one of 1,350
+chunk, the browser validates its controller lease and atomically reserves one of 900
 requests through the Durable Object. The server-owned counter survives reload and
 takeover, and stops a displaced tab before its next provider request. A takeover atomically
 replaces the controller hash and clears OBS; stale controller requests return
@@ -232,14 +239,14 @@ usage metadata remains outside this application's control.
 ## Limits and failure behavior
 
 - The active service ends after 90 minutes and allows at most 1,400 caption events.
-- Four-second chunks have a hard ceiling of 1,350 reserved transcription attempts per
+- Six-second chunks have a hard ceiling of 900 reserved transcription attempts per
   service, including provider failures and silent results.
 - Each attempted chunk first makes one low-volume controller-lease request that reserves
   the counter atomically. It adds no Groq call and prevents reload or takeover from
   resetting or bypassing the ceiling.
-- The dashboard latency metric starts after a four-second chunk finishes recording. It
+- The dashboard latency metric starts after a six-second chunk finishes recording. It
   measures upload, transcription, translation, processing, and publication; approximate
-  spoken-to-screen time is four seconds plus that value and rendering delay.
+  spoken-to-screen time is six seconds plus that value and rendering delay.
 - When two chunks are already queued, a new chunk is dropped and the operator is warned.
 - Pausing deliberately discards queued audio without counting it as a dropped chunk;
   paused time still counts toward the 90-minute service expiry.
@@ -258,7 +265,9 @@ usage metadata remains outside this application's control.
 
 Current UI usage is service-local. Groq organization limits and Cloudflare account limits
 can be consumed by other applications or services, so provider dashboards are
-the authoritative account-wide meters.
+the authoritative account-wide meters. The 900-attempt service ceiling stays below the
+replacement model's 1,000-request daily Free limit for one uninterrupted service, but
+its 200,000-token daily allowance can still fail earlier for content-heavy prompts.
 
 ## Deferred architecture
 

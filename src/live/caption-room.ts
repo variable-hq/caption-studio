@@ -497,7 +497,7 @@ export class CaptionRoom {
     if (result.kind === "transcription-limit") {
       return json(
         {
-          error: "The 1,350-request service limit has been reached.",
+          error: `The ${MAX_TRANSCRIPTION_REQUESTS}-request service limit has been reached.`,
           code: "transcription_limit_reached",
         },
         429,

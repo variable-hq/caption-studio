@@ -759,8 +759,8 @@ export default function OperatorDashboard() {
               <details className="setupSection serviceDetails">
                 <summary><span>AI</span> Service details</summary>
                 <div className="sectionBody modelSummary">
-                  <p><strong>Transcription:</strong> Whisper Large V3 Turbo · four-second chunks</p>
-                  <p><strong>Translation:</strong> Llama 3.1 8B Instant · biblical context</p>
+                  <p><strong>Transcription:</strong> Whisper Large V3 Turbo · six-second chunks</p>
+                  <p><strong>Translation:</strong> GPT-OSS 20B · low-reasoning biblical context</p>
                   <p><strong>Delivery:</strong> Cloudflare Durable Object · hibernating WebSocket</p>
                 </div>
               </details>

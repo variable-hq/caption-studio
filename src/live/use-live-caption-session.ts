@@ -319,7 +319,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         generation === captureGenerationRef.current;
       if (!isCurrentCapture()) return;
 
-      // Cloud latency starts after a four-second MediaRecorder chunk completes.
+      // Cloud latency starts after a six-second MediaRecorder chunk completes.
       const startedAt = performance.now();
       const current = settingsRef.current;
       const signal = captureAbortRef.current?.signal;

@@ -22,8 +22,8 @@ Phase 1A uses:
 - Cloudflare Workers Free to host the Next.js app and same-origin API routes;
 - Cloudflare Access Free to restrict the Worker to approved operators;
 - GroqCloud Free with `whisper-large-v3-turbo` for multilingual transcription;
-- GroqCloud Free with `llama-3.1-8b-instant` for one contextual translation target;
-- four-second audio chunks as the first latency/quota test point;
+- GroqCloud Free with `openai/gpt-oss-20b` for one contextual translation target;
+- six-second audio chunks as the current latency/quota test point;
 - a short Whisper prompt containing approved biblical names and keyword hints;
 - recent finalized captions and approved glossary mappings in the translation prompt;
 - deterministic preferred-term enforcement and public-display filtering after AI output;
@@ -49,7 +49,7 @@ reusable-channel amendment below replaces that credential lifecycle. The deploym
 still requires more-specific Access bypass applications for `/overlay*`
 and `/api/live/overlay*`; no other operator or inference route may share that bypass.
 
-The app also enforces four-second chunks, one target language, a bounded client queue,
+The app also enforces six-second chunks, one target language, a bounded client queue,
 and no automatic paid fallback. Its usage indicator covers only the active browser
 session. It is not an account-wide quota or billing control.
 
@@ -67,14 +67,31 @@ no paid resource, account-wide usage meter, sermon archive, or paid fallback. Th
 bypass remains limited to `/overlay*` and `/api/live/overlay*`; all Main-channel
 retrieval, control, takeover, End, and rotation routes remain Access protected.
 
+## Translation-model migration amendment (2026-08-02)
+
+Groq announced that Free and Developer access to `llama-3.1-8b-instant` will shut down
+on 16 August 2026 and recommends `openai/gpt-oss-20b` as its replacement. The default
+translation model is therefore migrated before that deadline. Translation requests use
+low reasoning effort, a 256-token completion ceiling, and include only glossary mappings
+relevant to the current caption or recent context.
+
+The replacement's published Free limit is 1,000 requests per day rather than the prior
+14,400. The capture cadence increases from four to six seconds, bounding one uninterrupted
+90-minute service to 900 transcription attempts and therefore no more than 900 translation
+attempts. This leaves a small request margin but does not guarantee the token allowance or
+account-wide quota: silence, same-language captions, other Groq applications, repeated
+services, and actual prompt/output token usage all affect the provider totals. A provider
+`429` remains fail-closed and ends the service without any paid fallback.
+
 ## Free-tier envelope at decision time
 
 The published Groq free limits for both Whisper models are 20 requests per minute,
 2,000 requests per day, 7,200 audio seconds per hour, and 28,800 audio seconds per day.
-Four-second chunks require 15 requests per minute and approximately 1,350 requests for
-a 90-minute service. The translation model publishes 30 requests per minute, 14,400
-requests per day, 6,000 tokens per minute, and 500,000 tokens per day. Prompts must keep
-recent context and glossary data bounded.
+Six-second chunks require 10 requests per minute and 900 requests for a 90-minute
+service. The GPT-OSS 20B translation model publishes 30 requests per minute, 1,000
+requests per day, 8,000 tokens per minute, and 200,000 tokens per day. Prompts and
+completion size remain bounded, but the token limit may stop a content-heavy service
+before its request or time ceiling.
 
 Cloudflare Workers Free publishes 100,000 dynamic requests per day with 10 ms CPU per
 invocation. External-network wait time is not the same as CPU time, but the OpenNext
@@ -88,7 +105,7 @@ Phase 1A.
 
 - The Mac only captures audio and displays the web app; AI compute runs in the cloud.
 - Internet loss stops cloud transcription. The app must never fabricate captions.
-- File-based chunking is near-live rather than a true streaming transcript. Four-second
+- File-based chunking is near-live rather than a true streaming transcript. Six-second
   chunks imply at least the chunk duration plus upload and inference latency.
 - One 60–90 minute service fits the published request envelope, but repeated services,
   shorter chunks, large translation prompts, or other apps in the same Groq organization

@@ -1,4 +1,4 @@
-# Validation report — updated 1 August 2026
+# Validation report — updated 2 August 2026
 
 ## Decision
 
@@ -180,6 +180,29 @@ colours. Validation produced:
 
 This is local UI and build evidence only. It does not claim a deployed revision or retest
 the authenticated Durable Object and OBS service journey.
+
+### GPT-OSS 20B migration QA — 2 August 2026
+
+The provider-migration branch replaces Groq's retiring Free-tier
+`llama-3.1-8b-instant` translation default with `openai/gpt-oss-20b`. It also ignores a
+stale Llama dashboard override, uses low reasoning effort with a 256-token completion
+ceiling, omits irrelevant glossary mappings from the model prompt, and changes capture
+to six-second chunks with a 900-attempt service ceiling.
+
+Local validation produced:
+
+- 11 passing Vitest files with 64 tests, including replacement-model readiness, stale
+  environment override migration, GPT-OSS request controls, non-GPT override behavior,
+  relevant glossary selection, and six-second/900-attempt derivation;
+- TypeScript, strict unused-local/parameter checks, ESLint, Cloudflare type generation,
+  and `git diff --check` passes;
+- successful Next.js 16.2.12 and OpenNext Cloudflare 1.20.1 production builds; and
+- no dependency changes.
+
+This section is local migration evidence only. It does not claim a real Groq
+`openai/gpt-oss-20b` response, deployed readiness, translation quality for any supported
+language, six-second end-to-end latency, or a complete service within the model's lower
+daily token allowance. Those checks remain post-merge deployment and stakeholder gates.
 
 ## Not validated
 

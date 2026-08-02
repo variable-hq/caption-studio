@@ -27,7 +27,8 @@ cannot be confirmed by the project owner.
 
 ## Test script
 
-1. Open the dashboard, complete Cloudflare Access, and confirm **Cloud AI configured**.
+1. Open the dashboard, complete Cloudflare Access, confirm **Cloud AI configured**, and
+   expand Service details to verify **GPT-OSS 20B** is the translation model.
 2. Select **Enable audio test** to grant permission and populate the device list. Choose
    the intended input, enable the audio test again if the meter stops, speak, and confirm
    the meter moves. Recheck the displayed device name before continuing.
@@ -61,7 +62,7 @@ cannot be confirmed by the project owner.
 12. Confirm OBS shows only the public caption. Change each display setting while live and
    confirm the overlay updates without restarting.
 13. Note caption count, skipped count, and the displayed processing-latency range. The
-    normal spoken-to-screen delay is about four seconds plus that processing value.
+    normal spoken-to-screen delay is about six seconds plus that processing value.
 14. Refresh the OBS Browser Source and confirm the latest public caption and style
     return. In a second Access-approved browser, attempt Start and confirm it is blocked;
     then use the explicit takeover confirmation with synthetic audio. Confirm the first
@@ -97,7 +98,7 @@ sample-based thresholds for the intended service.
 
 ## Known limitations
 
-- The app records four-second chunks; the UI latency number excludes that recording time.
+- The app records six-second chunks; the UI latency number excludes that recording time.
 - One target language is supported per service. There is no source-caption fallback,
   manual correction, history, archive, or sermon summary.
 - The usage bar covers only the current browser service and is not a provider billing

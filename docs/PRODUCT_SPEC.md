@@ -39,7 +39,7 @@ archive and summary product. They are not implemented in the current prototype.
 
 ### During the service
 
-1. The browser records four seconds of audio at a time.
+1. The browser records six seconds of audio at a time.
 2. The protected API transcribes the chunk with bounded church/biblical hints.
 3. If source and target differ, the protected API translates with up to four recent
    source captions and approved term mappings.
@@ -86,7 +86,7 @@ Mandarin; Cantonese requires a separate language and model-quality decision.
 
 - Browser permission is explicit and the selected input has a visible level meter.
 - Audio is mono with browser echo cancellation and noise suppression requested.
-- Four-second files and a maximum two-chunk queue bound memory and backlog.
+- Six-second files and a maximum two-chunk queue bound memory and backlog.
 - Source selection can be explicit or automatic; explicit selection is preferred live.
 - The hint prompt preserves biblical names, Bible books, verse numbers, church names,
   locations, and operator-provided vocabulary.
@@ -147,14 +147,19 @@ named display profiles.
 ### Usage and cost controls
 
 - Active services stop after at most 90 minutes; paused time still counts.
-- Audio chunks are fixed at four seconds.
+- Audio chunks are fixed at six seconds, allowing at most 900 provider attempts in a
+  90-minute service.
 - A service supports one translation target and no automatic paid fallback.
 - A quota response stops the affected service without revoking its OBS URL.
 - The UI shows active-service elapsed time and transcription request progress.
+- GPT-OSS 20B uses low reasoning effort and a 256-token completion ceiling; only
+  glossary mappings relevant to the current caption/context enter its prompt.
 
 The usage meter is not an account billing meter. It cannot see concurrent services or
 usage by other applications in the same Groq organization or Cloudflare account. Owners
-must keep provider accounts on the intended Free plans and verify their dashboards.
+must keep provider accounts on the intended Free plans and verify their dashboards. The
+provider's daily token allowance may stop a content-heavy service before the visible
+900-request or 90-minute application ceiling.
 
 ## Prototype acceptance criteria
 
