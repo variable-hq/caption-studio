@@ -15,7 +15,7 @@ once from the dashboard and can be reused across services until an operator rota
 The current codebase implements the Phase 1 cloud prototype:
 
 - browser microphone and audio-interface selection with an input meter;
-- four-second audio chunks sent to protected, same-origin APIs;
+- six-second audio chunks sent to protected, same-origin APIs;
 - Groq Whisper transcription and contextual Groq translation;
 - biblical and church vocabulary hints plus preferred translations;
 - deterministic public-caption word masking;
@@ -52,9 +52,9 @@ flowchart LR
   Build --> Worker
   Mic["Microphone or audio interface"] --> Browser["Operator browser<br/>MediaRecorder, queue, preview"]
   Access["Cloudflare Access<br/>approved operators"] --> Worker["Cloudflare Worker<br/>Next.js and protected APIs"]
-  Browser -->|"4-second audio chunks over HTTPS"| Worker
+  Browser -->|"6-second audio chunks over HTTPS"| Worker
   Worker --> Whisper["Groq Whisper<br/>transcription"]
-  Whisper --> Translate["Groq Llama<br/>contextual translation"]
+  Whisper --> Translate["Groq GPT-OSS 20B<br/>contextual translation"]
   Translate --> Pipeline["Glossary and moderation<br/>deterministic public form"]
   Pipeline --> Room["Main-channel Durable Object<br/>controller lease and latest public caption"]
   Room -->|"reusable tokenized WebSocket"| OBS["OBS Browser Source<br/>self-contained transparent overlay"]
@@ -166,7 +166,7 @@ Required deployment configuration:
 | `CLOUDFLARE_ACCESS_AUD` | Worker variable | Expected Access application audience |
 | `CLOUDFLARE_ACCESS_TEAM_DOMAIN` | Worker variable | Access team domain used for JWT verification |
 | `GROQ_TRANSCRIPTION_MODEL` | optional Worker variable | Override `whisper-large-v3-turbo` |
-| `GROQ_TRANSLATION_MODEL` | optional Worker variable | Override `llama-3.1-8b-instant` |
+| `GROQ_TRANSLATION_MODEL` | optional Worker variable | Override `openai/gpt-oss-20b`; the retired `llama-3.1-8b-instant` value is ignored |
 
 Never expose either secret through a `NEXT_PUBLIC_` variable, commit it, paste it into
 an issue, or include it in screenshots. `wrangler.jsonc` declares the SQLite-backed
@@ -211,20 +211,20 @@ them. Treat it as a long-lived bearer credential: do not publish, log, or show i
 screenshots. The URL does not expire automatically; each active service still stops at
 90 minutes.
 
-The UI's latency value is cloud **processing** time after a four-second recording chunk
-has completed. Approximate spoken-to-screen time is therefore four seconds plus the
+The UI's latency value is cloud **processing** time after a six-second recording chunk
+has completed. Approximate spoken-to-screen time is therefore six seconds plus the
 displayed processing time and normal browser/network rendering delay.
 
 ## Free-plan guardrails
 
-The app enforces a 90-minute service, four-second transcription chunks, one target
+The app enforces a 90-minute service, six-second transcription chunks, one target
 language, a bounded two-chunk queue, bounded prompt and request sizes, and no automatic
 paid-provider fallback. A Groq `429` ends the service rather than purchasing capacity.
 Pause, Clear, Resume, and Show test caption use only low-volume Worker/Durable Object
 requests. The synthetic test caption does not call Groq.
 
 Before each transcription attempt, the client atomically reserves one of the service's
-1,350 requests while validating its short-lived controller lease in the Main Durable
+900 requests while validating its short-lived controller lease in the Main Durable
 Object. This counter survives reloads and takeovers. The extra small Cloudflare request
 also prevents a replaced operator from continuing Groq usage.
 
@@ -232,6 +232,8 @@ These controls cannot guarantee account-wide free usage: Groq limits apply to th
 organization and Cloudflare limits apply to the account, while the UI meter covers this
 application's current Main-channel service. Other applications share those limits. Keep
 both accounts on their Free plans and check their provider dashboards before a service.
+GPT-OSS 20B currently has a lower daily token allowance than the previous model, so a
+content-heavy service can still stop on a provider `429` before the 900-request ceiling.
 Current limits are authoritative in the
 [Groq rate-limit documentation](https://console.groq.com/docs/rate-limits) and
 [Cloudflare Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/).

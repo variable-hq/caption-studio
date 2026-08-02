@@ -13,7 +13,8 @@ import { isCloudAccessConfigured } from "@/auth/cloudflare-access";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1";
 const DEFAULT_TRANSCRIPTION_MODEL = "whisper-large-v3-turbo";
-const DEFAULT_TRANSLATION_MODEL = "llama-3.1-8b-instant";
+const DEFAULT_TRANSLATION_MODEL = "openai/gpt-oss-20b";
+const RETIRED_FREE_TRANSLATION_MODELS = new Set(["llama-3.1-8b-instant"]);
 
 interface GroqTranscriptResponse {
   text?: string;
@@ -41,6 +42,13 @@ export class GroqProviderError extends Error {
   }
 }
 
+function translationModel() {
+  const configured = process.env.GROQ_TRANSLATION_MODEL?.trim();
+  return configured && !RETIRED_FREE_TRANSLATION_MODELS.has(configured)
+    ? configured
+    : DEFAULT_TRANSLATION_MODEL;
+}
+
 export function getCloudProviderHealth() {
   const providerReady = Boolean(process.env.GROQ_API_KEY?.trim());
   const accessReady =
@@ -58,7 +66,7 @@ export function getCloudProviderHealth() {
     },
     translation: {
       ready: providerReady,
-      model: process.env.GROQ_TRANSLATION_MODEL ?? DEFAULT_TRANSLATION_MODEL,
+      model: translationModel(),
     },
   };
 }
@@ -118,10 +126,9 @@ export async function verifyGroqProvider() {
   const modelIds = new Set(payload.data?.flatMap(({ id }) => (id ? [id] : [])));
   const transcriptionModel =
     process.env.GROQ_TRANSCRIPTION_MODEL ?? DEFAULT_TRANSCRIPTION_MODEL;
-  const translationModel =
-    process.env.GROQ_TRANSLATION_MODEL ?? DEFAULT_TRANSLATION_MODEL;
+  const configuredTranslationModel = translationModel();
 
-  if (!modelIds.has(transcriptionModel) || !modelIds.has(translationModel)) {
+  if (!modelIds.has(transcriptionModel) || !modelIds.has(configuredTranslationModel)) {
     throw new GroqProviderError(
       "The configured free AI models are not available to this Groq account.",
       503,
@@ -165,7 +172,12 @@ export function buildTranscriptionPrompt(keywordHints: readonly string[]) {
 export function buildTranslationMessages(request: TranslationRequest) {
   const source = findLanguage(request.sourceLanguage)?.label ?? request.sourceLanguage;
   const target = findLanguage(request.targetLanguage)?.label ?? request.targetLanguage;
+  const relevantText = [request.text, ...request.recentContext].join("\n").toLowerCase();
   const preferredTerms = Object.entries(request.preferredTerms)
+    .filter(([from]) => {
+      const normalized = from.trim().toLowerCase();
+      return Boolean(normalized) && relevantText.includes(normalized);
+    })
     .slice(0, 60)
     .map(([from, to]) => `${from} => ${to}`)
     .join("\n");
@@ -261,14 +273,18 @@ export async function translateWithGroq(
     throw new GroqProviderError("Unsupported language selection.", 400);
   }
 
+  const model = translationModel();
   const response = await groqFetch("/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      model: process.env.GROQ_TRANSLATION_MODEL ?? DEFAULT_TRANSLATION_MODEL,
+      model,
       messages: buildTranslationMessages(request),
       temperature: 0.1,
-      max_completion_tokens: 512,
+      ...(model.startsWith("openai/gpt-oss-")
+        ? { reasoning_effort: "low" }
+        : {}),
+      max_completion_tokens: 256,
     }),
     signal,
   });

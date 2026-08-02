@@ -25,8 +25,8 @@ Implemented in the codebase:
 
 - Next.js/OpenNext deployment on Cloudflare Workers;
 - encrypted Groq secret and signed Cloudflare Access verification;
-- selected microphone/audio-interface capture and four-second chunks;
-- multilingual Whisper transcription and one-target Llama translation;
+- selected microphone/audio-interface capture and six-second chunks;
+- multilingual Whisper transcription and one-target GPT-OSS 20B translation;
 - bounded biblical/church hints, preferred terms, and public masking;
 - source/public previews, status, latency, queue, service-time, and request indicators;
 - one encrypted, reusable Main OBS channel with a reconnecting read-only overlay;
@@ -43,6 +43,8 @@ Pending validation:
 - approved biblical name, reference, accent, and mixed-language samples;
 - latency, dropped chunks, provider quota, Worker CPU/request, and browser compatibility;
 - device loss, internet loss, Access expiry, Groq `429`, timeout, and model outage;
+- GPT-OSS 20B output quality, six-second end-to-end latency, and the lower daily token
+  allowance across every approved source/target pair;
 - overlay reconnect, End-with-URL-retention, controller replacement, takeover, explicit
   link rotation, and OBS production-machine behavior; and
 - account-level confirmation that the pilot stays within both providers' Free plans.
@@ -96,7 +98,7 @@ criterion and the owner decides whether Phase 1B work or a limited pilot is appr
 - Add deliberate source-caption fallback only after operator behavior is approved.
 - Improve audio-device disconnect and browser lifecycle recovery.
 - Add optional manual correction with clear revision and audit semantics.
-- Decide whether true streaming is needed to reduce four-second chunk latency.
+- Decide whether true streaming is needed to reduce six-second chunk latency.
 - Compare paid or realtime providers using the same approved recordings.
 - Add account-aware usage monitoring and hard spending controls before enabling any
   paid path.
