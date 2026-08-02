@@ -37,6 +37,8 @@ cannot be confirmed by the project owner.
 5. On desktop, confirm audio/languages, terminology, and service details are grouped on
    the left, while preview, appearance, and OBS setup are on the right. At 390px mobile
    width, confirm the same sections form one reachable column without horizontal scroll.
+   Confirm the console is monochrome, focus remains visible, and live/paused/error states
+   remain understandable from their text rather than colour alone.
 6. Configure text size, font, colour, per-line highlight, transparency, position, and
    horizontal/vertical safe margins. Confirm the dashboard preview changes during each
    adjustment, then save the appearance and reload once to confirm the shared Main-channel
@@ -82,6 +84,7 @@ cannot be confirmed by the project owner.
 | Public safety | Configured mask affects public text without changing protected source text. |
 | OBS | Public captions and all chosen styles appear at the intended canvas position. |
 | Layout | Desktop grouping is correct; mobile is reachable with no horizontal overflow; appearance changes update the preview continuously. |
+| Theme | Operator UI is monochrome with readable hierarchy and focus; OBS caption colours remain independently configurable. |
 | Controls | Pause stops capture/AI and clears OBS; Resume retains URL/expiry; idle and paused tests make no AI request. |
 | Ownership | A second start is blocked; confirmed takeover replaces the prior controller without mixed captions. |
 | Recovery | Reload recovers the same controller paused; End preserves the URL; Rotate alone invalidates it. |

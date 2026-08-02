@@ -24,8 +24,8 @@ The current codebase implements the Phase 1 cloud prototype:
   horizontal or vertical alignment;
 - 0–20% horizontal and vertical OBS safe margins;
 - shared Main-channel style plus a browser-local fallback preference;
-- guided two-column Setup and compact Live operator layouts, with appearance controls
-  beside the live-updating caption preview;
+- minimal monochrome operator shell with guided two-column Setup and a compact Live
+  layout, with appearance controls beside the live-updating caption preview;
 - Start, Pause/Resume, Clear, idle-or-paused synthetic test, confirmed End, and
   confirmed takeover controls;
 - active-service time and transcription-request usage indicators; and
@@ -142,6 +142,9 @@ For operator-layout or caption-style changes, also verify a 1200px desktop viewp
 a 390px mobile viewport in a real browser. Confirm that the preview responds while each
 appearance control is being adjusted, controls remain reachable, and neither viewport
 has horizontal overflow.
+
+The monochrome theme applies only to the operator console. Caption text, highlight,
+transparency, and OBS placement remain independently configurable for the stream output.
 
 `npm run preview` still verifies the OpenNext/Worker bundle and non-Durable-Object routes.
 Wrangler is expected to warn that this internal Durable Object is unavailable locally.

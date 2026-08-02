@@ -160,6 +160,27 @@ The local Next.js server cannot serve the custom Worker-owned `/api/live/channel
 its local `404` remains an expected environment limitation, not a deployed channel test.
 The production gates listed below therefore remain unchanged.
 
+### Monochrome operator UI QA — 1 August 2026
+
+The subsequent UI-only branch replaces the coloured dashboard treatment with a flat,
+minimal light monochrome system while preserving independently configurable OBS caption
+colours. Validation produced:
+
+- computed dashboard colours of off-white `rgb(245, 245, 242)`, white cards, and
+  `rgb(17, 17, 17)` text and primary controls;
+- the expected left/right Setup grouping at 1200px with document width equal to viewport
+  width and no horizontal overflow;
+- the same logical section order at 390 × 844 in one column, again with no horizontal
+  overflow;
+- a successful 48px-to-72px live preview update after the CSS redesign;
+- no browser warnings or errors in the exercised Setup flow;
+- 11 passing Vitest files with 60 tests, strict unused-local/parameter TypeScript checks,
+  ESLint, `git diff --check`, Next.js production build, and OpenNext Cloudflare bundle
+  generation.
+
+This is local UI and build evidence only. It does not claim a deployed revision or retest
+the authenticated Durable Object and OBS service journey.
+
 ## Not validated
 
 - quality for every supported source/target language, accent, or Chinese script;

@@ -52,6 +52,8 @@ The Next.js client provides:
 - a guided Setup workspace with audio, language, terminology, and service information
   in the left column and preview, appearance, and OBS controls in the right column,
   followed by a compact Live operator console;
+- a flat monochrome dashboard visual system that keeps operational status legible in
+  text and shape while leaving OBS caption colours under operator control;
 - source language, target language, glossary, filter, and shared caption-style controls;
 - primary pause/resume and clear controls, plus secondary test, copy, and confirmed End;
 - input-event-driven appearance controls so range and colour changes update the

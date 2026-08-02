@@ -121,6 +121,8 @@ and persistent workspace rules are future features.
 
 ### Caption display and OBS
 
+- The operator console uses a minimal light monochrome theme; status text and control
+  labels do not depend on colour alone.
 - Font size: 10–72px.
 - Font: sans-serif, serif, or monospace.
 - Text and line-highlight colours.
@@ -166,6 +168,8 @@ Code-level acceptance:
 - Appearance controls update the dashboard design preview continuously before Save.
 - Setup keeps audio, languages, terminology, and service details on the left, with the
   preview, appearance controls, and OBS Browser Source on the right at desktop widths.
+- The dashboard theme does not override the independently configured OBS caption colour
+  or highlight.
 - Pause stops AI requests, clears OBS, and Resume retains the reusable URL and expiry.
 - Clear survives overlay reload; idle-or-paused test captions make no AI request.
 - Safe margins are bounded, saved, restored, and propagated live.
