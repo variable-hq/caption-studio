@@ -3,13 +3,6 @@
 Cloud-hosted, near-live transcription and translation for church services, with a
 configurable OBS Browser Source overlay.
 
-## Access the app
-
-Open the production operator dashboard at
-[church-live-caption.lukas-ka.workers.dev](https://church-live-caption.lukas-ka.workers.dev/).
-Cloudflare Access sign-in is required. The separate OBS Browser Source URL is generated
-once from the dashboard and can be reused across services until an operator rotates it.
-
 ## Status
 
 The current codebase implements the Phase 1 cloud prototype:
