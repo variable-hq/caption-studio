@@ -1,8 +1,14 @@
+import { MAX_TRANSLATION_COMPLETION_TOKENS } from "@/ai/contracts";
 import type {
+  LlmProviderRateLimitSnapshot,
   TranscriptSegment,
   TranslationRequest,
   TranslationResult,
 } from "@/ai/contracts";
+import {
+  normalizeLlmTokenUsage,
+  providerRateLimitFromHeaders,
+} from "@/ai/usage";
 import { normalizeTranslationSystemPrompt } from "@/ai/translation-prompt";
 import {
   LANGUAGE_OPTIONS,
@@ -28,6 +34,11 @@ interface GroqTranscriptResponse {
 
 interface GroqChatResponse {
   choices?: Array<{ message?: { content?: string } }>;
+  usage?: {
+    prompt_tokens?: unknown;
+    completion_tokens?: unknown;
+    total_tokens?: unknown;
+  };
 }
 
 interface GroqModelsResponse {
@@ -39,6 +50,7 @@ export class GroqProviderError extends Error {
     message: string,
     readonly status: number,
     readonly retryAfter?: string,
+    readonly rateLimit?: LlmProviderRateLimitSnapshot,
   ) {
     super(message);
   }
@@ -87,7 +99,11 @@ function apiKey() {
   return value;
 }
 
-async function groqFetch(path: string, init: RequestInit) {
+async function groqFetch(
+  path: string,
+  init: RequestInit,
+  rateLimitModel?: string,
+) {
   let response: Response;
   try {
     const timeout = AbortSignal.timeout(path.includes("/audio/") ? 30_000 : 15_000);
@@ -119,6 +135,10 @@ async function groqFetch(path: string, init: RequestInit) {
       message,
       status,
       response.headers.get("retry-after") ?? undefined,
+      rateLimitModel
+        ? providerRateLimitFromHeaders(response.headers, rateLimitModel) ??
+          undefined
+        : undefined,
     );
   }
 
@@ -300,10 +320,10 @@ export async function translateWithGroq(
       ...(model.startsWith("openai/gpt-oss-")
         ? { reasoning_effort: "low" }
         : {}),
-      max_completion_tokens: 256,
+      max_completion_tokens: MAX_TRANSLATION_COMPLETION_TOKENS,
     }),
     signal,
-  });
+  }, model);
   const payload = (await response.json()) as GroqChatResponse;
   const text = payload.choices?.[0]?.message?.content?.trim();
 
@@ -311,5 +331,16 @@ export async function translateWithGroq(
     throw new GroqProviderError("The cloud translation response was empty.", 502);
   }
 
-  return { text };
+  const usage = normalizeLlmTokenUsage({
+    promptTokens: payload.usage?.prompt_tokens,
+    completionTokens: payload.usage?.completion_tokens,
+    totalTokens: payload.usage?.total_tokens,
+  });
+  const rateLimit = providerRateLimitFromHeaders(response.headers, model);
+
+  return {
+    text,
+    ...(usage ? { usage } : {}),
+    ...(rateLimit ? { rateLimit } : {}),
+  };
 }

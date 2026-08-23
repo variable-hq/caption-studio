@@ -1,4 +1,5 @@
 import type {
+  LlmProviderRateLimitSnapshot,
   TranscriptSegment,
   TranscriptionProvider,
   TranscriptionRequest,
@@ -6,6 +7,7 @@ import type {
   TranslationRequest,
   TranslationResult,
 } from "@/ai/contracts";
+import { normalizeProviderRateLimitSnapshot } from "@/ai/usage";
 
 interface CloudProviderHealth {
   status: "ready" | "not-configured" | "unavailable";
@@ -15,11 +17,50 @@ interface CloudProviderHealth {
   translation: { ready: boolean; model: string };
 }
 
-async function readError(response: Response, fallback: string) {
+interface CloudErrorPayload {
+  error?: string;
+  code?: unknown;
+  rateLimit?: unknown;
+}
+
+const TERMINAL_TRANSLATION_CONTROL_CODES = new Set([
+  "translation_authorization_unavailable",
+  "translation_usage_unavailable",
+  "translation_attempt_used",
+]);
+
+function normalizeCloudErrorCode(value: unknown) {
+  return typeof value === "string" && /^[a-z0-9_]{1,64}$/u.test(value)
+    ? value
+    : undefined;
+}
+
+async function readErrorPayload(response: Response) {
   const payload = (await response.json().catch(() => null)) as
-    | { error?: string }
+    | CloudErrorPayload
     | null;
-  return payload?.error ?? fallback;
+  return payload;
+}
+
+async function readError(response: Response, fallback: string) {
+  return (await readErrorPayload(response))?.error ?? fallback;
+}
+
+export class CloudProviderClientError extends Error {
+  constructor(
+    message: string,
+    readonly code?: string,
+    readonly rateLimit?: LlmProviderRateLimitSnapshot,
+  ) {
+    super(message);
+  }
+}
+
+export function isTerminalTranslationControlError(error: unknown) {
+  return (
+    error instanceof CloudProviderClientError &&
+    Boolean(error.code && TERMINAL_TRANSLATION_CONTROL_CODES.has(error.code))
+  );
 }
 
 export class CloudProviderClient
@@ -89,10 +130,25 @@ export class CloudProviderClient
   async translate(
     request: TranslationRequest,
     signal?: AbortSignal,
+    controllerToken?: string,
+    transcriptionAttempt?: number,
   ): Promise<TranslationResult> {
     const response = await fetch("/api/ai/translate", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(controllerToken
+          ? { "x-caption-controller": controllerToken }
+          : {}),
+        ...(Number.isSafeInteger(transcriptionAttempt) &&
+        Number(transcriptionAttempt) > 0
+          ? {
+              "x-caption-transcription-attempt": String(
+                transcriptionAttempt,
+              ),
+            }
+          : {}),
+      },
       body: JSON.stringify(request),
       signal: signal
         ? AbortSignal.any([signal, AbortSignal.timeout(20_000)])
@@ -100,7 +156,12 @@ export class CloudProviderClient
     });
 
     if (!response.ok) {
-      throw new Error(await readError(response, "Cloud translation failed."));
+      const payload = await readErrorPayload(response);
+      throw new CloudProviderClientError(
+        payload?.error ?? "Cloud translation failed.",
+        normalizeCloudErrorCode(payload?.code),
+        normalizeProviderRateLimitSnapshot(payload?.rateLimit) ?? undefined,
+      );
     }
 
     return (await response.json()) as TranslationResult;

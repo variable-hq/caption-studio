@@ -28,7 +28,10 @@ function errorResponse(error: unknown) {
   }
   if (error instanceof GroqProviderError) {
     return NextResponse.json(
-      { error: error.message },
+      {
+        error: error.message,
+        ...(error.rateLimit ? { rateLimit: error.rateLimit } : {}),
+      },
       {
         status: error.status,
         headers: error.retryAfter ? { "retry-after": error.retryAfter } : undefined,

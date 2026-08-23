@@ -70,6 +70,7 @@ main {
 h1,
 h2,
 h3,
+h4,
 p {
   margin: 0;
 }
@@ -698,10 +699,26 @@ input[type="color"] {
 
 .compactUsage > div:first-child {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   color: var(--muted);
   font: 700 11px var(--font-mono);
+}
+
+.usageDetailsButton {
+  min-height: 28px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  background: var(--card);
+  padding: 4px 8px;
+  font: 700 10px var(--font-sans);
+  white-space: nowrap;
+}
+
+.usageDetailsButton:hover {
+  background: var(--surface-muted);
 }
 
 .usageProgress {
@@ -1062,6 +1079,157 @@ input[type="color"] {
   padding-top: 17px;
 }
 
+.usageDashboard {
+  display: grid;
+  gap: 18px;
+}
+
+.usageSection {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  padding: 17px;
+}
+
+.usageSectionHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.usageSectionHeading h3,
+.usageGuardrails h3 {
+  font-size: 18px;
+}
+
+.usageSectionHeading code {
+  max-width: 48%;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: right;
+}
+
+.usageSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.usageMetricCard {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  padding: 14px;
+}
+
+.usageMetricHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.usageMetricHeading h4 {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.usageMetricHeading span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.usageMetricValue {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font: 700 clamp(20px, 2.2vw, 28px)/1.1 var(--font-mono);
+  letter-spacing: -0.04em;
+}
+
+.usageMetricDetail,
+.usageScopeNote,
+.providerSnapshotEmpty p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.usageTrack {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #d9d9d4;
+}
+
+.usageTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #111;
+}
+
+.usageScopeNote {
+  border-left: 3px solid var(--line-strong);
+  padding-left: 10px;
+}
+
+.providerSnapshotEmpty {
+  display: grid;
+  gap: 5px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  padding: 15px;
+}
+
+.usageGuardrails dl {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+
+.usageGuardrails dl > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.4fr) minmax(0, 1fr);
+  gap: 14px;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+
+.usageGuardrails dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.usageGuardrails dd {
+  margin: 0;
+  font-size: 13px;
+}
+
+.usageGuardrails a {
+  width: fit-content;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
 .workspaceOutputCard {
   border: 0;
   border-radius: 0;
@@ -1331,6 +1499,30 @@ input[type="color"] {
 
   .compactUsage > div:first-child {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+
+  .usageDetailsButton {
+    margin-top: 3px;
+  }
+
+  .usageSummaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .usageSectionHeading {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .usageSectionHeading code {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .usageGuardrails dl > div {
+    grid-template-columns: 1fr;
     gap: 3px;
   }
 

@@ -422,6 +422,42 @@ This remains local source/build/UI evidence. It makes no claim of Cloudflare dep
 production configuration, real Groq quality, microphone/OBS hardware behavior, or a
 completed live service.
 
+### Live AI consumption dashboard scope — 23 August 2026
+
+The operator workspace now reports service-local AI consumption without exposing usage
+to the public mobile viewer or OBS channel. It separates the 90-minute service window,
+the 900 reserved transcription-attempt ceiling, successful translation calls, and
+translation prompt/completion/total tokens. A latest-response Groq snapshot reports only
+the provider request-per-day and token-per-minute limit, remaining value, and reset value
+returned in response headers. Missing or malformed provider fields render as unknown.
+The snapshot is explicitly not described as account billing, spend, or complete
+organization-wide consumption.
+
+Automated coverage includes safe provider-usage normalization, dynamic rate-limit header
+parsing, generic error handling, private controller/attempt forwarding, the pre-inference
+one-time claim, an acknowledged Worker-to-room usage write, out-of-order snapshot
+protection, Access authentication before the claim, terminal fail-closed error-code
+propagation, Durable Object persistence and idempotency, refresh preservation, End and
+takeover reset, expiry cleanup, stale-controller and unreserved-attempt rejection, and
+protected API forwarding. Source review confirms that same-language and silent branches
+bypass the translation call; those branches still lack a dedicated hook-level test.
+
+On 23 August 2026, `npm run validate` passed on the working branch: 125 tests across 15
+files, strict TypeScript, ESLint, the optimized Next.js build, the OpenNext Cloudflare
+bundle, and `git diff --check`.
+
+Real-browser UI QA opened the AI usage workspace at the primary 1920 × 1080 operator
+viewport and confirmed the intended 1440px content ceiling with 240px side gutters. It
+also checked 680px, 390px, and the declared 320px minimum. Every tested width kept the
+document width equal to the viewport width, the dashboard remained reachable, and the
+browser recorded no application errors. The local production Next.js server has no
+Durable Object binding or real Groq response, so this pass exercised zero/unknown states
+rather than live persistence, another-operator recovery, or genuine provider headroom.
+
+This remains local source/build/UI evidence. It does not prove Cloudflare deployment,
+real Groq token accounting, provider-account totals, billing, concurrent-service totals,
+or a completed 90-minute production service.
+
 ## Not validated
 
 - Cloudflare deployment of a reviewed revision containing these web changes;

@@ -7,6 +7,7 @@ import {
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
+import { AiUsageDashboard } from "@/components/operator/AiUsageDashboard";
 import { PromptEditor } from "@/components/operator/PromptEditor";
 import { TranslationSettingsEditor } from "@/components/operator/TranslationSettingsEditor";
 import {
@@ -55,6 +56,7 @@ const TRANSLATION_PROMPT_PREFERENCE_KEY =
 type WorkspaceSectionId =
   | "audio"
   | "translation"
+  | "usage"
   | "prompt"
   | "appearance"
   | "outputs"
@@ -67,6 +69,7 @@ const SETUP_WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
     label: "Translation",
     description: "Languages, timing and terms",
   },
+  { id: "usage", label: "AI usage", description: "Consumption and limits" },
   { id: "prompt", label: "AI instructions", description: "Review the system prompt" },
   { id: "appearance", label: "Appearance", description: "Style the OBS captions" },
   { id: "outputs", label: "Live outputs", description: "OBS and mobile delivery" },
@@ -74,6 +77,7 @@ const SETUP_WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
 
 const LIVE_WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
   { id: "translation", label: "Translation", description: "Change live configuration" },
+  { id: "usage", label: "AI usage", description: "Monitor consumption and limits" },
   { id: "prompt", label: "AI instructions", description: "Tune translation behaviour" },
   { id: "viewer", label: "Mobile viewer", description: "Share or replace the link" },
   { id: "appearance", label: "Appearance", description: "Update OBS styling" },
@@ -94,6 +98,12 @@ const WORKSPACE_SECTION_COPY: Record<
     title: "Languages, timing and terminology",
     description:
       "Edit the working translation configuration before or during a live service.",
+  },
+  usage: {
+    eyebrow: "AI guardrails",
+    title: "Consumption and limits",
+    description:
+      "Monitor this service and the latest quota headroom reported by the translation provider.",
   },
   prompt: {
     eyebrow: "AI instructions",
@@ -668,8 +678,10 @@ export default function OperatorDashboard() {
   const anotherOperatorActive =
     !hasService &&
     (liveState.channel?.status === "live" || liveState.channel?.status === "paused");
-  const serviceStartedMs = liveState.service
-    ? new Date(liveState.service.startedAt).getTime()
+  const usageServiceStartedAt = liveState.service?.startedAt ??
+    (anotherOperatorActive ? liveState.channel?.startedAt : null);
+  const serviceStartedMs = usageServiceStartedAt
+    ? new Date(usageServiceStartedAt).getTime()
     : null;
   const elapsedServiceMs = serviceStartedMs
     ? Math.min(MAX_LIVE_SESSION_MS, Math.max(0, usageClock - serviceStartedMs))
@@ -749,10 +761,18 @@ export default function OperatorDashboard() {
     : isBusy;
 
   useEffect(() => {
-    if (!hasService) return;
+    if (!hasService && !anotherOperatorActive) return;
     const interval = window.setInterval(() => setUsageClock(Date.now()), 1_000);
     return () => window.clearInterval(interval);
-  }, [hasService]);
+  }, [anotherOperatorActive, hasService]);
+
+  useEffect(() => {
+    if (!anotherOperatorActive || isBusy) return;
+    const refreshObservedService = () => void reloadChannel(true);
+    refreshObservedService();
+    const interval = window.setInterval(refreshObservedService, 5_000);
+    return () => window.clearInterval(interval);
+  }, [anotherOperatorActive, isBusy, reloadChannel]);
 
   const copyOverlayUrl = async () => {
     const url = liveState.channel?.overlayUrl;
@@ -1079,8 +1099,15 @@ export default function OperatorDashboard() {
               </span>
               <span>
                 {liveState.transcriptionRequests} / {MAX_TRANSCRIPTION_REQUESTS}{" "}
-                transcription attempts
+                attempts · {liveState.llmUsage.translationRequests} translations
               </span>
+              <button
+                className="usageDetailsButton"
+                type="button"
+                onClick={() => setActiveWorkspaceSection("usage")}
+              >
+                View usage
+              </button>
             </div>
             <div
               className="usageProgress"
@@ -1089,7 +1116,7 @@ export default function OperatorDashboard() {
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={usagePercent}
-              aria-valuetext={`${elapsedMinutes} minutes ${elapsedSeconds} seconds elapsed; ${liveState.transcriptionRequests} of ${MAX_TRANSCRIPTION_REQUESTS} transcription attempts used`}
+              aria-valuetext={`${elapsedMinutes} minutes ${elapsedSeconds} seconds elapsed; ${liveState.transcriptionRequests} of ${MAX_TRANSCRIPTION_REQUESTS} transcription attempts used; ${liveState.llmUsage.translationRequests} translation calls and ${liveState.llmUsage.totalTokens} translation tokens`}
             >
               <span style={{ width: `${usagePercent}%` }} />
             </div>
@@ -1395,6 +1422,25 @@ export default function OperatorDashboard() {
                     </p>
                   </div>
                 </div>
+              ) : null}
+
+              {currentWorkspaceSection === "usage" ? (
+                <AiUsageDashboard
+                  active={hasService || anotherOperatorActive}
+                  statusLabel={
+                    hasService
+                      ? "Service active"
+                      : anotherOperatorActive
+                        ? "Another operator active"
+                        : "Starts at zero"
+                  }
+                  elapsedServiceMs={elapsedServiceMs}
+                  transcriptionRequests={liveState.transcriptionRequests}
+                  llmUsage={liveState.llmUsage}
+                  translationModel={
+                    cloudModels?.translation ?? "Configured translation model"
+                  }
+                />
               ) : null}
 
               {currentWorkspaceSection === "prompt" ? promptEditor : null}
