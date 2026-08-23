@@ -5,14 +5,6 @@ configurable OBS Browser Source overlay and a read-only mobile translation viewe
 
 Documentation reviewed 23 August 2026.
 
-## Access the app
-
-Open the production operator dashboard at
-[church-live-caption.lukas-ka.workers.dev](https://church-live-caption.lukas-ka.workers.dev/).
-Cloudflare Access sign-in is required for operators. The separate OBS Browser Source URL
-is generated once and can be reused until an operator rotates it. Each active service also
-creates a different, read-only mobile viewer link that expires at End, expiry, or takeover.
-
 ## Status
 
 The current codebase implements the Phase 1 cloud prototype:
