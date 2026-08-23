@@ -9,7 +9,7 @@ export class CloudAccessError extends Error {
   }
 }
 
-export interface CloudAccessConfiguration {
+interface CloudAccessConfiguration {
   audience?: string;
   teamDomain?: string;
   allowUnconfigured?: boolean;

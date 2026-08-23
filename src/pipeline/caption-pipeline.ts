@@ -2,7 +2,7 @@ import type { LanguageLocale } from "@/domain/languages";
 import { applyPreferredTerms, type GlossaryEntry } from "@/pipeline/glossary";
 import { applyModeration, type ModerationRule } from "@/pipeline/moderation";
 
-export interface CaptionForms {
+interface CaptionForms {
   protectedSourceText: string;
   translatedText: string;
   publicText: string;

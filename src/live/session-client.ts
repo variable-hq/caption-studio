@@ -94,6 +94,16 @@ export class LiveSessionClient {
     await requireSuccess(response, "Could not end the live service.");
   }
 
+  async replaceViewerLink(controllerToken: string) {
+    const response = await fetch("/api/live/channel/viewer/rotate", {
+      method: "POST",
+      headers: controllerHeaders(controllerToken),
+      signal: AbortSignal.timeout(5_000),
+    });
+    await requireSuccess(response, "Could not replace the mobile viewer link.");
+    return (await response.json()) as { viewerUrl: string };
+  }
+
   async publish(controllerToken: string, event: PublicCaptionRequest) {
     const response = await fetch("/api/live/channel/caption", {
       method: "POST",
@@ -108,13 +118,13 @@ export class LiveSessionClient {
     return (await response.json()) as { published: true; sequence: number };
   }
 
-  async validateController(controllerToken: string) {
+  async reserveTranscriptionAttempt(controllerToken: string) {
     const response = await fetch("/api/live/channel/lease", {
       method: "POST",
       headers: controllerHeaders(controllerToken),
       signal: AbortSignal.timeout(5_000),
     });
-    await requireSuccess(response, "Could not validate control of the Main channel.");
+    await requireSuccess(response, "Could not reserve this transcription attempt.");
     return (await response.json()) as {
       valid: true;
       status: "live";

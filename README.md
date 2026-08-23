@@ -1,21 +1,24 @@
 # Church Live Caption
 
 Cloud-hosted, near-live transcription and translation for church services, with a
-configurable OBS Browser Source overlay.
+configurable OBS Browser Source overlay and a read-only mobile translation viewer.
+
+Documentation reviewed 23 August 2026.
 
 ## Access the app
 
 Open the production operator dashboard at
 [church-live-caption.lukas-ka.workers.dev](https://church-live-caption.lukas-ka.workers.dev/).
-Cloudflare Access sign-in is required. The separate OBS Browser Source URL is generated
-once from the dashboard and can be reused across services until an operator rotates it.
+Cloudflare Access sign-in is required for operators. The separate OBS Browser Source URL
+is generated once and can be reused until an operator rotates it. Each active service also
+creates a different, read-only mobile viewer link that expires at End, expiry, or takeover.
 
 ## Status
 
 The current codebase implements the Phase 1 cloud prototype:
 
 - browser microphone and audio-interface selection with an input meter;
-- six-second audio chunks sent to protected, same-origin APIs;
+- a selectable 6-, 9-, or 12-second speech buffer, snapshotted when a service starts;
 - Groq Whisper transcription and contextual Groq translation;
 - biblical and church vocabulary hints plus preferred translations;
 - deterministic public-caption word masking;
@@ -28,21 +31,33 @@ The current codebase implements the Phase 1 cloud prototype:
   layout, with appearance controls beside the live-updating caption preview;
 - Start, Pause/Resume, Clear, idle-or-paused synthetic test, confirmed End, and
   confirmed takeover controls;
-- active-service time and transcription-request usage indicators; and
-- one reusable, explicitly rotatable OBS URL backed by a Durable Object WebSocket.
+- active-service time and transcription-request usage indicators;
+- one reusable, explicitly rotatable OBS URL backed by a Durable Object WebSocket; and
+- one replaceable per-service mobile link showing only the latest moderated translation.
+
+The repository retains a deferred iPhone/iPad feasibility experiment under
+[`ios/`](ios/README.md). Paid Apple distribution is not part of the current product
+plan. The browser/Cloudflare application is the only active client and release path.
 
 Audio and AI inference do not run on the operator's Mac beyond browser capture.
 The app does not yet store sermons, generate summaries, support manual correction,
 or aggregate usage across services and provider accounts. Those are later phases that require
 retention, consent, review, and cost decisions.
 
-The 20 July 2026 production smoke test passed the original microphone-to-cloud-to-OBS
-journey and Access boundaries. The reusable Main-channel implementation and current
-operator layout have separate automated and browser-level evidence; their deployed
-Durable Object, shared-link, takeover, and real-OBS checks remain rollout gates. This is
-evidence for a controlled stakeholder test, not production approval or a language-quality
-sign-off. See the [validation report](docs/VALIDATION_REPORT.md) and follow the
+PR #18 merged GPT-OSS 20B translation, six-second capture, and the ceiling of 900 reserved
+transcription attempts into `main` at `e680576` on 2 August 2026. The 20 July production
+smoke test remains useful evidence for the earlier four-second, disposable-room journey
+and Access boundaries, but it does not prove the currently merged revision, a real
+GPT-OSS response, or the reusable Main-channel lifecycle. Current automated and
+local-build evidence supports a controlled stakeholder test; deployed Durable Object,
+shared-link, takeover, real-OBS, latency, and language-quality checks remain rollout
+gates. See the
+[validation report](docs/VALIDATION_REPORT.md) and follow the
 [stakeholder test guide](docs/STAKEHOLDER_TEST_GUIDE.md).
+
+The 4 August native experiment remains unsigned, unshipped, and outside current
+acceptance. Its evidence is preserved in the [validation report](docs/VALIDATION_REPORT.md)
+without implying an active App Store or TestFlight plan.
 
 ## High-level architecture
 
@@ -52,24 +67,27 @@ flowchart LR
   Build --> Worker
   Mic["Microphone or audio interface"] --> Browser["Operator browser<br/>MediaRecorder, queue, preview"]
   Access["Cloudflare Access<br/>approved operators"] --> Worker["Cloudflare Worker<br/>Next.js and protected APIs"]
-  Browser -->|"6-second audio chunks over HTTPS"| Worker
+  Browser -->|"6, 9, or 12-second audio chunks over HTTPS"| Worker
   Worker --> Whisper["Groq Whisper<br/>transcription"]
   Whisper --> Translate["Groq GPT-OSS 20B<br/>contextual translation"]
   Translate --> Pipeline["Glossary and moderation<br/>deterministic public form"]
   Pipeline --> Room["Main-channel Durable Object<br/>controller lease and latest public caption"]
   Room -->|"reusable tokenized WebSocket"| OBS["OBS Browser Source<br/>self-contained transparent overlay"]
+  Room -->|"per-service tokenized WebSocket"| Viewer["Mobile browser<br/>latest translation only"]
 ```
 
 GitHub stores and reviews the source code but does not build or deploy it. The repository
 intentionally has no GitHub Actions workflow. A push to `main` is consumed by the
 connected Cloudflare Workers build, which owns the production OpenNext build and deploy.
+The iOS Xcode project is generated and validated separately; neither a Cloudflare build
+nor the presence of an `.xcarchive` signs or distributes an Apple app.
 
 Cloudflare Access protects the dashboard, inference APIs, and operator channel APIs.
-The two OBS paths bypass interactive Access because OBS cannot sign in; the Worker
-instead requires the Main channel's random bearer token before opening the read-only
-WebSocket. The token stays in a URL fragment, is encrypted for protected collaborator
-recovery, and is passed as a WebSocket subprotocol rather than in the page request or
-query string. A separate short-lived controller credential protects live mutations.
+The OBS and mobile-viewer document/WebSocket paths bypass interactive Access; the Worker
+requires a purpose-specific random bearer token before opening either read-only stream.
+Tokens stay in URL fragments and are passed as WebSocket subprotocols rather than in page
+requests or query strings. The OBS token is reusable and encrypted for approved-operator
+recovery. The mobile token and controller credential are separate and service-scoped.
 
 See [Architecture](docs/ARCHITECTURE.md) for trust boundaries and failure behavior,
 [Product specification](docs/PRODUCT_SPEC.md) for implemented and deferred scope,
@@ -96,10 +114,13 @@ automatic detection is available.
 
 ## Biblical terminology
 
-The prototype does not train a custom theological model. It uses bounded prompts and
-operator-provided glossary mappings to preserve biblical names, Bible books, verse
-references, church names, and preferred translations. The translation prompt forbids
-inventing scripture, doctrine, facts, or meaning that the speaker did not provide.
+The prototype does not train a custom theological model. It uses a fixed, bounded system
+prompt and operator-provided glossary mappings to preserve biblical names, Bible books,
+verse references, church names, and preferred translations. The prompt prioritizes
+idiomatic target-language phrasing, evident tone and intentional repetition, while
+forbidding invented scripture, lyrics, doctrine, facts, or missing context. Current and
+recent captions are encoded as untrusted data; recent context may disambiguate but may
+not be repeated or translated.
 
 This guidance improves consistency but is not theological authority. Important terms
 still require church-approved testing and human oversight.
@@ -107,10 +128,10 @@ still require church-approved testing and human oversight.
 ## Local development
 
 Local development is for building and testing the web app; deployed inference remains
-cloud-hosted. Requirements: Node.js 20.9 or newer and npm.
+cloud-hosted. Requirements: Node.js 22.12 or newer and npm.
 
 ```bash
-npm install
+npm ci
 cp .env.example .env.local
 npm run dev
 ```
@@ -124,24 +145,24 @@ the Worker's local authentication bypass in a deployed environment.
 Available checks:
 
 ```bash
-npm test
-npm run typecheck
-npx tsc --noEmit --noUnusedLocals --noUnusedParameters
-npm run lint
-npm run build
-npx opennextjs-cloudflare build
+npm run validate
+npm audit --omit=dev
 npm audit
-git diff --check
 npm run preview
 ```
+
+`npm run validate` runs unit tests, strict TypeScript checks, ESLint, the Next.js and
+OpenNext Cloudflare production builds, and `git diff --check`. Both the production-only
+and full dependency audits are currently clean after compatible transitive patches; see
+the dated [validation report](docs/VALIDATION_REPORT.md).
 
 There is no GitHub Actions fallback. Contributors must run the relevant checks locally
 before review; a successful Cloudflare deployment is not a substitute for those checks.
 
 For operator-layout or caption-style changes, also verify a 1200px desktop viewport and
-a 390px mobile viewport in a real browser. Confirm that the preview responds while each
-appearance control is being adjusted, controls remain reachable, and neither viewport
-has horizontal overflow.
+390px and 320px mobile viewports in a real browser. Confirm that the preview responds
+while each appearance control is adjusted, controls remain reachable, and no viewport
+has horizontal overflow. Test the separate `/view` page at the mobile widths too.
 
 The monochrome theme applies only to the operator console. Caption text, highlight,
 transparency, and OBS placement remain independently configurable for the stream output.
@@ -155,6 +176,25 @@ After changing Cloudflare bindings, regenerate their types:
 npm run cf-typegen
 ```
 
+## Deferred native experiment
+
+Apple distribution was deferred on 10 August 2026 because the current phase must remain
+free of paid developer-program requirements. The [`ios/` README](ios/README.md) preserves
+the experimental implementation and its safety boundary; it is not part of the active
+build, validation, deployment, or stakeholder-test path.
+
+The files may be revisited later. Their local-only commands are:
+
+```bash
+npm run ios:generate
+npm run ios:build
+npm run ios:test
+npm run ios:archive:unsigned
+```
+
+These commands remain separate from `npm run validate` and are not current release gates.
+Do not resume signing, App Store Connect, or TestFlight work without a new owner decision.
+
 ## Cloud configuration
 
 Required deployment configuration:
@@ -167,6 +207,10 @@ Required deployment configuration:
 | `CLOUDFLARE_ACCESS_TEAM_DOMAIN` | Worker variable | Access team domain used for JWT verification |
 | `GROQ_TRANSCRIPTION_MODEL` | optional Worker variable | Override `whisper-large-v3-turbo` |
 | `GROQ_TRANSLATION_MODEL` | optional Worker variable | Override `openai/gpt-oss-20b`; the retired `llama-3.1-8b-instant` value is ignored |
+
+The dashboard's Service details section reads the configured model identifiers from the
+same-origin health route. Starting a service separately verifies that those models are
+available to the active Groq account.
 
 Never expose either secret through a `NEXT_PUBLIC_` variable, commit it, paste it into
 an issue, or include it in screenshots. `wrangler.jsonc` declares the SQLite-backed
@@ -183,15 +227,18 @@ an issue, or include it in screenshots. `wrangler.jsonc` declares the SQLite-bac
 5. Add the Access audience and team-domain variables.
 6. Protect the dashboard, `/api/ai/*`, and `/api/live/channel*` with an approved-operator
    Cloudflare Access policy.
-7. Add more-specific Access bypass applications for `/overlay*` and
-   `/api/live/overlay*`; these routes have no AI capability and enforce the channel token.
+7. Add more-specific Access bypass applications for exactly `/overlay*`,
+   `/api/live/overlay*`, `/view*`, and `/api/live/viewer*`. These routes have no AI or
+   operator capability; each WebSocket enforces its own purpose-specific token. Do not
+   broaden the bypass to `/api/live/channel*`.
 8. Confirm the Cloudflare Workers build is connected to this repository and targets
    `main`. Merge the reviewed change and verify that Cloudflare reports a successful
    build and deployment. Owners may use `npm run deploy` only as a deliberate manual
    recovery path.
 9. Verify the deployed revision, dashboard Access, provider readiness, Main-channel
-   creation/retrieval, idle test/clear, End-with-URL-retention, takeover, and explicit
-   rotation without copying the bearer URL into logs or evidence.
+   creation/retrieval, idle test/clear, mobile-viewer late join/replacement/expiry,
+   End-with-OBS-URL-retention, takeover, and explicit OBS rotation without copying either
+   bearer URL into logs or evidence.
 
 ## OBS Browser Source
 
@@ -211,29 +258,42 @@ them. Treat it as a long-lived bearer credential: do not publish, log, or show i
 screenshots. The URL does not expire automatically; each active service still stops at
 90 minutes.
 
-The UI's latency value is cloud **processing** time after a six-second recording chunk
-has completed. Approximate spoken-to-screen time is therefore six seconds plus the
-displayed processing time and normal browser/network rendering delay.
+## Mobile translation viewer
+
+1. Start captions, open **Mobile translation viewer**, and copy the mobile link.
+2. Share it only with intended viewers. It exposes the current moderated target-language
+   caption and status, not source text, history, operator controls, or the OBS credential.
+3. Use **Replace mobile link** if it was mis-shared. Connected viewers are revoked
+   immediately and OBS continues unchanged.
+4. End, expiry, or takeover invalidates the link. A new service creates a new one.
+
+The UI's latency value is cloud **processing** time after the selected recording buffer
+has completed. Approximate spoken-to-screen time is therefore 6, 9, or 12 seconds plus
+the displayed processing time and normal browser/network rendering delay.
 
 ## Free-plan guardrails
 
-The app enforces a 90-minute service, six-second transcription chunks, one target
+The app enforces a 90-minute service, a 6-, 9-, or 12-second speech buffer, one target
 language, a bounded two-chunk queue, bounded prompt and request sizes, and no automatic
 paid-provider fallback. A Groq `429` ends the service rather than purchasing capacity.
 Pause, Clear, Resume, and Show test caption use only low-volume Worker/Durable Object
 requests. The synthetic test caption does not call Groq.
 
 Before each transcription attempt, the client atomically reserves one of the service's
-900 requests while validating its short-lived controller lease in the Main Durable
-Object. This counter survives reloads and takeovers. The extra small Cloudflare request
-also prevents a replaced operator from continuing Groq usage.
+900 allotted transcription attempts—derived from the fastest six-second option—while
+validating its short-lived controller lease in the Main Durable Object. This counter
+survives reloads and takeovers. A successful non-silent
+chunk can make at most one translation call, so a service can also make at most 900
+translation calls. The extra small Cloudflare request prevents a replaced operator from
+continuing Groq usage.
 
 These controls cannot guarantee account-wide free usage: Groq limits apply to the
 organization and Cloudflare limits apply to the account, while the UI meter covers this
 application's current Main-channel service. Other applications share those limits. Keep
 both accounts on their Free plans and check their provider dashboards before a service.
 GPT-OSS 20B currently has a lower daily token allowance than the previous model, so a
-content-heavy service can still stop on a provider `429` before the 900-request ceiling.
+content-heavy service can still stop on a provider `429` before all 900 reserved
+transcription attempts are used.
 Current limits are authoritative in the
 [Groq rate-limit documentation](https://console.groq.com/docs/rate-limits) and
 [Cloudflare Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/).
@@ -247,15 +307,17 @@ The prototype has no production SLA; exhaustion stops captions.
   and at most the latest moderated public caption.
 - Protected source captions remain in browser memory only during the active service.
 - Saved display preferences use browser `localStorage`; glossary and filter text do not.
-- The usage indicator is browser-service telemetry, not billing or account metering.
+- The usage indicator combines browser-measured elapsed time with the server-owned
+  active-service transcription count; it is not billing or account metering.
 - Groq ZDR is required for real-sermon testing. Groq still retains non-content usage
   metadata under its published data policy.
 - Bible text must not be imported without permission for the chosen translation.
 - AI summaries and archives remain disabled until consent, retention, access control,
   deletion, grounding, and human-review behavior are implemented.
 
-Read [SECURITY.md](SECURITY.md) before deployment and [CONTRIBUTING.md](CONTRIBUTING.md)
-before changing the project.
+Read [SECURITY.md](SECURITY.md) before deployment and
+[CONTRIBUTING.md](CONTRIBUTING.md) before changing the project. The native experiment is
+documented separately in [`ios/README.md`](ios/README.md) and is currently deferred.
 
 ## License
 

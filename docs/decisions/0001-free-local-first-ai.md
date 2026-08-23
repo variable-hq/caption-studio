@@ -2,6 +2,7 @@
 
 - Status: superseded by ADR 0002
 - Date: 2026-07-19
+- Reviewed: 2026-08-04; remains superseded
 
 This file is retained as historical decision context. It does not describe the current
 runtime, operator console, deployment path, or provider configuration.

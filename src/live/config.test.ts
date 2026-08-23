@@ -6,17 +6,33 @@ import {
   preferredTermMap,
 } from "@/live/config";
 import {
-  AUDIO_CHUNK_MS,
+  DEFAULT_SPEECH_BUFFER_MS,
   MAX_LIVE_SESSION_MS,
   MAX_TRANSCRIPTION_REQUESTS,
+  MIN_SPEECH_BUFFER_MS,
+  SPEECH_BUFFER_OPTIONS_MS,
   normalizeCaptionStyle,
+  normalizeSpeechBufferMs,
 } from "@/live/contracts";
 
 describe("live caption configuration", () => {
   it("derives the session transcription request cap from the audio cadence", () => {
-    expect(AUDIO_CHUNK_MS).toBe(6_000);
+    expect(DEFAULT_SPEECH_BUFFER_MS).toBe(6_000);
+    expect(MIN_SPEECH_BUFFER_MS).toBe(6_000);
+    expect(SPEECH_BUFFER_OPTIONS_MS).toEqual([6_000, 9_000, 12_000]);
     expect(MAX_TRANSCRIPTION_REQUESTS).toBe(900);
-    expect(MAX_TRANSCRIPTION_REQUESTS).toBe(MAX_LIVE_SESSION_MS / AUDIO_CHUNK_MS);
+    expect(MAX_TRANSCRIPTION_REQUESTS).toBe(
+      MAX_LIVE_SESSION_MS / MIN_SPEECH_BUFFER_MS,
+    );
+  });
+
+  it("accepts only the bounded speech-buffer options", () => {
+    expect(normalizeSpeechBufferMs(6_000)).toBe(6_000);
+    expect(normalizeSpeechBufferMs("9000")).toBe(9_000);
+    expect(normalizeSpeechBufferMs(12_000)).toBe(12_000);
+    expect(normalizeSpeechBufferMs(3_000)).toBe(6_000);
+    expect(normalizeSpeechBufferMs(15_000)).toBe(6_000);
+    expect(normalizeSpeechBufferMs("invalid")).toBe(6_000);
   });
 
   it("parses recognition hints and target-language preferred terms", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { CloudProviderClient } from "@/ai/cloud-provider-client";
 import {
@@ -12,17 +12,40 @@ import {
 } from "@/domain/languages";
 import { parseGlossaryInput } from "@/live/config";
 import {
+  DEFAULT_SPEECH_BUFFER_MS,
   MAX_LIVE_SESSION_MS,
   MAX_TRANSCRIPTION_REQUESTS,
+  SPEECH_BUFFER_OPTIONS_MS,
   normalizeCaptionStyle,
+  normalizeSpeechBufferMs,
   type CaptionStyle,
+  type ChannelStatus,
+  type SpeechBufferMs,
 } from "@/live/contracts";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { useLiveCaptionSession } from "@/live/use-live-caption-session";
 
 type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
 
+interface CloudModels {
+  transcription: string;
+  translation: string;
+}
+
 const CAPTION_PREFERENCE_KEY = "church-live-caption:caption-style:v1";
+const SPEECH_BUFFER_LABELS: Record<SpeechBufferMs, string> = {
+  6000: "6 sec · Fast",
+  9000: "9 sec · Balanced",
+  12000: "12 sec · More context",
+};
+
+const CHANNEL_STATUS_LABELS: Record<ChannelStatus | "loading", string> = {
+  loading: "Checking OBS channel",
+  unconfigured: "OBS not set up",
+  idle: "OBS ready",
+  live: "OBS live",
+  paused: "OBS paused",
+};
 
 const CAPTION_FONT_STACKS: Record<CaptionStyle["fontFamily"], string> = {
   "sans-serif": "Arial, Helvetica, sans-serif",
@@ -45,12 +68,14 @@ interface PreviewProps {
 }
 
 function CaptionPreview({ caption, style, badge, live, sourceText }: PreviewProps) {
+  const headingId = useId();
+
   return (
-    <section className="previewCard" aria-labelledby="caption-preview-title">
+    <section className="previewCard" aria-labelledby={headingId}>
       <div className="sectionHeading">
         <div>
           <p className="eyebrow">OBS canvas · 1920 × 1080</p>
-          <h2 id="caption-preview-title">Caption preview</h2>
+          <h2 id={headingId}>Caption preview</h2>
         </div>
         <span className={`statusChip ${live ? "live" : ""}`}>{badge}</span>
       </div>
@@ -262,9 +287,11 @@ function StyleEditor({
       </div>
       <div className="saveRow">
         <button className="secondaryButton" type="button" onClick={onSave} disabled={saving}>
-          {saving ? "Saving…" : "Save caption appearance"}
+          {saving ? "Saving…" : "Save as default"}
         </button>
-        <p>{savedMessage}</p>
+        <p role="status" aria-live="polite" aria-atomic="true">
+          {savedMessage}
+        </p>
       </div>
     </div>
   );
@@ -278,6 +305,7 @@ export default function OperatorDashboard() {
     DEFAULT_TARGET_LANGUAGE,
   );
   const [cloudState, setCloudState] = useState<CloudState>("checking");
+  const [cloudModels, setCloudModels] = useState<CloudModels | null>(null);
   const [fontSize, setFontSize] = useState(48);
   const [textColor, setTextColor] = useState("#ffffff");
   const [backgroundColor, setBackgroundColor] = useState("#101827");
@@ -296,9 +324,14 @@ export default function OperatorDashboard() {
     "Jesus Christ, Holy Spirit, Bethlehem",
   );
   const [filterText, setFilterText] = useState("");
+  const [speechBufferMs, setSpeechBufferMs] = useState<SpeechBufferMs>(
+    DEFAULT_SPEECH_BUFFER_MS,
+  );
   const [copied, setCopied] = useState(false);
+  const [viewerCopied, setViewerCopied] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
+  const [confirmViewerReplace, setConfirmViewerReplace] = useState(false);
   const [confirmTakeover, setConfirmTakeover] = useState(false);
   const [usageClock, setUsageClock] = useState(() => Date.now());
 
@@ -328,8 +361,15 @@ export default function OperatorDashboard() {
     ],
   );
   const liveSettings = useMemo(
-    () => ({ sourceLanguage, targetLanguage, keywordText, filterText, style }),
-    [filterText, keywordText, sourceLanguage, style, targetLanguage],
+    () => ({
+      sourceLanguage,
+      targetLanguage,
+      keywordText,
+      filterText,
+      style,
+      speechBufferMs,
+    }),
+    [filterText, keywordText, sourceLanguage, speechBufferMs, style, targetLanguage],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {
@@ -342,6 +382,8 @@ export default function OperatorDashboard() {
     liveState,
     controlAction,
     channelAction,
+    viewerAction,
+    activeSpeechBufferMs,
     endRetryRequired,
     takeoverRequired,
     rotationRecoveryRequired,
@@ -350,6 +392,7 @@ export default function OperatorDashboard() {
     createChannel,
     rotateChannel,
     saveChannelStyle,
+    replaceViewerLink,
     startSession,
     pauseSession,
     resumeSession,
@@ -364,8 +407,17 @@ export default function OperatorDashboard() {
     const timeout = window.setTimeout(() => controller.abort(), 1_800);
     new CloudProviderClient()
       .health(controller.signal)
-      .then((health) => setCloudState(health.status))
-      .catch(() => setCloudState("unavailable"))
+      .then((health) => {
+        setCloudState(health.status);
+        setCloudModels({
+          transcription: health.transcription.model,
+          translation: health.translation.model,
+        });
+      })
+      .catch(() => {
+        setCloudState("unavailable");
+        setCloudModels(null);
+      })
       .finally(() => window.clearTimeout(timeout));
     return () => {
       controller.abort();
@@ -432,6 +484,7 @@ export default function OperatorDashboard() {
   const hasService = Boolean(liveState.service);
   const isLive = liveState.status === "live";
   const isPaused = liveState.status === "paused";
+  const liveNeedsAttention = hasService && liveState.status === "error";
   const isBusy = [
     "loading-channel",
     "starting",
@@ -459,6 +512,44 @@ export default function OperatorDashboard() {
       ) * 100,
     ),
   );
+  const cloudModelStatus =
+    cloudState === "checking"
+      ? "Checking configured model…"
+      : "Unavailable from health route";
+  const channelStatus = liveState.channel?.status ?? "loading";
+  const channelStatusLabel = CHANNEL_STATUS_LABELS[channelStatus];
+  const channelConfigured = Boolean(liveState.channel?.configured);
+  const checkingChannel = liveState.status === "loading-channel" || channelStatus === "loading";
+  const startDisabled =
+    cloudState !== "ready" ||
+    !channelConfigured ||
+    isBusy ||
+    channelAction !== null;
+  const startHeading = anotherOperatorActive
+    ? "Main channel already live"
+    : liveState.status === "error"
+      ? "Setup needs attention"
+      : cloudState === "checking"
+        ? "Checking cloud AI"
+        : cloudState !== "ready"
+          ? "Cloud AI setup required"
+          : checkingChannel
+            ? "Checking OBS channel"
+            : !channelConfigured
+              ? "Create the OBS channel to continue"
+              : "Ready to start captions?";
+  const startDescription = anotherOperatorActive
+    ? "Takeover stops the other operator and clears OBS before this microphone starts."
+    : liveState.status === "error"
+      ? "Resolve the setup issue above before starting the service."
+      : cloudState !== "ready"
+        ? "Cloud AI must be ready before microphone capture can begin."
+        : checkingChannel
+          ? "Wait while the existing OBS channel is checked."
+          : !channelConfigured
+            ? "Create the reusable OBS Browser Source in step 04 before going live."
+            : "Starting opens a 90-minute service window and begins microphone capture.";
+  const viewerUrl = liveState.service?.viewerUrl ?? null;
 
   useEffect(() => {
     if (!hasService) return;
@@ -476,6 +567,22 @@ export default function OperatorDashboard() {
     } catch {
       setPreferenceError("The OBS URL could not be copied. Select and copy it manually.");
     }
+  };
+
+  const copyViewerUrl = async () => {
+    if (!viewerUrl) return;
+    try {
+      await navigator.clipboard.writeText(viewerUrl);
+      setViewerCopied(true);
+      window.setTimeout(() => setViewerCopied(false), 1_500);
+    } catch {
+      setPreferenceError("The mobile viewer link could not be copied. Try again.");
+    }
+  };
+
+  const openViewerPreview = () => {
+    if (!viewerUrl) return;
+    window.open(viewerUrl, "_blank", "noopener,noreferrer");
   };
 
   const saveCaptionPreferences = () => {
@@ -537,7 +644,15 @@ export default function OperatorDashboard() {
         </select>
       </label>
       <div className="meterRow">
-        <div className="meter" aria-label={`Input level ${Math.round(level * 100)}%`}>
+        <div
+          className="meter"
+          role="meter"
+          aria-label="Microphone input level"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(level * 100)}
+          aria-valuetext={`${Math.round(level * 100)} percent`}
+        >
           <span style={{ width: `${Math.max(2, level * 100)}%` }} />
         </div>
         <span>{Math.round(level * 100)}%</span>
@@ -549,7 +664,11 @@ export default function OperatorDashboard() {
       >
         {microphoneState === "active" ? "Audio input ready" : "Enable audio test"}
       </button>
-      {microphoneError ? <p className="errorText">{microphoneError}</p> : null}
+      {microphoneError ? (
+        <p className="errorText" role="alert">
+          {microphoneError}
+        </p>
+      ) : null}
     </>
   );
 
@@ -574,19 +693,26 @@ export default function OperatorDashboard() {
                   ? "Cloud setup needed"
                   : "Cloud AI unavailable"}
           </span>
-          <span className={`statusPill channel-${liveState.channel?.status ?? "loading"}`}>
-            Main channel · {liveState.channel?.status ?? "loading"}
+          <span className={`statusPill channel-${channelStatus}`}>
+            {channelStatusLabel}
           </span>
         </div>
       </header>
 
-      <section className={`statusBanner ${liveState.status}`} aria-live="polite">
+      <section
+        className={`statusBanner ${liveState.status}`}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
         <div>
           <strong>
             {hasService
-              ? isPaused
-                ? "Live service paused"
-                : "Live operator console"
+              ? liveNeedsAttention
+                ? "Live service needs attention"
+                : isPaused
+                  ? "Live service paused"
+                  : "Live operator console"
               : "Service setup"}
           </strong>
           <p>{liveState.message}</p>
@@ -615,25 +741,56 @@ export default function OperatorDashboard() {
 
       {hasService ? (
         <>
-          <section className={`liveConsole ${isPaused ? "paused" : ""}`} aria-label="Live controls">
+          <section
+            className={`liveConsole ${isPaused ? "paused" : ""} ${liveNeedsAttention ? "attention" : ""}`}
+            aria-label="Live controls"
+          >
             <div className="liveIdentity">
-              <span className={`liveIndicator ${isPaused ? "paused" : ""}`} />
+              <span
+                className={`liveIndicator ${isPaused ? "paused" : ""}`}
+                aria-hidden="true"
+              />
               <div>
-                <strong>{isPaused ? "Paused" : "Captions live"}</strong>
-                <p>{liveState.sequence} captions · {liveState.droppedChunks} skipped</p>
+                <strong>
+                  {liveNeedsAttention ? "Capture stopped" : isPaused ? "Paused" : "Captions live"}
+                </strong>
+                <p>
+                  Overlay sequence {liveState.sequence} · {liveState.droppedChunks} skipped
+                </p>
               </div>
             </div>
             <div className="compactUsage">
               <div>
-                <span>{elapsedMinutes}m {elapsedSeconds.toString().padStart(2, "0")}s / 90m</span>
-                <span>{liveState.transcriptionRequests} / {MAX_TRANSCRIPTION_REQUESTS} requests</span>
+                <span>
+                  {elapsedMinutes}m {elapsedSeconds.toString().padStart(2, "0")}s / 90m
+                </span>
+                <span>
+                  {liveState.transcriptionRequests} / {MAX_TRANSCRIPTION_REQUESTS}{" "}
+                  transcription attempts
+                </span>
               </div>
-              <div className="usageProgress" role="progressbar" aria-label="Live service usage" aria-valuemin={0} aria-valuemax={100} aria-valuenow={usagePercent}>
+              <div
+                className="usageProgress"
+                role="progressbar"
+                aria-label="Live service usage"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={usagePercent}
+                aria-valuetext={`${elapsedMinutes} minutes ${elapsedSeconds} seconds elapsed; ${liveState.transcriptionRequests} of ${MAX_TRANSCRIPTION_REQUESTS} transcription attempts used`}
+              >
                 <span style={{ width: `${usagePercent}%` }} />
               </div>
             </div>
             <div className="primaryControls">
-              {isPaused || liveState.status === "resuming" ? (
+              {endRetryRequired ? (
+                <button
+                  className="dangerButton"
+                  disabled={isBusy || controlAction !== null}
+                  onClick={() => void stopSession()}
+                >
+                  Retry End
+                </button>
+              ) : isPaused || liveState.status === "resuming" ? (
                 <button className="primaryButton" disabled={isBusy || controlAction !== null} onClick={() => void resumeSession()}>
                   {liveState.status === "resuming" ? "Resuming…" : "Resume"}
                 </button>
@@ -643,12 +800,17 @@ export default function OperatorDashboard() {
                 </button>
               )}
               <button className="secondaryButton compactButton" disabled={isBusy || controlAction !== null} onClick={() => void clearCaption()}>
-                {controlAction === "clear" ? "Clearing…" : "Clear"}
+                {controlAction === "clear" ? "Clearing…" : "Clear OBS"}
               </button>
               <details className="moreMenu">
                 <summary>More</summary>
                 <div>
                   <button onClick={() => void copyOverlayUrl()}>{copied ? "Copied" : "Copy OBS URL"}</button>
+                  {viewerUrl ? (
+                    <button onClick={() => void copyViewerUrl()}>
+                      {viewerCopied ? "Mobile link copied" : "Copy mobile viewer link"}
+                    </button>
+                  ) : null}
                   <button disabled={!isPaused || controlAction !== null} onClick={() => void showTestCaption()}>
                     {controlAction === "show-test" ? "Showing test…" : "Show test caption"}
                   </button>
@@ -677,22 +839,100 @@ export default function OperatorDashboard() {
               badge={isPaused ? "Paused output" : "Live output"}
               live={!isPaused}
             />
-            <aside className="liveDrawers">
+            <aside className="liveDrawers" aria-label="Live service settings">
+              <details className="controlDrawer" open>
+                <summary><h3>Mobile translation viewer</h3></summary>
+                <div className="drawerBody viewerLinkPanel">
+                  <p>
+                    Share this read-only link with intended viewers. It shows only the
+                    current moderated translation and expires when this service ends or
+                    another operator takes over.
+                  </p>
+                  {viewerUrl ? (
+                    <>
+                      <div className="buttonGrid">
+                        <button
+                          className="primaryButton"
+                          type="button"
+                          onClick={() => void copyViewerUrl()}
+                        >
+                          {viewerCopied ? "Link copied" : "Copy mobile link"}
+                        </button>
+                        <button
+                          className="secondaryButton"
+                          type="button"
+                          onClick={openViewerPreview}
+                        >
+                          Open preview
+                        </button>
+                      </div>
+                      <details className="advancedActions">
+                        <summary>Viewer link security</summary>
+                        <p>
+                          Replace the link if it was shared with the wrong person. Existing
+                          viewers disconnect immediately; OBS is unaffected.
+                        </p>
+                        {confirmViewerReplace ? (
+                          <div className="confirmationRow">
+                            <button
+                              className="secondaryButton"
+                              type="button"
+                              onClick={() => setConfirmViewerReplace(false)}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              className="dangerButton"
+                              type="button"
+                              disabled={viewerAction !== null || isBusy}
+                              onClick={() => {
+                                setConfirmViewerReplace(false);
+                                void replaceViewerLink();
+                              }}
+                            >
+                              {viewerAction === "replace" ? "Replacing…" : "Confirm replacement"}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="dangerOutlineButton"
+                            type="button"
+                            disabled={viewerAction !== null || isBusy}
+                            onClick={() => setConfirmViewerReplace(true)}
+                          >
+                            Replace mobile link
+                          </button>
+                        )}
+                      </details>
+                    </>
+                  ) : (
+                    <button
+                      className="primaryButton"
+                      type="button"
+                      disabled={viewerAction !== null || isBusy}
+                      onClick={() => void replaceViewerLink()}
+                    >
+                      {viewerAction === "replace" ? "Creating link…" : "Create mobile viewer link"}
+                    </button>
+                  )}
+                </div>
+              </details>
               <details className="controlDrawer">
-                <summary>Caption appearance</summary>
+                <summary><h3>Caption appearance</h3></summary>
                 <StyleEditor {...styleEditorProps} />
               </details>
               <details className="controlDrawer">
-                <summary>Audio input {isLive ? "· pause to change" : ""}</summary>
+                <summary><h3>Audio input {isLive ? "· pause to change" : ""}</h3></summary>
                 <div className="drawerBody">{audioFields}</div>
               </details>
               <details className="controlDrawer">
-                <summary>Locked service configuration</summary>
+                <summary><h3>Locked service configuration</h3></summary>
                 <div className="configurationSummary">
                   <p><strong>Spoken:</strong> {sourceLabel}</p>
                   <p><strong>Caption language:</strong> {LANGUAGE_OPTIONS.find(({ locale }) => locale === targetLanguage)?.label}</p>
+                  <p><strong>Speech buffer:</strong> {activeSpeechBufferMs / 1_000} seconds</p>
                   <p><strong>Church terms:</strong> {keywordCount}</p>
-                  <p>End the service to change language, terminology, or filtering.</p>
+                  <p>End the service to change language, buffer, terminology, or filtering.</p>
                 </div>
               </details>
             </aside>
@@ -703,27 +943,41 @@ export default function OperatorDashboard() {
           <div className="setupIntro">
             <div>
               <p className="eyebrow">Service setup</p>
-              <h2>Configure the service.</h2>
+              <h2>Prepare your live captions</h2>
+              <p className="setupDescription">
+                Check the audio, translation, caption design, and OBS connection before
+                starting the 90-minute service.
+              </p>
             </div>
             <ol className="setupSteps" aria-label="Setup progress">
-              <li>Audio</li>
-              <li>Language</li>
-              <li>Appearance</li>
-              <li>OBS</li>
+              <li><span>01</span> Audio &amp; languages</li>
+              <li><span>02</span> Terminology</li>
+              <li><span>03</span> Appearance</li>
+              <li><span>04</span> Outputs</li>
             </ol>
           </div>
 
           <div className="setupWorkspace">
             <div className="setupSections">
               <details className="setupSection" open>
-                <summary><span>01</span> Audio and languages</summary>
+                <summary>
+                  <h3><span>01</span>Audio and languages</h3>
+                </summary>
                 <div className="sectionBody">
                   {audioFields}
                   <div className="divider" />
                   <div className="fieldGrid">
                     <label>
                       Spoken language
-                      <select data-testid="source-language" value={sourceLanguage} disabled={isBusy} onChange={(event) => setSourceLanguage(event.target.value as SourceLanguage)}>
+                      <select
+                        data-testid="source-language"
+                        value={sourceLanguage}
+                        disabled={isBusy}
+                        aria-describedby="source-language-help"
+                        onChange={(event) =>
+                          setSourceLanguage(event.target.value as SourceLanguage)
+                        }
+                      >
                         <option value="auto">Auto detect</option>
                         {LANGUAGE_OPTIONS.map((language) => <option value={language.locale} key={language.locale}>{language.label}</option>)}
                       </select>
@@ -734,49 +988,115 @@ export default function OperatorDashboard() {
                         {LANGUAGE_OPTIONS.map((language) => <option value={language.locale} key={language.locale}>{language.label}</option>)}
                       </select>
                     </label>
+                    <label className="fullField">
+                      Speech buffer before translation
+                      <select
+                        data-testid="speech-buffer"
+                        value={speechBufferMs}
+                        aria-describedby="speech-buffer-help"
+                        disabled={isBusy}
+                        onChange={(event) =>
+                          setSpeechBufferMs(
+                            normalizeSpeechBufferMs(event.target.value),
+                          )
+                        }
+                      >
+                        {SPEECH_BUFFER_OPTIONS_MS.map((value) => (
+                          <option value={value} key={value}>
+                            {SPEECH_BUFFER_LABELS[value]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
-                  <p className="helpText">Selected source: {sourceLabel}. Explicit selection is recommended live.</p>
+                  <p className="helpText" id="source-language-help">
+                    Selected source: {sourceLabel}. Explicit selection is recommended live.
+                  </p>
+                  <p className="helpText" id="speech-buffer-help">
+                    Longer windows can reduce chopped sentences, but captions appear later.
+                    Pause at a natural break because an unfinished window is discarded.
+                  </p>
                 </div>
               </details>
 
               <details className="setupSection">
-                <summary><span>02</span> Church terminology and filtering</summary>
+                <summary>
+                  <h3><span>02</span>Church terminology and filtering</h3>
+                </summary>
                 <div className="sectionBody">
                   <div className="fieldHeading"><strong>Biblical language</strong><span>{keywordCount} terms</span></div>
                   <label>
                     Biblical names and keyword hints
-                    <textarea rows={3} value={keywordText} disabled={isBusy} onChange={(event) => setKeywordText(event.target.value)} placeholder="Jesus Christ => Yesus Kristus, Bethlehem" />
+                    <textarea
+                      rows={3}
+                      value={keywordText}
+                      disabled={isBusy}
+                      aria-describedby="glossary-help"
+                      onChange={(event) => setKeywordText(event.target.value)}
+                      placeholder="Jesus Christ => Yesus Kristus, Bethlehem"
+                    />
                   </label>
-                  <p className="helpText">Use <code>source =&gt; approved translation</code> for deterministic terms. Other entries boost transcription recognition.</p>
+                  <p className="helpText" id="glossary-help">
+                    Use <code>source =&gt; approved translation</code> for deterministic terms.
+                    Other entries boost transcription recognition.
+                  </p>
                   <label>
                     Public caption filter
-                    <input value={filterText} disabled={isBusy} onChange={(event) => setFilterText(event.target.value)} placeholder="Comma-separated words to mask" />
+                    <input
+                      value={filterText}
+                      disabled={isBusy}
+                      aria-describedby="filter-help"
+                      onChange={(event) => setFilterText(event.target.value)}
+                      placeholder="Comma-separated words to mask"
+                    />
                   </label>
-                  <p className="privacyNote">Filtering changes only the public caption. Source text stays in this operator tab.</p>
+                  <p className="privacyNote" id="filter-help">
+                    Filtering changes only the public caption. Source text stays in this
+                    operator tab.
+                  </p>
                 </div>
               </details>
 
               <details className="setupSection serviceDetails">
-                <summary><span>AI</span> Service details</summary>
+                <summary>
+                  <h3><span>AI</span>Service details</h3>
+                </summary>
                 <div className="sectionBody modelSummary">
-                  <p><strong>Transcription:</strong> Whisper Large V3 Turbo · six-second chunks</p>
-                  <p><strong>Translation:</strong> GPT-OSS 20B · low-reasoning biblical context</p>
-                  <p><strong>Delivery:</strong> Cloudflare Durable Object · hibernating WebSocket</p>
+                  <p>
+                    <strong>Transcription:</strong>{" "}
+                    <code>
+                      {cloudModels?.transcription ?? cloudModelStatus}
+                    </code>{" "}
+                    · {speechBufferMs / 1_000}-second speech buffer
+                  </p>
+                  <p>
+                    <strong>Translation:</strong>{" "}
+                    <code>
+                      {cloudModels?.translation ?? cloudModelStatus}
+                    </code>{" "}
+                    · bounded biblical context
+                  </p>
+                  <p>
+                    <strong>Delivery:</strong> Cloudflare Durable Object · hibernating
+                    WebSocket
+                  </p>
                 </div>
               </details>
             </div>
 
-            <aside className="setupPreviewColumn">
+            <aside className="setupPreviewColumn" aria-label="Caption output setup">
               <CaptionPreview caption={SAMPLE_CAPTIONS[targetLanguage]} style={style} badge="Design preview" />
               <details className="setupSection appearanceSection" open>
-                <summary><span>03</span> Caption appearance</summary>
+                <summary>
+                  <h3><span>03</span>Caption appearance</h3>
+                </summary>
                 <div className="sectionBody"><StyleEditor {...styleEditorProps} /></div>
               </details>
               <section className="obsSetupCard" aria-labelledby="obs-setup-title">
                 <div className="sectionHeading">
                   <div>
                     <p className="eyebrow">Step 04</p>
-                    <h2 id="obs-setup-title">OBS Browser Source</h2>
+                    <h2 id="obs-setup-title">Live outputs</h2>
                   </div>
                   <span className={`statusChip ${liveState.channel?.configured ? "ready" : ""}`}>
                     {liveState.channel?.configured ? "Reusable" : "Not created"}
@@ -817,24 +1137,43 @@ export default function OperatorDashboard() {
                     </details>
                   </>
                 )}
+                <div className="viewerSetupNote">
+                  <strong>Mobile translation viewer</strong>
+                  <p>
+                    A separate read-only mobile link is created when captions start. It
+                    never exposes the reusable OBS credential and expires when the service
+                    ends or another operator takes over.
+                  </p>
+                </div>
               </section>
             </aside>
           </div>
 
-          <section className="startBar">
+          <section
+            className={`startBar ${anotherOperatorActive ? "takeover" : ""}`}
+            aria-labelledby="start-service-heading"
+          >
             <div>
-              <strong>{anotherOperatorActive ? "Main channel already live" : "Ready to start captions?"}</strong>
-              <p>{anotherOperatorActive ? "A takeover replaces the current operator and clears OBS." : "Starting opens a 90-minute service window and begins microphone capture."}</p>
+              <strong id="start-service-heading">{startHeading}</strong>
+              <p id="start-service-description">{startDescription}</p>
             </div>
             {confirmTakeover || takeoverRequired ? (
               <div className="takeoverConfirmation">
                 <button className="secondaryButton" onClick={() => { setConfirmTakeover(false); cancelTakeover(); }}>Cancel</button>
-                <button className="dangerButton" disabled={cloudState !== "ready" || isBusy} onClick={() => { setConfirmTakeover(false); void startSession(true); }}>Confirm takeover</button>
+                <button
+                  className="dangerButton"
+                  aria-describedby="start-service-description"
+                  disabled={cloudState !== "ready" || isBusy}
+                  onClick={() => { setConfirmTakeover(false); void startSession(true); }}
+                >
+                  Confirm takeover
+                </button>
               </div>
             ) : (
               <button
                 className={anotherOperatorActive ? "dangerButton" : "primaryButton"}
-                disabled={cloudState !== "ready" || !liveState.channel?.configured || isBusy || channelAction !== null}
+                aria-describedby="start-service-description"
+                disabled={startDisabled}
                 onClick={() => anotherOperatorActive ? setConfirmTakeover(true) : void startSession()}
               >
                 {liveState.status === "starting" ? "Starting securely…" : anotherOperatorActive ? "Take over channel" : "Start captions"}

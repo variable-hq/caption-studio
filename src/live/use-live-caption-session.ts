@@ -7,14 +7,16 @@ import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
 import { chooseAudioInputDevice } from "@/live/audio-devices";
 import { parseGlossaryInput, parseModerationInput, preferredTermMap } from "@/live/config";
 import {
-  AUDIO_CHUNK_MS,
+  DEFAULT_SPEECH_BUFFER_MS,
   MAX_LIVE_SESSION_MS,
   normalizeCaptionStyle,
+  normalizeSpeechBufferMs,
   type CaptionStyle,
   type LiveServiceDetails,
   type LiveSessionControlAction,
   type LiveSessionState,
   type PublicCaptionRequest,
+  type SpeechBufferMs,
 } from "@/live/contracts";
 import { LiveApiError, LiveSessionClient } from "@/live/session-client";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
@@ -27,6 +29,7 @@ interface LiveCaptionSettings {
   keywordText: string;
   filterText: string;
   style: CaptionStyle;
+  speechBufferMs: SpeechBufferMs;
 }
 
 interface QueuedChunk {
@@ -35,6 +38,22 @@ interface QueuedChunk {
 }
 
 const CONTROLLER_STORAGE_KEY = "church-live-caption:main-controller:v1";
+const VIEWER_STORAGE_KEY = "church-live-caption:main-viewer:v1";
+const SPEECH_BUFFER_STORAGE_KEY = "church-live-caption:speech-buffer:v1";
+
+function validStoredViewerUrl(value: string | null) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.origin === window.location.origin &&
+      url.pathname === "/view" &&
+      /^#main\.[A-Za-z0-9_-]{43}$/u.test(url.hash)
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 const INITIAL_LIVE_STATE: LiveSessionState = {
   status: "loading-channel",
@@ -79,6 +98,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const [channelAction, setChannelAction] = useState<
     "create" | "rotate" | "save-style" | null
   >(null);
+  const [viewerAction, setViewerAction] = useState<"replace" | null>(null);
   const [endRetryRequired, setEndRetryRequired] = useState(false);
   const [takeoverRequired, setTakeoverRequired] = useState(false);
   const [rotationRecoveryRequired, setRotationRecoveryRequired] = useState(false);
@@ -98,12 +118,26 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const serviceRef = useRef<LiveServiceDetails | null>(null);
   const recentContextRef = useRef<string[]>([]);
   const sessionTimerRef = useRef<number | null>(null);
+  const lifecyclePauseRef = useRef(false);
+  const speechBufferRef = useRef<SpeechBufferMs>(DEFAULT_SPEECH_BUFFER_MS);
   const cloudClientRef = useRef(new CloudProviderClient());
   const liveClientRef = useRef(new LiveSessionClient());
 
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("church-caption-state", {
+        detail: {
+          status: liveState.status,
+          message: liveState.message,
+          microphoneActive: microphoneState === "active",
+        },
+      }),
+    );
+  }, [liveState.message, liveState.status, microphoneState]);
 
   const stopMicrophone = useCallback(() => {
     if (animationRef.current !== null) {
@@ -226,6 +260,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       stopCapture();
       clearServiceTimer();
       window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
+      window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
+      window.sessionStorage.removeItem(SPEECH_BUFFER_STORAGE_KEY);
       serviceRef.current = null;
       setEndRetryRequired(false);
       setTakeoverRequired(false);
@@ -272,6 +308,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       try {
         await liveClientRef.current.endService(service.controllerToken);
         window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
+        window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
+        window.sessionStorage.removeItem(SPEECH_BUFFER_STORAGE_KEY);
         serviceRef.current = null;
         setEndRetryRequired(false);
         setLiveState((current) => ({
@@ -319,16 +357,16 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         generation === captureGenerationRef.current;
       if (!isCurrentCapture()) return;
 
-      // Cloud latency starts after a six-second MediaRecorder chunk completes.
+      // Cloud latency starts after the current MediaRecorder chunk completes.
       const startedAt = performance.now();
       const current = settingsRef.current;
       const signal = captureAbortRef.current?.signal;
       if (!signal) return;
       const serviceAtStart = serviceRef.current;
       if (!serviceAtStart) return;
-      // Check the controller immediately before paid-capable provider work. A takeover
+      // Reserve quota immediately before quota-consuming provider work. A takeover
       // therefore stops the displaced tab before its next transcription request.
-      const lease = await liveClientRef.current.validateController(
+      const lease = await liveClientRef.current.reserveTranscriptionAttempt(
         serviceAtStart.controllerToken,
       );
       if (!isCurrentCapture()) return;
@@ -472,7 +510,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   );
 
   const startRecorder = useCallback(
-    (stream: MediaStream, generation: number) => {
+    (stream: MediaStream, generation: number, speechBufferMs: SpeechBufferMs) => {
       const startRecorderChunk = () => {
         if (
           !serviceRef.current ||
@@ -509,7 +547,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         recorderTimerRef.current = window.setTimeout(() => {
           recorderTimerRef.current = null;
           if (recorder.state === "recording") recorder.stop();
-        }, AUDIO_CHUNK_MS);
+        }, speechBufferMs);
       };
       startRecorderChunk();
     },
@@ -539,6 +577,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       const channel = await liveClientRef.current.getChannel();
       setRotationRecoveryRequired(false);
       const storedController = window.sessionStorage.getItem(CONTROLLER_STORAGE_KEY);
+      const storedViewerUrl = validStoredViewerUrl(
+        window.sessionStorage.getItem(VIEWER_STORAGE_KEY),
+      );
+      const storedSpeechBuffer = normalizeSpeechBufferMs(
+        window.sessionStorage.getItem(SPEECH_BUFFER_STORAGE_KEY),
+      );
       if (
         channel.configured &&
         (channel.status === "live" || channel.status === "paused") &&
@@ -554,9 +598,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           const recovered: LiveServiceDetails = {
             channelId: channel.channelId,
             controllerToken: storedController,
+            viewerUrl: storedViewerUrl,
             startedAt: channel.startedAt,
             expiresAt: channel.expiresAt,
           };
+          speechBufferRef.current = storedSpeechBuffer;
           serviceRef.current = recovered;
           armServiceTimer(recovered);
           setLiveState({
@@ -570,9 +616,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           return;
         } catch {
           window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
+          window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
+          window.sessionStorage.removeItem(SPEECH_BUFFER_STORAGE_KEY);
         }
       } else if (channel.status === "idle") {
         window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
+        window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
+        window.sessionStorage.removeItem(SPEECH_BUFFER_STORAGE_KEY);
       }
 
       setLiveState({
@@ -698,6 +748,38 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     }
   }, [channelAction, handleTakenOver, liveState.channel?.configured]);
 
+  const replaceViewerLink = useCallback(async () => {
+    const service = serviceRef.current;
+    if (!service || viewerAction) return;
+    setViewerAction("replace");
+    try {
+      const { viewerUrl } = await liveClientRef.current.replaceViewerLink(
+        service.controllerToken,
+      );
+      const updated = { ...service, viewerUrl };
+      serviceRef.current = updated;
+      window.sessionStorage.setItem(VIEWER_STORAGE_KEY, viewerUrl);
+      setLiveState((current) => ({
+        ...current,
+        service: updated,
+        message: "Mobile viewer link replaced. Share the new link with intended viewers.",
+      }));
+    } catch (error) {
+      if (isControllerReplaced(error)) handleTakenOver();
+      else {
+        setLiveState((current) => ({
+          ...current,
+          message:
+            error instanceof Error
+              ? error.message
+              : "The mobile viewer link could not be replaced.",
+        }));
+      }
+    } finally {
+      setViewerAction(null);
+    }
+  }, [handleTakenOver, viewerAction]);
+
   const startSession = useCallback(
     async (takeover = false) => {
       if (serviceRef.current || endingRef.current) return;
@@ -727,10 +809,21 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           normalizeCaptionStyle(settingsRef.current.style),
           takeover,
         );
+        const speechBufferMs = normalizeSpeechBufferMs(
+          settingsRef.current.speechBufferMs,
+        );
         serviceRef.current = service;
+        speechBufferRef.current = speechBufferMs;
         window.sessionStorage.setItem(
           CONTROLLER_STORAGE_KEY,
           service.controllerToken,
+        );
+        if (service.viewerUrl) {
+          window.sessionStorage.setItem(VIEWER_STORAGE_KEY, service.viewerUrl);
+        }
+        window.sessionStorage.setItem(
+          SPEECH_BUFFER_STORAGE_KEY,
+          String(speechBufferMs),
         );
         recentContextRef.current = [];
         queueRef.current = [];
@@ -738,14 +831,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         const generation = captureGenerationRef.current;
         captureAbortRef.current = new AbortController();
         capturingRef.current = true;
-        startRecorder(stream, generation);
+        startRecorder(stream, generation, speechBufferMs);
         armServiceTimer(service);
         setLiveState((current) => ({
           ...current,
           status: "live",
           message: takeover
             ? "Takeover complete. Listening for the next caption."
-            : "Listening. The first caption appears after the first audio chunk.",
+            : `Listening. The first caption appears after the ${speechBufferMs / 1_000}-second speech buffer and cloud processing.`,
           service,
           channel: current.channel
             ? {
@@ -845,7 +938,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       captureAbortRef.current = new AbortController();
       capturingRef.current = true;
       queueRef.current = [];
-      startRecorder(stream, generation);
+      startRecorder(stream, generation, speechBufferRef.current);
       setLiveState((current) => ({
         ...current,
         status: "live",
@@ -940,10 +1033,20 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, [handleTakenOver, liveState.channel?.configured, liveState.status]);
 
   useEffect(() => {
-    const onPageHide = () => {
+    const pauseForLifecycle = () => {
+      if (lifecyclePauseRef.current) return;
+      lifecyclePauseRef.current = true;
+      stopCapture();
       const service = serviceRef.current;
       if (!service) return;
-      stopCapture();
+      setLiveState((current) => ({
+        ...current,
+        status: "paused",
+        message: "App inactive. Audio stopped; confirming the channel is paused.",
+        latestSourceText: "",
+        latestPublicText: "",
+        channel: current.channel ? { ...current.channel, status: "paused" } : null,
+      }));
       void fetch("/api/live/channel/control", {
         method: "POST",
         headers: {
@@ -954,9 +1057,24 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         keepalive: true,
       });
     };
-    window.addEventListener("pagehide", onPageHide);
-    return () => window.removeEventListener("pagehide", onPageHide);
-  }, [stopCapture]);
+
+    const reconcileAfterForeground = () => {
+      lifecyclePauseRef.current = false;
+      void loadChannel();
+    };
+
+    window.addEventListener("pagehide", pauseForLifecycle);
+    window.addEventListener("church-caption-native-background", pauseForLifecycle);
+    window.addEventListener("church-caption-native-foreground", reconcileAfterForeground);
+    return () => {
+      window.removeEventListener("pagehide", pauseForLifecycle);
+      window.removeEventListener("church-caption-native-background", pauseForLifecycle);
+      window.removeEventListener(
+        "church-caption-native-foreground",
+        reconcileAfterForeground,
+      );
+    };
+  }, [loadChannel, stopCapture]);
 
   useEffect(() => {
     if (!navigator.mediaDevices) return;
@@ -964,13 +1082,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     navigator.mediaDevices.addEventListener("devicechange", onDeviceChange);
     return () => {
       navigator.mediaDevices.removeEventListener("devicechange", onDeviceChange);
-      capturingRef.current = false;
-      captureGenerationRef.current += 1;
-      queueRef.current = [];
-      stopRecorder();
-      stopMicrophone();
+      stopCapture();
     };
-  }, [refreshDevices, stopMicrophone, stopRecorder]);
+  }, [refreshDevices, stopCapture]);
 
   return {
     devices,
@@ -982,6 +1096,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     liveState,
     controlAction,
     channelAction,
+    viewerAction,
+    activeSpeechBufferMs: liveState.service
+      ? speechBufferRef.current
+      : settings.speechBufferMs,
     endRetryRequired,
     takeoverRequired,
     rotationRecoveryRequired,
@@ -990,6 +1108,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     createChannel,
     rotateChannel,
     saveChannelStyle,
+    replaceViewerLink,
     startSession,
     pauseSession,
     resumeSession,

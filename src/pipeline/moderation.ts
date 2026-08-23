@@ -7,7 +7,7 @@ export interface ModerationRule {
   enabled?: boolean;
 }
 
-export interface ModerationResult {
+interface ModerationResult {
   publicText: string;
   appliedRuleIds: string[];
   hidden: boolean;

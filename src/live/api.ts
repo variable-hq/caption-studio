@@ -21,6 +21,7 @@ import {
   RequestBodyTooLargeError,
   readJsonObject,
 } from "@/http/request-body";
+import { viewerDocumentResponse } from "@/live/viewer-document";
 
 interface DurableObjectStubLike {
   fetch(request: Request): Promise<Response>;
@@ -94,6 +95,12 @@ async function controllerHash(request: Request) {
 
 function overlayUrl(request: Request, token: string) {
   const url = new URL("/overlay", request.url);
+  url.hash = `${MAIN_CHANNEL_ID}.${token}`;
+  return url.toString();
+}
+
+function viewerUrl(request: Request, token: string) {
+  const url = new URL("/view", request.url);
   url.hash = `${MAIN_CHANNEL_ID}.${token}`;
   return url.toString();
 }
@@ -231,13 +238,15 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
     throw new InvalidRequestBodyError();
   }
   const style = optionalStyle(body.style);
-  const token = randomToken();
+  const controllerToken = randomToken();
+  const viewerToken = randomToken();
   const response = await channelRoom(env).fetch(
     new Request("https://caption-room/internal/service", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        controllerHash: await captionTokenHash(token),
+        controllerHash: await captionTokenHash(controllerToken),
+        viewerTokenHash: await captionTokenHash(viewerToken),
         ...(style ? { style } : {}),
         takeover: body.takeover === true,
       }),
@@ -251,10 +260,31 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
   }>(response);
   return json({
     channelId: MAIN_CHANNEL_ID,
-    controllerToken: token,
+    controllerToken,
+    viewerUrl: viewerUrl(request, viewerToken),
     startedAt: details.startedAt,
     expiresAt: details.expiresAt,
   });
+}
+
+async function replaceViewerLink(
+  request: Request,
+  env: LiveWorkerEnvironment,
+) {
+  await requireOperator(request, env);
+  const token = randomToken();
+  const response = await channelRoom(env).fetch(
+    new Request("https://caption-room/internal/viewer/rotate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        controllerHash: await controllerHash(request),
+        viewerTokenHash: await captionTokenHash(token),
+      }),
+    }),
+  );
+  if (!response.ok) return response;
+  return json({ viewerUrl: viewerUrl(request, token) });
 }
 
 async function endService(request: Request, env: LiveWorkerEnvironment) {
@@ -280,7 +310,10 @@ async function publishCaption(request: Request, env: LiveWorkerEnvironment) {
   );
 }
 
-async function validateLease(request: Request, env: LiveWorkerEnvironment) {
+async function reserveTranscriptionAttempt(
+  request: Request,
+  env: LiveWorkerEnvironment,
+) {
   await requireOperator(request, env);
   return channelRoom(env).fetch(
     new Request("https://caption-room/internal/lease", {
@@ -342,6 +375,15 @@ async function connectOverlay(request: Request, env: LiveWorkerEnvironment) {
   );
 }
 
+async function connectViewer(request: Request, env: LiveWorkerEnvironment) {
+  if (request.headers.get("origin") !== new URL(request.url).origin) {
+    return json({ error: "The mobile viewer origin is invalid." }, 403);
+  }
+  return channelRoom(env).fetch(
+    new Request("https://caption-room/internal/viewer/connect", request),
+  );
+}
+
 function protectedError(error: unknown, operation: string) {
   if (error instanceof RequestBodyTooLargeError) {
     return json({ error: `${operation} is too large.` }, 413);
@@ -372,10 +414,23 @@ export async function handleLiveApiRequest(
   if (url.pathname === "/overlay" && request.method === "GET") {
     return overlayDocumentResponse();
   }
+  if (url.pathname === "/view") {
+    return request.method === "GET"
+      ? viewerDocumentResponse()
+      : json({ error: "Unsupported mobile viewer operation." }, 405);
+  }
   if (url.pathname === "/api/live/overlay" && request.method === "GET") {
     return url.searchParams.get("channel") === MAIN_CHANNEL_ID
       ? connectOverlay(request, env)
       : json({ error: "Invalid OBS channel." }, 400);
+  }
+  if (url.pathname === "/api/live/viewer") {
+    if (request.method !== "GET") {
+      return json({ error: "Unsupported mobile viewer operation." }, 405);
+    }
+    return url.searchParams.get("channel") === MAIN_CHANNEL_ID
+      ? connectViewer(request, env)
+      : json({ error: "Invalid mobile viewer channel." }, 400);
   }
 
   try {
@@ -394,6 +449,11 @@ export async function handleLiveApiRequest(
       if (request.method === "DELETE") return await endService(request, env);
       return json({ error: "Unsupported live-service operation." }, 405);
     }
+    if (url.pathname === "/api/live/channel/viewer/rotate") {
+      return request.method === "POST"
+        ? await replaceViewerLink(request, env)
+        : json({ error: "Unsupported mobile viewer-link operation." }, 405);
+    }
     if (url.pathname === "/api/live/channel/caption") {
       return request.method === "POST"
         ? await publishCaption(request, env)
@@ -401,7 +461,7 @@ export async function handleLiveApiRequest(
     }
     if (url.pathname === "/api/live/channel/lease") {
       return request.method === "POST"
-        ? await validateLease(request, env)
+        ? await reserveTranscriptionAttempt(request, env)
         : json({ error: "Unsupported controller-lease operation." }, 405);
     }
     if (url.pathname === "/api/live/channel/style") {
@@ -418,7 +478,9 @@ export async function handleLiveApiRequest(
       return json({ error: "Live route not found." }, 404);
     }
   } catch (error) {
-    const label = url.pathname.includes("caption")
+    const label = url.pathname.includes("viewer")
+      ? "Mobile viewer link"
+      : url.pathname.includes("caption")
       ? "Caption event"
       : url.pathname.includes("style")
         ? "Caption style"

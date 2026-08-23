@@ -1,0 +1,448 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		15055F98C2CB4A7508F058CB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5454BA8F07653B4BBDA94A45 /* Assets.xcassets */; };
+		2B2B6A04D88CDDD71539D7B5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C148A09ECB2E95849B1C731 /* RootView.swift */; };
+		2B47DC4428FF5705F4DC6F5E /* AppConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03B6DB13BADEE4156D6E6AA4 /* AppConfigurationTests.swift */; };
+		405C0EB841F56F16FB034711 /* ChurchLiveCaptionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22324549F27B7ED99EC813A5 /* ChurchLiveCaptionApp.swift */; };
+		5BBA852383AFDD97B9EC7B04 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 65714396438CDBECF354040D /* PrivacyInfo.xcprivacy */; };
+		723B86CC4F559DE0B9FE2169 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81997E2287DBD97F2CE5122 /* AppConfiguration.swift */; };
+		745997A2CDD5A151F1C5DEE7 /* OperatorWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79DA2DD9A0AD3D37E6A21CA8 /* OperatorWebView.swift */; };
+		865E9C430A3ADC7A78B10E49 /* MicrophoneAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45868AF558D3589E1BCC925E /* MicrophoneAuthorization.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		17F420B6C58150A971DCBBBC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 79D84AB45A8000A1391D6107 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CD70E68AAD3A49440301DDCD;
+			remoteInfo = ChurchLiveCaption;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		03B6DB13BADEE4156D6E6AA4 /* AppConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigurationTests.swift; sourceTree = "<group>"; };
+		22324549F27B7ED99EC813A5 /* ChurchLiveCaptionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchLiveCaptionApp.swift; sourceTree = "<group>"; };
+		45868AF558D3589E1BCC925E /* MicrophoneAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneAuthorization.swift; sourceTree = "<group>"; };
+		5454BA8F07653B4BBDA94A45 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		65714396438CDBECF354040D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		692712224964FD115A1D2B0C /* ChurchLiveCaption.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ChurchLiveCaption.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		79DA2DD9A0AD3D37E6A21CA8 /* OperatorWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorWebView.swift; sourceTree = "<group>"; };
+		87DDBE6E348E65DC3254CAFD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8C148A09ECB2E95849B1C731 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		C2B1F5358F422175D89A4E57 /* ChurchLiveCaptionTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ChurchLiveCaptionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F81997E2287DBD97F2CE5122 /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		19CD5FDCF2A70FCE24906260 = {
+			isa = PBXGroup;
+			children = (
+				FB10BADDD3121CFDC48696C1 /* ChurchLiveCaption */,
+				5F2AEE7C27FEA2760CC5D811 /* ChurchLiveCaptionTests */,
+				73364BCBF31F43D5EF727DDE /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5F2AEE7C27FEA2760CC5D811 /* ChurchLiveCaptionTests */ = {
+			isa = PBXGroup;
+			children = (
+				03B6DB13BADEE4156D6E6AA4 /* AppConfigurationTests.swift */,
+			);
+			path = ChurchLiveCaptionTests;
+			sourceTree = "<group>";
+		};
+		73364BCBF31F43D5EF727DDE /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				692712224964FD115A1D2B0C /* ChurchLiveCaption.app */,
+				C2B1F5358F422175D89A4E57 /* ChurchLiveCaptionTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FB10BADDD3121CFDC48696C1 /* ChurchLiveCaption */ = {
+			isa = PBXGroup;
+			children = (
+				F81997E2287DBD97F2CE5122 /* AppConfiguration.swift */,
+				5454BA8F07653B4BBDA94A45 /* Assets.xcassets */,
+				22324549F27B7ED99EC813A5 /* ChurchLiveCaptionApp.swift */,
+				87DDBE6E348E65DC3254CAFD /* Info.plist */,
+				45868AF558D3589E1BCC925E /* MicrophoneAuthorization.swift */,
+				79DA2DD9A0AD3D37E6A21CA8 /* OperatorWebView.swift */,
+				65714396438CDBECF354040D /* PrivacyInfo.xcprivacy */,
+				8C148A09ECB2E95849B1C731 /* RootView.swift */,
+			);
+			path = ChurchLiveCaption;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CD70E68AAD3A49440301DDCD /* ChurchLiveCaption */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B478BF85B0065C6418DE0104 /* Build configuration list for PBXNativeTarget "ChurchLiveCaption" */;
+			buildPhases = (
+				B162805FFDD6E429C4A665D0 /* Sources */,
+				6C9DA7EDA9B8BB633A140A27 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ChurchLiveCaption;
+			packageProductDependencies = (
+			);
+			productName = ChurchLiveCaption;
+			productReference = 692712224964FD115A1D2B0C /* ChurchLiveCaption.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D9F7F486CF1F47D9F89D1DCE /* ChurchLiveCaptionTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0502BB7CBFC363A0E97B7302 /* Build configuration list for PBXNativeTarget "ChurchLiveCaptionTests" */;
+			buildPhases = (
+				65B53122F361DBC2A87AFCB6 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				79D2D8BEC29956EBC4A8835A /* PBXTargetDependency */,
+			);
+			name = ChurchLiveCaptionTests;
+			packageProductDependencies = (
+			);
+			productName = ChurchLiveCaptionTests;
+			productReference = C2B1F5358F422175D89A4E57 /* ChurchLiveCaptionTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		79D84AB45A8000A1391D6107 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					CD70E68AAD3A49440301DDCD = {
+						ProvisioningStyle = Automatic;
+					};
+					D9F7F486CF1F47D9F89D1DCE = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = A59341D5CAEB1D4592B4EEF5 /* Build configuration list for PBXProject "ChurchLiveCaption" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 19CD5FDCF2A70FCE24906260;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 73364BCBF31F43D5EF727DDE /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CD70E68AAD3A49440301DDCD /* ChurchLiveCaption */,
+				D9F7F486CF1F47D9F89D1DCE /* ChurchLiveCaptionTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6C9DA7EDA9B8BB633A140A27 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15055F98C2CB4A7508F058CB /* Assets.xcassets in Resources */,
+				5BBA852383AFDD97B9EC7B04 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		65B53122F361DBC2A87AFCB6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B47DC4428FF5705F4DC6F5E /* AppConfigurationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B162805FFDD6E429C4A665D0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				723B86CC4F559DE0B9FE2169 /* AppConfiguration.swift in Sources */,
+				405C0EB841F56F16FB034711 /* ChurchLiveCaptionApp.swift in Sources */,
+				865E9C430A3ADC7A78B10E49 /* MicrophoneAuthorization.swift in Sources */,
+				745997A2CDD5A151F1C5DEE7 /* OperatorWebView.swift in Sources */,
+				2B2B6A04D88CDDD71539D7B5 /* RootView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		79D2D8BEC29956EBC4A8835A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CD70E68AAD3A49440301DDCD /* ChurchLiveCaption */;
+			targetProxy = 17F420B6C58150A971DCBBBC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0DE6A79D6D7EA0B1971EEEE7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APP_BASE_URL = "https://church-live-caption.lukas-ka.workers.dev/";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		1DC4ED5755332DC45AEBB84E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.lukaskawira.churchlivecaption.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ChurchLiveCaption.app/ChurchLiveCaption";
+			};
+			name = Release;
+		};
+		356C5233ED199CC00EEC9984 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = ChurchLiveCaption/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.lukaskawira.churchlivecaption;
+				PRODUCT_NAME = ChurchLiveCaption;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		511809A0A67BDF728BC5D455 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.lukaskawira.churchlivecaption.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ChurchLiveCaption.app/ChurchLiveCaption";
+			};
+			name = Debug;
+		};
+		7C85B4267A0005243EABAB21 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = ChurchLiveCaption/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.lukaskawira.churchlivecaption;
+				PRODUCT_NAME = ChurchLiveCaption;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		7F9283D695CFBAE7BED0EC50 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APP_BASE_URL = "https://church-live-caption.lukas-ka.workers.dev/";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0502BB7CBFC363A0E97B7302 /* Build configuration list for PBXNativeTarget "ChurchLiveCaptionTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				511809A0A67BDF728BC5D455 /* Debug */,
+				1DC4ED5755332DC45AEBB84E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A59341D5CAEB1D4592B4EEF5 /* Build configuration list for PBXProject "ChurchLiveCaption" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7F9283D695CFBAE7BED0EC50 /* Debug */,
+				0DE6A79D6D7EA0B1971EEEE7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B478BF85B0065C6418DE0104 /* Build configuration list for PBXNativeTarget "ChurchLiveCaption" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				356C5233ED199CC00EEC9984 /* Debug */,
+				7C85B4267A0005243EABAB21 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 79D84AB45A8000A1391D6107 /* Project object */;
+}

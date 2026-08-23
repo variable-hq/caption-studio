@@ -2,6 +2,7 @@
 
 - Status: accepted for Phase 1 prototype
 - Date: 2026-07-19
+- Reviewed: 2026-08-23
 - Supersedes: ADR 0001
 
 ## Context
@@ -23,7 +24,8 @@ Phase 1A uses:
 - Cloudflare Access Free to restrict the Worker to approved operators;
 - GroqCloud Free with `whisper-large-v3-turbo` for multilingual transcription;
 - GroqCloud Free with `openai/gpt-oss-20b` for one contextual translation target;
-- six-second audio chunks as the current latency/quota test point;
+- selectable 6-, 9-, or 12-second audio windows, with six seconds as the default and
+  quota floor;
 - a short Whisper prompt containing approved biblical names and keyword hints;
 - recent finalized captions and approved glossary mappings in the translation prompt;
 - deterministic preferred-term enforcement and public-display filtering after AI output;
@@ -34,10 +36,11 @@ Raw audio is forwarded in memory and is not stored by the application. Groq Zero
 Retention must be enabled before real sermon audio is approved for testing.
 
 Inference routes verify the Cloudflare Access JWT and fail closed when Access is not
-configured. OBS cannot use interactive operator authentication, so its two public paths
-require a narrower Access bypass plus a revocable, read-only token enforced by the
-Worker. Access-plan eligibility and billing configuration must be verified in the active
-Cloudflare account rather than inferred from this decision record.
+configured. OBS and mobile viewers cannot use interactive operator authentication, so
+their four exact document/WebSocket paths require narrow Access bypasses plus separate
+read-only tokens enforced by the Worker. Access-plan eligibility and billing
+configuration must be verified in the active Cloudflare account rather than inferred
+from this decision record.
 
 ## Initial disposable-room implementation (2026-07-20, superseded)
 
@@ -49,9 +52,10 @@ reusable-channel amendment below replaces that credential lifecycle. The deploym
 still requires more-specific Access bypass applications for `/overlay*`
 and `/api/live/overlay*`; no other operator or inference route may share that bypass.
 
-The app also enforces six-second chunks, one target language, a bounded client queue,
-and no automatic paid fallback. Its usage indicator covers only the active browser
-session. It is not an account-wide quota or billing control.
+The original implementation also enforced four-second chunks, one target language, a
+bounded client queue, and no automatic paid fallback. Its indicator covered only the
+active browser session. The reusable-channel amendment below superseded that browser-local
+counter, and the 2 August migration amendment superseded the cadence and attempt ceiling.
 
 ## Reusable-channel amendment (2026-08-01)
 
@@ -66,28 +70,55 @@ This uses the existing SQLite Durable Object binding and constant-size storage. 
 no paid resource, account-wide usage meter, sermon archive, or paid fallback. The Access
 bypass remains limited to `/overlay*` and `/api/live/overlay*`; all Main-channel
 retrieval, control, takeover, End, and rotation routes remain Access protected.
+The amendment also moved the active-service attempt counter into the Durable Object so it
+survives reload and confirmed takeover.
 
 ## Translation-model migration amendment (2026-08-02)
 
 Groq announced that Free and Developer access to `llama-3.1-8b-instant` will shut down
 on 16 August 2026 and recommends `openai/gpt-oss-20b` as its replacement. The default
-translation model is therefore migrated before that deadline. Translation requests use
-low reasoning effort, a 256-token completion ceiling, and include only glossary mappings
-relevant to the current caption or recent context.
+translation model is therefore migrated before that deadline. All translation requests
+use a 256-token completion ceiling; GPT-OSS requests additionally use low reasoning
+effort. Prompts include only glossary mappings relevant to the current caption or up to
+the four most recent retained source captions.
 
 The replacement's published Free limit is 1,000 requests per day rather than the prior
 14,400. The capture cadence increases from four to six seconds, bounding one uninterrupted
-90-minute service to 900 transcription attempts and therefore no more than 900 translation
-attempts. This leaves a small request margin but does not guarantee the token allowance or
-account-wide quota: silence, same-language captions, other Groq applications, repeated
-services, and actual prompt/output token usage all affect the provider totals. A provider
-`429` remains fail-closed and ends the service without any paid fallback.
+90-minute service to 900 reserved transcription attempts and therefore no more than 900
+translation calls. This leaves a small request margin but does not guarantee the token
+allowance or account-wide quota: silence, same-language captions, other Groq applications,
+repeated services, and actual prompt/output token usage all affect the provider totals. A
+provider `429` remains fail-closed and ends the service without any paid fallback.
+
+## Context-buffer, prompt, and mobile-viewer amendment (2026-08-23)
+
+The six-second cadence becomes an operator-selectable 6-, 9-, or 12-second speech buffer.
+The start-time value is locked for the service; longer windows can reduce chopped phrases
+but add equal latency and cannot guarantee a completed semantic unit. The 900-attempt
+server ceiling remains derived from the fastest option, so choosing a longer buffer never
+increases provider usage. Pause discards an unfinished active window.
+
+Translation uses a fixed system prompt rather than an agent wrapper. The operation is one
+bounded model call with no tools, and an agent layer would add latency and failure modes
+without allowing the model to wait for audio it has not received. The system prompt asks
+for one faithful, idiomatic caption, preserves evident tone and intentional repetition,
+and forbids invented or completed scripture, lyrics, quotations, doctrine, facts, or
+missing context. Current caption, relevant approved terms, and up to four recent captions
+are encoded as structured untrusted data; context may disambiguate only the current text.
+
+Each active service also receives a separate random mobile-viewer credential. Only its
+hash enters the Durable Object. `/view*` and `/api/live/viewer*` form a self-contained,
+read-only path exposing at most the latest moderated translation and service status. The
+viewer token cannot authorize OBS or operator routes. Replacement, End, expiry, and
+takeover revoke it, while the reusable OBS credential remains unchanged. Deployment must
+add exact Access bypasses for the two viewer paths without broadening protection for
+`/api/live/channel*` or any inference route.
 
 ## Free-tier envelope at decision time
 
 The published Groq free limits for both Whisper models are 20 requests per minute,
 2,000 requests per day, 7,200 audio seconds per hour, and 28,800 audio seconds per day.
-Six-second chunks require 10 requests per minute and 900 requests for a 90-minute
+Six-second chunks reserve 10 transcription attempts per minute and 900 for a 90-minute
 service. The GPT-OSS 20B translation model publishes 30 requests per minute, 1,000
 requests per day, 8,000 tokens per minute, and 200,000 tokens per day. Prompts and
 completion size remain bounded, but the token limit may stop a content-heavy service
@@ -97,19 +128,26 @@ Cloudflare Workers Free publishes 100,000 dynamic requests per day with 10 ms CP
 invocation. External-network wait time is not the same as CPU time, but the OpenNext
 build and audio proxy still require production-runtime validation.
 
-These limits are provider policy, not an SLA, and may change. Before each pilot the
+These limits were rechecked on 4 August 2026. They are provider policy, not an SLA, and
+may change. Before each pilot the
 operator must check the account's actual limits. No paid billing fallback is enabled in
 Phase 1A.
+
+The migration merged to `main` through PR #18 at `e680576` on 2 August 2026. That merge
+is source-control evidence, not proof that Cloudflare deployed the revision or that a real
+GPT-OSS request succeeded.
 
 ## Consequences
 
 - The Mac only captures audio and displays the web app; AI compute runs in the cloud.
 - Internet loss stops cloud transcription. The app must never fabricate captions.
-- File-based chunking is near-live rather than a true streaming transcript. Six-second
-  chunks imply at least the chunk duration plus upload and inference latency.
-- One 60–90 minute service fits the published request envelope, but repeated services,
-  shorter chunks, large translation prompts, or other apps in the same Groq organization
-  can exhaust it.
+- File-based chunking is near-live rather than a true streaming transcript. The selected
+  6-, 9-, or 12-second window implies at least that duration plus upload and inference
+  latency.
+- One 60–90 minute service fits the published request-count envelope, but the token
+  allowance is not guaranteed to cover a complete service. Repeated services, shorter
+  chunks, large translation prompts, or other apps in the same Groq organization can
+  exhaust it.
 - The free translation model needs evaluation for every confirmed language and biblical
   terminology. A human-approved glossary remains authoritative.
 - Sermon storage and summaries remain separate, opt-in later phases; choosing cloud AI

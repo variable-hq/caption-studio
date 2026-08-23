@@ -154,7 +154,7 @@ describe("reusable OBS channel worker API", () => {
     );
   });
 
-  it("starts a service with a hashed controller and returns only the raw lease", async () => {
+  it("starts a service with separate controller and mobile-viewer capabilities", async () => {
     const { env, fetch } = environment(async () =>
       Response.json({
         status: "live",
@@ -169,17 +169,31 @@ describe("reusable OBS channel worker API", () => {
       }),
       env,
     );
-    const payload = (await response!.json()) as { controllerToken: string };
+    const payload = (await response!.json()) as {
+      controllerToken: string;
+      viewerUrl: string;
+    };
     const forwarded = fetch.mock.calls[0][0] as Request;
     const body = (await forwarded.json()) as {
       controllerHash: string;
+      viewerTokenHash: string;
       takeover: boolean;
     };
+    const viewerUrl = new URL(payload.viewerUrl);
+    const viewerToken = viewerUrl.hash.split(".")[1];
 
     expect(response?.status).toBe(200);
     expect(payload.controllerToken).toHaveLength(43);
+    expect(viewerUrl.pathname).toBe("/view");
+    expect(viewerUrl.search).toBe("");
+    expect(viewerUrl.hash).toMatch(/^#main\./u);
+    expect(viewerToken).toHaveLength(43);
+    expect(viewerToken).not.toBe(payload.controllerToken);
     expect(body.controllerHash).toHaveLength(64);
+    expect(body.viewerTokenHash).toHaveLength(64);
+    expect(body.viewerTokenHash).not.toBe(body.controllerHash);
     expect(body.controllerHash).not.toBe(payload.controllerToken);
+    expect(body.viewerTokenHash).not.toBe(viewerToken);
     expect(body.takeover).toBe(true);
   });
 
@@ -283,6 +297,57 @@ describe("reusable OBS channel worker API", () => {
     expect(body.controllerHash).not.toContain("controller-secret");
   });
 
+  it("replaces a viewer link through the protected current-controller route", async () => {
+    const { env, fetch } = environment(async () =>
+      Response.json({ replaced: true, expiresAt: "2026-08-01T01:30:00Z" }),
+    );
+    const response = await handleLiveApiRequest(
+      new Request(
+        "https://caption.example/api/live/channel/viewer/rotate",
+        {
+          method: "POST",
+          headers: { "x-caption-controller": "controller-secret" },
+        },
+      ),
+      env,
+    );
+    const payload = (await response!.json()) as { viewerUrl: string };
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    const body = (await forwarded.json()) as {
+      controllerHash: string;
+      viewerTokenHash: string;
+    };
+    const url = new URL(payload.viewerUrl);
+    const token = url.hash.split(".")[1];
+
+    expect(response?.status).toBe(200);
+    expect(forwarded.url).toBe("https://caption-room/internal/viewer/rotate");
+    expect(body.controllerHash).toHaveLength(64);
+    expect(body.viewerTokenHash).toHaveLength(64);
+    expect(body.controllerHash).not.toBe(body.viewerTokenHash);
+    expect(body.controllerHash).not.toContain("controller-secret");
+    expect(url.pathname).toBe("/view");
+    expect(url.search).toBe("");
+    expect(url.hash).toMatch(/^#main\./u);
+    expect(token).toHaveLength(43);
+    expect(body.viewerTokenHash).not.toBe(token);
+  });
+
+  it("keeps viewer-link replacement behind Cloudflare Access", async () => {
+    const { env, fetch } = environment();
+    delete env.CAPTION_LOCAL_AUTH_BYPASS;
+    const response = await handleLiveApiRequest(
+      new Request(
+        "https://caption.example/api/live/channel/viewer/rotate",
+        { method: "POST", headers: { "x-caption-controller": "secret" } },
+      ),
+      env,
+    );
+
+    expect(response?.status).toBe(503);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("validates and forwards idle or paused synthetic controls", async () => {
     const { env, fetch } = environment(async () =>
       Response.json({ action: "show-test", status: "idle", sequence: 4 }),
@@ -351,6 +416,76 @@ describe("reusable OBS channel worker API", () => {
     );
 
     expect(response?.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("forwards only same-origin mobile viewer WebSocket requests", async () => {
+    const { env, fetch } = environment(async () => Response.json({ connected: true }));
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/viewer?channel=main", {
+        headers: {
+          origin: "https://caption.example",
+          upgrade: "websocket",
+          "sec-websocket-protocol": "church-caption-viewer-v1, viewer-token",
+        },
+      }),
+      env,
+    );
+
+    expect(response?.status).toBe(200);
+    expect(fetch).toHaveBeenCalledOnce();
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    expect(forwarded.url).toBe(
+      "https://caption-room/internal/viewer/connect",
+    );
+    expect(forwarded.headers.get("origin")).toBe("https://caption.example");
+  });
+
+  it.each([
+    ["cross-origin", "https://other.example", "main", 403],
+    ["missing origin", null, "main", 403],
+    ["wrong channel", "https://caption.example", "other", 400],
+  ])("rejects %s mobile viewer requests before the room", async (_label, origin, channel, status) => {
+    const { env, fetch } = environment();
+    const headers = new Headers({ upgrade: "websocket" });
+    if (origin) headers.set("origin", origin);
+    const response = await handleLiveApiRequest(
+      new Request(
+        `https://caption.example/api/live/viewer?channel=${channel}`,
+        { headers },
+      ),
+      env,
+    );
+
+    expect(response?.status).toBe(status);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("serves a self-contained hardened mobile viewer without protected assets", async () => {
+    const { env, fetch } = environment();
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/view"),
+      env,
+    );
+    const html = await response!.text();
+
+    expect(response?.status).toBe(200);
+    expect(response?.headers.get("cache-control")).toBe("no-store");
+    expect(response?.headers.get("content-security-policy")).toContain(
+      "frame-ancestors 'none'",
+    );
+    expect(response?.headers.get("permissions-policy")).toContain(
+      "microphone=()",
+    );
+    expect(response?.headers.get("x-robots-tag")).toContain("noindex");
+    expect(html).toContain("Live translation");
+    expect(html).toContain("church-caption-viewer-v1");
+    expect(html).toContain("/api/live/viewer?channel=");
+    expect(html).toContain("textContent");
+    expect(html).toContain("event.code===4002");
+    expect(html).toContain("event.code===4003");
+    expect(html).not.toContain("church-caption-v1");
+    expect(html).not.toContain("/_next/");
     expect(fetch).not.toHaveBeenCalled();
   });
 

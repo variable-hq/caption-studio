@@ -23,18 +23,20 @@ interface ChannelConfiguration {
   serviceEventCount: number;
   transcriptionRequests: number;
   controllerHash?: string;
+  viewerTokenHash?: string;
   startedAt?: number;
   expiresAt?: number;
 }
 
 interface StartServiceRequest {
   controllerHash: string;
+  viewerTokenHash: string;
   style: CaptionStyle;
   takeover: boolean;
 }
 
 type MutationResult<T> =
-  | { kind: "ok"; value: T; clear?: boolean }
+  | { kind: "ok"; value: T; clear?: boolean; revokeViewers?: boolean }
   | { kind: "channel-not-configured" }
   | { kind: "channel-in-use"; expiresAt?: number }
   | { kind: "controller-replaced" }
@@ -42,11 +44,21 @@ type MutationResult<T> =
   | { kind: "inactive"; clear?: boolean }
   | { kind: "invalid" };
 
+type ViewerStreamEvent =
+  | { type: "caption"; caption: PublicCaptionEvent }
+  | { type: "clear" }
+  | { type: "state"; status: ChannelStatus; expiresAt: string | null };
+
 const JSON_HEADERS = {
   "content-type": "application/json",
   "cache-control": "no-store",
 };
 const OVERLAY_PROTOCOL = "church-caption-v1";
+const VIEWER_PROTOCOL = "church-caption-viewer-v1";
+const OVERLAY_SOCKET_TAG = "overlay";
+const VIEWER_SOCKET_TAG = "viewer";
+const MAX_VIEWER_CONNECTIONS = 250;
+const CAPABILITY_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: JSON_HEADERS });
@@ -81,6 +93,7 @@ function deactivate(configuration: ChannelConfiguration) {
   current.serviceEventCount = 0;
   current.transcriptionRequests = 0;
   delete current.controllerHash;
+  delete current.viewerTokenHash;
   delete current.startedAt;
   delete current.expiresAt;
   return current;
@@ -102,13 +115,14 @@ function controllerMatches(configuration: ChannelConfiguration, hash: unknown) {
   );
 }
 
-function overlayToken(request: Request) {
+function websocketToken(request: Request, protocol: string) {
   const protocols = (request.headers.get("sec-websocket-protocol") ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  if (!protocols.includes(OVERLAY_PROTOCOL)) return null;
-  return protocols.find((value) => value !== OVERLAY_PROTOCOL) ?? null;
+  if (!protocols.includes(protocol)) return null;
+  const token = protocols.find((value) => value !== protocol) ?? null;
+  return token && CAPABILITY_TOKEN.test(token) ? token : null;
 }
 
 function validCaptionBody(body: Partial<PublicCaptionRequest>) {
@@ -134,6 +148,15 @@ function publicConfiguration(configuration: ChannelConfiguration) {
   };
 }
 
+function viewerCaption(caption: PublicCaptionEvent) {
+  return {
+    sequence: caption.sequence,
+    publicText: caption.publicText,
+    targetLanguage: caption.targetLanguage,
+    publishedAt: caption.publishedAt,
+  };
+}
+
 export class CaptionRoom {
   constructor(private readonly state: DurableObjectState) {}
 
@@ -152,6 +175,18 @@ export class CaptionRoom {
     if (url.pathname === "/internal/connect" && request.method === "GET") {
       return this.connectOverlay(request);
     }
+    if (
+      url.pathname === "/internal/viewer/connect" &&
+      request.method === "GET"
+    ) {
+      return this.connectViewer(request);
+    }
+    if (
+      url.pathname === "/internal/viewer/rotate" &&
+      request.method === "POST"
+    ) {
+      return this.replaceViewerLink(request);
+    }
     if (url.pathname === "/internal/service" && request.method === "POST") {
       return this.startService(request);
     }
@@ -159,7 +194,7 @@ export class CaptionRoom {
       return this.endService(request);
     }
     if (url.pathname === "/internal/lease" && request.method === "POST") {
-      return this.validateLease(request);
+      return this.reserveTranscriptionAttempt(request);
     }
     if (url.pathname === "/internal/caption" && request.method === "POST") {
       return this.publishCaption(request);
@@ -246,8 +281,9 @@ export class CaptionRoom {
     if (result.kind === "channel-in-use") return channelInUse(result.expiresAt);
     if (result.kind !== "ok") return json({ error: "OBS channel rotation failed." }, 500);
 
-    this.broadcast({ type: "clear" });
-    for (const socket of this.state.getWebSockets("overlay")) {
+    this.broadcastOverlay({ type: "clear" });
+    this.closeViewerSockets(4002, "Live service ended.");
+    for (const socket of this.state.getWebSockets(OVERLAY_SOCKET_TAG)) {
       socket.close(4001, "OBS channel link rotated.");
     }
     return json(publicConfiguration(result.value));
@@ -257,7 +293,7 @@ export class CaptionRoom {
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
       return json({ error: "A WebSocket upgrade is required." }, 426);
     }
-    const token = overlayToken(request);
+    const token = websocketToken(request, OVERLAY_PROTOCOL);
     const configuration = await this.expireServiceIfNeeded();
     if (
       !token ||
@@ -272,8 +308,8 @@ export class CaptionRoom {
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
-    this.state.acceptWebSocket(server, ["overlay"]);
-    server.serializeAttachment({ role: "overlay" });
+    this.state.acceptWebSocket(server, [OVERLAY_SOCKET_TAG]);
+    server.serializeAttachment({ role: OVERLAY_SOCKET_TAG });
     const latest = await this.state.storage.get<PublicCaptionEvent>("latest");
     server.send(
       JSON.stringify({
@@ -294,11 +330,61 @@ export class CaptionRoom {
     } as ResponseInit & { webSocket: WebSocket });
   }
 
+  private async connectViewer(request: Request) {
+    if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
+      return json({ error: "A WebSocket upgrade is required." }, 426);
+    }
+    const token = websocketToken(request, VIEWER_PROTOCOL);
+    const configuration = await this.expireServiceIfNeeded();
+    if (
+      !token ||
+      !configuration ||
+      !isActive(configuration) ||
+      !configuration.viewerTokenHash ||
+      (await captionTokenHash(token)) !== configuration.viewerTokenHash
+    ) {
+      return json(
+        {
+          error: "The mobile viewer link is invalid or expired.",
+          code: "invalid_viewer_key",
+        },
+        401,
+      );
+    }
+    if (
+      this.state.getWebSockets(VIEWER_SOCKET_TAG).length >=
+      MAX_VIEWER_CONNECTIONS
+    ) {
+      return json({ error: "The mobile viewer is at capacity." }, 503);
+    }
+
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    this.state.acceptWebSocket(server, [VIEWER_SOCKET_TAG]);
+    server.serializeAttachment({ role: VIEWER_SOCKET_TAG });
+    const latest = await this.state.storage.get<PublicCaptionEvent>("latest");
+    server.send(
+      JSON.stringify({
+        type: "ready",
+        status: configuration.status,
+        caption: latest ? viewerCaption(latest) : null,
+      }),
+    );
+
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+      headers: { "sec-websocket-protocol": VIEWER_PROTOCOL },
+    } as ResponseInit & { webSocket: WebSocket });
+  }
+
   private async startService(request: Request) {
     const body = (await request.json()) as Partial<StartServiceRequest>;
     if (
       typeof body.controllerHash !== "string" ||
       body.controllerHash.length !== 64 ||
+      typeof body.viewerTokenHash !== "string" ||
+      body.viewerTokenHash.length !== 64 ||
       typeof body.takeover !== "boolean"
     ) {
       return json({ error: "Invalid live-service configuration." }, 400);
@@ -318,6 +404,7 @@ export class CaptionRoom {
       const startedAt = Date.now();
       configuration.status = "live";
       configuration.controllerHash = body.controllerHash!;
+      configuration.viewerTokenHash = body.viewerTokenHash!;
       configuration.startedAt = startedAt;
       configuration.expiresAt = startedAt + MAX_LIVE_SESSION_MS;
       configuration.serviceEventCount = 0;
@@ -335,18 +422,78 @@ export class CaptionRoom {
     if (result.kind !== "ok") return json({ error: "Live service could not start." }, 500);
 
     await this.state.storage.setAlarm(result.value.expiresAt!);
-    this.broadcast({ type: "clear" });
-    this.broadcast({
+    this.closeViewerSockets(4003, "Mobile viewer link replaced.");
+    this.broadcastPublic({ type: "clear" });
+    this.broadcastPublic({
       type: "state",
       status: "live",
       expiresAt: new Date(result.value.expiresAt!).toISOString(),
     });
-    this.broadcast({ type: "style", style: result.value.style });
+    this.broadcastOverlay({ type: "style", style: result.value.style });
     return json({
       status: result.value.status,
       startedAt: new Date(result.value.startedAt!).toISOString(),
       expiresAt: new Date(result.value.expiresAt!).toISOString(),
     });
+  }
+
+  private async replaceViewerLink(request: Request) {
+    const body = (await request.json()) as {
+      controllerHash?: string;
+      viewerTokenHash?: string;
+    };
+    if (
+      typeof body.viewerTokenHash !== "string" ||
+      body.viewerTokenHash.length !== 64
+    ) {
+      return json({ error: "Invalid mobile viewer credential." }, 400);
+    }
+
+    const result = await this.state.storage.transaction<
+      MutationResult<{ expiresAt: string }>
+    >(async (transaction) => {
+      const stored = await transaction.get<ChannelConfiguration>("configuration");
+      if (!stored) return { kind: "channel-not-configured" };
+      let configuration = normalizeConfiguration(stored);
+      const expired = serviceExpired(configuration);
+      if (expired) {
+        configuration = deactivate(configuration);
+        await Promise.all([
+          transaction.put("configuration", configuration),
+          transaction.delete("latest"),
+        ]);
+        return { kind: "inactive", clear: true };
+      }
+      if (!isActive(configuration)) return { kind: "inactive" };
+      if (!controllerMatches(configuration, body.controllerHash)) {
+        return { kind: "controller-replaced" };
+      }
+      configuration.viewerTokenHash = body.viewerTokenHash!;
+      await transaction.put("configuration", configuration);
+      return {
+        kind: "ok",
+        value: {
+          expiresAt: new Date(configuration.expiresAt!).toISOString(),
+        },
+      };
+    });
+
+    if (result.kind === "channel-not-configured") return channelNotConfigured();
+    if (result.kind === "controller-replaced") return controllerReplaced();
+    if (result.kind === "inactive") {
+      if (result.clear) {
+        this.broadcastPublic({ type: "clear" });
+        this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
+        this.closeViewerSockets(4002, "Live service ended.");
+      }
+      return json({ error: "The live service is no longer active." }, 410);
+    }
+    if (result.kind !== "ok") {
+      return json({ error: "The mobile viewer link could not be replaced." }, 500);
+    }
+
+    this.closeViewerSockets(4003, "Mobile viewer link replaced.");
+    return json({ replaced: true, expiresAt: result.value.expiresAt });
   }
 
   private async endService(request: Request) {
@@ -379,8 +526,9 @@ export class CaptionRoom {
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "controller-replaced") return controllerReplaced();
     await this.state.storage.deleteAlarm();
-    this.broadcast({ type: "clear" });
-    this.broadcast({ type: "state", status: "idle", expiresAt: null });
+    this.broadcastPublic({ type: "clear" });
+    this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
+    this.closeViewerSockets(4002, "Live service ended.");
     return new Response(null, { status: 204 });
   }
 
@@ -394,7 +542,8 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { kind: "channel-not-configured" };
       let configuration = normalizeConfiguration(stored);
-      if (serviceExpired(configuration)) {
+      const expired = serviceExpired(configuration);
+      if (expired) {
         configuration = deactivate(configuration);
         await Promise.all([
           transaction.put("configuration", configuration),
@@ -434,7 +583,11 @@ export class CaptionRoom {
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "controller-replaced") return controllerReplaced();
     if (result.kind === "inactive") {
-      if (result.clear) this.broadcast({ type: "clear" });
+      if (result.clear) {
+        this.broadcastPublic({ type: "clear" });
+        this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
+        this.closeViewerSockets(4002, "Live service ended.");
+      }
       return json({ error: "The live service is not accepting captions." }, 410);
     }
     if (result.kind === "invalid") {
@@ -444,11 +597,11 @@ export class CaptionRoom {
       return json({ error: "The public caption could not be published." }, 500);
     }
 
-    this.broadcast({ type: "caption", caption: result.value });
+    this.broadcastPublic({ type: "caption", caption: result.value });
     return json({ published: true, sequence: result.value.sequence });
   }
 
-  private async validateLease(request: Request) {
+  private async reserveTranscriptionAttempt(request: Request) {
     const body = (await request.json()) as { controllerHash?: string };
     const result = await this.state.storage.transaction<
       MutationResult<{
@@ -491,7 +644,11 @@ export class CaptionRoom {
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "controller-replaced") return controllerReplaced();
     if (result.kind === "inactive") {
-      if (result.clear) this.broadcast({ type: "clear" });
+      if (result.clear) {
+        this.broadcastPublic({ type: "clear" });
+        this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
+        this.closeViewerSockets(4002, "Live service ended.");
+      }
       return json({ error: "The live service is no longer active." }, 410);
     }
     if (result.kind === "transcription-limit") {
@@ -503,7 +660,9 @@ export class CaptionRoom {
         429,
       );
     }
-    if (result.kind !== "ok") return json({ error: "Controller validation failed." }, 500);
+    if (result.kind !== "ok") {
+      return json({ error: "Transcription reservation failed." }, 500);
+    }
     return json({ valid: true, ...result.value });
   }
 
@@ -522,7 +681,8 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { kind: "channel-not-configured" };
       let configuration = normalizeConfiguration(stored);
-      if (serviceExpired(configuration)) {
+      const expired = serviceExpired(configuration);
+      if (expired) {
         configuration = deactivate(configuration);
         await Promise.all([
           transaction.put("configuration", configuration),
@@ -557,14 +717,23 @@ export class CaptionRoom {
         return {
           kind: "ok",
           value: { action, status: configuration.status, sequence: caption.sequence, caption },
+          revokeViewers: expired,
         };
       }
 
       if (action === "pause") {
-        if (configuration.status !== "live") return { kind: "invalid" };
+        if (configuration.status !== "live") {
+          return expired
+            ? { kind: "inactive", clear: true }
+            : { kind: "invalid" };
+        }
         configuration.status = "paused";
       } else if (action === "resume") {
-        if (configuration.status !== "paused") return { kind: "invalid" };
+        if (configuration.status !== "paused") {
+          return expired
+            ? { kind: "inactive", clear: true }
+            : { kind: "invalid" };
+        }
         configuration.status = "live";
       }
 
@@ -576,11 +745,20 @@ export class CaptionRoom {
         kind: "ok",
         value: { action, status: configuration.status },
         clear: true,
+        revokeViewers: expired,
       };
     });
 
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "controller-replaced") return controllerReplaced();
+    if (result.kind === "inactive") {
+      if (result.clear) {
+        this.broadcastPublic({ type: "clear" });
+        this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
+        this.closeViewerSockets(4002, "Live service ended.");
+      }
+      return json({ error: "The live service is no longer active." }, 410);
+    }
     if (result.kind === "invalid") {
       return json({ error: "The control is not available in the current channel state." }, 409);
     }
@@ -588,15 +766,24 @@ export class CaptionRoom {
       return json({ error: "The live-service control failed." }, 500);
     }
 
-    if (result.clear) this.broadcast({ type: "clear" });
+    if (result.clear) this.broadcastPublic({ type: "clear" });
     const caption = result.value.caption;
-    if (caption) this.broadcast({ type: "caption", caption });
+    if (caption) {
+      if (result.value.status === "paused") {
+        this.broadcastPublic({ type: "caption", caption });
+      } else {
+        this.broadcastOverlay({ type: "caption", caption });
+      }
+    }
     if (action === "pause" || action === "resume") {
-      this.broadcast({
+      this.broadcastPublic({
         type: "state",
         status: result.value.status,
         expiresAt: null,
       });
+    }
+    if (result.revokeViewers) {
+      this.closeViewerSockets(4002, "Live service ended.");
     }
     const { caption: omitted, ...response } = result.value;
     void omitted;
@@ -615,24 +802,44 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { kind: "channel-not-configured" };
       let configuration = normalizeConfiguration(stored);
-      if (serviceExpired(configuration)) configuration = deactivate(configuration);
-      if (isActive(configuration) && !controllerMatches(configuration, body.controllerHash)) {
+      const expired = serviceExpired(configuration);
+      if (expired) configuration = deactivate(configuration);
+      if (
+        isActive(configuration) &&
+        !controllerMatches(configuration, body.controllerHash)
+      ) {
         return { kind: "controller-replaced" };
       }
       configuration.style = style;
-      const latest = await transaction.get<PublicCaptionEvent>("latest");
+      const latest = expired
+        ? undefined
+        : await transaction.get<PublicCaptionEvent>("latest");
       await transaction.put("configuration", configuration);
-      if (latest) {
+      if (expired) {
+        await transaction.delete("latest");
+      } else if (latest) {
         latest.style = style;
         await transaction.put("latest", latest);
       }
-      return { kind: "ok", value: style };
+      return {
+        kind: "ok",
+        value: style,
+        clear: expired,
+        revokeViewers: expired,
+      };
     });
 
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "controller-replaced") return controllerReplaced();
     if (result.kind !== "ok") return json({ error: "Caption style update failed." }, 500);
-    this.broadcast({ type: "style", style: result.value });
+    if (result.clear) {
+      this.broadcastPublic({ type: "clear" });
+      this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
+    }
+    if (result.revokeViewers) {
+      this.closeViewerSockets(4002, "Live service ended.");
+    }
+    this.broadcastOverlay({ type: "style", style: result.value });
     return json({ updated: true, style: result.value });
   }
 
@@ -655,15 +862,16 @@ export class CaptionRoom {
       return { configuration, expired: true };
     });
     if (result.expired) {
-      this.broadcast({ type: "clear" });
-      this.broadcast({ type: "state", status: "idle", expiresAt: null });
+      this.broadcastPublic({ type: "clear" });
+      this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
+      this.closeViewerSockets(4002, "Live service ended.");
     }
     return result.configuration;
   }
 
-  private broadcast(payload: unknown) {
+  private broadcastOverlay(payload: unknown) {
     const message = JSON.stringify(payload);
-    for (const socket of this.state.getWebSockets("overlay")) {
+    for (const socket of this.state.getWebSockets(OVERLAY_SOCKET_TAG)) {
       try {
         socket.send(message);
       } catch {
@@ -672,8 +880,42 @@ export class CaptionRoom {
     }
   }
 
+  private broadcastViewer(payload: ViewerStreamEvent) {
+    const viewerPayload =
+      payload.type === "caption"
+        ? { type: "caption", caption: viewerCaption(payload.caption) }
+        : payload;
+    const message = JSON.stringify(viewerPayload);
+    for (const socket of this.state.getWebSockets(VIEWER_SOCKET_TAG)) {
+      try {
+        socket.send(message);
+      } catch {
+        socket.close(1011, "Mobile viewer connection failed.");
+      }
+    }
+  }
+
+  private broadcastPublic(payload: ViewerStreamEvent) {
+    this.broadcastOverlay(payload);
+    this.broadcastViewer(payload);
+  }
+
+  private closeViewerSockets(code: number, reason: string) {
+    for (const socket of this.state.getWebSockets(VIEWER_SOCKET_TAG)) {
+      socket.close(code, reason);
+    }
+  }
+
   webSocketMessage(socket: WebSocket) {
-    socket.close(1008, "The OBS overlay is read-only.");
+    const attachment = socket.deserializeAttachment() as
+      | { role?: string }
+      | null;
+    socket.close(
+      1008,
+      attachment?.role === VIEWER_SOCKET_TAG
+        ? "The mobile viewer is read-only."
+        : "The OBS overlay is read-only.",
+    );
   }
 
   async alarm() {
@@ -685,8 +927,9 @@ export class CaptionRoom {
       this.state.storage.put("configuration", deactivate(configuration)),
       this.state.storage.delete("latest"),
     ]);
-    this.broadcast({ type: "clear" });
-    this.broadcast({ type: "state", status: "idle", expiresAt: null });
+    this.broadcastPublic({ type: "clear" });
+    this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
+    this.closeViewerSockets(4002, "Live service ended.");
   }
 }
 
