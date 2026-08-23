@@ -56,11 +56,12 @@ service expiry, controller takeover, and OBS-link rotation in a protected Cloudf
 deployment. After changing bindings, run `npm run cf-typegen` and review the generated
 diff before committing it.
 
-For visible operator-console changes, test at 1200px desktop and 390px and 320px mobile
-widths in a real browser. Confirm keyboard focus, reachable controls, no horizontal
-overflow, and continuous preview updates while appearance ranges or colours are being
-changed. Test `/view` at both mobile widths when audience-viewer behavior changes. Use
-only synthetic caption text in screenshots or recordings.
+For visible operator-console changes, test at the primary 1920 × 1080 operator viewport,
+then at a 1200px intermediate width and 390px and 320px mobile widths in a real browser.
+Confirm keyboard focus, reachable controls, no horizontal overflow, and continuous
+preview updates while appearance ranges or colours are being changed. Test `/view` at
+both mobile widths when audience-viewer behavior changes. Use only synthetic caption text
+in screenshots or recordings.
 
 ## Branch and commit workflow
 

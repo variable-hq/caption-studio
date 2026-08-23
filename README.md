@@ -151,10 +151,11 @@ the dated [validation report](docs/VALIDATION_REPORT.md).
 There is no GitHub Actions fallback. Contributors must run the relevant checks locally
 before review; a successful Cloudflare deployment is not a substitute for those checks.
 
-For operator-layout or caption-style changes, also verify a 1200px desktop viewport and
-390px and 320px mobile viewports in a real browser. Confirm that the preview responds
-while each appearance control is adjusted, controls remain reachable, and no viewport
-has horizontal overflow. Test the separate `/view` page at the mobile widths too.
+For operator-layout or caption-style changes, use 1920 × 1080 as the primary operator
+viewport, then verify a 1200px intermediate viewport and 390px and 320px mobile viewports
+in a real browser. Confirm that the preview responds while each appearance control is
+adjusted, controls remain reachable, and no viewport has horizontal overflow. Test the
+separate `/view` page at the mobile widths too.
 
 The monochrome theme applies only to the operator console. Caption text, highlight,
 transparency, and OBS placement remain independently configurable for the stream output.

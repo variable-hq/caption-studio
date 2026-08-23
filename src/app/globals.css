@@ -62,7 +62,7 @@ textarea:focus-visible {
 }
 
 main {
-  width: min(1240px, calc(100% - clamp(32px, 5vw, 64px)));
+  width: min(1440px, calc(100% - clamp(32px, 5vw, 96px)));
   margin: 0 auto;
   padding-bottom: 64px;
 }

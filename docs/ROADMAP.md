@@ -137,7 +137,8 @@ or the full reusable Durable Object/OBS/mobile-viewer journey.
 - Rehearse on the intended microphone/audio interface and OBS streaming computer.
 - Create the Main channel once, install it in OBS, and verify idle test/clear before
   starting microphone capture.
-- Confirm the desktop Setup grouping and the single-column mobile flow, and verify every
+- Confirm the Setup grouping at the primary 1920 × 1080 operator viewport and a 1200px
+  intermediate width, then confirm the single-column mobile flow and verify every
   appearance control updates the dashboard preview continuously before saving.
 - Confirm the monochrome hierarchy, focus visibility, status legibility without colour,
   and sufficient control contrast on the intended operator displays.

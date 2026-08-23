@@ -242,6 +242,8 @@ Code-level acceptance:
 - Appearance controls update the dashboard design preview continuously before Save.
 - Setup keeps audio, languages, terminology, and service details on the left, with the
   preview, appearance controls, and OBS Browser Source on the right at desktop widths.
+- The primary operator viewport is 1920 × 1080, with dashboard content capped at a
+  readable 1440px rather than stretched across the full display.
 - The Setup layout reflows without horizontal scrolling from 320px through desktop
   widths, including immediately around the 680px and 980px breakpoints.
 - The mobile Start bar remains reachable without hiding its blocking or takeover context.

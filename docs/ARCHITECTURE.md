@@ -22,11 +22,13 @@ Microphone or audio interface
   -> reusable OBS Browser Source and per-service mobile viewer
 ```
 
-The normal operator path captures audio in a desktop browser. The internal iPhone/iPad
-feasibility shell can host the same dashboard in WebKit, but neither client runs
-transcription or translation models. The prototype has no separate sermon/archive
-database, object storage, or summary service; the Durable Object stores only
-constant-size live-channel state.
+The normal operator path captures audio in a desktop browser, with 1920 × 1080 as the
+primary workstation viewport and a responsive path down to 320px. The dashboard content
+uses a 1440px ceiling to preserve scanning and reading distance on the wider display. The
+internal iPhone/iPad feasibility shell can host the same dashboard in WebKit, but neither
+client runs transcription or translation models. The prototype has no separate
+sermon/archive database, object storage, or summary service; the Durable Object stores
+only constant-size live-channel state.
 
 ## Source and deployment path
 

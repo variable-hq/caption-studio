@@ -359,12 +359,14 @@ Final local gates on Node.js 26.5.0 produced:
 | Production and full dependency audits | Pass — 0 known vulnerabilities after compatible transitive patches |
 | Whitespace/error diff check | Pass |
 
-Real-browser local checks covered the Setup dashboard at 1200px, 390px, and the declared
-320px minimum. The 9-second Balanced option could be selected, retained its value while
-the view reflowed, and every tested width had document width equal to viewport width. The
-self-contained Worker `/view` page returned `200`, rendered at 390px and 320px without
-horizontal overflow, and produced no browser console warnings or errors. Its synthetic
-token correctly failed to open a stream because no local live service owned that token.
+Real-browser local checks covered the Setup dashboard at the primary 1920 × 1080 operator
+viewport, a 1200px intermediate width, 390px, and the declared 320px minimum. At 1920px,
+the dashboard used its readable 1440px ceiling with 240px side gutters. The 9-second
+Balanced option could be selected, retained its value while the view reflowed, and every
+tested width had document width equal to viewport width. The self-contained Worker
+`/view` page returned `200`, rendered at 390px and 320px without horizontal overflow, and
+produced no browser console warnings or errors. Its synthetic token correctly failed to
+open a stream because no local live service owned that token.
 
 This is local source/build/UI evidence, not deployed proof. The local OpenNext preview
 continues to warn that the internal Durable Object cannot be fully exercised in that

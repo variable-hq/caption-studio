@@ -54,8 +54,9 @@ cannot be confirmed by the project owner.
    locked value without treating any option as a guaranteed sentence boundary.
 4. Add one safe test mapping, such as `Bethlehem => Betlehem`, if appropriate for the
    chosen target. Add one synthetic filter word that is safe to say in the rehearsal.
-5. On desktop, confirm audio/languages, terminology, and service details are grouped on
-   the left, while preview, appearance, and live outputs are on the right. At both 390px and
+5. At the primary 1920 × 1080 operator viewport, confirm audio/languages, terminology,
+   and service details are grouped on the left, while preview, appearance, and live
+   outputs are on the right. Repeat at a 1200px intermediate width. At both 390px and
    320px widths, confirm the same sections form one reachable column without horizontal
    scroll. Confirm the four setup labels match the numbered panels, controls remain easy
    to target, focus remains visible, and live/paused/error states remain understandable
