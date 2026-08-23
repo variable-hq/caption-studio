@@ -1,5 +1,7 @@
 # Security policy
 
+Last reviewed 10 August 2026.
+
 Church Live Caption is a pre-release prototype. Security fixes are supported only on
 the current `main` branch; no production security or availability SLA is offered.
 
@@ -17,20 +19,52 @@ itself.
 
 ## Security boundaries
 
-The deployment has two intentional access classes:
+The backend deployment has two intentional access classes:
 
 | Surface | Expected protection | Capability |
 | --- | --- | --- |
 | Dashboard and Next.js app | Cloudflare Access | Operator UI |
 | `/api/ai/health` | Deployment-level Cloudflare Access | Non-secret configuration status |
-| `/api/ai/readiness`, `/transcribe`, `/translate` | Access JWT plus server-side Groq secret | Provider verification and AI inference |
+| `/api/ai/readiness`, `/api/ai/transcribe`, `/api/ai/translate` | Access JWT plus server-side Groq secret | Provider verification and AI inference |
 | `/api/live/channel*` | Cloudflare Access JWT | Create, retrieve, control, take over, end, and rotate the Main channel |
 | `/overlay*` | Public network path; no operator capability | Self-contained OBS page |
 | `/api/live/overlay*` | Reusable channel token and read-only WebSocket | Current public caption stream |
+| `/view*` | Public network path; no operator capability | Self-contained mobile viewer page |
+| `/api/live/viewer*` | Per-service viewer token and read-only WebSocket | Current moderated translation and service status |
 
-The OBS paths need a more-specific Cloudflare Access bypass because OBS cannot complete
-interactive sign-in. Do not broaden that bypass to the dashboard, inference routes, or
-operator channel routes.
+The OBS and mobile-viewer paths need exact, more-specific Cloudflare Access bypasses
+because viewers cannot complete operator sign-in. Limit them to `/overlay*`,
+`/api/live/overlay*`, `/view*`, and `/api/live/viewer*`. Do not broaden the bypass to the
+dashboard, inference routes, or operator channel routes.
+
+## Deferred iOS feasibility shell
+
+Paid Apple distribution was removed from the current scope on 10 August 2026. The native
+files remain as inactive research; the security boundary below applies only if they are
+revisited.
+
+The [`ios/` shell](ios/README.md) is an internal SwiftUI and `WKWebView` feasibility
+client for the same dashboard. It contains no Groq key, Cloudflare credential, OBS token,
+caption model, or alternate API. It accepts only an HTTPS `APP_BASE_URL`, grants WebKit
+microphone capture only to that exact configured main-frame origin, and denies other
+media types, frames, and origins. In-app navigation is limited to the configured
+dashboard and Cloudflare Access; native bridge messages require the exact dashboard
+origin and main frame. When the app becomes inactive, the lifecycle bridge stops
+capture, requests a server pause, and reconciles state on foreground. Background capture
+is not enabled.
+
+The default project configuration currently names the existing Worker, whose deployed
+revision may not match this working tree. Before any signed build, point the shell at an
+isolated Cloudflare Access-protected demo Worker and verify its revision, routes, secrets,
+and tester allowlist. Never weaken Access, add a client-side bypass, or embed credentials
+to make App Review or TestFlight sign-in easier.
+
+The included Apple privacy manifest declares the native shell's app-local preference
+access only. It is not an App Store Connect privacy answer for audio, captions, Access
+identity, Worker observability, Groq processing, or TestFlight feedback. The 4 August
+simulator build and generic-device archive were unsigned and predate the final origin and
+lifecycle hardening. They do not establish a current complete archive, Apple signing,
+upload, installation, physical-device behavior, or backend compatibility.
 
 ## Overlay credential model
 
@@ -53,11 +87,33 @@ read public captions whenever the channel publishes them. Do not post it, log it
 in analytics, or show it in screenshots. If it may have leaked, end the active service,
 rotate the link, and replace the Browser Source URL in OBS.
 
+## Mobile viewer credential model
+
+- Every successful service start creates a new cryptographically random 256-bit mobile
+  viewer token, separate from both the OBS and controller credentials.
+- The link keeps `main.token` in the URL fragment. The self-contained page sends it only
+  as the `church-caption-viewer-v1` WebSocket subprotocol; the token is never placed in a
+  page request or query string.
+- The Durable Object stores only the viewer-token SHA-256 hash. The raw link remains in
+  the operator tab's `sessionStorage`; it is not recoverable by another operator tab.
+- A viewer can receive only the current moderated target-language caption and live,
+  paused, or ended status. It receives no source text, history, style, controller, OBS
+  token, inference access, or mutation capability.
+- Confirmed replacement revokes connected viewers immediately without changing OBS.
+  End, service expiry, and takeover delete the viewer hash and revoke the old link.
+- The page is `no-store`, `noindex`, non-frameable, uses a no-referrer policy, disables
+  sensitive browser permissions, renders text with `textContent`, and retries abnormal
+  disconnects only a bounded number of times.
+
+Treat the mobile link as a short-lived bearer credential. Share it only with intended
+viewers, never place it in logs, analytics, screenshots, or public posts, and replace it
+immediately if it is mis-shared.
+
 ## Data handling
 
 Treat these as sensitive even when the app does not persist them:
 
-- provider keys, Access tokens, and overlay URLs;
+- provider keys, Access tokens, OBS URLs, and mobile viewer links;
 - raw or processed audio;
 - source, translated, or public sermon text;
 - summaries and biblical-reference annotations;
@@ -67,13 +123,18 @@ Treat these as sensitive even when the app does not persist them:
 
 Current behavior:
 
-- raw audio is captured in four-second browser chunks, forwarded for active inference,
+- raw audio is captured in a selected 6-, 9-, or 12-second browser window, forwarded for
+  active inference,
   and not stored by this application;
 - protected source and translated text remain in active browser memory;
 - only the latest moderated public caption is retained ephemerally in the live room;
 - display preferences are saved in browser `localStorage`; glossary and filter inputs
   are not saved; and
 - no sermon archive, summary database, analytics store, or audio bucket exists.
+
+The native shell stores only the operator's acknowledgement of the processing notice in
+app-local preferences. Web content loaded inside it retains the same browser-memory,
+`localStorage`, `sessionStorage`, backend, and provider boundaries described above.
 
 Groq Zero Data Retention must be enabled before approved real-sermon testing. Groq's
 published policy says non-content usage metadata is still retained. Verify the active
@@ -98,11 +159,21 @@ setting.
 - Keep the Worker on the intended plan and do not introduce paid fallback without an
   explicit owner decision.
 - Use the SQLite-backed Durable Object binding declared in `wrangler.jsonc`.
-- Keep logs free of audio, captions, prompts, glossary terms, JWTs, and overlay URLs.
+- Keep logs free of audio, captions, prompts, glossary terms, JWTs, OBS URLs, and mobile
+  viewer links.
 - Review Cloudflare routes after every domain or Access-application change.
 - Test takeover, controller replacement, End-with-link-retention, explicit rotation,
-  service expiry, the server-owned 1,350-request ceiling, malformed channel IDs, invalid
-  tokens, oversized bodies, and provider failures with synthetic data before a live pilot.
+  service expiry, the server-owned ceilings of 900 reserved transcription attempts and
+  1,400 caption events, the 250-viewer socket ceiling, malformed channel IDs,
+  cross-protocol tokens, invalid origins, oversized bodies, and provider failures with
+  synthetic data before a live pilot.
+- If Apple distribution is explicitly reopened, confirm the legal publisher and bundle
+  identifier; use an enrolled Apple team and provisioning profile; complete
+  export-compliance and App Store privacy answers; and validate a signed archive without
+  placing certificates, profiles, API keys, or reviewer credentials in the repository.
+- In that future case, keep TestFlight feedback free of captions, audio, Access tokens,
+  and OBS URLs. Test the signed build on a physical device against an isolated demo
+  backend before allowing any approved real-sermon use.
 
 ## Dependency and code hygiene
 
@@ -118,11 +189,18 @@ setting.
 - Keep provider prompts, recent context, glossary entries, and output sizes bounded.
 - Avoid raw exception details in public responses.
 
+As of 23 August 2026, `npm audit --omit=dev` and the full `npm audit` report no known
+vulnerabilities. Compatible lockfile updates include Nano ID 3.3.18, JS-YAML 4.3.1,
+Wrangler 4.125.0, Miniflare 5.20260820.0-alpha, and Undici 7.29.0. Continue to assess
+findings before updates and never apply `npm audit fix --force` without a compatibility
+review.
+
 ## Incident response
 
 If a secret or token is exposed:
 
-1. End the active service and rotate the OBS link if its URL may be exposed.
+1. End the active service. Replace the mobile link if it alone was exposed, or rotate the
+   OBS link if the long-lived OBS URL may be exposed.
 2. Rotate the Groq or OBS encryption key, or invalidate the affected Cloudflare Access
    session, as appropriate. Rotating the encryption key also requires rotating the OBS URL.
 3. Check Worker and provider logs for time, routes, and usage metadata without copying

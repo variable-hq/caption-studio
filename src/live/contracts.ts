@@ -1,9 +1,12 @@
 import type { LanguageLocale } from "@/domain/languages";
 
-export const AUDIO_CHUNK_MS = 6_000;
+export const SPEECH_BUFFER_OPTIONS_MS = [6_000, 9_000, 12_000] as const;
+export type SpeechBufferMs = (typeof SPEECH_BUFFER_OPTIONS_MS)[number];
+export const DEFAULT_SPEECH_BUFFER_MS: SpeechBufferMs = 6_000;
+export const MIN_SPEECH_BUFFER_MS = SPEECH_BUFFER_OPTIONS_MS[0];
 export const MAX_LIVE_SESSION_MS = 90 * 60 * 1_000;
 export const MAX_TRANSCRIPTION_REQUESTS = Math.floor(
-  MAX_LIVE_SESSION_MS / AUDIO_CHUNK_MS,
+  MAX_LIVE_SESSION_MS / MIN_SPEECH_BUFFER_MS,
 );
 export const MAX_CAPTION_EVENTS = 1_400;
 export const MAIN_CHANNEL_ID = "main" as const;
@@ -78,6 +81,7 @@ export interface ObsChannelDetails {
 export interface LiveServiceDetails {
   channelId: typeof MAIN_CHANNEL_ID;
   controllerToken: string;
+  viewerUrl: string | null;
   startedAt: string;
   expiresAt: string;
 }
@@ -119,6 +123,13 @@ function boundedInteger(value: unknown, minimum: number, maximum: number, fallba
   return Number.isFinite(number)
     ? Math.min(maximum, Math.max(minimum, Math.round(number)))
     : fallback;
+}
+
+export function normalizeSpeechBufferMs(value: unknown): SpeechBufferMs {
+  const number = Number(value);
+  return SPEECH_BUFFER_OPTIONS_MS.includes(number as SpeechBufferMs)
+    ? (number as SpeechBufferMs)
+    : DEFAULT_SPEECH_BUFFER_MS;
 }
 
 export function normalizeCaptionStyle(input: Partial<CaptionStyle>): CaptionStyle {

@@ -9,6 +9,7 @@ Explain the user, operator, or contributor need.
 ## Validation
 
 - [ ] Relevant automated checks pass
+- [ ] `npm audit --omit=dev` and full `npm audit` results are recorded separately
 - [ ] Manual behavior was tested where appropriate
 - [ ] Screenshots or recordings are attached for visible changes
 
@@ -16,10 +17,16 @@ Explain the user, operator, or contributor need.
 
 - [ ] No credentials or private sermon data are included
 - [ ] Recording and retention behavior is explicit
-- [ ] Workspace access remains isolated
-- [ ] OBS overlay access remains read-only and session-scoped
-- [ ] Biblical references and AI-generated content have an appropriate human-review path
+- [ ] Operator routes remain Cloudflare Access-protected
+- [ ] OBS overlay access remains read-only, token-protected, explicitly rotatable, and long-lived
+- [ ] Mobile-viewer access remains read-only, separately tokenized, service-scoped, and replaceable
+- [ ] Biblical-context and AI-output risks, testing, and required human oversight are documented
 - [ ] Failure and recovery behavior were considered
+
+## Documentation
+
+- [ ] Maintained documentation matches the implemented behavior
+- [ ] Historical evidence remains clearly separated from current validation claims
 
 ## Follow-up
 

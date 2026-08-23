@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { CaptionRoom } from "@/live/caption-room";
+import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
 import { MAX_TRANSCRIPTION_REQUESTS } from "@/live/contracts";
 
 const CONTROLLER_A = "a".repeat(64);
 const CONTROLLER_B = "b".repeat(64);
 const TOKEN_A = "1".repeat(64);
 const TOKEN_B = "2".repeat(64);
+const VIEWER_A = "3".repeat(64);
+const VIEWER_B = "4".repeat(64);
 
 class FakeStorage {
   readonly values = new Map<string, unknown>();
@@ -55,6 +57,7 @@ class FakeStorage {
 class FakeSocket {
   readonly messages: string[] = [];
   readonly closes: Array<{ code?: number; reason?: string }> = [];
+  private attachment: unknown;
 
   send(message: string) {
     this.messages.push(message);
@@ -63,17 +66,36 @@ class FakeSocket {
   close(code?: number, reason?: string) {
     this.closes.push({ code, reason });
   }
+
+  serializeAttachment(attachment: unknown) {
+    this.attachment = attachment;
+  }
+
+  deserializeAttachment() {
+    return this.attachment;
+  }
 }
 
-function roomFixture() {
+function roomFixture(viewerConnectionCount = 1) {
   const storage = new FakeStorage();
   const socket = new FakeSocket();
+  socket.serializeAttachment({ role: "overlay" });
+  const viewerSocket = new FakeSocket();
+  viewerSocket.serializeAttachment({ role: "viewer" });
+  const viewerSockets = [
+    viewerSocket,
+    ...Array.from(
+      { length: Math.max(0, viewerConnectionCount - 1) },
+      () => new FakeSocket(),
+    ),
+  ];
   const state = {
     storage,
-    getWebSockets: () => [socket],
+    getWebSockets: (tag?: string) =>
+      tag === "viewer" ? viewerSockets : [socket],
     acceptWebSocket: () => undefined,
   } as unknown as DurableObjectState;
-  return { room: new CaptionRoom(state), socket, storage };
+  return { room: new CaptionRoom(state), socket, storage, viewerSocket };
 }
 
 function request(
@@ -102,10 +124,12 @@ async function startService(
   room: CaptionRoom,
   controllerHash = CONTROLLER_A,
   takeover = false,
+  viewerTokenHash = controllerHash === CONTROLLER_A ? VIEWER_A : VIEWER_B,
 ) {
   return room.fetch(
     request("/internal/service", {
       controllerHash,
+      viewerTokenHash,
       takeover,
       style: { fontSize: 60 },
     }),
@@ -146,7 +170,7 @@ describe("reusable caption channel", () => {
   });
 
   it("blocks a second start and atomically replaces the controller on takeover", async () => {
-    const { room, socket } = roomFixture();
+    const { room, socket, storage, viewerSocket } = roomFixture();
     await createChannel(room);
     expect((await startService(room)).status).toBe(200);
 
@@ -155,6 +179,14 @@ describe("reusable caption channel", () => {
     await expect(conflict.json()).resolves.toMatchObject({ code: "channel_in_use" });
 
     expect((await startService(room, CONTROLLER_B, true)).status).toBe(200);
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      controllerHash: CONTROLLER_B,
+      viewerTokenHash: VIEWER_B,
+    });
+    expect(viewerSocket.closes.at(-1)).toEqual({
+      code: 4003,
+      reason: "Mobile viewer link replaced.",
+    });
     const stale = await room.fetch(request("/internal/caption", caption()));
     expect(stale.status).toBe(409);
     await expect(stale.json()).resolves.toMatchObject({
@@ -171,6 +203,199 @@ describe("reusable caption channel", () => {
         expect.objectContaining({ type: "caption" }),
       ]),
     );
+  });
+
+  it("requires a distinct per-service viewer credential", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+
+    const missing = await room.fetch(
+      request("/internal/service", {
+        controllerHash: CONTROLLER_A,
+        takeover: false,
+        style: {},
+      }),
+    );
+    expect(missing.status).toBe(400);
+
+    expect((await startService(room)).status).toBe(200);
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      tokenHash: TOKEN_A,
+      controllerHash: CONTROLLER_A,
+      viewerTokenHash: VIEWER_A,
+    });
+    const channel = await room.fetch(request("/internal/channel", undefined, "GET"));
+    await expect(channel.json()).resolves.not.toHaveProperty("viewerTokenHash");
+  });
+
+  it("broadcasts captions but never style events or caption style to viewers", async () => {
+    const { room, socket, viewerSocket } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    socket.messages.length = 0;
+    viewerSocket.messages.length = 0;
+
+    await room.fetch(request("/internal/caption", caption()));
+    expect(viewerSocket.messages.map((message) => JSON.parse(message))).toEqual([
+      {
+        type: "caption",
+        caption: expect.objectContaining({
+          sequence: 1,
+          publicText: "Grace and peace",
+          targetLanguage: "en",
+        }),
+      },
+    ]);
+    expect(JSON.parse(viewerSocket.messages[0])).not.toHaveProperty(
+      "caption.style",
+    );
+
+    viewerSocket.messages.length = 0;
+    await room.fetch(
+      request("/internal/style", {
+        controllerHash: CONTROLLER_A,
+        style: { fontSize: 64 },
+      }),
+    );
+    expect(viewerSocket.messages).toEqual([]);
+    expect(socket.messages.map((message) => JSON.parse(message))).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "caption" }),
+        expect.objectContaining({ type: "style" }),
+      ]),
+    );
+  });
+
+  it("keeps idle OBS tests off the per-service viewer stream", async () => {
+    const { room, viewerSocket } = roomFixture();
+    await createChannel(room);
+    viewerSocket.messages.length = 0;
+
+    await room.fetch(
+      request("/internal/control", {
+        action: "show-test",
+        targetLanguage: "id",
+        style: {},
+      }),
+    );
+    expect(viewerSocket.messages).toEqual([]);
+
+    await startService(room);
+    await room.fetch(
+      request("/internal/control", {
+        action: "pause",
+        controllerHash: CONTROLLER_A,
+      }),
+    );
+    viewerSocket.messages.length = 0;
+    await room.fetch(
+      request("/internal/control", {
+        action: "show-test",
+        controllerHash: CONTROLLER_A,
+        targetLanguage: "id",
+        style: {},
+      }),
+    );
+    expect(viewerSocket.messages.map((message) => JSON.parse(message))).toEqual([
+      expect.objectContaining({ type: "caption" }),
+    ]);
+  });
+
+  it("replaces the viewer link only for the current controller", async () => {
+    const { room, storage, socket, viewerSocket } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    socket.closes.length = 0;
+    viewerSocket.closes.length = 0;
+
+    const stale = await room.fetch(
+      request("/internal/viewer/rotate", {
+        controllerHash: CONTROLLER_B,
+        viewerTokenHash: VIEWER_B,
+      }),
+    );
+    expect(stale.status).toBe(409);
+    expect(viewerSocket.closes).toEqual([]);
+
+    const replaced = await room.fetch(
+      request("/internal/viewer/rotate", {
+        controllerHash: CONTROLLER_A,
+        viewerTokenHash: VIEWER_B,
+      }),
+    );
+    expect(replaced.status).toBe(200);
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      tokenHash: TOKEN_A,
+      viewerTokenHash: VIEWER_B,
+    });
+    expect(socket.closes).toEqual([]);
+    expect(viewerSocket.closes).toEqual([
+      { code: 4003, reason: "Mobile viewer link replaced." },
+    ]);
+  });
+
+  it("does not accept OBS and mobile-viewer credentials interchangeably", async () => {
+    const viewerToken = "v".repeat(43);
+    const overlayToken = "o".repeat(43);
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    const configuration = await storage.get<Record<string, unknown>>("configuration");
+    await storage.put("configuration", {
+      ...configuration,
+      tokenHash: await captionTokenHash(overlayToken),
+    });
+    await startService(
+      room,
+      CONTROLLER_A,
+      false,
+      await captionTokenHash(viewerToken),
+    );
+
+    const viewerWithOverlayToken = await room.fetch(
+      new Request("https://caption-room/internal/viewer/connect", {
+        headers: {
+          upgrade: "websocket",
+          "sec-websocket-protocol": `church-caption-viewer-v1, ${overlayToken}`,
+        },
+      }),
+    );
+    expect(viewerWithOverlayToken.status).toBe(401);
+
+    const overlayWithViewerToken = await room.fetch(
+      new Request("https://caption-room/internal/connect", {
+        headers: {
+          upgrade: "websocket",
+          "sec-websocket-protocol": `church-caption-v1, ${viewerToken}`,
+        },
+      }),
+    );
+    expect(overlayWithViewerToken.status).toBe(401);
+  });
+
+  it("fails closed when the mobile viewer reaches its connection ceiling", async () => {
+    const viewerToken = "v".repeat(43);
+    const { room } = roomFixture(250);
+    await createChannel(room);
+    await startService(
+      room,
+      CONTROLLER_A,
+      false,
+      await captionTokenHash(viewerToken),
+    );
+
+    const response = await room.fetch(
+      new Request("https://caption-room/internal/viewer/connect", {
+        headers: {
+          upgrade: "websocket",
+          "sec-websocket-protocol": `church-caption-viewer-v1, ${viewerToken}`,
+        },
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "The mobile viewer is at capacity.",
+    });
   });
 
   it("assigns monotonic sequences across tests, clears, services, and restarts", async () => {
@@ -284,7 +509,7 @@ describe("reusable caption channel", () => {
     }
   });
 
-  it("validates the controller before provider work and rejects it after takeover", async () => {
+  it("reserves one transcription attempt and rejects the stale controller after takeover", async () => {
     const { room } = roomFixture();
     await createChannel(room);
     await startService(room);
@@ -357,7 +582,7 @@ describe("reusable caption channel", () => {
   });
 
   it("ends a service without deleting or changing the reusable OBS credential", async () => {
-    const { room, storage, socket } = roomFixture();
+    const { room, storage, socket, viewerSocket } = roomFixture();
     await createChannel(room);
     await startService(room);
     await room.fetch(request("/internal/caption", caption()));
@@ -376,10 +601,17 @@ describe("reusable caption channel", () => {
       status: "idle",
       lastSequence: 1,
     });
+    await expect(storage.get("configuration")).resolves.not.toHaveProperty(
+      "viewerTokenHash",
+    );
     expect(await storage.get("latest")).toBeUndefined();
     expect(JSON.parse(socket.messages.at(-1)!)).toMatchObject({
       type: "state",
       status: "idle",
+    });
+    expect(viewerSocket.closes.at(-1)).toEqual({
+      code: 4002,
+      reason: "Live service ended.",
     });
   });
 
@@ -427,7 +659,7 @@ describe("reusable caption channel", () => {
   });
 
   it("expires only the active service and leaves the channel ready", async () => {
-    const { room, storage, socket } = roomFixture();
+    const { room, storage, socket, viewerSocket } = roomFixture();
     await createChannel(room);
     await startService(room);
     await room.fetch(request("/internal/caption", caption()));
@@ -437,10 +669,65 @@ describe("reusable caption channel", () => {
       tokenHash: TOKEN_A,
       status: "idle",
     });
+    await expect(storage.get("configuration")).resolves.not.toHaveProperty(
+      "viewerTokenHash",
+    );
     expect(await storage.get("latest")).toBeUndefined();
     expect(JSON.parse(socket.messages.at(-1)!)).toMatchObject({
       type: "state",
       status: "idle",
+    });
+    expect(viewerSocket.closes.at(-1)).toEqual({
+      code: 4002,
+      reason: "Live service ended.",
+    });
+  });
+
+  it("clears stale public output when a style update observes service expiry", async () => {
+    const { room, storage, socket } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(request("/internal/caption", caption()));
+    const configuration = await storage.get<Record<string, unknown>>("configuration");
+    await storage.put("configuration", {
+      ...configuration,
+      expiresAt: Date.now() - 1,
+    });
+
+    const response = await room.fetch(
+      request("/internal/style", {
+        controllerHash: CONTROLLER_A,
+        style: { fontSize: 64 },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      status: "idle",
+      style: { fontSize: 64 },
+    });
+    expect(await storage.get("latest")).toBeUndefined();
+    expect(socket.messages.map((message) => JSON.parse(message))).toEqual(
+      expect.arrayContaining([
+        { type: "clear" },
+        { type: "state", status: "idle", expiresAt: null },
+      ]),
+    );
+  });
+
+  it("rejects messages from both read-only socket roles", () => {
+    const { room, socket, viewerSocket } = roomFixture();
+
+    room.webSocketMessage(socket as unknown as WebSocket);
+    room.webSocketMessage(viewerSocket as unknown as WebSocket);
+
+    expect(socket.closes.at(-1)).toEqual({
+      code: 1008,
+      reason: "The OBS overlay is read-only.",
+    });
+    expect(viewerSocket.closes.at(-1)).toEqual({
+      code: 1008,
+      reason: "The mobile viewer is read-only.",
     });
   });
 

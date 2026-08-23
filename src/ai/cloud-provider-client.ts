@@ -7,7 +7,7 @@ import type {
   TranslationResult,
 } from "@/ai/contracts";
 
-export interface CloudProviderHealth {
+interface CloudProviderHealth {
   status: "ready" | "not-configured" | "unavailable";
   hosting: string;
   access: { ready: boolean; provider: string };

@@ -43,3 +43,13 @@ test-results/
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Xcode and TestFlight artifacts
+DerivedData/
+*.xcarchive
+*.ipa
+*.dSYM.zip
+xcuserdata/
+*.xcuserstate
+ios/build/
+ios/Config/Signing.xcconfig

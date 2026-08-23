@@ -1,0 +1,5 @@
+// Copy to Signing.xcconfig for local use. Signing.xcconfig is gitignored and
+// is loaded explicitly by `npm run ios:archive`.
+// Never commit certificates, private keys, API keys, or Apple credentials.
+
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
