@@ -37,7 +37,7 @@ the sole active client. See [`ios/README.md`](../ios/README.md).
    and a 6-, 9-, or 12-second speech buffer. The UI explains that more context adds the
    same amount of caption delay.
 4. The operator optionally enters bounded keyword/preferred-translation pairs and public
-   mask words.
+   mask words, and may edit the reviewed operator translation prompt.
 5. The operator configures font, size, colour, line highlight, transparency, position,
    and horizontal/vertical safe margins beside the preview. Each change updates the
    dashboard preview immediately; the shared channel style and browser fallback can then
@@ -51,11 +51,11 @@ the sole active client. See [`ios/README.md`](../ios/README.md).
 
 ### During the service
 
-1. The browser records the selected 6-, 9-, or 12-second window at a time. The setting is
-   locked for the service.
+1. The browser records the active 6-, 9-, or 12-second window at a time.
 2. The protected API transcribes the chunk with bounded church/biblical hints.
-3. If source and target differ, the protected API translates with a fixed idiomatic,
-   non-invention system prompt, up to four recent source captions, and approved mappings.
+3. If source and target differ, the protected API translates with an immutable server
+   safety/output envelope, the active bounded operator prompt, up to four recent source
+   captions, and approved mappings.
 4. Deterministic processing applies preferred translations and masks configured whole
    terms in the public form.
 5. The operator sees source and public previews, status, channel-wide overlay sequence,
@@ -70,6 +70,11 @@ the sole active client. See [`ios/README.md`](../ios/README.md).
 10. The operator can copy a separate mobile link. A viewer receives only current
     moderated target text and service status. Confirmed replacement revokes that link
     without changing OBS.
+11. Source/target language, terminology, public filters, buffer duration, and operator
+    prompt remain editable as drafts. After review, the operator confirms **Refresh
+    translation session** to apply them together. Refresh clears unfinished audio, recent
+    translation context, and current output but does not end or extend the service, change
+    live/paused state, replace controller ownership, or rotate the mobile/OBS links.
 
 ### After the service
 
@@ -132,8 +137,9 @@ work belongs to the current phase.
 - Audio is mono with browser echo cancellation and noise suppression requested.
 - The operator chooses a 6-, 9-, or 12-second window. The 6-second default preserves the
   existing fast path; longer choices can reduce fragmentation but add equal latency.
-- The start-time snapshot and maximum two-chunk queue bound memory and backlog. Pause
-  discards an unfinished active window, so operators should pause at a natural break.
+- The active-setting snapshot for each chunk and maximum two-chunk queue bound memory and
+  backlog. Pause or confirmed translation refresh discards an unfinished active window,
+  so operators should use either control at a natural break.
 - Source selection can be explicit or automatic; explicit selection is preferred live.
 - The hint prompt preserves biblical names, Bible books, verse numbers, church names,
   locations, and operator-provided vocabulary.
@@ -145,13 +151,20 @@ implemented.
 
 ### Translation and biblical context
 
-- One target language is active per service.
+- One target language is active per translation revision within a service.
 - Up to four recent source captions provide bounded context.
 - Approved mappings are requested from the model and enforced deterministically after
   translation.
 - Chinese output receives an explicit Simplified or Traditional instruction.
-- A fixed system prompt prioritizes natural target-language grammar and idioms while
-  preserving evident tone, formality, slang, and intentional rhetorical repetition.
+- A reviewed operator prompt prioritizes natural target-language grammar and idioms while
+  preserving evident tone, formality, slang, and intentional rhetorical repetition. It is
+  editable up to 4,000 characters; blank restores the reviewed default, while non-text,
+  overlength, or unsupported-control-character values fail validation without truncation.
+- A separate immutable server envelope fixes language direction, Chinese script,
+  untrusted-data handling, non-invention, and exactly-one-caption output. The operator
+  cannot edit that envelope, and the model is instructed to prioritize it over conflicting
+  custom text; this prompt ordering is risk reduction, not guaranteed enforcement. The
+  request is one bounded model call rather than an agent.
 - The model is instructed not to invent or complete Bible verses, songs, quotations,
   doctrine, facts, missing words, or unsaid meaning.
 - Current caption, approved terms, and recent context are structured as untrusted data.
@@ -160,6 +173,15 @@ implemented.
 The app uses prompting and glossary mappings, not custom model training or a licensed
 Bible retrieval corpus. Output can still be inaccurate and needs validation by the
 church for important names, references, and theological terms.
+
+Translation drafts stay in React/page memory. A custom prompt enters unencrypted browser
+`localStorage` only when the operator explicitly saves it; caption style is the only other
+local preference. During a service, the full active language, terminology, filter, buffer,
+and prompt snapshot is held in that tab's unencrypted `sessionStorage` solely for same-tab
+recovery and removed on End, takeover, or idle cleanup. The active prompt is sent through
+the protected inference path to Groq, but no translation setting is stored in the Durable
+Object or included in mobile-viewer or OBS messages. Operators must not enter credentials
+or confidential pastoral information.
 
 ### Keywords and public filtering
 
@@ -171,10 +193,16 @@ Public filtering currently masks configured whole terms after translation. It do
 alter the protected source preview. Replace, hide, scope, priority, phonetic variants,
 and persistent workspace rules are future features.
 
+Terminology and filter edits made during an active service are drafts until the same
+explicit translation refresh used for language, buffer, and prompt changes.
+
 ### Caption display, OBS, and mobile viewing
 
 - The operator console uses a minimal light monochrome theme; status text and control
   labels do not depend on colour alone.
+- Locally adapted React Bits navigation, spotlight, and pending-state glow components add
+  restrained hierarchy and feedback without a runtime package dependency; reduced-motion,
+  keyboard, coarse-pointer, and touch behavior remain explicit.
 - Setup stage labels match the numbered panels: Audio and languages, Terminology,
   Appearance, and Outputs.
 - Form labels remain readable, action targets are at least 44px high, and mobile inputs
@@ -206,6 +234,12 @@ caption writes while keeping the original URL and expiry. Resume clears any synt
 test before capture restarts. Clear does not pause capture, so the next valid live
 caption may replace the blank display.
 
+Translation refresh is distinct from Pause, reload, and End. It keeps the original service
+identity, timer, controller, mobile viewer, OBS link, usage count, and live/paused state;
+clears current output and translation context; adopts all reviewed drafts atomically from
+the operator's perspective; and rejects captions carrying an earlier server translation
+revision.
+
 The prototype does not yet offer line-count, outline, transition, multiple channels, or
 named display profiles.
 
@@ -216,7 +250,7 @@ named display profiles.
   transcription attempts in a 90-minute service, derived from the fastest option.
   Non-silent captions whose source differs from the target can make one additional
   translation call, so there are no more than 900 translation calls.
-- A service supports one translation target and no automatic paid fallback.
+- A service supports one translation target at a time and no automatic paid fallback.
 - A quota response stops the affected service without revoking its OBS URL.
 - The UI shows active-service elapsed time and reserved transcription-attempt progress.
 - Translation completions are capped at 256 tokens. GPT-OSS 20B additionally uses low
@@ -233,8 +267,14 @@ ceiling of 900 reserved transcription attempts or the 90-minute limit.
 
 Code-level acceptance:
 
-- An operator can select an input, source, target, and 6-, 9-, or 12-second buffer; the
-  chosen buffer remains locked through Pause/Resume and same-tab reload recovery.
+- An operator can select an input, source, target, and 6-, 9-, or 12-second buffer. During
+  live or paused operation, language, terminology, filter, buffer, and custom-prompt edits
+  stay draft until an explicit confirmed translation refresh.
+- A refresh applies all drafts, clears unfinished audio/context/current output, rejects a
+  stale-revision publish, and preserves service identity/timer, usage, controller, viewer,
+  OBS URL, and live/paused state.
+- The operator can restore the reviewed prompt default; invalid or overlength prompts are
+  rejected rather than silently changed, and the immutable server envelope remains active.
 - Supported audio is transcribed and translated through protected cloud APIs.
 - A preferred term can affect transcription guidance and translated output.
 - A configured mask changes public output without changing the protected source preview.

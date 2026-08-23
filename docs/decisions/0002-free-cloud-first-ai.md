@@ -90,7 +90,7 @@ allowance or account-wide quota: silence, same-language captions, other Groq app
 repeated services, and actual prompt/output token usage all affect the provider totals. A
 provider `429` remains fail-closed and ends the service without any paid fallback.
 
-## Context-buffer, prompt, and mobile-viewer amendment (2026-08-23)
+## Context-buffer, prompt, and mobile-viewer amendment (2026-08-23, partly superseded)
 
 The six-second cadence becomes an operator-selectable 6-, 9-, or 12-second speech buffer.
 The start-time value is locked for the service; longer windows can reduce chopped phrases
@@ -113,6 +113,42 @@ viewer token cannot authorize OBS or operator routes. Replacement, End, expiry, 
 takeover revoke it, while the reusable OBS credential remains unchanged. Deployment must
 add exact Access bypasses for the two viewer paths without broadening protection for
 `/api/live/channel*` or any inference route.
+
+## Live translation-settings amendment (2026-08-23)
+
+The start-time lock and fixed operator guidance above are superseded. While a service is
+live or paused, the operator may draft changes to source/target language, terminology,
+public filters, the 6-/9-/12-second buffer, and the translation prompt. Drafts do not
+silently alter in-flight work. One explicit **Refresh translation session** mutation
+advances a server-owned translation revision, clears current public output, and causes
+provider results from older revisions to fail closed.
+
+Refresh is a pipeline reset, not a new service. It discards unfinished and queued audio
+plus browser-held recent context and previews, while preserving live/paused state, the
+original start/expiry and usage counters, controller ownership, mobile-viewer credential,
+and reusable OBS credential. Existing viewer and OBS links therefore remain valid and
+receive a clear rather than a revocation.
+
+Translation remains one bounded model call with no tools or agent wrapper. The system
+message now combines an immutable server safety/output envelope with clearly delimited,
+bounded operator guidance. The envelope fixes source/target direction, Chinese script,
+non-invention and untrusted-data handling, and one-caption-only output. The operator layer
+defaults to the reviewed idiomatic rules and may customize style, tone, nuance, repetition,
+and quotation treatment. The operator cannot edit the envelope, and the model is
+instructed to prioritize it over conflicting custom text; that ordering reduces risk but
+does not guarantee model compliance. Blank input restores the default; invalid,
+unsupported-control-character, or over-4,000-character values are rejected without
+truncation.
+
+Ordinary translation drafts remain in React/page memory. Unencrypted `localStorage` is
+used only for caption-style preference and a custom operator prompt after explicit save.
+During a service, the full applied translation snapshot is held in unencrypted tab
+`sessionStorage` solely for same-tab recovery and removed on End, takeover, or idle cleanup;
+no server-side profile is introduced. The active prompt is sent through the protected
+inference route to Groq, but no translation setting enters Durable Object state, the
+read-only viewer stream, or OBS. The UI uses locally maintained, dependency-free React
+Bits adaptations with attribution in `THIRD_PARTY_NOTICES.md`, avoiding a new runtime
+package while retaining keyboard, reduced-motion, coarse-pointer, and touch safeguards.
 
 ## Free-tier envelope at decision time
 

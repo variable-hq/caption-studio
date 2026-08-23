@@ -5,6 +5,10 @@ import {
   translateWithGroq,
 } from "@/ai/server/groq";
 import type { TranslationRequest } from "@/ai/contracts";
+import {
+  InvalidTranslationSystemPromptError,
+  normalizeTranslationSystemPrompt,
+} from "@/ai/translation-prompt";
 import { isLanguageLocale } from "@/domain/languages";
 import {
   CloudAccessError,
@@ -42,6 +46,9 @@ function errorResponse(error: unknown) {
       { error: "The translation request is invalid." },
       { status: 400 },
     );
+  }
+  if (error instanceof InvalidTranslationSystemPromptError) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
   return NextResponse.json({ error: "Cloud translation failed." }, { status: 500 });
 }
@@ -82,6 +89,9 @@ export async function POST(request: Request) {
               .map(([source, target]) => [source.slice(0, 100), target.slice(0, 100)]),
           )
         : {};
+    const translationSystemPrompt = normalizeTranslationSystemPrompt(
+      body.translationSystemPrompt,
+    );
 
     const result = await translateWithGroq(
       {
@@ -95,6 +105,7 @@ export async function POST(request: Request) {
               .map((value) => value.slice(0, 1_000))
           : [],
         preferredTerms,
+        translationSystemPrompt,
       },
       request.signal,
     );

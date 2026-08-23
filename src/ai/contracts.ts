@@ -18,6 +18,7 @@ export interface TranslationRequest {
   targetLanguage: LanguageLocale;
   recentContext: string[];
   preferredTerms: Readonly<Record<string, string>>;
+  translationSystemPrompt?: string;
 }
 
 export interface TranslationResult {

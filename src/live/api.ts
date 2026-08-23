@@ -9,7 +9,9 @@ import { captionTokenHash } from "@/live/caption-room";
 import {
   MAIN_CHANNEL_ID,
   isLiveSessionControlAction,
+  isTranslationRefreshRequestId,
   normalizeCaptionStyle,
+  normalizeTranslationRevision,
   type CaptionStyle,
   type ChannelStatus,
   type LiveSessionControlRequest,
@@ -48,6 +50,7 @@ interface InternalChannelDetails {
   startedAt?: number | null;
   expiresAt?: number | null;
   transcriptionRequests?: number;
+  translationRevision?: number;
 }
 
 const JSON_HEADERS = {
@@ -128,6 +131,7 @@ async function publicChannelDetails(
       startedAt: null,
       expiresAt: null,
       transcriptionRequests: 0,
+      translationRevision: 0,
     };
   }
   if (!internal.encryptedToken) {
@@ -154,6 +158,9 @@ async function publicChannelDetails(
     transcriptionRequests: Number.isSafeInteger(internal.transcriptionRequests)
       ? Math.max(0, internal.transcriptionRequests ?? 0)
       : 0,
+    translationRevision: normalizeTranslationRevision(
+      internal.translationRevision,
+    ),
   };
 }
 
@@ -257,6 +264,7 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
     status: "live";
     startedAt: string;
     expiresAt: string;
+    translationRevision: number;
   }>(response);
   return json({
     channelId: MAIN_CHANNEL_ID,
@@ -264,6 +272,9 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
     viewerUrl: viewerUrl(request, viewerToken),
     startedAt: details.startedAt,
     expiresAt: details.expiresAt,
+    translationRevision: normalizeTranslationRevision(
+      details.translationRevision,
+    ),
   });
 }
 
@@ -359,6 +370,16 @@ async function controlChannel(request: Request, env: LiveWorkerEnvironment) {
     }
     control.targetLanguage = body.targetLanguage;
     control.style = optionalStyle(body.style);
+  } else if (body.action === "refresh-translation") {
+    if (
+      !Number.isSafeInteger(body.expectedTranslationRevision) ||
+      Number(body.expectedTranslationRevision) < 0 ||
+      !isTranslationRefreshRequestId(body.refreshRequestId)
+    ) {
+      throw new InvalidRequestBodyError();
+    }
+    control.expectedTranslationRevision = body.expectedTranslationRevision;
+    control.refreshRequestId = body.refreshRequestId;
   }
   return channelRoom(env).fetch(
     new Request("https://caption-room/internal/control", {

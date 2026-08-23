@@ -12,6 +12,7 @@ interface ErrorPayload {
   error?: string;
   code?: LiveApiErrorCode;
   expiresAt?: string | null;
+  translationRevision?: number;
 }
 
 export class LiveApiError extends Error {
@@ -20,6 +21,7 @@ export class LiveApiError extends Error {
     readonly status: number,
     readonly code?: LiveApiErrorCode,
     readonly expiresAt?: string | null,
+    readonly translationRevision?: number,
   ) {
     super(message);
   }
@@ -33,6 +35,7 @@ async function requireSuccess(response: Response, fallback: string) {
     response.status,
     payload?.code,
     payload?.expiresAt,
+    payload?.translationRevision,
   );
 }
 
@@ -130,7 +133,19 @@ export class LiveSessionClient {
       status: "live";
       expiresAt: string;
       transcriptionRequests: number;
+      translationRevision: number;
     };
+  }
+
+  async refreshTranslation(
+    controllerToken: string,
+    expectedTranslationRevision: number,
+    refreshRequestId: string,
+  ): Promise<LiveSessionControlResponse> {
+    return this.control("refresh-translation", controllerToken, {
+      expectedTranslationRevision,
+      refreshRequestId,
+    });
   }
 
   async updateStyle(style: CaptionStyle, controllerToken?: string) {
@@ -152,6 +167,8 @@ export class LiveSessionClient {
     options?: {
       targetLanguage?: PublicCaptionRequest["targetLanguage"];
       style?: CaptionStyle;
+      expectedTranslationRevision?: number;
+      refreshRequestId?: string;
     },
   ) {
     const response = await fetch("/api/live/channel/control", {

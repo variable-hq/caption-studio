@@ -1,0 +1,53 @@
+/**
+ * Adapted from React Bits BorderGlow.
+ * Copyright (c) 2026 David Haz.
+ * MIT + Commons Clause License Condition v1.0; see THIRD_PARTY_NOTICES.md.
+ */
+
+.rb-border-glow {
+  --rb-border-glow-color: rgba(17, 17, 17, 0.78);
+  --rb-border-glow-color-secondary: rgba(95, 95, 91, 0.34);
+
+  position: relative;
+  isolation: isolate;
+  border-radius: inherit;
+}
+
+.rb-border-glow::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    112deg,
+    transparent 6%,
+    var(--rb-border-glow-color-secondary) 28%,
+    var(--rb-border-glow-color) 50%,
+    var(--rb-border-glow-color-secondary) 72%,
+    transparent 94%
+  );
+  opacity: 0;
+  transition: opacity 180ms ease;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.rb-border-glow[data-pending="true"]::before {
+  opacity: 1;
+}
+
+.rb-border-glow[data-pending="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rb-border-glow-color) 8%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-border-glow::before {
+    transition: none;
+  }
+}

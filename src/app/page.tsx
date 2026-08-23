@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { CloudProviderClient } from "@/ai/cloud-provider-client";
+import {
+  DEFAULT_TRANSLATION_SYSTEM_PROMPT,
+  normalizeTranslationSystemPrompt,
+} from "@/ai/translation-prompt";
+import { PromptEditor } from "@/components/operator/PromptEditor";
+import { TranslationSettingsEditor } from "@/components/operator/TranslationSettingsEditor";
+import {
+  BorderGlow,
+  LineSidebar,
+  SpotlightCard,
+  type LineSidebarItem,
+} from "@/components/reactbits";
 import {
   DEFAULT_SOURCE_LANGUAGE,
   DEFAULT_TARGET_LANGUAGE,
@@ -15,14 +27,18 @@ import {
   DEFAULT_SPEECH_BUFFER_MS,
   MAX_LIVE_SESSION_MS,
   MAX_TRANSCRIPTION_REQUESTS,
-  SPEECH_BUFFER_OPTIONS_MS,
   normalizeCaptionStyle,
-  normalizeSpeechBufferMs,
   type CaptionStyle,
   type ChannelStatus,
   type SpeechBufferMs,
 } from "@/live/contracts";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
+import {
+  normalizeTranslationSessionSettings,
+  translationSettingsChanges,
+  translationSettingsFingerprint,
+  type TranslationSessionSettings,
+} from "@/live/translation-settings";
 import { useLiveCaptionSession } from "@/live/use-live-caption-session";
 
 type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
@@ -33,10 +49,73 @@ interface CloudModels {
 }
 
 const CAPTION_PREFERENCE_KEY = "church-live-caption:caption-style:v1";
-const SPEECH_BUFFER_LABELS: Record<SpeechBufferMs, string> = {
-  6000: "6 sec · Fast",
-  9000: "9 sec · Balanced",
-  12000: "12 sec · More context",
+const TRANSLATION_PROMPT_PREFERENCE_KEY =
+  "church-live-caption:translation-system-prompt:v1";
+
+type WorkspaceSectionId =
+  | "audio"
+  | "translation"
+  | "prompt"
+  | "appearance"
+  | "outputs"
+  | "viewer";
+
+const SETUP_WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
+  { id: "audio", label: "Audio input", description: "Choose and test microphone" },
+  {
+    id: "translation",
+    label: "Translation",
+    description: "Languages, timing and terms",
+  },
+  { id: "prompt", label: "AI instructions", description: "Review the system prompt" },
+  { id: "appearance", label: "Appearance", description: "Style the OBS captions" },
+  { id: "outputs", label: "Live outputs", description: "OBS and mobile delivery" },
+];
+
+const LIVE_WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
+  { id: "translation", label: "Translation", description: "Change live configuration" },
+  { id: "prompt", label: "AI instructions", description: "Tune translation behaviour" },
+  { id: "viewer", label: "Mobile viewer", description: "Share or replace the link" },
+  { id: "appearance", label: "Appearance", description: "Update OBS styling" },
+  { id: "audio", label: "Audio input", description: "Pause to change device" },
+];
+
+const WORKSPACE_SECTION_COPY: Record<
+  WorkspaceSectionId,
+  { eyebrow: string; title: string; description: string }
+> = {
+  audio: {
+    eyebrow: "Input",
+    title: "Audio input",
+    description: "Choose the browser microphone or audio interface and confirm its level.",
+  },
+  translation: {
+    eyebrow: "Translation session",
+    title: "Languages, timing and terminology",
+    description:
+      "Edit the working translation configuration before or during a live service.",
+  },
+  prompt: {
+    eyebrow: "AI instructions",
+    title: "Translation system prompt",
+    description:
+      "Review the safe default or tailor how the translator handles context, tone and ambiguity.",
+  },
+  appearance: {
+    eyebrow: "OBS design",
+    title: "Caption appearance",
+    description: "Tune readable captions against the 1920 × 1080 OBS safe area.",
+  },
+  outputs: {
+    eyebrow: "Delivery",
+    title: "Live outputs",
+    description: "Prepare the reusable OBS source and understand mobile viewer delivery.",
+  },
+  viewer: {
+    eyebrow: "Audience access",
+    title: "Mobile translation viewer",
+    description: "Share the current moderated translation without exposing the OBS credential.",
+  },
 };
 
 const CHANNEL_STATUS_LABELS: Record<ChannelStatus | "loading", string> = {
@@ -71,7 +150,7 @@ function CaptionPreview({ caption, style, badge, live, sourceText }: PreviewProp
   const headingId = useId();
 
   return (
-    <section className="previewCard" aria-labelledby={headingId}>
+    <SpotlightCard className="previewCard" aria-labelledby={headingId}>
       <div className="sectionHeading">
         <div>
           <p className="eyebrow">OBS canvas · 1920 × 1080</p>
@@ -125,7 +204,7 @@ function CaptionPreview({ caption, style, badge, live, sourceText }: PreviewProp
           <p>{sourceText}</p>
         </div>
       ) : null}
-    </section>
+    </SpotlightCard>
   );
 }
 
@@ -327,6 +406,17 @@ export default function OperatorDashboard() {
   const [speechBufferMs, setSpeechBufferMs] = useState<SpeechBufferMs>(
     DEFAULT_SPEECH_BUFFER_MS,
   );
+  const [translationSystemPrompt, setTranslationSystemPrompt] = useState(
+    DEFAULT_TRANSLATION_SYSTEM_PROMPT,
+  );
+  const [savedPromptFingerprint, setSavedPromptFingerprint] = useState("");
+  const [promptStorageMessage, setPromptStorageMessage] = useState("");
+  const [activeWorkspaceSection, setActiveWorkspaceSection] =
+    useState<WorkspaceSectionId>("translation");
+  const [confirmTranslationRefresh, setConfirmTranslationRefresh] =
+    useState(false);
+  const refreshConfirmationHeadingRef = useRef<HTMLHeadingElement>(null);
+  const refreshReviewButtonRef = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
   const [viewerCopied, setViewerCopied] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -360,16 +450,31 @@ export default function OperatorDashboard() {
       verticalMarginPercent,
     ],
   );
+  const draftTranslationSettings = useMemo(
+    () =>
+      normalizeTranslationSessionSettings({
+        sourceLanguage,
+        targetLanguage,
+        keywordText,
+        filterText,
+        speechBufferMs,
+        translationSystemPrompt,
+      }),
+    [
+      filterText,
+      keywordText,
+      sourceLanguage,
+      speechBufferMs,
+      targetLanguage,
+      translationSystemPrompt,
+    ],
+  );
   const liveSettings = useMemo(
     () => ({
-      sourceLanguage,
-      targetLanguage,
-      keywordText,
-      filterText,
+      ...draftTranslationSettings,
       style,
-      speechBufferMs,
     }),
-    [filterText, keywordText, sourceLanguage, speechBufferMs, style, targetLanguage],
+    [draftTranslationSettings, style],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {
@@ -384,6 +489,8 @@ export default function OperatorDashboard() {
     channelAction,
     viewerAction,
     activeSpeechBufferMs,
+    activeTranslationSettings,
+    translationRefreshRequired,
     endRetryRequired,
     takeoverRequired,
     rotationRecoveryRequired,
@@ -398,9 +505,17 @@ export default function OperatorDashboard() {
     resumeSession,
     clearCaption,
     showTestCaption,
+    refreshTranslationSession,
     stopSession,
     reloadChannel,
   } = useLiveCaptionSession(liveSettings);
+  const activeTranslationSettingsFingerprint = useMemo(
+    () =>
+      activeTranslationSettings
+        ? translationSettingsFingerprint(activeTranslationSettings)
+        : "",
+    [activeTranslationSettings],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -426,6 +541,32 @@ export default function OperatorDashboard() {
   }, []);
 
   useEffect(() => {
+    if (!activeTranslationSettingsFingerprint) return;
+    const active = normalizeTranslationSessionSettings(
+      JSON.parse(activeTranslationSettingsFingerprint) as Partial<TranslationSessionSettings>,
+    );
+    const timeout = window.setTimeout(() => {
+      setSourceLanguage(active.sourceLanguage);
+      setTargetLanguage(active.targetLanguage);
+      setKeywordText(active.keywordText);
+      setFilterText(active.filterText);
+      setSpeechBufferMs(active.speechBufferMs);
+      setTranslationSystemPrompt(active.translationSystemPrompt);
+      setConfirmTranslationRefresh(false);
+      setPromptStorageMessage("");
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [activeTranslationSettingsFingerprint]);
+
+  useEffect(() => {
+    if (!confirmTranslationRefresh) return;
+    const frame = window.requestAnimationFrame(() => {
+      refreshConfirmationHeadingRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [confirmTranslationRefresh]);
+
+  useEffect(() => {
     try {
       const stored = window.localStorage.getItem(CAPTION_PREFERENCE_KEY);
       if (!stored) return;
@@ -446,6 +587,31 @@ export default function OperatorDashboard() {
     } catch {
       const timeout = window.setTimeout(
         () => setPreferenceError("Saved browser preferences could not be loaded."),
+        0,
+      );
+      return () => window.clearTimeout(timeout);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(
+        TRANSLATION_PROMPT_PREFERENCE_KEY,
+      );
+      if (!stored) return;
+      const loaded = normalizeTranslationSystemPrompt(stored);
+      const timeout = window.setTimeout(() => {
+        setTranslationSystemPrompt(loaded);
+        setSavedPromptFingerprint(loaded);
+        setPromptStorageMessage("Loaded the saved browser default.");
+      }, 0);
+      return () => window.clearTimeout(timeout);
+    } catch {
+      const timeout = window.setTimeout(
+        () =>
+          setPromptStorageMessage(
+            "The saved browser prompt is invalid. The safe default is in use.",
+          ),
         0,
       );
       return () => window.clearTimeout(timeout);
@@ -484,14 +650,21 @@ export default function OperatorDashboard() {
   const hasService = Boolean(liveState.service);
   const isLive = liveState.status === "live";
   const isPaused = liveState.status === "paused";
+  const isRefreshing = liveState.status === "refreshing";
   const liveNeedsAttention = hasService && liveState.status === "error";
   const isBusy = [
     "loading-channel",
     "starting",
     "pausing",
     "resuming",
+    "refreshing",
     "ending",
-  ].includes(liveState.status);
+  ].includes(liveState.status) || controlAction === "refresh-translation";
+  const endActionDisabled =
+    isBusy ||
+    controlAction !== null ||
+    channelAction !== null ||
+    viewerAction !== null;
   const anotherOperatorActive =
     !hasService &&
     (liveState.channel?.status === "live" || liveState.channel?.status === "paused");
@@ -547,9 +720,33 @@ export default function OperatorDashboard() {
         : checkingChannel
           ? "Wait while the existing OBS channel is checked."
           : !channelConfigured
-            ? "Create the reusable OBS Browser Source in step 04 before going live."
+            ? "Create the reusable OBS Browser Source in the Live outputs section before going live."
             : "Starting opens a 90-minute service window and begins microphone capture.";
   const viewerUrl = liveState.service?.viewerUrl ?? null;
+  const workspaceItems = hasService
+    ? LIVE_WORKSPACE_ITEMS
+    : SETUP_WORKSPACE_ITEMS;
+  const currentWorkspaceSection = workspaceItems.some(
+    ({ id }) => id === activeWorkspaceSection,
+  )
+    ? activeWorkspaceSection
+    : hasService
+      ? "translation"
+      : "audio";
+  const currentSectionCopy = WORKSPACE_SECTION_COPY[currentWorkspaceSection];
+  const translationChanges = activeTranslationSettings
+    ? translationSettingsChanges(
+        activeTranslationSettings,
+        draftTranslationSettings,
+      )
+    : [];
+  const hasPendingTranslationChanges =
+    hasService &&
+    (translationRefreshRequired || translationChanges.length > 0);
+  const translationActionBusy = controlAction === "refresh-translation";
+  const translationEditorDisabled = hasService
+    ? translationActionBusy || liveState.status === "ending"
+    : isBusy;
 
   useEffect(() => {
     if (!hasService) return;
@@ -583,6 +780,71 @@ export default function OperatorDashboard() {
   const openViewerPreview = () => {
     if (!viewerUrl) return;
     window.open(viewerUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const savePromptBrowserDefault = () => {
+    try {
+      const normalized = normalizeTranslationSystemPrompt(
+        translationSystemPrompt,
+      );
+      window.localStorage.setItem(
+        TRANSLATION_PROMPT_PREFERENCE_KEY,
+        normalized,
+      );
+      setTranslationSystemPrompt(normalized);
+      setSavedPromptFingerprint(normalized);
+      setPromptStorageMessage("Saved as this browser's default prompt.");
+    } catch {
+      setPromptStorageMessage("The prompt could not be saved in this browser.");
+    }
+  };
+
+  const resetPromptToSafeDefault = () => {
+    try {
+      window.localStorage.removeItem(TRANSLATION_PROMPT_PREFERENCE_KEY);
+      setTranslationSystemPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT);
+      setSavedPromptFingerprint("");
+      setPromptStorageMessage(
+        "Reset to the safe default. No custom prompt is saved in this browser.",
+      );
+    } catch {
+      setTranslationSystemPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT);
+      setPromptStorageMessage(
+        "Safe default restored, but browser storage could not be cleared.",
+      );
+    }
+  };
+
+  const updateTranslationSystemPrompt = (value: string) => {
+    setTranslationSystemPrompt(value);
+    setPromptStorageMessage("");
+  };
+
+  const restoreActiveTranslationDraft = () => {
+    if (!activeTranslationSettings || !hasPendingTranslationChanges) return;
+    const active = normalizeTranslationSessionSettings(
+      activeTranslationSettings,
+    );
+    setSourceLanguage(active.sourceLanguage);
+    setTargetLanguage(active.targetLanguage);
+    setKeywordText(active.keywordText);
+    setFilterText(active.filterText);
+    setSpeechBufferMs(active.speechBufferMs);
+    setTranslationSystemPrompt(active.translationSystemPrompt);
+    setConfirmTranslationRefresh(false);
+    setPromptStorageMessage(
+      "Draft restored to the active session. Browser default unchanged.",
+    );
+  };
+
+  const confirmAndRefreshTranslation = () => {
+    setConfirmTranslationRefresh(false);
+    void refreshTranslationSession();
+  };
+
+  const cancelTranslationRefreshConfirmation = () => {
+    setConfirmTranslationRefresh(false);
+    window.requestAnimationFrame(() => refreshReviewButtonRef.current?.focus());
   };
 
   const saveCaptionPreferences = () => {
@@ -622,6 +884,45 @@ export default function OperatorDashboard() {
     saving: channelAction === "save-style",
     savedMessage: styleSavedMessage,
   };
+
+  const promptSavedMessage =
+    promptStorageMessage ||
+    (savedPromptFingerprint
+      ? savedPromptFingerprint === translationSystemPrompt
+        ? "Saved as this browser's default prompt."
+        : "Prompt changed. Save explicitly to update the browser default."
+      : translationSystemPrompt === DEFAULT_TRANSLATION_SYSTEM_PROMPT
+        ? "Using the safe default. Custom changes are not saved automatically."
+        : "Custom prompt is not saved. Save explicitly if this browser should reuse it.");
+
+  const translationSettingsEditor = (
+    <TranslationSettingsEditor
+      sourceLanguage={sourceLanguage}
+      targetLanguage={targetLanguage}
+      keywordText={keywordText}
+      filterText={filterText}
+      speechBufferMs={speechBufferMs}
+      sourceLabel={sourceLabel ?? sourceLanguage}
+      keywordCount={keywordCount}
+      disabled={translationEditorDisabled}
+      onSourceLanguageChange={setSourceLanguage}
+      onTargetLanguageChange={setTargetLanguage}
+      onKeywordTextChange={setKeywordText}
+      onFilterTextChange={setFilterText}
+      onSpeechBufferChange={setSpeechBufferMs}
+    />
+  );
+
+  const promptEditor = (
+    <PromptEditor
+      value={translationSystemPrompt}
+      onChange={updateTranslationSystemPrompt}
+      onSaveBrowserDefault={savePromptBrowserDefault}
+      onReset={resetPromptToSafeDefault}
+      savedMessage={promptSavedMessage}
+      disabled={translationEditorDisabled}
+    />
+  );
 
   const audioFields = (
     <>
@@ -710,6 +1011,8 @@ export default function OperatorDashboard() {
             {hasService
               ? liveNeedsAttention
                 ? "Live service needs attention"
+                : isRefreshing
+                  ? "Refreshing translation session"
                 : isPaused
                   ? "Live service paused"
                   : "Live operator console"
@@ -740,109 +1043,487 @@ export default function OperatorDashboard() {
       </section>
 
       {hasService ? (
-        <>
-          <section
-            className={`liveConsole ${isPaused ? "paused" : ""} ${liveNeedsAttention ? "attention" : ""}`}
-            aria-label="Live controls"
-          >
-            <div className="liveIdentity">
-              <span
-                className={`liveIndicator ${isPaused ? "paused" : ""}`}
-                aria-hidden="true"
-              />
-              <div>
-                <strong>
-                  {liveNeedsAttention ? "Capture stopped" : isPaused ? "Paused" : "Captions live"}
-                </strong>
-                <p>
-                  Overlay sequence {liveState.sequence} · {liveState.droppedChunks} skipped
-                </p>
-              </div>
-            </div>
-            <div className="compactUsage">
-              <div>
-                <span>
-                  {elapsedMinutes}m {elapsedSeconds.toString().padStart(2, "0")}s / 90m
-                </span>
-                <span>
-                  {liveState.transcriptionRequests} / {MAX_TRANSCRIPTION_REQUESTS}{" "}
-                  transcription attempts
-                </span>
-              </div>
-              <div
-                className="usageProgress"
-                role="progressbar"
-                aria-label="Live service usage"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={usagePercent}
-                aria-valuetext={`${elapsedMinutes} minutes ${elapsedSeconds} seconds elapsed; ${liveState.transcriptionRequests} of ${MAX_TRANSCRIPTION_REQUESTS} transcription attempts used`}
-              >
-                <span style={{ width: `${usagePercent}%` }} />
-              </div>
-            </div>
-            <div className="primaryControls">
-              {endRetryRequired ? (
-                <button
-                  className="dangerButton"
-                  disabled={isBusy || controlAction !== null}
-                  onClick={() => void stopSession()}
-                >
-                  Retry End
-                </button>
-              ) : isPaused || liveState.status === "resuming" ? (
-                <button className="primaryButton" disabled={isBusy || controlAction !== null} onClick={() => void resumeSession()}>
-                  {liveState.status === "resuming" ? "Resuming…" : "Resume"}
-                </button>
-              ) : (
-                <button className="primaryButton" disabled={isBusy || controlAction !== null} onClick={() => void pauseSession()}>
-                  {liveState.status === "pausing" ? "Pausing…" : "Pause"}
-                </button>
-              )}
-              <button className="secondaryButton compactButton" disabled={isBusy || controlAction !== null} onClick={() => void clearCaption()}>
-                {controlAction === "clear" ? "Clearing…" : "Clear OBS"}
-              </button>
-              <details className="moreMenu">
-                <summary>More</summary>
-                <div>
-                  <button onClick={() => void copyOverlayUrl()}>{copied ? "Copied" : "Copy OBS URL"}</button>
-                  {viewerUrl ? (
-                    <button onClick={() => void copyViewerUrl()}>
-                      {viewerCopied ? "Mobile link copied" : "Copy mobile viewer link"}
-                    </button>
-                  ) : null}
-                  <button disabled={!isPaused || controlAction !== null} onClick={() => void showTestCaption()}>
-                    {controlAction === "show-test" ? "Showing test…" : "Show test caption"}
-                  </button>
-                  {confirmEnd ? (
-                    <span className="confirmationRow">
-                      <button onClick={() => setConfirmEnd(false)}>Cancel</button>
-                      <button className="dangerText" onClick={() => { setConfirmEnd(false); void stopSession(); }}>
-                        Confirm End
-                      </button>
-                    </span>
-                  ) : (
-                    <button className="dangerText" onClick={() => setConfirmEnd(true)}>
-                      {endRetryRequired ? "Retry End" : "End service"}
-                    </button>
-                  )}
-                </div>
-              </details>
-            </div>
-          </section>
-
-          <div className="liveWorkspace">
-            <CaptionPreview
-              caption={liveState.latestPublicText}
-              sourceText={liveState.latestSourceText}
-              style={style}
-              badge={isPaused ? "Paused output" : "Live output"}
-              live={!isPaused}
+        <section
+          className={`liveConsole ${isPaused ? "paused" : ""} ${liveNeedsAttention ? "attention" : ""}`}
+          aria-label="Live controls"
+        >
+          <div className="liveIdentity">
+            <span
+              className={`liveIndicator ${
+                isPaused || isRefreshing || liveNeedsAttention ? "paused" : ""
+              }`}
+              aria-hidden="true"
             />
-            <aside className="liveDrawers" aria-label="Live service settings">
-              <details className="controlDrawer" open>
-                <summary><h3>Mobile translation viewer</h3></summary>
-                <div className="drawerBody viewerLinkPanel">
+            <div>
+              <strong>
+                {liveNeedsAttention
+                  ? "Capture stopped"
+                  : isRefreshing
+                    ? "Refreshing translation"
+                  : isPaused
+                    ? "Paused"
+                    : "Captions live"}
+              </strong>
+              <p>
+                Overlay sequence {liveState.sequence} · {liveState.droppedChunks}{" "}
+                skipped · {liveState.lastLatencyMs === null
+                  ? "waiting for processing time"
+                  : `${liveState.lastLatencyMs} ms processing`}
+              </p>
+            </div>
+          </div>
+          <div className="compactUsage">
+            <div>
+              <span>
+                {elapsedMinutes}m {elapsedSeconds.toString().padStart(2, "0")}s / 90m
+              </span>
+              <span>
+                {liveState.transcriptionRequests} / {MAX_TRANSCRIPTION_REQUESTS}{" "}
+                transcription attempts
+              </span>
+            </div>
+            <div
+              className="usageProgress"
+              role="progressbar"
+              aria-label="Live service usage"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={usagePercent}
+              aria-valuetext={`${elapsedMinutes} minutes ${elapsedSeconds} seconds elapsed; ${liveState.transcriptionRequests} of ${MAX_TRANSCRIPTION_REQUESTS} transcription attempts used`}
+            >
+              <span style={{ width: `${usagePercent}%` }} />
+            </div>
+          </div>
+          <div className="primaryControls">
+            {endRetryRequired ? (
+              <button
+                className="dangerButton"
+                disabled={endActionDisabled}
+                onClick={() => void stopSession()}
+              >
+                Retry End
+              </button>
+            ) : isPaused || liveState.status === "resuming" ? (
+              <button
+                className="primaryButton"
+                disabled={isBusy || controlAction !== null}
+                onClick={() => void resumeSession()}
+              >
+                {liveState.status === "resuming" ? "Resuming…" : "Resume"}
+              </button>
+            ) : (
+              <button
+                className="primaryButton"
+                disabled={isBusy || controlAction !== null}
+                onClick={() => void pauseSession()}
+              >
+                {liveState.status === "pausing"
+                  ? "Pausing…"
+                  : "Pause"}
+              </button>
+            )}
+            <button
+              className="secondaryButton compactButton"
+              disabled={isBusy || controlAction !== null}
+              onClick={() => void clearCaption()}
+            >
+              {controlAction === "clear" ? "Clearing…" : "Clear OBS"}
+            </button>
+            <details className="moreMenu">
+              <summary>More</summary>
+              <div>
+                <button onClick={() => void copyOverlayUrl()}>
+                  {copied ? "Copied" : "Copy OBS URL"}
+                </button>
+                {viewerUrl ? (
+                  <button onClick={() => void copyViewerUrl()}>
+                    {viewerCopied
+                      ? "Mobile link copied"
+                      : "Copy mobile viewer link"}
+                  </button>
+                ) : null}
+                <button
+                  disabled={!isPaused || controlAction !== null}
+                  onClick={() => void showTestCaption()}
+                >
+                  {controlAction === "show-test"
+                    ? "Showing test…"
+                    : "Show test caption"}
+                </button>
+                {confirmEnd ? (
+                  <span className="confirmationRow">
+                    <button onClick={() => setConfirmEnd(false)}>Cancel</button>
+                    <button
+                      className="dangerText"
+                      disabled={endActionDisabled}
+                      onClick={() => {
+                        setConfirmEnd(false);
+                        void stopSession();
+                      }}
+                    >
+                      Confirm End
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    className="dangerText"
+                    disabled={endActionDisabled}
+                    onClick={() => setConfirmEnd(true)}
+                  >
+                    {endRetryRequired ? "Retry End" : "End service"}
+                  </button>
+                )}
+              </div>
+            </details>
+          </div>
+        </section>
+      ) : (
+        <section className="setupHero" aria-labelledby="setup-heading">
+          <div>
+            <p className="eyebrow">Service setup</p>
+            <h2 id="setup-heading">Prepare the room, then go live</h2>
+            <p>
+              Work through each section once. The same controls stay available
+              during the service, without closing the session.
+            </p>
+          </div>
+          <div className="setupHeroMeta" aria-label="Service limits">
+            <span>90-minute window</span>
+            <span>1920 × 1080 OBS</span>
+            <span>Private operator source</span>
+          </div>
+        </section>
+      )}
+
+      <div className={`operatorWorkspace ${hasService ? "isLive" : "isSetup"}`}>
+        <aside className="workspaceNavigation" aria-label="Operator workspace navigation">
+          <div className="workspaceNavigationHeading">
+            <p className="eyebrow">{hasService ? "Live workspace" : "Setup workspace"}</p>
+            <h2>{hasService ? "Manage captions" : "Ready the service"}</h2>
+            <p>
+              {hasService
+                ? "Configuration stays editable. Apply translation changes with a controlled refresh."
+                : "Select a section to configure the service."}
+            </p>
+          </div>
+          <LineSidebar
+            items={workspaceItems}
+            activeId={currentWorkspaceSection}
+            ariaLabel={hasService ? "Live caption sections" : "Service setup sections"}
+            onActiveChange={(id) =>
+              setActiveWorkspaceSection(id as WorkspaceSectionId)
+            }
+          />
+          <div className="serviceSnapshot">
+            <p className="eyebrow">Service engine</p>
+            <dl>
+              <div>
+                <dt>Transcription</dt>
+                <dd>{cloudModels?.transcription ?? cloudModelStatus}</dd>
+              </div>
+              <div>
+                <dt>Translation</dt>
+                <dd>{cloudModels?.translation ?? cloudModelStatus}</dd>
+              </div>
+              <div>
+                <dt>{hasService ? "Active buffer" : "Draft buffer"}</dt>
+                <dd>{(hasService ? activeSpeechBufferMs : speechBufferMs) / 1_000}s</dd>
+              </div>
+            </dl>
+          </div>
+        </aside>
+
+        <BorderGlow
+          className="workspacePanelGlow"
+          pending={hasPendingTranslationChanges || translationActionBusy}
+          aria-busy={translationActionBusy}
+        >
+          <SpotlightCard
+            className="workspacePanel"
+            aria-labelledby="workspace-panel-heading"
+            spotlightColor="rgba(17, 17, 17, 0.055)"
+            spotlightSize={440}
+          >
+            <header className="workspacePanelHeader">
+              <div>
+                <p className="eyebrow">{currentSectionCopy.eyebrow}</p>
+                <h2 id="workspace-panel-heading">{currentSectionCopy.title}</h2>
+                <p>{currentSectionCopy.description}</p>
+              </div>
+              <span
+                className={`statusChip ${
+                  hasPendingTranslationChanges ? "pending" : "ready"
+                }`}
+              >
+                {hasService
+                  ? hasPendingTranslationChanges
+                    ? translationChanges.length
+                      ? `${translationChanges.length} change${
+                          translationChanges.length === 1 ? "" : "s"
+                        } pending`
+                      : "Refresh required"
+                    : "Live settings active"
+                  : "Setup draft"}
+              </span>
+            </header>
+
+            {hasPendingTranslationChanges ? (
+              <section
+                className="translationRefreshNotice"
+                aria-labelledby="translation-refresh-heading"
+              >
+                <div
+                  className="refreshNoticeCopy"
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  <p className="eyebrow">Refresh required</p>
+                  <h3 id="translation-refresh-heading">
+                    Translation changes are ready to apply
+                  </h3>
+                  <p>
+                    {translationChanges.length
+                      ? translationChanges.join(" · ")
+                      : "Translation configuration"}
+                  </p>
+                </div>
+                {confirmTranslationRefresh ? (
+                  <div
+                    className="refreshConfirmation"
+                    role="group"
+                    aria-labelledby="refresh-confirmation-heading"
+                  >
+                    <h3
+                      id="refresh-confirmation-heading"
+                      ref={refreshConfirmationHeadingRef}
+                      tabIndex={-1}
+                    >
+                      Confirm translation refresh
+                    </h3>
+                    <p id="refresh-impact-description">
+                      Refresh translation without closing the live service? The
+                      session, mobile viewer link, 90-minute timer, OBS connection,
+                      and connected viewers remain active. Unfinished audio and recent
+                      translation context reset; an already reserved transcription
+                      attempt may still count toward usage.
+                    </p>
+                    <div className="confirmationRow">
+                      <button
+                        className="secondaryButton"
+                        type="button"
+                        onClick={cancelTranslationRefreshConfirmation}
+                      >
+                        Keep editing
+                      </button>
+                      <button
+                        className="primaryButton"
+                        type="button"
+                        aria-describedby="refresh-impact-description"
+                        disabled={translationActionBusy}
+                        onClick={confirmAndRefreshTranslation}
+                      >
+                        {translationActionBusy ? "Refreshing…" : "Confirm refresh"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="refreshActions">
+                    <button
+                      className="textButton"
+                      type="button"
+                      disabled={
+                        !activeTranslationSettings ||
+                        translationChanges.length === 0 ||
+                        translationActionBusy
+                      }
+                      onClick={restoreActiveTranslationDraft}
+                    >
+                      Undo draft changes
+                    </button>
+                    <button
+                      ref={refreshReviewButtonRef}
+                      className="primaryButton"
+                      type="button"
+                      disabled={translationActionBusy}
+                      onClick={() => setConfirmTranslationRefresh(true)}
+                    >
+                      Review refresh
+                    </button>
+                  </div>
+                )}
+              </section>
+            ) : hasService &&
+              (currentWorkspaceSection === "translation" ||
+                currentWorkspaceSection === "prompt") ? (
+              <p className="translationCurrentNote" role="status" aria-live="polite">
+                {translationActionBusy
+                  ? "Refreshing translation context…"
+                  : "Draft matches the active translation session."}
+              </p>
+            ) : null}
+
+            <div className="workspacePanelBody">
+              {currentWorkspaceSection === "audio" ? (
+                <div className="panelStack">
+                  {audioFields}
+                  {hasService && isLive ? (
+                    <p className="privacyNote">
+                      Language, terminology, timing, filtering, and the AI prompt can
+                      change while captions run. Pause only when changing the browser
+                      audio device.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {currentWorkspaceSection === "translation" ? (
+                <div className="panelStack">
+                  {translationSettingsEditor}
+                  <div className="modelSummary serviceDetailStrip">
+                    <p>
+                      <strong>Transcription:</strong>{" "}
+                      <code>{cloudModels?.transcription ?? cloudModelStatus}</code>
+                    </p>
+                    <p>
+                      <strong>Translation:</strong>{" "}
+                      <code>{cloudModels?.translation ?? cloudModelStatus}</code>
+                    </p>
+                    <p>
+                      <strong>Delivery:</strong> Cloudflare Durable Object · hibernating
+                      WebSocket
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {currentWorkspaceSection === "prompt" ? promptEditor : null}
+
+              {currentWorkspaceSection === "appearance" ? (
+                <StyleEditor {...styleEditorProps} />
+              ) : null}
+
+              {currentWorkspaceSection === "outputs" ? (
+                <div className="obsSetupCard workspaceOutputCard">
+                  <div className="sectionHeading">
+                    <div>
+                      <p className="eyebrow">Reusable output</p>
+                      <h3>OBS Main channel</h3>
+                    </div>
+                    <span
+                      className={`statusChip ${
+                        liveState.channel?.configured ? "ready" : ""
+                      }`}
+                    >
+                      {liveState.channel?.configured ? "Reusable" : "Not created"}
+                    </span>
+                  </div>
+                  {!liveState.channel?.configured ? (
+                    <>
+                      <p>
+                        Create one encrypted Main channel URL. Paste it into OBS once
+                        and reuse it for future services.
+                      </p>
+                      <button
+                        className="primaryButton fullButton"
+                        disabled={channelAction !== null || isBusy}
+                        onClick={() => void createChannel()}
+                      >
+                        {channelAction === "create"
+                          ? "Creating securely…"
+                          : "Create OBS channel"}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        Use a 1920 × 1080 Browser Source. The canvas stays transparent
+                        between services.
+                      </p>
+                      <label>
+                        Reusable Main channel URL
+                        <input
+                          value={liveState.channel.overlayUrl ?? ""}
+                          readOnly
+                          aria-label="Reusable OBS browser-source URL"
+                        />
+                      </label>
+                      <button
+                        className="primaryButton fullButton"
+                        onClick={() => void copyOverlayUrl()}
+                      >
+                        {copied ? "URL copied" : "Copy OBS URL"}
+                      </button>
+                      <div className="buttonGrid">
+                        <button
+                          className="secondaryButton"
+                          disabled={controlAction !== null}
+                          onClick={() => void showTestCaption()}
+                        >
+                          {controlAction === "show-test" ? "Showing…" : "Show test"}
+                        </button>
+                        <button
+                          className="secondaryButton"
+                          disabled={controlAction !== null}
+                          onClick={() => void clearCaption()}
+                        >
+                          {controlAction === "clear" ? "Clearing…" : "Clear OBS"}
+                        </button>
+                      </div>
+                      <details className="advancedActions">
+                        <summary>Advanced link security</summary>
+                        <p>
+                          Rotate only if the URL was exposed. The old OBS source stops
+                          working immediately.
+                        </p>
+                        {confirmRotate ? (
+                          <div className="confirmationRow">
+                            <button
+                              className="secondaryButton"
+                              onClick={() => setConfirmRotate(false)}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              className="dangerButton"
+                              disabled={
+                                channelAction !== null || anotherOperatorActive
+                              }
+                              onClick={() => {
+                                setConfirmRotate(false);
+                                void rotateChannel();
+                              }}
+                            >
+                              {channelAction === "rotate"
+                                ? "Rotating…"
+                                : "Confirm rotation"}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="dangerOutlineButton"
+                            disabled={anotherOperatorActive}
+                            onClick={() => setConfirmRotate(true)}
+                          >
+                            Rotate OBS link
+                          </button>
+                        )}
+                      </details>
+                    </>
+                  )}
+                  <div className="viewerSetupNote">
+                    <strong>Mobile translation viewer</strong>
+                    <p>
+                      A separate read-only link is created when captions start. It
+                      never exposes the reusable OBS credential and expires when the
+                      service ends or another operator takes over.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {currentWorkspaceSection === "viewer" ? (
+                <div className="viewerLinkPanel">
                   <p>
                     Share this read-only link with intended viewers. It shows only the
                     current moderated translation and expires when this service ends or
@@ -869,8 +1550,8 @@ export default function OperatorDashboard() {
                       <details className="advancedActions">
                         <summary>Viewer link security</summary>
                         <p>
-                          Replace the link if it was shared with the wrong person. Existing
-                          viewers disconnect immediately; OBS is unaffected.
+                          Replace the link if it was shared with the wrong person.
+                          Existing viewers disconnect immediately; OBS is unaffected.
                         </p>
                         {confirmViewerReplace ? (
                           <div className="confirmationRow">
@@ -890,7 +1571,9 @@ export default function OperatorDashboard() {
                                 void replaceViewerLink();
                               }}
                             >
-                              {viewerAction === "replace" ? "Replacing…" : "Confirm replacement"}
+                              {viewerAction === "replace"
+                                ? "Replacing…"
+                                : "Confirm replacement"}
                             </button>
                           </div>
                         ) : (
@@ -912,276 +1595,111 @@ export default function OperatorDashboard() {
                       disabled={viewerAction !== null || isBusy}
                       onClick={() => void replaceViewerLink()}
                     >
-                      {viewerAction === "replace" ? "Creating link…" : "Create mobile viewer link"}
+                      {viewerAction === "replace"
+                        ? "Creating link…"
+                        : "Create mobile viewer link"}
                     </button>
                   )}
                 </div>
-              </details>
-              <details className="controlDrawer">
-                <summary><h3>Caption appearance</h3></summary>
-                <StyleEditor {...styleEditorProps} />
-              </details>
-              <details className="controlDrawer">
-                <summary><h3>Audio input {isLive ? "· pause to change" : ""}</h3></summary>
-                <div className="drawerBody">{audioFields}</div>
-              </details>
-              <details className="controlDrawer">
-                <summary><h3>Locked service configuration</h3></summary>
-                <div className="configurationSummary">
-                  <p><strong>Spoken:</strong> {sourceLabel}</p>
-                  <p><strong>Caption language:</strong> {LANGUAGE_OPTIONS.find(({ locale }) => locale === targetLanguage)?.label}</p>
-                  <p><strong>Speech buffer:</strong> {activeSpeechBufferMs / 1_000} seconds</p>
-                  <p><strong>Church terms:</strong> {keywordCount}</p>
-                  <p>End the service to change language, buffer, terminology, or filtering.</p>
-                </div>
-              </details>
-            </aside>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="setupIntro">
-            <div>
-              <p className="eyebrow">Service setup</p>
-              <h2>Prepare your live captions</h2>
-              <p className="setupDescription">
-                Check the audio, translation, caption design, and OBS connection before
-                starting the 90-minute service.
-              </p>
+              ) : null}
             </div>
-            <ol className="setupSteps" aria-label="Setup progress">
-              <li><span>01</span> Audio &amp; languages</li>
-              <li><span>02</span> Terminology</li>
-              <li><span>03</span> Appearance</li>
-              <li><span>04</span> Outputs</li>
-            </ol>
-          </div>
+          </SpotlightCard>
+        </BorderGlow>
 
-          <div className="setupWorkspace">
-            <div className="setupSections">
-              <details className="setupSection" open>
-                <summary>
-                  <h3><span>01</span>Audio and languages</h3>
-                </summary>
-                <div className="sectionBody">
-                  {audioFields}
-                  <div className="divider" />
-                  <div className="fieldGrid">
-                    <label>
-                      Spoken language
-                      <select
-                        data-testid="source-language"
-                        value={sourceLanguage}
-                        disabled={isBusy}
-                        aria-describedby="source-language-help"
-                        onChange={(event) =>
-                          setSourceLanguage(event.target.value as SourceLanguage)
-                        }
-                      >
-                        <option value="auto">Auto detect</option>
-                        {LANGUAGE_OPTIONS.map((language) => <option value={language.locale} key={language.locale}>{language.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      Translate captions to
-                      <select data-testid="target-language" value={targetLanguage} disabled={isBusy} onChange={(event) => setTargetLanguage(event.target.value as LanguageLocale)}>
-                        {LANGUAGE_OPTIONS.map((language) => <option value={language.locale} key={language.locale}>{language.label}</option>)}
-                      </select>
-                    </label>
-                    <label className="fullField">
-                      Speech buffer before translation
-                      <select
-                        data-testid="speech-buffer"
-                        value={speechBufferMs}
-                        aria-describedby="speech-buffer-help"
-                        disabled={isBusy}
-                        onChange={(event) =>
-                          setSpeechBufferMs(
-                            normalizeSpeechBufferMs(event.target.value),
-                          )
-                        }
-                      >
-                        {SPEECH_BUFFER_OPTIONS_MS.map((value) => (
-                          <option value={value} key={value}>
-                            {SPEECH_BUFFER_LABELS[value]}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <p className="helpText" id="source-language-help">
-                    Selected source: {sourceLabel}. Explicit selection is recommended live.
-                  </p>
-                  <p className="helpText" id="speech-buffer-help">
-                    Longer windows can reduce chopped sentences, but captions appear later.
-                    Pause at a natural break because an unfinished window is discarded.
-                  </p>
-                </div>
-              </details>
-
-              <details className="setupSection">
-                <summary>
-                  <h3><span>02</span>Church terminology and filtering</h3>
-                </summary>
-                <div className="sectionBody">
-                  <div className="fieldHeading"><strong>Biblical language</strong><span>{keywordCount} terms</span></div>
-                  <label>
-                    Biblical names and keyword hints
-                    <textarea
-                      rows={3}
-                      value={keywordText}
-                      disabled={isBusy}
-                      aria-describedby="glossary-help"
-                      onChange={(event) => setKeywordText(event.target.value)}
-                      placeholder="Jesus Christ => Yesus Kristus, Bethlehem"
-                    />
-                  </label>
-                  <p className="helpText" id="glossary-help">
-                    Use <code>source =&gt; approved translation</code> for deterministic terms.
-                    Other entries boost transcription recognition.
-                  </p>
-                  <label>
-                    Public caption filter
-                    <input
-                      value={filterText}
-                      disabled={isBusy}
-                      aria-describedby="filter-help"
-                      onChange={(event) => setFilterText(event.target.value)}
-                      placeholder="Comma-separated words to mask"
-                    />
-                  </label>
-                  <p className="privacyNote" id="filter-help">
-                    Filtering changes only the public caption. Source text stays in this
-                    operator tab.
-                  </p>
-                </div>
-              </details>
-
-              <details className="setupSection serviceDetails">
-                <summary>
-                  <h3><span>AI</span>Service details</h3>
-                </summary>
-                <div className="sectionBody modelSummary">
-                  <p>
-                    <strong>Transcription:</strong>{" "}
-                    <code>
-                      {cloudModels?.transcription ?? cloudModelStatus}
-                    </code>{" "}
-                    · {speechBufferMs / 1_000}-second speech buffer
-                  </p>
-                  <p>
-                    <strong>Translation:</strong>{" "}
-                    <code>
-                      {cloudModels?.translation ?? cloudModelStatus}
-                    </code>{" "}
-                    · bounded biblical context
-                  </p>
-                  <p>
-                    <strong>Delivery:</strong> Cloudflare Durable Object · hibernating
-                    WebSocket
-                  </p>
-                </div>
-              </details>
-            </div>
-
-            <aside className="setupPreviewColumn" aria-label="Caption output setup">
-              <CaptionPreview caption={SAMPLE_CAPTIONS[targetLanguage]} style={style} badge="Design preview" />
-              <details className="setupSection appearanceSection" open>
-                <summary>
-                  <h3><span>03</span>Caption appearance</h3>
-                </summary>
-                <div className="sectionBody"><StyleEditor {...styleEditorProps} /></div>
-              </details>
-              <section className="obsSetupCard" aria-labelledby="obs-setup-title">
-                <div className="sectionHeading">
-                  <div>
-                    <p className="eyebrow">Step 04</p>
-                    <h2 id="obs-setup-title">Live outputs</h2>
-                  </div>
-                  <span className={`statusChip ${liveState.channel?.configured ? "ready" : ""}`}>
-                    {liveState.channel?.configured ? "Reusable" : "Not created"}
-                  </span>
-                </div>
-                {!liveState.channel?.configured ? (
-                  <>
-                    <p>Create one encrypted Main channel URL. You will paste it into OBS once and reuse it for future services.</p>
-                    <button className="primaryButton fullButton" disabled={channelAction !== null || isBusy} onClick={() => void createChannel()}>
-                      {channelAction === "create" ? "Creating securely…" : "Create OBS channel"}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p>Use a 1920 × 1080 Browser Source. The canvas stays transparent between services.</p>
-                    <label>
-                      Reusable Main channel URL
-                      <input value={liveState.channel.overlayUrl ?? ""} readOnly aria-label="Reusable OBS browser-source URL" />
-                    </label>
-                    <button className="primaryButton fullButton" onClick={() => void copyOverlayUrl()}>{copied ? "URL copied" : "Copy OBS URL"}</button>
-                    <div className="buttonGrid">
-                      <button className="secondaryButton" disabled={controlAction !== null} onClick={() => void showTestCaption()}>{controlAction === "show-test" ? "Showing…" : "Show test"}</button>
-                      <button className="secondaryButton" disabled={controlAction !== null} onClick={() => void clearCaption()}>{controlAction === "clear" ? "Clearing…" : "Clear OBS"}</button>
-                    </div>
-                    <details className="advancedActions">
-                      <summary>Advanced link security</summary>
-                      <p>Rotate only if the URL was exposed. The old OBS source stops working immediately.</p>
-                      {confirmRotate ? (
-                        <div className="confirmationRow">
-                          <button className="secondaryButton" onClick={() => setConfirmRotate(false)}>Cancel</button>
-                          <button className="dangerButton" disabled={channelAction !== null || anotherOperatorActive} onClick={() => { setConfirmRotate(false); void rotateChannel(); }}>
-                            {channelAction === "rotate" ? "Rotating…" : "Confirm rotation"}
-                          </button>
-                        </div>
-                      ) : (
-                        <button className="dangerOutlineButton" disabled={anotherOperatorActive} onClick={() => setConfirmRotate(true)}>Rotate OBS link</button>
-                      )}
-                    </details>
-                  </>
-                )}
-                <div className="viewerSetupNote">
-                  <strong>Mobile translation viewer</strong>
-                  <p>
-                    A separate read-only mobile link is created when captions start. It
-                    never exposes the reusable OBS credential and expires when the service
-                    ends or another operator takes over.
-                  </p>
-                </div>
-              </section>
-            </aside>
-          </div>
-
-          <section
-            className={`startBar ${anotherOperatorActive ? "takeover" : ""}`}
-            aria-labelledby="start-service-heading"
+        <aside className="workspacePreview" aria-label="Caption output preview">
+          <CaptionPreview
+            caption={
+              hasService
+                ? liveState.latestPublicText
+                : SAMPLE_CAPTIONS[targetLanguage]
+            }
+            sourceText={hasService ? liveState.latestSourceText : undefined}
+            style={style}
+            badge={
+              hasService
+                ? liveNeedsAttention
+                  ? "Output needs attention"
+                  : isRefreshing
+                  ? "Refreshing settings"
+                  : isPaused
+                    ? "Paused output"
+                    : "Live output"
+                : "Design preview"
+            }
+            live={hasService && isLive}
+          />
+          <SpotlightCard
+            className="outputContextCard"
+            aria-labelledby="output-context-heading"
+            spotlightColor="rgba(17, 17, 17, 0.045)"
           >
-            <div>
-              <strong id="start-service-heading">{startHeading}</strong>
-              <p id="start-service-description">{startDescription}</p>
-            </div>
-            {confirmTakeover || takeoverRequired ? (
-              <div className="takeoverConfirmation">
-                <button className="secondaryButton" onClick={() => { setConfirmTakeover(false); cancelTakeover(); }}>Cancel</button>
-                <button
-                  className="dangerButton"
-                  aria-describedby="start-service-description"
-                  disabled={cloudState !== "ready" || isBusy}
-                  onClick={() => { setConfirmTakeover(false); void startSession(true); }}
-                >
-                  Confirm takeover
-                </button>
-              </div>
-            ) : (
+            <p className="eyebrow">Output context</p>
+            <h3 id="output-context-heading">
+              {hasService ? "Audience delivery stays connected" : "One setup, two outputs"}
+            </h3>
+            <p>
+              {hasService
+                ? "Refreshing translation settings keeps OBS, the mobile link, the service timer, and connected viewers active."
+                : "OBS receives the transparent caption canvas. A separate mobile link is created only when the service begins."}
+            </p>
+          </SpotlightCard>
+        </aside>
+      </div>
+
+      {!hasService ? (
+        <section
+          className={`startBar ${anotherOperatorActive ? "takeover" : ""}`}
+          aria-labelledby="start-service-heading"
+        >
+          <div>
+            <strong id="start-service-heading">{startHeading}</strong>
+            <p id="start-service-description">{startDescription}</p>
+          </div>
+          {confirmTakeover || takeoverRequired ? (
+            <div className="takeoverConfirmation">
               <button
-                className={anotherOperatorActive ? "dangerButton" : "primaryButton"}
-                aria-describedby="start-service-description"
-                disabled={startDisabled}
-                onClick={() => anotherOperatorActive ? setConfirmTakeover(true) : void startSession()}
+                className="secondaryButton"
+                onClick={() => {
+                  setConfirmTakeover(false);
+                  cancelTakeover();
+                }}
               >
-                {liveState.status === "starting" ? "Starting securely…" : anotherOperatorActive ? "Take over channel" : "Start captions"}
+                Cancel
               </button>
-            )}
-          </section>
-        </>
-      )}
+              <button
+                className="dangerButton"
+                aria-describedby="start-service-description"
+                disabled={cloudState !== "ready" || isBusy}
+                onClick={() => {
+                  setConfirmTakeover(false);
+                  void startSession(true);
+                }}
+              >
+                Confirm takeover
+              </button>
+            </div>
+          ) : (
+            <button
+              className={
+                anotherOperatorActive ? "dangerButton" : "primaryButton"
+              }
+              aria-describedby="start-service-description"
+              disabled={startDisabled}
+              onClick={() =>
+                anotherOperatorActive
+                  ? setConfirmTakeover(true)
+                  : void startSession()
+              }
+            >
+              {liveState.status === "starting"
+                ? "Starting securely…"
+                : anotherOperatorActive
+                  ? "Take over channel"
+                  : "Start captions"}
+            </button>
+          )}
+        </section>
+      ) : null}
     </main>
   );
 }
