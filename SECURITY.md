@@ -1,6 +1,6 @@
 # Security policy
 
-Last reviewed 10 August 2026.
+Last reviewed 23 August 2026.
 
 Church Live Caption is a pre-release prototype. Security fixes are supported only on
 the current `main` branch; no production security or availability SLA is offered.
@@ -118,7 +118,7 @@ Treat these as sensitive even when the app does not persist them:
 - source, translated, or public sermon text;
 - summaries and biblical-reference annotations;
 - member identities, church roles, and unpublished service details;
-- private glossary terms; and
+- private glossary terms, public-filter drafts, and custom translation prompts; and
 - audit, quota, and usage records.
 
 Current behavior:
@@ -128,9 +128,32 @@ Current behavior:
   and not stored by this application;
 - protected source and translated text remain in active browser memory;
 - only the latest moderated public caption is retained ephemerally in the live room;
-- display preferences are saved in browser `localStorage`; glossary and filter inputs
-  are not saved; and
+- only caption-style preferences and a custom operator prompt explicitly saved by the
+  operator use unencrypted browser `localStorage`; other translation drafts remain in
+  React/page memory and disappear on reload;
+- during an active service, the active language, terminology, filter, buffer, and prompt
+  snapshot is stored in that tab's unencrypted `sessionStorage` solely for same-tab
+  recovery, then removed on End, takeover, or idle cleanup;
+- the active custom prompt crosses the protected translation API and Groq inference
+  boundary, but is not written to the Durable Object or sent to the mobile viewer or OBS;
+- a translation-session refresh clears unfinished/queued audio, recent translation
+  context, and current public output without rotating the controller, viewer, or OBS
+  credentials or extending the original service expiry; and
 - no sermon archive, summary database, analytics store, or audio bucket exists.
+
+Anyone with access to the same unlocked browser profile, or any same-origin script that
+runs in that profile, may be able to read `localStorage` and active-tab `sessionStorage`.
+Use only synthetic or approved translation guidance, never put credentials or confidential
+pastoral information in any translation field, and clear site data and close active tabs
+when a shared operator machine changes hands.
+
+The custom operator prompt is bounded to 4,000 characters and rejects unsupported control
+characters. The application places it after a server-owned envelope that the operator
+cannot edit; the model is explicitly instructed to prioritize that envelope's source and
+target languages, Chinese output script, untrusted-data handling, non-invention rules, and
+one-caption output contract. This reduces accidental prompt-policy changes but is not a
+hard enforcement boundary, does not make model output authoritative, and does not eliminate
+prompt-injection or translation-quality risk; church-approved review remains required.
 
 The native shell stores only the operator's acknowledgement of the processing notice in
 app-local preferences. Web content loaded inside it retains the same browser-memory,
@@ -187,6 +210,8 @@ setting.
 - Validate request size from the received body before parsing JSON or multipart data,
   not only from `Content-Length`.
 - Keep provider prompts, recent context, glossary entries, and output sizes bounded.
+- Keep the translation-session revision check fail closed so a provider response started
+  before refresh cannot publish under the newly active settings.
 - Avoid raw exception details in public responses.
 
 As of 23 August 2026, `npm audit --omit=dev` and the full `npm audit` report no known

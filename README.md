@@ -10,17 +10,20 @@ Documentation reviewed 23 August 2026.
 The current codebase implements the Phase 1 cloud prototype:
 
 - browser microphone and audio-interface selection with an input meter;
-- a selectable 6-, 9-, or 12-second speech buffer, snapshotted when a service starts;
+- a selectable 6-, 9-, or 12-second speech buffer that can be revised during a service;
 - Groq Whisper transcription and contextual Groq translation;
 - biblical and church vocabulary hints plus preferred translations;
 - deterministic public-caption word masking;
+- live-editable language, terminology, public-filter, buffer, and operator-prompt drafts,
+  applied together through an explicit translation-session refresh;
 - source and public-caption previews;
 - 10–72px caption size, font, colour, per-line highlight, transparency, and
   horizontal or vertical alignment;
 - 0–20% horizontal and vertical OBS safe margins;
 - shared Main-channel style plus a browser-local fallback preference;
 - minimal monochrome operator shell with guided two-column Setup and a compact Live
-  layout, with appearance controls beside the live-updating caption preview;
+  layout, using dependency-free React Bits adaptations for navigation and restrained
+  visual feedback while keeping appearance controls beside the live-updating preview;
 - Start, Pause/Resume, Clear, idle-or-paused synthetic test, confirmed End, and
   confirmed takeover controls;
 - active-service time and transcription-request usage indicators;
@@ -106,16 +109,24 @@ automatic detection is available.
 
 ## Biblical terminology
 
-The prototype does not train a custom theological model. It uses a fixed, bounded system
-prompt and operator-provided glossary mappings to preserve biblical names, Bible books,
-verse references, church names, and preferred translations. The prompt prioritizes
-idiomatic target-language phrasing, evident tone and intentional repetition, while
-forbidding invented scripture, lyrics, doctrine, facts, or missing context. Current and
-recent captions are encoded as untrusted data; recent context may disambiguate but may
-not be repeated or translated.
+The prototype does not train a custom theological model. It provides a reviewed, bounded
+operator prompt that can be edited for local translation style, plus glossary mappings to
+preserve biblical names, Bible books, verse references, church names, and preferred
+translations. A separate server-owned envelope is immutable: it fixes the requested
+language direction and Chinese script, treats caption/context/terms as untrusted data,
+forbids invented content, and requires exactly one translated caption. The operator field
+cannot edit or remove that envelope, and conflicting custom text is explicitly instructed
+to yield to it. This is prompt-layer risk reduction, not a hard security boundary: model
+output remains untrusted and requires review. No agent wrapper or tool loop is involved.
 
 This guidance improves consistency but is not theological authority. Important terms
 still require church-approved testing and human oversight.
+
+The custom operator prompt is saved to that browser's unencrypted `localStorage` only
+when the operator explicitly selects **Save prompt**. Otherwise, edits remain in page
+memory. Its active value is sent through the protected translation route to Groq, but is
+not stored in the Durable Object or exposed to the mobile viewer or OBS. Do not put
+credentials, private pastoral details, or other secrets in it.
 
 ## Local development
 
@@ -159,6 +170,9 @@ separate `/view` page at the mobile widths too.
 
 The monochrome theme applies only to the operator console. Caption text, highlight,
 transparency, and OBS placement remain independently configurable for the stream output.
+The React Bits-inspired components are maintained as local, dependency-free adaptations;
+their attribution and licence conditions are recorded in
+[Third-party notices](THIRD_PARTY_NOTICES.md).
 
 `npm run preview` still verifies the OpenNext/Worker bundle and non-Durable-Object routes.
 Wrangler is expected to warn that this internal Durable Object is unavailable locally.
@@ -260,14 +274,29 @@ screenshots. The URL does not expire automatically; each active service still st
    immediately and OBS continues unchanged.
 4. End, expiry, or takeover invalidates the link. A new service creates a new one.
 
+## Changing translation settings during a service
+
+Spoken language, target language, terminology, public filters, the 6/9/12-second buffer,
+and the operator translation prompt remain editable while a service is live or paused.
+Edits are drafts: the active pipeline continues with its current settings until the
+operator selects **Refresh translation session** and confirms the reset.
+
+Refresh does not end the service. It preserves the service identity, original timer and
+expiry, controller ownership, mobile-viewer link, and reusable OBS link. It discards the
+unfinished audio window and queued chunks, clears recent translation context and current
+operator/public output, and then applies the draft settings. A server translation revision
+rejects late captions produced under the previous settings. If the service was live,
+capture continues with the refreshed settings; if it was paused, it stays paused.
+
 The UI's latency value is cloud **processing** time after the selected recording buffer
 has completed. Approximate spoken-to-screen time is therefore 6, 9, or 12 seconds plus
 the displayed processing time and normal browser/network rendering delay.
 
 ## Free-plan guardrails
 
-The app enforces a 90-minute service, a 6-, 9-, or 12-second speech buffer, one target
-language, a bounded two-chunk queue, bounded prompt and request sizes, and no automatic
+The app enforces a 90-minute service, one active 6-, 9-, or 12-second speech buffer and
+target language per translation revision, a bounded two-chunk queue, a 4,000-character
+operator-prompt limit, bounded request sizes, and no automatic
 paid-provider fallback. A Groq `429` ends the service rather than purchasing capacity.
 Pause, Clear, Resume, and Show test caption use only low-volume Worker/Durable Object
 requests. The synthetic test caption does not call Groq.
@@ -299,7 +328,14 @@ The prototype has no production SLA; exhaustion stops captions.
   token, token hash, shared style, controller hash while active, sequence, timestamps,
   and at most the latest moderated public caption.
 - Protected source captions remain in browser memory only during the active service.
-- Saved display preferences use browser `localStorage`; glossary and filter text do not.
+- Only the caption-style preference and an explicitly saved custom operator prompt use
+  unencrypted browser `localStorage`; ordinary language, terminology, filter, buffer, and
+  unsaved-prompt drafts remain in page memory.
+- While a service is active, the complete active translation snapshot is kept in that
+  tab's unencrypted `sessionStorage` solely for same-tab recovery. It is removed on End,
+  takeover, or idle cleanup and is never synchronized to a church account.
+- The custom prompt is not placed in the Durable Object, viewer stream, or OBS output;
+  the active value is sent only to the protected translation API and Groq.
 - The usage indicator combines browser-measured elapsed time with the server-owned
   active-service transcription count; it is not billing or account metering.
 - Groq ZDR is required for real-sermon testing. Groq still retains non-content usage

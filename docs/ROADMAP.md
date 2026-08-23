@@ -27,9 +27,12 @@ Implemented in the codebase:
 
 - Next.js/OpenNext Cloudflare Workers deployment configuration;
 - encrypted Groq secret and signed Cloudflare Access verification;
-- selected microphone/audio-interface capture and a locked 6-, 9-, or 12-second buffer;
-- multilingual Whisper transcription and one-target GPT-OSS 20B translation using a
-  fixed idiomatic, non-invention system prompt;
+- selected microphone/audio-interface capture and a live-editable 6-, 9-, or 12-second
+  buffer;
+- multilingual Whisper transcription and one-target-at-a-time GPT-OSS 20B translation
+  using an immutable server safety/output envelope plus bounded editable operator prompt;
+- draft language, terminology, filter, buffer, and prompt changes applied through an
+  explicit translation-session refresh that preserves the service and public links;
 - bounded biblical/church hints, preferred terms, and public masking;
 - source/public previews, status, latency, queue, service-time, and request indicators;
 - one encrypted, reusable Main OBS channel with a reconnecting read-only overlay;
@@ -39,7 +42,8 @@ Implemented in the codebase:
   browser preferences, with continuous design-preview updates;
 - 0–20% OBS safe margins plus Setup/Live layouts, pause/resume, clear, idle/paused test,
   confirmed End, explicit URL rotation, and confirmed takeover controls;
-- a minimal monochrome operator theme with independently configurable OBS caption output;
+- a minimal monochrome operator theme with dependency-free React Bits adaptations and
+  independently configurable OBS caption output;
 - no application audio or transcript storage.
 
 Pending validation:
@@ -50,6 +54,11 @@ Pending validation:
 - device loss, internet loss, Access expiry, Groq `429`, timeout, and model outage;
 - GPT-OSS 20B output quality, all three buffer/latency tradeoffs, and the lower daily token
   allowance across every approved source/target pair;
+- live and paused translation refresh for every editable setting, including stale-result
+  rejection, cleared context/output, and unchanged service/controller/viewer/OBS identity;
+- reviewed-default and safe custom-prompt behavior, in-memory draft, explicit
+  `localStorage`, active-tab `sessionStorage`, and cleanup boundaries, plus the immutable
+  server envelope across representative prompt-injection samples;
 - overlay reconnect, End-with-URL-retention, controller replacement, takeover, explicit
   link rotation, mobile-viewer late join/replacement/revocation, and OBS
   production-machine behavior; and
@@ -144,6 +153,9 @@ or the full reusable Durable Object/OBS/mobile-viewer journey.
   and sufficient control contrast on the intended operator displays.
 - Verify pause/resume, clear, idle/paused tests, confirmed End, URL reuse across two
   services, confirmed takeover, explicit rotation on synthetic setup, and safe margins.
+- While live and paused, draft language, terminology, filter, buffer, and prompt changes;
+  confirm they apply only after explicit translation refresh and that the timer, controller,
+  mobile link, and OBS link remain unchanged while unfinished context/output is cleared.
 - Verify the mobile viewer at 320px and 390px, including copy/open, late join, Pause,
   replacement, End, expiry, and takeover behavior.
 - Record results without sermon content, credentials, or active OBS/viewer URLs.

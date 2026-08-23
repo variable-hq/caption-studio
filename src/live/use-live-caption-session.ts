@@ -3,14 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CloudProviderClient } from "@/ai/cloud-provider-client";
-import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
 import { chooseAudioInputDevice } from "@/live/audio-devices";
 import { parseGlossaryInput, parseModerationInput, preferredTermMap } from "@/live/config";
 import {
   DEFAULT_SPEECH_BUFFER_MS,
   MAX_LIVE_SESSION_MS,
   normalizeCaptionStyle,
-  normalizeSpeechBufferMs,
   type CaptionStyle,
   type LiveServiceDetails,
   type LiveSessionControlAction,
@@ -20,16 +18,18 @@ import {
 } from "@/live/contracts";
 import { LiveApiError, LiveSessionClient } from "@/live/session-client";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
+import {
+  normalizeTranslationSessionSettings,
+  parseStoredTranslationSessionSettings,
+  serializeTranslationSessionSettings,
+  translationSessionSnapshotMatches,
+  type TranslationSessionSettings,
+} from "@/live/translation-settings";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { keywordHints } from "@/pipeline/glossary";
 
-interface LiveCaptionSettings {
-  sourceLanguage: SourceLanguage;
-  targetLanguage: LanguageLocale;
-  keywordText: string;
-  filterText: string;
+interface LiveCaptionSettings extends TranslationSessionSettings {
   style: CaptionStyle;
-  speechBufferMs: SpeechBufferMs;
 }
 
 interface QueuedChunk {
@@ -39,7 +39,10 @@ interface QueuedChunk {
 
 const CONTROLLER_STORAGE_KEY = "church-live-caption:main-controller:v1";
 const VIEWER_STORAGE_KEY = "church-live-caption:main-viewer:v1";
-const SPEECH_BUFFER_STORAGE_KEY = "church-live-caption:speech-buffer:v1";
+const TRANSLATION_SETTINGS_STORAGE_KEY =
+  "church-live-caption:active-translation-settings:v1";
+const LEGACY_SPEECH_BUFFER_STORAGE_KEY =
+  "church-live-caption:speech-buffer:v1";
 
 function validStoredViewerUrl(value: string | null) {
   if (!value) return null;
@@ -102,8 +105,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const [endRetryRequired, setEndRetryRequired] = useState(false);
   const [takeoverRequired, setTakeoverRequired] = useState(false);
   const [rotationRecoveryRequired, setRotationRecoveryRequired] = useState(false);
+  const [activeTranslationSettings, setActiveTranslationSettings] =
+    useState<TranslationSessionSettings | null>(null);
+  const [translationRefreshRequired, setTranslationRefreshRequired] =
+    useState(false);
 
   const settingsRef = useRef(settings);
+  const endRetryRequiredRef = useRef(false);
+  const activeTranslationSettingsRef =
+    useRef<TranslationSessionSettings | null>(null);
+  const translationRefreshRequiredRef = useRef(false);
+  const refreshShouldResumeRef = useRef(false);
+  const translationRefreshRequestIdRef = useRef<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -116,6 +129,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const captureGenerationRef = useRef(0);
   const endingRef = useRef(false);
   const serviceRef = useRef<LiveServiceDetails | null>(null);
+  const loadGenerationRef = useRef(0);
   const recentContextRef = useRef<string[]>([]);
   const sessionTimerRef = useRef<number | null>(null);
   const lifecyclePauseRef = useRef(false);
@@ -126,6 +140,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  const requireTranslationRefresh = useCallback((required: boolean) => {
+    translationRefreshRequiredRef.current = required;
+    setTranslationRefreshRequired(required);
+  }, []);
 
   useEffect(() => {
     window.dispatchEvent(
@@ -238,15 +257,19 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     }
   }, []);
 
-  const stopCapture = useCallback(() => {
+  const stopTranslationCapture = useCallback(() => {
     capturingRef.current = false;
     captureGenerationRef.current += 1;
     captureAbortRef.current?.abort();
     captureAbortRef.current = null;
     queueRef.current = [];
     stopRecorder();
+  }, [stopRecorder]);
+
+  const stopCapture = useCallback(() => {
+    stopTranslationCapture();
     stopMicrophone();
-  }, [stopMicrophone, stopRecorder]);
+  }, [stopMicrophone, stopTranslationCapture]);
 
   const clearServiceTimer = useCallback(() => {
     if (sessionTimerRef.current !== null) {
@@ -257,12 +280,20 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
   const handleTakenOver = useCallback(
     (message = "Control of the Main channel moved to another operator.") => {
+      loadGenerationRef.current += 1;
       stopCapture();
       clearServiceTimer();
       window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
       window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
-      window.sessionStorage.removeItem(SPEECH_BUFFER_STORAGE_KEY);
+      window.sessionStorage.removeItem(TRANSLATION_SETTINGS_STORAGE_KEY);
+      window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
       serviceRef.current = null;
+      activeTranslationSettingsRef.current = null;
+      setActiveTranslationSettings(null);
+      requireTranslationRefresh(false);
+      refreshShouldResumeRef.current = false;
+      translationRefreshRequestIdRef.current = null;
+      endRetryRequiredRef.current = false;
       setEndRetryRequired(false);
       setTakeoverRequired(false);
       setControlAction(null);
@@ -278,18 +309,30 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           : current.channel,
       }));
     },
-    [clearServiceTimer, stopCapture],
+    [clearServiceTimer, requireTranslationRefresh, stopCapture],
   );
 
   const endService = useCallback(
     async (message = "Live service ended. The reusable OBS URL is ready for next time.", failed = false) => {
       if (endingRef.current) return;
       endingRef.current = true;
+      loadGenerationRef.current += 1;
       setControlAction(null);
       stopCapture();
       clearServiceTimer();
       const service = serviceRef.current;
       if (!service) {
+        window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
+        window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
+        window.sessionStorage.removeItem(TRANSLATION_SETTINGS_STORAGE_KEY);
+        window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
+        activeTranslationSettingsRef.current = null;
+        setActiveTranslationSettings(null);
+        requireTranslationRefresh(false);
+        refreshShouldResumeRef.current = false;
+        translationRefreshRequestIdRef.current = null;
+        endRetryRequiredRef.current = false;
+        setEndRetryRequired(false);
         setLiveState((current) => ({
           ...current,
           status: failed ? "error" : "idle",
@@ -307,10 +350,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       }));
       try {
         await liveClientRef.current.endService(service.controllerToken);
+        stopCapture();
         window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
         window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
-        window.sessionStorage.removeItem(SPEECH_BUFFER_STORAGE_KEY);
+        window.sessionStorage.removeItem(TRANSLATION_SETTINGS_STORAGE_KEY);
+        window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
         serviceRef.current = null;
+        activeTranslationSettingsRef.current = null;
+        setActiveTranslationSettings(null);
+        requireTranslationRefresh(false);
+        refreshShouldResumeRef.current = false;
+        translationRefreshRequestIdRef.current = null;
+        endRetryRequiredRef.current = false;
         setEndRetryRequired(false);
         setLiveState((current) => ({
           ...current,
@@ -334,6 +385,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         } else {
           const detail =
             error instanceof Error ? error.message : "Service deactivation failed.";
+          endRetryRequiredRef.current = true;
           setEndRetryRequired(true);
           setLiveState((current) => ({
             ...current,
@@ -346,7 +398,53 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         endingRef.current = false;
       }
     },
-    [clearServiceTimer, handleTakenOver, stopCapture],
+    [clearServiceTimer, handleTakenOver, requireTranslationRefresh, stopCapture],
+  );
+
+  const reconcileExternalTranslationRevision = useCallback(
+    (translationRevision: unknown, transcriptionRequests?: number) => {
+      const service = serviceRef.current;
+      if (!service) return;
+      const currentRevision = service.translationRevision;
+      const nextRevision =
+        Number.isSafeInteger(translationRevision) &&
+        Number(translationRevision) >= 0
+          ? Number(translationRevision)
+          : currentRevision;
+      const updatedService = {
+        ...service,
+        translationRevision: nextRevision,
+      };
+
+      refreshShouldResumeRef.current =
+        capturingRef.current || refreshShouldResumeRef.current;
+      stopCapture();
+      serviceRef.current = updatedService;
+      activeTranslationSettingsRef.current = null;
+      setActiveTranslationSettings(null);
+      window.sessionStorage.removeItem(TRANSLATION_SETTINGS_STORAGE_KEY);
+      translationRefreshRequestIdRef.current = null;
+      requireTranslationRefresh(true);
+      setLiveState((current) => ({
+        ...current,
+        status: "error",
+        message:
+          "Translation was refreshed from another controller tab. Local audio stopped before more provider work. Review the draft and refresh this translation session to continue.",
+        latestSourceText: "",
+        latestPublicText: "",
+        lastLatencyMs: null,
+        transcriptionRequests:
+          transcriptionRequests ?? current.transcriptionRequests,
+        service: updatedService,
+        channel: current.channel
+          ? {
+              ...current.channel,
+              translationRevision: nextRevision,
+            }
+          : current.channel,
+      }));
+    },
+    [requireTranslationRefresh, stopCapture],
   );
 
   const processChunk = useCallback(
@@ -359,7 +457,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
       // Cloud latency starts after the current MediaRecorder chunk completes.
       const startedAt = performance.now();
-      const current = settingsRef.current;
+      const current = activeTranslationSettingsRef.current;
+      if (!current) return;
       const signal = captureAbortRef.current?.signal;
       if (!signal) return;
       const serviceAtStart = serviceRef.current;
@@ -370,6 +469,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         serviceAtStart.controllerToken,
       );
       if (!isCurrentCapture()) return;
+      if (lease.translationRevision !== serviceAtStart.translationRevision) {
+        reconcileExternalTranslationRevision(
+          lease.translationRevision,
+          lease.transcriptionRequests,
+        );
+        return;
+      }
       const glossary = parseGlossaryInput(current.keywordText, current.targetLanguage);
       setLiveState((state) => ({
         ...state,
@@ -408,6 +514,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
                 targetLanguage: current.targetLanguage,
                 recentContext: recentContextRef.current,
                 preferredTerms: preferredTermMap(glossary, current.targetLanguage),
+                translationSystemPrompt: current.translationSystemPrompt,
               },
               signal,
             );
@@ -424,6 +531,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         publicText: forms.publicText,
         targetLanguage: current.targetLanguage,
         style: normalizeCaptionStyle(settingsRef.current.style),
+        translationRevision: lease.translationRevision,
       };
       const service = serviceRef.current;
       if (!service || !isCurrentCapture()) return;
@@ -445,7 +553,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         lastLatencyMs: Math.round(performance.now() - startedAt),
       }));
     },
-    [],
+    [reconcileExternalTranslationRevision],
   );
 
   const drainQueue = useCallback(async () => {
@@ -460,6 +568,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         } catch (error) {
           if (!capturingRef.current || chunk.generation !== captureGenerationRef.current) {
             continue;
+          }
+          if (
+            error instanceof LiveApiError &&
+            error.code === "translation_session_refreshed"
+          ) {
+            reconcileExternalTranslationRevision(error.translationRevision);
+            break;
           }
           if (isControllerReplaced(error)) {
             handleTakenOver();
@@ -483,7 +598,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     } finally {
       processingRef.current = false;
     }
-  }, [endService, handleTakenOver, processChunk]);
+  }, [
+    endService,
+    handleTakenOver,
+    processChunk,
+    reconcileExternalTranslationRevision,
+  ]);
 
   const enqueueChunk = useCallback(
     (audio: Blob, generation: number) => {
@@ -568,6 +688,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   );
 
   const loadChannel = useCallback(async () => {
+    const loadGeneration = ++loadGenerationRef.current;
+    const loadIsCurrent = () =>
+      loadGenerationRef.current === loadGeneration &&
+      !endingRef.current &&
+      !endRetryRequiredRef.current;
+    if (!loadIsCurrent()) return;
     setLiveState((current) => ({
       ...current,
       status: "loading-channel",
@@ -575,13 +701,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     }));
     try {
       const channel = await liveClientRef.current.getChannel();
+      if (!loadIsCurrent()) return;
       setRotationRecoveryRequired(false);
       const storedController = window.sessionStorage.getItem(CONTROLLER_STORAGE_KEY);
       const storedViewerUrl = validStoredViewerUrl(
         window.sessionStorage.getItem(VIEWER_STORAGE_KEY),
       );
-      const storedSpeechBuffer = normalizeSpeechBufferMs(
-        window.sessionStorage.getItem(SPEECH_BUFFER_STORAGE_KEY),
+      const storedTranslationSnapshot = parseStoredTranslationSessionSettings(
+        window.sessionStorage.getItem(TRANSLATION_SETTINGS_STORAGE_KEY),
       );
       if (
         channel.configured &&
@@ -591,40 +718,76 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         channel.expiresAt
       ) {
         try {
-          await liveClientRef.current.control(
+          const recovery = await liveClientRef.current.control(
             channel.status === "live" ? "pause" : "clear",
             storedController,
           );
+          if (!loadIsCurrent()) return;
           const recovered: LiveServiceDetails = {
             channelId: channel.channelId,
             controllerToken: storedController,
             viewerUrl: storedViewerUrl,
             startedAt: channel.startedAt,
             expiresAt: channel.expiresAt,
+            translationRevision: recovery.translationRevision,
           };
-          speechBufferRef.current = storedSpeechBuffer;
+          const storedTranslationSettings =
+            storedTranslationSnapshot &&
+            translationSessionSnapshotMatches(
+              storedTranslationSnapshot,
+              recovered,
+            )
+              ? storedTranslationSnapshot.settings
+              : null;
+          speechBufferRef.current =
+            storedTranslationSettings?.speechBufferMs ?? DEFAULT_SPEECH_BUFFER_MS;
           serviceRef.current = recovered;
+          activeTranslationSettingsRef.current = storedTranslationSettings;
+          setActiveTranslationSettings(storedTranslationSettings);
+          requireTranslationRefresh(!storedTranslationSettings);
+          refreshShouldResumeRef.current = false;
+          translationRefreshRequestIdRef.current = null;
           armServiceTimer(recovered);
           setLiveState({
             ...INITIAL_LIVE_STATE,
             status: "paused",
-            message: "Recovered this operator tab in a safe paused state.",
-            channel: { ...channel, status: "paused" },
+            message: storedTranslationSettings
+              ? "Recovered this operator tab in a safe paused state."
+              : "Recovered the service, but its browser settings were unavailable. Review them and refresh the translation session before resuming.",
+            channel: {
+              ...channel,
+              status: "paused",
+              translationRevision: recovery.translationRevision,
+            },
             service: recovered,
             transcriptionRequests: channel.transcriptionRequests,
           });
           return;
         } catch {
+          if (!loadIsCurrent()) return;
           window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
           window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
-          window.sessionStorage.removeItem(SPEECH_BUFFER_STORAGE_KEY);
+          window.sessionStorage.removeItem(TRANSLATION_SETTINGS_STORAGE_KEY);
+          window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
+          activeTranslationSettingsRef.current = null;
+          setActiveTranslationSettings(null);
+          requireTranslationRefresh(false);
+          refreshShouldResumeRef.current = false;
+          translationRefreshRequestIdRef.current = null;
         }
       } else if (channel.status === "idle") {
         window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
         window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
-        window.sessionStorage.removeItem(SPEECH_BUFFER_STORAGE_KEY);
+        window.sessionStorage.removeItem(TRANSLATION_SETTINGS_STORAGE_KEY);
+        window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
+        activeTranslationSettingsRef.current = null;
+        setActiveTranslationSettings(null);
+        requireTranslationRefresh(false);
+        refreshShouldResumeRef.current = false;
+        translationRefreshRequestIdRef.current = null;
       }
 
+      if (!loadIsCurrent()) return;
       setLiveState({
         ...INITIAL_LIVE_STATE,
         status: "idle",
@@ -637,6 +800,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         transcriptionRequests: channel.transcriptionRequests,
       });
     } catch (error) {
+      if (!loadIsCurrent()) return;
       setRotationRecoveryRequired(
         error instanceof LiveApiError && error.code === "invalid_overlay_key",
       );
@@ -646,7 +810,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         message: error instanceof Error ? error.message : "The Main channel could not load.",
       });
     }
-  }, [armServiceTimer]);
+  }, [armServiceTimer, requireTranslationRefresh]);
 
   useEffect(() => {
     void loadChannel();
@@ -750,13 +914,27 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
   const replaceViewerLink = useCallback(async () => {
     const service = serviceRef.current;
-    if (!service || viewerAction) return;
+    if (
+      !service ||
+      viewerAction ||
+      endingRef.current ||
+      endRetryRequiredRef.current
+    ) {
+      return;
+    }
+    const serviceIsCurrent = () =>
+      !endingRef.current &&
+      !endRetryRequiredRef.current &&
+      serviceRef.current?.controllerToken === service.controllerToken;
     setViewerAction("replace");
     try {
       const { viewerUrl } = await liveClientRef.current.replaceViewerLink(
         service.controllerToken,
       );
-      const updated = { ...service, viewerUrl };
+      if (!serviceIsCurrent()) return;
+      const currentService = serviceRef.current;
+      if (!currentService) return;
+      const updated = { ...currentService, viewerUrl };
       serviceRef.current = updated;
       window.sessionStorage.setItem(VIEWER_STORAGE_KEY, viewerUrl);
       setLiveState((current) => ({
@@ -765,6 +943,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         message: "Mobile viewer link replaced. Share the new link with intended viewers.",
       }));
     } catch (error) {
+      if (!serviceIsCurrent()) return;
       if (isControllerReplaced(error)) handleTakenOver();
       else {
         setLiveState((current) => ({
@@ -783,6 +962,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const startSession = useCallback(
     async (takeover = false) => {
       if (serviceRef.current || endingRef.current) return;
+      endRetryRequiredRef.current = false;
       setEndRetryRequired(false);
       setTakeoverRequired(false);
       setLiveState((current) => ({
@@ -805,14 +985,20 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         }
         await cloudClientRef.current.readiness();
         const stream = await ensureMicrophone(selectedDeviceId || undefined);
+        const translationSettings = normalizeTranslationSessionSettings(
+          settingsRef.current,
+        );
         const service = await liveClientRef.current.startService(
           normalizeCaptionStyle(settingsRef.current.style),
           takeover,
         );
-        const speechBufferMs = normalizeSpeechBufferMs(
-          settingsRef.current.speechBufferMs,
-        );
+        const speechBufferMs = translationSettings.speechBufferMs;
         serviceRef.current = service;
+        activeTranslationSettingsRef.current = translationSettings;
+        setActiveTranslationSettings(translationSettings);
+        requireTranslationRefresh(false);
+        refreshShouldResumeRef.current = false;
+        translationRefreshRequestIdRef.current = null;
         speechBufferRef.current = speechBufferMs;
         window.sessionStorage.setItem(
           CONTROLLER_STORAGE_KEY,
@@ -822,9 +1008,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           window.sessionStorage.setItem(VIEWER_STORAGE_KEY, service.viewerUrl);
         }
         window.sessionStorage.setItem(
-          SPEECH_BUFFER_STORAGE_KEY,
-          String(speechBufferMs),
+          TRANSLATION_SETTINGS_STORAGE_KEY,
+          serializeTranslationSessionSettings(translationSettings, service),
         );
+        window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
         recentContextRef.current = [];
         queueRef.current = [];
         captureGenerationRef.current += 1;
@@ -846,6 +1033,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
                 status: "live",
                 startedAt: service.startedAt,
                 expiresAt: service.expiresAt,
+                translationRevision: service.translationRevision,
               }
             : current.channel,
         }));
@@ -867,27 +1055,71 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           }));
           return;
         }
+        const detail =
+          error instanceof Error ? error.message : "Live service could not start.";
+        if (serviceRef.current) {
+          await endService(`Live service could not finish starting. ${detail}`, true);
+          return;
+        }
         stopMicrophone();
         setLiveState((current) => ({
           ...current,
           status: "error",
-          message: error instanceof Error ? error.message : "Live service could not start.",
+          message: detail,
         }));
       }
     },
     [
       armServiceTimer,
+      endService,
       ensureMicrophone,
       liveState.channel?.configured,
+      requireTranslationRefresh,
       selectedDeviceId,
       startRecorder,
       stopMicrophone,
     ],
   );
 
+  const pauseOrConfirmService = useCallback(
+    async (service: LiveServiceDetails) => {
+      try {
+        return await liveClientRef.current.control(
+          "pause",
+          service.controllerToken,
+        );
+      } catch (error) {
+        if (isControllerReplaced(error)) throw error;
+        try {
+          const channel = await liveClientRef.current.getChannel();
+          if (
+            channel.configured &&
+            channel.status === "paused" &&
+            channel.startedAt === service.startedAt &&
+            channel.expiresAt === service.expiresAt
+          ) {
+            return {
+              action: "pause" as const,
+              status: "paused" as const,
+              translationRevision: channel.translationRevision,
+            };
+          }
+        } catch {
+          // Preserve the original pause failure when reconciliation is unavailable.
+        }
+        throw error;
+      }
+    },
+    [],
+  );
+
   const pauseSession = useCallback(async () => {
     const service = serviceRef.current;
-    if (!service || endingRef.current || !capturingRef.current) return;
+    if (!service || endingRef.current) return;
+    const serviceIsCurrent = () =>
+      !endingRef.current &&
+      !endRetryRequiredRef.current &&
+      serviceRef.current?.controllerToken === service.controllerToken;
     setControlAction("pause");
     setLiveState((current) => ({
       ...current,
@@ -896,7 +1128,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     }));
     stopCapture();
     try {
-      await liveClientRef.current.control("pause", service.controllerToken);
+      const response = await pauseOrConfirmService(service);
+      if (!serviceIsCurrent()) return;
+      if (response.translationRevision !== service.translationRevision) {
+        reconcileExternalTranslationRevision(response.translationRevision);
+        return;
+      }
       setLiveState((current) => ({
         ...current,
         status: "paused",
@@ -906,6 +1143,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         channel: current.channel ? { ...current.channel, status: "paused" } : null,
       }));
     } catch (error) {
+      if (!serviceIsCurrent()) return;
       if (isControllerReplaced(error)) handleTakenOver();
       else {
         setLiveState((current) => ({
@@ -919,11 +1157,32 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     } finally {
       setControlAction(null);
     }
-  }, [handleTakenOver, stopCapture]);
+  }, [
+    handleTakenOver,
+    pauseOrConfirmService,
+    reconcileExternalTranslationRevision,
+    stopCapture,
+  ]);
 
   const resumeSession = useCallback(async () => {
     const service = serviceRef.current;
     if (!service || endingRef.current) return;
+    const serviceIsCurrent = () =>
+      !endingRef.current &&
+      !endRetryRequiredRef.current &&
+      serviceRef.current?.controllerToken === service.controllerToken;
+    if (
+      translationRefreshRequiredRef.current ||
+      !activeTranslationSettingsRef.current
+    ) {
+      setLiveState((current) => ({
+        ...current,
+        status: "paused",
+        message:
+          "Review the translation settings and refresh the translation session before resuming.",
+      }));
+      return;
+    }
     setControlAction("resume");
     setLiveState((current) => ({
       ...current,
@@ -932,7 +1191,19 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     }));
     try {
       const stream = await ensureMicrophone(selectedDeviceId || undefined);
-      await liveClientRef.current.control("resume", service.controllerToken);
+      const response = await liveClientRef.current.control(
+        "resume",
+        service.controllerToken,
+      );
+      if (!serviceIsCurrent()) {
+        stopCapture();
+        return;
+      }
+      if (response.translationRevision !== service.translationRevision) {
+        refreshShouldResumeRef.current = true;
+        reconcileExternalTranslationRevision(response.translationRevision);
+        return;
+      }
       captureGenerationRef.current += 1;
       const generation = captureGenerationRef.current;
       captureAbortRef.current = new AbortController();
@@ -948,6 +1219,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       }));
     } catch (error) {
       stopCapture();
+      if (!serviceIsCurrent()) return;
       if (isControllerReplaced(error)) handleTakenOver();
       else {
         setLiveState((current) => ({
@@ -961,7 +1233,307 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     } finally {
       setControlAction(null);
     }
-  }, [ensureMicrophone, handleTakenOver, selectedDeviceId, startRecorder, stopCapture]);
+  }, [
+    ensureMicrophone,
+    handleTakenOver,
+    reconcileExternalTranslationRevision,
+    selectedDeviceId,
+    startRecorder,
+    stopCapture,
+  ]);
+
+  const refreshTranslationSession = useCallback(async () => {
+    const service = serviceRef.current;
+    if (
+      !service ||
+      endingRef.current ||
+      endRetryRequiredRef.current ||
+      controlAction
+    ) {
+      return;
+    }
+    const serviceIsCurrent = () =>
+      !endingRef.current &&
+      !endRetryRequiredRef.current &&
+      serviceRef.current?.controllerToken === service.controllerToken;
+
+    let translationSettings: TranslationSessionSettings;
+    try {
+      translationSettings = normalizeTranslationSessionSettings(
+        settingsRef.current,
+      );
+    } catch (error) {
+      setLiveState((current) => ({
+        ...current,
+        message:
+          error instanceof Error
+            ? error.message
+            : "The translation settings are not valid.",
+      }));
+      return;
+    }
+
+    const shouldResume = capturingRef.current || refreshShouldResumeRef.current;
+    refreshShouldResumeRef.current = shouldResume;
+    const refreshRequestId =
+      translationRefreshRequestIdRef.current ?? crypto.randomUUID();
+    translationRefreshRequestIdRef.current = refreshRequestId;
+    requireTranslationRefresh(true);
+    setControlAction("refresh-translation");
+    setLiveState((current) => ({
+      ...current,
+      status: "refreshing",
+      message:
+        "Refreshing translation context. The service, timer, links, and viewers remain connected…",
+    }));
+    stopTranslationCapture();
+
+    try {
+      const response = await liveClientRef.current.refreshTranslation(
+        service.controllerToken,
+        service.translationRevision,
+        refreshRequestId,
+      );
+      if (!serviceIsCurrent()) {
+        stopCapture();
+        return;
+      }
+      const updatedService = {
+        ...(serviceRef.current ?? service),
+        translationRevision: response.translationRevision,
+      };
+      serviceRef.current = updatedService;
+      activeTranslationSettingsRef.current = translationSettings;
+      setActiveTranslationSettings(translationSettings);
+      speechBufferRef.current = translationSettings.speechBufferMs;
+      recentContextRef.current = [];
+      queueRef.current = [];
+      window.sessionStorage.setItem(
+        TRANSLATION_SETTINGS_STORAGE_KEY,
+        serializeTranslationSessionSettings(
+          translationSettings,
+          updatedService,
+        ),
+      );
+      window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
+      requireTranslationRefresh(false);
+      translationRefreshRequestIdRef.current = null;
+
+      if (shouldResume) {
+        try {
+          const stream = await ensureMicrophone(selectedDeviceId || undefined);
+          if (!serviceIsCurrent()) {
+            stopCapture();
+            return;
+          }
+          captureGenerationRef.current += 1;
+          const generation = captureGenerationRef.current;
+          captureAbortRef.current = new AbortController();
+          capturingRef.current = true;
+          startRecorder(
+            stream,
+            generation,
+            translationSettings.speechBufferMs,
+          );
+          refreshShouldResumeRef.current = false;
+          setLiveState((current) => ({
+            ...current,
+            status: "live",
+            message:
+              "Translation settings refreshed. Listening continues in the same service.",
+            latestSourceText: "",
+            latestPublicText: "",
+            lastLatencyMs: null,
+            service: updatedService,
+            channel: current.channel
+              ? {
+                  ...current.channel,
+                  status: "live",
+                  translationRevision: response.translationRevision,
+                }
+              : current.channel,
+          }));
+        } catch (error) {
+          stopCapture();
+          if (!serviceIsCurrent()) return;
+          refreshShouldResumeRef.current = false;
+          let pauseError: unknown;
+          try {
+            const pauseResponse = await pauseOrConfirmService(updatedService);
+            if (!serviceIsCurrent()) {
+              stopCapture();
+              return;
+            }
+            if (
+              pauseResponse.translationRevision !==
+              updatedService.translationRevision
+            ) {
+              reconcileExternalTranslationRevision(
+                pauseResponse.translationRevision,
+              );
+              return;
+            }
+          } catch (caught) {
+            pauseError = caught;
+          }
+          if (!serviceIsCurrent()) {
+            stopCapture();
+            return;
+          }
+          if (isControllerReplaced(pauseError)) {
+            handleTakenOver();
+            return;
+          }
+          const pauseConfirmed = pauseError === undefined;
+          setLiveState((current) => ({
+            ...current,
+            status: pauseConfirmed ? "paused" : "error",
+            message: pauseConfirmed
+              ? `Translation settings were refreshed, but audio could not restart. The service is paused; use Resume when ready. ${
+                  error instanceof Error
+                    ? error.message
+                    : "Microphone access failed."
+                }`
+              : `Translation settings were refreshed and local audio stopped, but the server pause was not confirmed. Retry Pause or End. ${
+                  pauseError instanceof Error
+                    ? pauseError.message
+                    : "Pause confirmation failed."
+                }`,
+            latestSourceText: "",
+            latestPublicText: "",
+            lastLatencyMs: null,
+            service: updatedService,
+            channel: current.channel
+              ? {
+                  ...current.channel,
+                  status: pauseConfirmed
+                    ? "paused"
+                    : current.channel.status,
+                  translationRevision: response.translationRevision,
+                }
+              : current.channel,
+          }));
+        }
+      } else {
+        refreshShouldResumeRef.current = false;
+        if (response.status === "live") {
+          let pauseError: unknown;
+          try {
+            const pauseResponse = await pauseOrConfirmService(updatedService);
+            if (!serviceIsCurrent()) {
+              stopCapture();
+              return;
+            }
+            if (
+              pauseResponse.translationRevision !==
+              updatedService.translationRevision
+            ) {
+              reconcileExternalTranslationRevision(
+                pauseResponse.translationRevision,
+              );
+              return;
+            }
+          } catch (caught) {
+            pauseError = caught;
+          }
+          if (!serviceIsCurrent()) {
+            stopCapture();
+            return;
+          }
+          if (isControllerReplaced(pauseError)) {
+            handleTakenOver();
+            return;
+          }
+          if (pauseError !== undefined) {
+            setLiveState((current) => ({
+              ...current,
+              status: "error",
+              message: `Translation settings were refreshed and local audio is stopped, but the server pause was not confirmed. Retry Pause or End. ${
+                pauseError instanceof Error
+                  ? pauseError.message
+                  : "Pause confirmation failed."
+              }`,
+              latestSourceText: "",
+              latestPublicText: "",
+              lastLatencyMs: null,
+              service: updatedService,
+              channel: current.channel
+                ? {
+                    ...current.channel,
+                    translationRevision: response.translationRevision,
+                  }
+                : current.channel,
+            }));
+            return;
+          }
+        }
+        setLiveState((current) => ({
+          ...current,
+          status: "paused",
+          message:
+            "Translation settings refreshed. The service remains paused with the same timer and links.",
+          latestSourceText: "",
+          latestPublicText: "",
+          lastLatencyMs: null,
+          service: updatedService,
+          channel: current.channel
+            ? {
+                ...current.channel,
+                status: "paused",
+                translationRevision: response.translationRevision,
+              }
+            : current.channel,
+        }));
+      }
+    } catch (error) {
+      stopMicrophone();
+      if (!serviceIsCurrent()) return;
+      if (isControllerReplaced(error)) {
+        handleTakenOver();
+      } else {
+        if (
+          error instanceof LiveApiError &&
+          typeof error.translationRevision === "number"
+        ) {
+          const currentService = serviceRef.current;
+          if (currentService) {
+            const reconciled = {
+              ...currentService,
+              translationRevision: error.translationRevision,
+            };
+            serviceRef.current = reconciled;
+            setLiveState((current) => ({ ...current, service: reconciled }));
+          }
+        }
+        setLiveState((current) => ({
+          ...current,
+          status: "paused",
+          message: `Audio capture stopped, but the translation refresh was not confirmed. Retry Refresh; the live service and links remain available. ${
+            error instanceof Error ? error.message : "Refresh failed."
+          }`,
+          latestSourceText: "",
+          latestPublicText: "",
+          channel: current.channel
+            ? { ...current.channel, status: "paused" }
+            : current.channel,
+        }));
+      }
+    } finally {
+      setControlAction(null);
+    }
+  }, [
+    controlAction,
+    ensureMicrophone,
+    handleTakenOver,
+    pauseOrConfirmService,
+    reconcileExternalTranslationRevision,
+    requireTranslationRefresh,
+    selectedDeviceId,
+    startRecorder,
+    stopCapture,
+    stopMicrophone,
+    stopTranslationCapture,
+  ]);
 
   const clearCaption = useCallback(async () => {
     if (!liveState.channel?.configured || endingRef.current) return;
@@ -1097,9 +1669,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     controlAction,
     channelAction,
     viewerAction,
-    activeSpeechBufferMs: liveState.service
-      ? speechBufferRef.current
-      : settings.speechBufferMs,
+    activeTranslationSettings,
+    translationRefreshRequired,
+    activeSpeechBufferMs:
+      activeTranslationSettings?.speechBufferMs ?? settings.speechBufferMs,
     endRetryRequired,
     takeoverRequired,
     rotationRecoveryRequired,
@@ -1112,6 +1685,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     startSession,
     pauseSession,
     resumeSession,
+    refreshTranslationSession,
     clearCaption,
     showTestCaption,
     stopSession: () => endService(),

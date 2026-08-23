@@ -4,7 +4,9 @@ import {
   MAX_LIVE_SESSION_MS,
   MAX_TRANSCRIPTION_REQUESTS,
   isLiveSessionControlAction,
+  isTranslationRefreshRequestId,
   normalizeCaptionStyle,
+  normalizeTranslationRevision,
   type CaptionStyle,
   type ChannelStatus,
   type LiveSessionControlRequest,
@@ -22,6 +24,8 @@ interface ChannelConfiguration {
   lastSequence: number;
   serviceEventCount: number;
   transcriptionRequests: number;
+  translationRevision: number;
+  lastTranslationRefreshRequestId?: string;
   controllerHash?: string;
   viewerTokenHash?: string;
   startedAt?: number;
@@ -41,6 +45,7 @@ type MutationResult<T> =
   | { kind: "channel-in-use"; expiresAt?: number }
   | { kind: "controller-replaced" }
   | { kind: "transcription-limit" }
+  | { kind: "translation-session-refreshed"; translationRevision: number }
   | { kind: "inactive"; clear?: boolean }
   | { kind: "invalid" };
 
@@ -84,6 +89,9 @@ function normalizeConfiguration(configuration: ChannelConfiguration) {
     transcriptionRequests: Number.isSafeInteger(configuration.transcriptionRequests)
       ? Math.max(0, configuration.transcriptionRequests)
       : 0,
+    translationRevision: normalizeTranslationRevision(
+      configuration.translationRevision,
+    ),
   } satisfies ChannelConfiguration;
 }
 
@@ -96,6 +104,7 @@ function deactivate(configuration: ChannelConfiguration) {
   delete current.viewerTokenHash;
   delete current.startedAt;
   delete current.expiresAt;
+  delete current.lastTranslationRefreshRequestId;
   return current;
 }
 
@@ -130,7 +139,9 @@ function validCaptionBody(body: Partial<PublicCaptionRequest>) {
     typeof body.publicText === "string" &&
     body.publicText.length <= 2_000 &&
     typeof body.targetLanguage === "string" &&
-    isLanguageLocale(body.targetLanguage)
+    isLanguageLocale(body.targetLanguage) &&
+    Number.isSafeInteger(body.translationRevision) &&
+    Number(body.translationRevision) >= 0
   );
 }
 
@@ -145,6 +156,7 @@ function publicConfiguration(configuration: ChannelConfiguration) {
     expiresAt: current.expiresAt ?? null,
     lastSequence: current.lastSequence,
     transcriptionRequests: current.transcriptionRequests,
+    translationRevision: current.translationRevision,
   };
 }
 
@@ -239,6 +251,7 @@ export class CaptionRoom {
           lastSequence: 0,
           serviceEventCount: 0,
           transcriptionRequests: 0,
+          translationRevision: 0,
         };
         await transaction.put("configuration", created);
         return created;
@@ -409,6 +422,8 @@ export class CaptionRoom {
       configuration.expiresAt = startedAt + MAX_LIVE_SESSION_MS;
       configuration.serviceEventCount = 0;
       configuration.transcriptionRequests = 0;
+      configuration.translationRevision += 1;
+      delete configuration.lastTranslationRefreshRequestId;
       configuration.style = normalizeCaptionStyle(body.style ?? configuration.style);
       await Promise.all([
         transaction.put("configuration", configuration),
@@ -434,6 +449,7 @@ export class CaptionRoom {
       status: result.value.status,
       startedAt: new Date(result.value.startedAt!).toISOString(),
       expiresAt: new Date(result.value.expiresAt!).toISOString(),
+      translationRevision: result.value.translationRevision,
     });
   }
 
@@ -556,10 +572,16 @@ export class CaptionRoom {
         return { kind: "controller-replaced" };
       }
       if (configuration.status !== "live") return { kind: "inactive" };
-      if (
-        !validCaptionBody(body) ||
-        configuration.serviceEventCount >= MAX_CAPTION_EVENTS
-      ) {
+      if (!validCaptionBody(body)) {
+        return { kind: "invalid" };
+      }
+      if (body.translationRevision !== configuration.translationRevision) {
+        return {
+          kind: "translation-session-refreshed",
+          translationRevision: configuration.translationRevision,
+        };
+      }
+      if (configuration.serviceEventCount >= MAX_CAPTION_EVENTS) {
         return { kind: "invalid" };
       }
 
@@ -568,6 +590,7 @@ export class CaptionRoom {
         publicText: body.publicText!,
         targetLanguage: body.targetLanguage!,
         style: normalizeCaptionStyle(body.style ?? configuration.style),
+        translationRevision: body.translationRevision!,
         publishedAt: new Date().toISOString(),
       };
       configuration.lastSequence = event.sequence;
@@ -582,6 +605,9 @@ export class CaptionRoom {
 
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "controller-replaced") return controllerReplaced();
+    if (result.kind === "translation-session-refreshed") {
+      return translationSessionRefreshed(result.translationRevision);
+    }
     if (result.kind === "inactive") {
       if (result.clear) {
         this.broadcastPublic({ type: "clear" });
@@ -598,7 +624,11 @@ export class CaptionRoom {
     }
 
     this.broadcastPublic({ type: "caption", caption: result.value });
-    return json({ published: true, sequence: result.value.sequence });
+    return json({
+      published: true,
+      sequence: result.value.sequence,
+      translationRevision: result.value.translationRevision,
+    });
   }
 
   private async reserveTranscriptionAttempt(request: Request) {
@@ -608,6 +638,7 @@ export class CaptionRoom {
         status: "live";
         expiresAt: string;
         transcriptionRequests: number;
+        translationRevision: number;
       }>
     >(async (transaction) => {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
@@ -637,6 +668,7 @@ export class CaptionRoom {
           status: "live",
           expiresAt: new Date(configuration.expiresAt!).toISOString(),
           transcriptionRequests: configuration.transcriptionRequests,
+          translationRevision: configuration.translationRevision,
         },
       };
     });
@@ -695,6 +727,62 @@ export class CaptionRoom {
         return { kind: "controller-replaced" };
       }
 
+      if (action === "refresh-translation") {
+        if (!active) {
+          return expired
+            ? { kind: "inactive", clear: true }
+            : { kind: "invalid" };
+        }
+        if (
+          !Number.isSafeInteger(body.expectedTranslationRevision) ||
+          Number(body.expectedTranslationRevision) < 0 ||
+          !isTranslationRefreshRequestId(body.refreshRequestId)
+        ) {
+          return { kind: "invalid" };
+        }
+        const expectedTranslationRevision = Number(
+          body.expectedTranslationRevision,
+        );
+        if (
+          expectedTranslationRevision ===
+            configuration.translationRevision - 1 &&
+          body.refreshRequestId ===
+            configuration.lastTranslationRefreshRequestId
+        ) {
+          return {
+            kind: "ok",
+            value: {
+              action,
+              status: configuration.status,
+              translationRevision: configuration.translationRevision,
+            },
+          };
+        }
+        if (
+          expectedTranslationRevision !== configuration.translationRevision
+        ) {
+          return {
+            kind: "translation-session-refreshed",
+            translationRevision: configuration.translationRevision,
+          };
+        }
+        configuration.translationRevision += 1;
+        configuration.lastTranslationRefreshRequestId = body.refreshRequestId;
+        await Promise.all([
+          transaction.put("configuration", configuration),
+          transaction.delete("latest"),
+        ]);
+        return {
+          kind: "ok",
+          value: {
+            action,
+            status: configuration.status,
+            translationRevision: configuration.translationRevision,
+          },
+          clear: true,
+        };
+      }
+
       if (action === "show-test") {
         if (configuration.status === "live") return { kind: "invalid" };
         if (!body.targetLanguage || !isLanguageLocale(body.targetLanguage)) {
@@ -706,6 +794,7 @@ export class CaptionRoom {
           publicText: SAMPLE_CAPTIONS[body.targetLanguage],
           targetLanguage: body.targetLanguage,
           style,
+          translationRevision: configuration.translationRevision,
           publishedAt: new Date().toISOString(),
         };
         configuration.lastSequence = caption.sequence;
@@ -716,7 +805,13 @@ export class CaptionRoom {
         ]);
         return {
           kind: "ok",
-          value: { action, status: configuration.status, sequence: caption.sequence, caption },
+          value: {
+            action,
+            status: configuration.status,
+            translationRevision: configuration.translationRevision,
+            sequence: caption.sequence,
+            caption,
+          },
           revokeViewers: expired,
         };
       }
@@ -743,7 +838,11 @@ export class CaptionRoom {
       ]);
       return {
         kind: "ok",
-        value: { action, status: configuration.status },
+        value: {
+          action,
+          status: configuration.status,
+          translationRevision: configuration.translationRevision,
+        },
         clear: true,
         revokeViewers: expired,
       };
@@ -751,6 +850,9 @@ export class CaptionRoom {
 
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "controller-replaced") return controllerReplaced();
+    if (result.kind === "translation-session-refreshed") {
+      return translationSessionRefreshed(result.translationRevision);
+    }
     if (result.kind === "inactive") {
       if (result.clear) {
         this.broadcastPublic({ type: "clear" });
@@ -852,6 +954,9 @@ export class CaptionRoom {
       if (!stored) return { expired: false };
       let configuration = normalizeConfiguration(stored);
       if (!serviceExpired(configuration)) {
+        if (stored.translationRevision !== configuration.translationRevision) {
+          await transaction.put("configuration", configuration);
+        }
         return { configuration, expired: false };
       }
       configuration = deactivate(configuration);
@@ -956,6 +1061,18 @@ function controllerReplaced() {
     {
       error: "Control of the Main channel moved to another operator.",
       code: "controller_replaced",
+    },
+    409,
+  );
+}
+
+function translationSessionRefreshed(translationRevision: number) {
+  return json(
+    {
+      error:
+        "The translation session was refreshed. Discard this caption and use the current translation settings.",
+      code: "translation_session_refreshed",
+      translationRevision,
     },
     409,
   );

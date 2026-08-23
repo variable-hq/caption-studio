@@ -51,9 +51,13 @@ cannot be confirmed by the project owner.
 3. Select the spoken source explicitly, choose one target language, and select the
    9-second **Balanced** speech buffer. Confirm the UI says longer windows add latency.
    Later, repeat one short synthetic sample at 6 and 12 seconds to verify cadence and the
-   locked value without treating any option as a guaranteed sentence boundary.
+   refresh behavior without treating any option as a guaranteed sentence boundary.
 4. Add one safe test mapping, such as `Bethlehem => Betlehem`, if appropriate for the
    chosen target. Add one synthetic filter word that is safe to say in the rehearsal.
+   Review the default translation prompt, choose **Reset to reviewed default**, then make
+   one harmless custom change such as “Prefer concise captions.” Do not enter private
+   church information or credentials. An unsaved edit remains page-only; select **Save
+   prompt** only if this synthetic value should persist in unencrypted browser storage.
 5. At the primary 1920 × 1080 operator viewport, confirm audio/languages, terminology,
    and service details are grouped on the left, while preview, appearance, and live
    outputs are on the right. Repeat at a 1200px intermediate width. At both 390px and
@@ -76,37 +80,45 @@ cannot be confirmed by the project owner.
    show only the current moderated target-language caption and status—never source text,
    history, styling data, operator controls, or the OBS URL. Refresh or join late and
    confirm it recovers at most the current caption.
-10. Select **Pause**, confirm the meter stops, OBS and mobile caption clear, both links
+10. Record the service start/expiry, usage count, and only whether the OBS and viewer URLs
+    remain equal—never their values. While live, draft changes to source/target language,
+    terminology, filter, buffer, and custom prompt. Confirm the UI marks them pending and
+    the active pipeline does not silently switch. Select **Refresh translation session**,
+    review the warning, cancel once, then confirm. Verify current output/context clears,
+    no pre-refresh late caption reappears, capture uses the new settings, and live status,
+    timer/expiry, usage count, controller ownership, viewer link, and OBS link are retained.
+    Repeat one harmless draft-and-refresh while paused and confirm it remains paused.
+11. Select **Pause**, confirm the meter stops, OBS and mobile caption clear, both links
     stay unchanged, and reserved transcription attempts stop increasing. Show and clear
     another test while paused, then select **Resume** and confirm the test clears before
     listening restarts. Pause at a natural break because the unfinished buffer is discarded.
-11. Speak short, approved test phrases containing names, numbers, and a reference, for
+12. Speak short, approved test phrases containing names, numbers, and a reference, for
    example: “Today we read John chapter three, verse sixteen. The Holy Spirit brings
    hope.” Do not paste or record licensed Bible text as test evidence.
-12. Confirm the protected source preview and the public translated preview are sensible.
+13. Confirm the protected source preview and the public translated preview are sensible.
    Verify the glossary mapping and public mask without expecting the source preview to
    be rewritten.
-13. Confirm OBS shows only the public caption. Change each display setting while live and
+14. Confirm OBS shows only the public caption. Change each display setting while live and
    confirm the overlay updates without restarting.
-14. Note the channel-wide overlay sequence, skipped count, reserved transcription-attempt
+15. Note the channel-wide overlay sequence, skipped count, reserved transcription-attempt
     count, and displayed processing-latency range. Confirm the usage UI shows a ceiling of
     900 transcription attempts. The sequence includes synthetic tests and survives End,
     so it is not a per-service caption count. Normal spoken-to-screen delay is the selected
     6, 9, or 12 seconds plus the processing value.
-15. Open **Viewer link security**, cancel once, then confirm **Replace mobile link**.
+16. Open **Viewer link security**, cancel once, then confirm **Replace mobile link**.
     Confirm the old phone disconnects with a replaced-link message, the new link works,
     and OBS is unaffected. Never place either viewer token in the evidence.
-16. Refresh the OBS Browser Source and confirm the latest public caption and style
+17. Refresh the OBS Browser Source and confirm the latest public caption and style
     return. In a second Access-approved browser, confirm **Main channel already live** and
     **Take over channel** appear instead of a normal Start action. Cancel once, then
     confirm takeover using synthetic audio. Confirm the first operator stops when its next
     stale request is rejected. Confirm the previous service's mobile link is revoked and
     the takeover operator receives a different link.
-17. Select **End service**, cancel once, then confirm End. Confirm OBS becomes blank but
+18. Select **End service**, cancel once, then confirm End. Confirm OBS becomes blank but
     the URL remains unchanged. Start and End a second short service and verify the same
     Browser Source receives it without editing OBS; confirm both service-scoped mobile
     links are invalid after their respective End actions.
-18. In a controlled synthetic setup, open Advanced link security, cancel Rotate once,
+19. In a controlled synthetic setup, open Advanced link security, cancel Rotate once,
     then confirm it. Verify the old Browser Source stops and the replacement URL works.
     Do not rotate a production URL without the owner and OBS operator present.
 
@@ -152,18 +164,19 @@ cannot be demonstrated safely.
 | Access | Unapproved users cannot reach the dashboard or protected APIs. |
 | Audio | Intended input is displayed, meter responds, and captions follow its speech. |
 | AI | Approved phrases produce usable source and target text without invented content. |
-| Prompt behavior | Idioms are natural; intentional repetition remains; incomplete or familiar quoted content is not invented or completed. |
+| Prompt behavior | Reviewed default and harmless customization work beneath the immutable language/script/non-invention/output envelope; idioms are natural, intentional repetition remains, and incomplete or familiar quoted content is not invented or completed. |
 | Biblical terms | Agreed names/references are recognizable; mapping is applied where tested. |
 | Public safety | Configured mask affects public text without changing protected source text. |
 | OBS | Public captions and all chosen styles appear at the intended canvas position. |
 | Mobile viewer | At 320px and 390px it shows only current moderated target text/status; late join works; replacement, End, expiry, and takeover revoke the correct link without changing OBS. |
-| Layout | Desktop grouping is correct; mobile is reachable with no horizontal overflow; appearance changes update the preview continuously. |
+| Layout | Desktop grouping is correct; mobile is reachable with no horizontal overflow; appearance changes update the preview continuously; keyboard and reduced-motion operation remain usable. |
 | Theme | Operator UI is monochrome with readable hierarchy and focus; OBS caption colours remain independently configurable. |
 | Controls | Pause stops capture/AI and clears OBS; Resume retains URL/expiry; idle and paused tests make no AI request. |
 | Ownership | A second start is blocked; confirmed takeover replaces the prior controller without mixed captions. |
 | Recovery | Reload recovers the same controller paused; End preserves the URL; Rotate alone invalidates it. |
 | Performance | Processing latency, skipped chunks, and transcription usage stay inside stakeholder-agreed limits. |
-| Buffer | 6-, 9-, and 12-second choices match observed cadence, remain locked while active, and communicate the latency tradeoff. |
+| Translation refresh | Live and paused drafts apply only after confirmation; unfinished audio/context/output clears; stale captions are rejected; service timer/state, usage, controller, viewer link, and OBS link remain unchanged. |
+| Buffer | 6-, 9-, and 12-second choices match observed cadence, apply after translation refresh, and communicate the latency tradeoff. |
 | Cost | Provider dashboards show no paid usage or unexpected concurrent consumption. |
 
 Any failed safety, access, wrong-input, fabricated-content, or public-filter check is a
@@ -186,6 +199,10 @@ sample-based thresholds for the intended service.
   not a normal per-service action.
 - The mobile viewer URL is a service-scoped bearer credential. It shows one current
   caption, not scrolling history or multiple target languages.
+- Ordinary translation drafts remain in page memory. Only caption style and an explicitly
+  saved custom prompt persist in unencrypted `localStorage`; the applied active snapshot
+  uses unencrypted tab `sessionStorage` for same-tab recovery and is cleared on End,
+  takeover, or idle cleanup. None is a shared church profile; do not enter secrets.
 - The iOS shell has only stale pre-hardening unsigned simulator and generic-device
   archive evidence; the hardened sources compile, but their complete build and four-test
   run remain pending. Apple signing, upload, TestFlight installation, physical-device
@@ -207,8 +224,11 @@ Audio device:
 OBS version and computer:
 Configured transcription / translation models:
 Observed chunk cadence / displayed transcription ceiling:
-Selected speech buffer / locked-value result:
+Selected speech buffer / refresh result:
 Source -> target:
+Translation draft / confirmation / stale-output result:
+Service timer/controller/viewer/OBS preservation result (no token values):
+Reviewed-default / custom-prompt result (no prompt content):
 Synthetic/consented data approval:
 Duration:
 Overlay sequence / skipped count / reserved transcription attempts:

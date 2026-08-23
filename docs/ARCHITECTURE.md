@@ -69,25 +69,31 @@ The Next.js client provides:
   text and shape while leaving OBS caption colours under operator control;
 - readable 13–16px form typography, at least 44px action controls, visible focus, and a
   compact mobile Start bar that retains blocking or takeover context;
-- source language, target language, glossary, filter, and shared caption-style controls;
+- source language, target language, glossary, filter, speech-buffer, custom operator-prompt,
+  and shared caption-style controls;
 - primary pause/resume and Clear OBS controls, plus secondary test, copy, and confirmed End;
 - input-event-driven appearance controls so range and colour changes update the
   dashboard preview continuously before they are saved as the default;
-- a `MediaRecorder` that creates independent 6-, 9-, or 12-second audio chunks, with the
-  selected buffer snapshotted and locked when the service starts;
+- a `MediaRecorder` that creates independent 6-, 9-, or 12-second audio chunks, using the
+  active translation settings until an operator confirms a translation-session refresh;
 - a two-chunk in-memory queue to bound latency and memory use;
 - protected source and moderated public-caption previews;
 - active-service time, reserved transcription-attempt count, dropped chunk count, and last
   post-recording cloud processing latency;
 - one reusable OBS URL, one separate per-service mobile viewer URL, purpose-specific
   rotation/replacement, and confirmed operator takeover; and
-- a controller credential in tab `sessionStorage` plus display fallback in `localStorage`.
+- a controller credential and active translation snapshot in tab `sessionStorage`, plus
+  caption-style and explicitly saved custom-prompt preferences in `localStorage`.
 
-Glossary text, filter text, audio, captions, and service usage are not persisted by the
-browser after the active page/service. The UI has no manual correction, caption history,
-archive, or summary controls today. Pause stops browser capture, discards queued chunks,
-and keeps the reusable channel and service expiry. The service clock continues while the
-reserved transcription-attempt count does not.
+Language, terminology, filter, buffer, and unsaved-prompt drafts live only in React/page
+memory. During an active service, their applied snapshot is copied to unencrypted tab
+`sessionStorage` solely for same-tab recovery and removed on End, takeover, or idle cleanup.
+Only caption-style preferences and a custom prompt explicitly saved by the operator use
+unencrypted `localStorage`; none of these browser values is synchronized to a workspace.
+Audio, captions, and service usage are not persisted after the active page/service. The UI
+has no manual correction, caption history, archive, or summary controls today. Pause stops
+browser capture, discards queued chunks, and keeps the reusable channel and service expiry.
+The service clock continues while the reserved transcription-attempt count does not.
 
 ### Deferred iOS feasibility shell
 
@@ -174,14 +180,25 @@ most 40 keyword hints, 100 characters per hint, a bounded multipart request, and
 Bible books, verse numbers, and church terms.
 
 Translation is skipped when source and target are the same. Otherwise the model receives
-the current source caption, up to the four most recent retained source captions, only
-preferred-term mappings relevant to exactly that retained text/context, and an explicit
-Simplified or Traditional Chinese output instruction. A fixed system prompt requires one
-idiomatic caption, preserves evident tone and intentional repetition, keeps quotation
-boundaries, and forbids completing scripture, lyrics, quotations, or missing context.
-The context, approved terms, and current caption are encoded as structured untrusted data;
-recent context may disambiguate the current caption but may not be translated or repeated.
-Provider calls have browser and server timeouts.
+the current source caption, up to the four most recent retained source captions, and only
+preferred-term mappings relevant to exactly that retained text/context. The system message
+combines two layers without an agent wrapper: an immutable server envelope and a clearly
+delimited operator prompt. The envelope fixes source/target direction, Simplified or
+Traditional Chinese script, non-invention and untrusted-data rules, and the one-caption
+output contract. The bounded operator layer defaults to reviewed idiomatic guidance and
+can customize phrasing, tone, nuance, repetition, and quotation treatment. The operator
+cannot edit the envelope, and the model is instructed to prioritize it over conflicting
+custom text, but this remains a probabilistic prompt boundary rather than guaranteed
+enforcement. Blank input restores the default; non-text, unsupported control characters,
+and values over 4,000 characters are rejected rather than truncated. Caption, context,
+and terms remain JSON-encoded untrusted data. Provider calls have browser and server
+timeouts.
+
+The custom prompt enters unencrypted browser `localStorage` only after explicit **Save
+prompt**. Unsaved edits stay in page memory; the applied value also forms part of the
+active tab's `sessionStorage` recovery snapshot. It crosses the protected translation
+API/Groq boundary while active, but is not part of Durable Object state, the mobile-viewer
+payload, or the OBS payload.
 
 `TranscriptionProvider` and `TranslationProvider` keep the client independent of a
 specific vendor response shape. Only fields used by the live pipeline cross the
@@ -221,7 +238,7 @@ The Durable Object stores:
 - encrypted OBS token and SHA-256 validation hash;
 - shared caption style and a channel-wide sequence number;
 - idle/live/paused state, controller and current viewer hashes, service timestamps,
-  transcription-request count, and event count; and
+  transcription-request count, event count, and a monotonic translation revision; and
 - the latest moderated public caption.
 
 The Durable Object assigns monotonically increasing sequence numbers, limits public
@@ -246,6 +263,16 @@ Resume clear the display, Pause blocks live-caption writes, and Show test is per
 while idle or paused. Test content comes from bounded application constants and never
 calls the AI provider. Reload recovery validates the tab controller and forces the
 service into a safe paused state before microphone capture can resume.
+
+It also accepts an explicit translation-session refresh from the current controller. The
+browser treats live edits to language, terminology, filter, buffer, and operator prompt as
+drafts until this mutation succeeds. Refresh increments the server revision and clears
+the latest public caption while preserving live/paused status, service start/expiry,
+transcription count, controller hash, viewer hash, and OBS credential. The client aborts
+the unfinished recorder, clears queued audio, recent source context, and operator/public
+previews, then adopts the draft. Every published caption carries the revision under which
+its provider work began; the room rejects stale late arrivals after refresh. Existing OBS
+and viewer sockets receive the clear event and remain on the same links.
 
 The overlay document has no Next.js asset dependency, provider credential, operator
 control, history request, or archive capability. It renders a transparent 1920 × 1080
@@ -292,6 +319,9 @@ select the source explicitly when script-specific handling matters.
 | Recent source context | Browser memory | Active page/service |
 | Protected source preview | Browser memory | Active page/service |
 | Moderated public caption | Browser and Durable Object | Latest item until clear, End, or expiry |
+| Unsaved translation-setting draft | React/page memory | Current page load |
+| Explicitly saved custom operator prompt | Browser unencrypted `localStorage` | Until reset or site data is cleared in that browser |
+| Active translation snapshot: language, terms, filter, buffer, prompt | Tab unencrypted `sessionStorage` | Same-tab active-service recovery; removed on End, takeover, or idle cleanup |
 | Browser fallback caption style | Browser `localStorage` | Until cleared in that browser |
 | Shared caption style | Durable Object | Channel lifetime |
 | OBS token | Encrypted Durable Object value; URL fragment and OBS memory | Until explicit rotation |
@@ -299,6 +329,7 @@ select the source explicitly when script-specific handling matters.
 | Controller token/hash | Tab `sessionStorage` / Durable Object | Active service, maximum 90 minutes |
 | Mobile viewer token/hash | URL fragment and operator-tab `sessionStorage` / Durable Object hash | Active service; replaced on demand and deleted on End, expiry, or takeover |
 | Service state, timestamps, and event count | Durable Object | Active service; state resets on End/expiry |
+| Translation revision | Durable Object | Channel lifetime; advances on service start and confirmed refresh |
 | Reserved transcription-attempt count | Durable Object | Active service; resets on End/expiry |
 | Dropped-chunk and processing-latency metrics | Browser memory | Active page/service |
 | Native processing-notice acknowledgement | iOS app-local preferences | Until app data is cleared |
@@ -327,6 +358,9 @@ usage metadata remains outside this application's control.
 - When two chunks are already queued, a new chunk is dropped and the operator is warned.
 - Pausing deliberately discards the unfinished active window and queued audio without
   counting them as dropped chunks; paused time still counts toward service expiry.
+- Confirmed translation refresh also discards unfinished and queued audio, recent source
+  context, and current output. It keeps the original service clock, credentials, links,
+  usage count, and live/paused state; stale-revision captions fail closed.
 - Safe margins are bounded to 0–20% per axis and use viewport-relative units in OBS.
 - A transcription quota, authentication, language-detection, or service-expiry error
   ends the service while preserving the OBS URL.
@@ -373,6 +407,11 @@ fallback, or sermon-storage library. Convention-loaded build files are verified 
 the OpenNext build rather than deleted solely because a static import graph cannot see
 their loader.
 
+The React Bits-inspired operator components are local, dependency-free adaptations rather
+than an installed package. They use the project's existing React/CSS stack and are listed
+with upstream attribution and licence conditions in
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
+
 The iOS shell uses Apple SwiftUI, WebKit, AVFoundation, an asset catalogue, and a privacy
 manifest generated into an Xcode project by XcodeGen. It adds no JavaScript or Swift
 package dependency and embeds no web-service secret. Its Xcode build, tests, signing, and
@@ -390,8 +429,10 @@ Before a controlled live pilot, validate with synthetic or approved recordings:
 - every source and target language, accents, mixed-language speech, and Chinese scripts;
 - biblical names, Bible references, numbers, glossary mappings, and filter boundaries;
 - latency and dropped-chunk behavior for an entire service;
-- all three buffer choices and the prompt's idiom, repetition, incomplete-speech, quote,
-  and non-invention behavior;
+- all three buffer choices, custom/default prompt behavior, immutable envelope, and the
+  prompt's idiom, repetition, incomplete-speech, quote, and non-invention behavior;
+- live and paused translation refresh for each editable setting, including clearing stale
+  output while preserving timer, controller, viewer, and OBS identity;
 - mobile-viewer late join, pause, replacement, End, expiry, takeover, Access boundaries,
   and the 250-connection ceiling;
 - Groq `429`, timeout, invalid-model, and network-loss behavior;

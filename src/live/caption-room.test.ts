@@ -9,6 +9,8 @@ const TOKEN_A = "1".repeat(64);
 const TOKEN_B = "2".repeat(64);
 const VIEWER_A = "3".repeat(64);
 const VIEWER_B = "4".repeat(64);
+const REFRESH_REQUEST_A = "refresh-request-0001";
+const REFRESH_REQUEST_B = "refresh-request-0002";
 
 class FakeStorage {
   readonly values = new Map<string, unknown>();
@@ -136,12 +138,17 @@ async function startService(
   );
 }
 
-function caption(controllerHash = CONTROLLER_A, publicText = "Grace and peace") {
+function caption(
+  controllerHash = CONTROLLER_A,
+  publicText = "Grace and peace",
+  translationRevision = 1,
+) {
   return {
     controllerHash,
     publicText,
     targetLanguage: "en",
     style: { horizontalMarginPercent: 8 },
+    translationRevision,
   };
 }
 
@@ -169,20 +176,66 @@ describe("reusable caption channel", () => {
     });
   });
 
+  it("normalizes legacy channels without a translation revision", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    const legacy = {
+      ...(await storage.get<Record<string, unknown>>("configuration")),
+    };
+    delete legacy.translationRevision;
+    await storage.put("configuration", legacy);
+
+    const channel = await room.fetch(
+      request("/internal/channel", undefined, "GET"),
+    );
+    await expect(channel.json()).resolves.toMatchObject({
+      translationRevision: 0,
+    });
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      translationRevision: 0,
+    });
+
+    const started = await startService(room);
+    await expect(started.json()).resolves.toMatchObject({
+      translationRevision: 1,
+    });
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      translationRevision: 1,
+    });
+  });
+
   it("blocks a second start and atomically replaces the controller on takeover", async () => {
     const { room, socket, storage, viewerSocket } = roomFixture();
     await createChannel(room);
-    expect((await startService(room)).status).toBe(200);
+    const firstStart = await startService(room);
+    expect(firstStart.status).toBe(200);
+    await expect(firstStart.json()).resolves.toMatchObject({
+      translationRevision: 1,
+    });
+    const activeConfiguration = await storage.get<Record<string, unknown>>(
+      "configuration",
+    );
+    await storage.put("configuration", {
+      ...activeConfiguration,
+      lastTranslationRefreshRequestId: REFRESH_REQUEST_A,
+    });
 
     const conflict = await startService(room, CONTROLLER_B);
     expect(conflict.status).toBe(409);
     await expect(conflict.json()).resolves.toMatchObject({ code: "channel_in_use" });
 
-    expect((await startService(room, CONTROLLER_B, true)).status).toBe(200);
+    const takeover = await startService(room, CONTROLLER_B, true);
+    expect(takeover.status).toBe(200);
+    await expect(takeover.json()).resolves.toMatchObject({
+      translationRevision: 2,
+    });
     await expect(storage.get("configuration")).resolves.toMatchObject({
       controllerHash: CONTROLLER_B,
       viewerTokenHash: VIEWER_B,
     });
+    await expect(storage.get("configuration")).resolves.not.toHaveProperty(
+      "lastTranslationRefreshRequestId",
+    );
     expect(viewerSocket.closes.at(-1)).toEqual({
       code: 4003,
       reason: "Mobile viewer link replaced.",
@@ -194,7 +247,7 @@ describe("reusable caption channel", () => {
     });
 
     const published = await room.fetch(
-      request("/internal/caption", caption(CONTROLLER_B)),
+      request("/internal/caption", caption(CONTROLLER_B, "Grace and peace", 2)),
     );
     await expect(published.json()).resolves.toMatchObject({ sequence: 1 });
     expect(socket.messages.map((message) => JSON.parse(message))).toEqual(
@@ -455,7 +508,10 @@ describe("reusable caption channel", () => {
     await expect(
       (
         await room.fetch(
-          request("/internal/caption", caption(CONTROLLER_B, "Next service")),
+          request(
+            "/internal/caption",
+            caption(CONTROLLER_B, "Next service", 2),
+          ),
         )
       ).json(),
     ).resolves.toMatchObject({ sequence: 5 });
@@ -499,6 +555,15 @@ describe("reusable caption channel", () => {
     for (const [path, body] of [
       ["/internal/caption", caption(CONTROLLER_B)],
       ["/internal/control", { action: "pause", controllerHash: CONTROLLER_B }],
+      [
+        "/internal/control",
+        {
+          action: "refresh-translation",
+          controllerHash: CONTROLLER_B,
+          expectedTranslationRevision: 1,
+          refreshRequestId: REFRESH_REQUEST_A,
+        },
+      ],
       ["/internal/style", { style: {}, controllerHash: CONTROLLER_B }],
     ] as const) {
       const response = await room.fetch(request(path, body));
@@ -522,6 +587,7 @@ describe("reusable caption channel", () => {
       valid: true,
       status: "live",
       transcriptionRequests: 1,
+      translationRevision: 1,
     });
 
     await startService(room, CONTROLLER_B, true);
@@ -579,6 +645,186 @@ describe("reusable caption channel", () => {
     await expect(storage.get("configuration")).resolves.toMatchObject({
       transcriptionRequests: 0,
     });
+  });
+
+  it("refreshes a live translation atomically and rejects stale publishes", async () => {
+    const { room, storage, socket, viewerSocket } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(
+      request("/internal/lease", { controllerHash: CONTROLLER_A }),
+    );
+    expect(
+      (await room.fetch(request("/internal/caption", caption()))).status,
+    ).toBe(200);
+    const before = await storage.get<Record<string, unknown>>("configuration");
+    const alarmBefore = storage.alarm;
+    socket.messages.length = 0;
+    socket.closes.length = 0;
+    viewerSocket.messages.length = 0;
+    viewerSocket.closes.length = 0;
+
+    const conflicting = await room.fetch(
+      request("/internal/control", {
+        action: "refresh-translation",
+        controllerHash: CONTROLLER_A,
+        expectedTranslationRevision: 99,
+        refreshRequestId: REFRESH_REQUEST_A,
+      }),
+    );
+    expect(conflicting.status).toBe(409);
+    await expect(conflicting.json()).resolves.toMatchObject({
+      code: "translation_session_refreshed",
+      translationRevision: 1,
+    });
+
+    const refreshed = await room.fetch(
+      request("/internal/control", {
+        action: "refresh-translation",
+        controllerHash: CONTROLLER_A,
+        expectedTranslationRevision: 1,
+        refreshRequestId: REFRESH_REQUEST_A,
+      }),
+    );
+    expect(refreshed.status).toBe(200);
+    await expect(refreshed.json()).resolves.toEqual({
+      action: "refresh-translation",
+      status: "live",
+      translationRevision: 2,
+    });
+    await expect(storage.get("configuration")).resolves.toEqual({
+      ...before,
+      translationRevision: 2,
+      lastTranslationRefreshRequestId: REFRESH_REQUEST_A,
+    });
+    expect(storage.alarm).toBe(alarmBefore);
+    expect(await storage.get("latest")).toBeUndefined();
+    expect(socket.messages.map((message) => JSON.parse(message))).toEqual([
+      { type: "clear" },
+    ]);
+    expect(viewerSocket.messages.map((message) => JSON.parse(message))).toEqual([
+      { type: "clear" },
+    ]);
+    expect(socket.closes).toEqual([]);
+    expect(viewerSocket.closes).toEqual([]);
+
+    socket.messages.length = 0;
+    viewerSocket.messages.length = 0;
+    const retry = await room.fetch(
+      request("/internal/control", {
+        action: "refresh-translation",
+        controllerHash: CONTROLLER_A,
+        expectedTranslationRevision: 1,
+        refreshRequestId: REFRESH_REQUEST_A,
+      }),
+    );
+    await expect(retry.json()).resolves.toEqual({
+      action: "refresh-translation",
+      status: "live",
+      translationRevision: 2,
+    });
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      translationRevision: 2,
+    });
+    expect(socket.messages).toEqual([]);
+    expect(viewerSocket.messages).toEqual([]);
+
+    const otherTab = await room.fetch(
+      request("/internal/control", {
+        action: "refresh-translation",
+        controllerHash: CONTROLLER_A,
+        expectedTranslationRevision: 1,
+        refreshRequestId: REFRESH_REQUEST_B,
+      }),
+    );
+    expect(otherTab.status).toBe(409);
+    await expect(otherTab.json()).resolves.toMatchObject({
+      code: "translation_session_refreshed",
+      translationRevision: 2,
+    });
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      translationRevision: 2,
+      lastTranslationRefreshRequestId: REFRESH_REQUEST_A,
+    });
+
+    const stale = await room.fetch(
+      request("/internal/caption", caption(CONTROLLER_A, "Old result", 1)),
+    );
+    expect(stale.status).toBe(409);
+    await expect(stale.json()).resolves.toMatchObject({
+      code: "translation_session_refreshed",
+      translationRevision: 2,
+    });
+    expect(await storage.get("latest")).toBeUndefined();
+
+    const current = await room.fetch(
+      request("/internal/caption", caption(CONTROLLER_A, "New result", 2)),
+    );
+    expect(current.status).toBe(200);
+    await expect(current.json()).resolves.toMatchObject({
+      sequence: 2,
+      translationRevision: 2,
+    });
+  });
+
+  it("refreshes translation while paused without changing the paused service", async () => {
+    const { room, storage, socket, viewerSocket } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(
+      request("/internal/lease", { controllerHash: CONTROLLER_A }),
+    );
+    await room.fetch(
+      request("/internal/control", {
+        action: "pause",
+        controllerHash: CONTROLLER_A,
+      }),
+    );
+    await room.fetch(
+      request("/internal/control", {
+        action: "show-test",
+        controllerHash: CONTROLLER_A,
+        targetLanguage: "id",
+        style: {},
+      }),
+    );
+    expect(await storage.get("latest")).toBeDefined();
+    const before = await storage.get<Record<string, unknown>>("configuration");
+    const alarmBefore = storage.alarm;
+    socket.messages.length = 0;
+    socket.closes.length = 0;
+    viewerSocket.messages.length = 0;
+    viewerSocket.closes.length = 0;
+
+    const refreshed = await room.fetch(
+      request("/internal/control", {
+        action: "refresh-translation",
+        controllerHash: CONTROLLER_A,
+        expectedTranslationRevision: 1,
+        refreshRequestId: REFRESH_REQUEST_A,
+      }),
+    );
+
+    await expect(refreshed.json()).resolves.toEqual({
+      action: "refresh-translation",
+      status: "paused",
+      translationRevision: 2,
+    });
+    await expect(storage.get("configuration")).resolves.toEqual({
+      ...before,
+      translationRevision: 2,
+      lastTranslationRefreshRequestId: REFRESH_REQUEST_A,
+    });
+    expect(storage.alarm).toBe(alarmBefore);
+    expect(await storage.get("latest")).toBeUndefined();
+    expect(socket.messages.map((message) => JSON.parse(message))).toEqual([
+      { type: "clear" },
+    ]);
+    expect(viewerSocket.messages.map((message) => JSON.parse(message))).toEqual([
+      { type: "clear" },
+    ]);
+    expect(socket.closes).toEqual([]);
+    expect(viewerSocket.closes).toEqual([]);
   });
 
   it("ends a service without deleting or changing the reusable OBS credential", async () => {

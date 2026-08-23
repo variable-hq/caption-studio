@@ -64,6 +64,7 @@ describe("reusable OBS channel worker API", () => {
       configured: false,
       status: "unconfigured",
       overlayUrl: null,
+      translationRevision: 0,
     });
     expect(idFromName).toHaveBeenCalledWith("channel:main");
   });
@@ -80,13 +81,17 @@ describe("reusable OBS channel worker API", () => {
     );
 
     expect(response?.status).toBe(201);
-    const payload = (await response!.json()) as { overlayUrl: string };
+    const payload = (await response!.json()) as {
+      overlayUrl: string;
+      translationRevision: number;
+    };
     const overlayUrl = new URL(payload.overlayUrl);
     const token = overlayUrl.hash.split(".")[1];
     expect(overlayUrl.pathname).toBe("/overlay");
     expect(overlayUrl.search).toBe("");
     expect(overlayUrl.hash).toMatch(/^#main\./u);
     expect(token).toHaveLength(43);
+    expect(payload.translationRevision).toBe(0);
 
     const initialization = fetch.mock.calls[0][0] as Request;
     const internal = (await initialization.json()) as {
@@ -147,11 +152,15 @@ describe("reusable OBS channel worker API", () => {
       new Request("https://caption.example/api/live/channel"),
       env,
     );
-    const payload = (await response!.json()) as { overlayUrl: string };
+    const payload = (await response!.json()) as {
+      overlayUrl: string;
+      translationRevision: number;
+    };
 
     expect(payload.overlayUrl).toBe(
       "https://caption.example/overlay#main.reusable-token",
     );
+    expect(payload.translationRevision).toBe(0);
   });
 
   it("starts a service with separate controller and mobile-viewer capabilities", async () => {
@@ -160,6 +169,7 @@ describe("reusable OBS channel worker API", () => {
         status: "live",
         startedAt: "2026-08-01T00:00:00.000Z",
         expiresAt: "2026-08-01T01:30:00.000Z",
+        translationRevision: 7,
       }),
     );
     const response = await handleLiveApiRequest(
@@ -172,6 +182,7 @@ describe("reusable OBS channel worker API", () => {
     const payload = (await response!.json()) as {
       controllerToken: string;
       viewerUrl: string;
+      translationRevision: number;
     };
     const forwarded = fetch.mock.calls[0][0] as Request;
     const body = (await forwarded.json()) as {
@@ -195,6 +206,7 @@ describe("reusable OBS channel worker API", () => {
     expect(body.controllerHash).not.toBe(payload.controllerToken);
     expect(body.viewerTokenHash).not.toBe(viewerToken);
     expect(body.takeover).toBe(true);
+    expect(payload.translationRevision).toBe(7);
   });
 
   it("preserves the shared channel style when a start omits a style", async () => {
@@ -279,7 +291,12 @@ describe("reusable OBS channel worker API", () => {
 
   it("validates a controller lease without forwarding the raw credential", async () => {
     const { env, fetch } = environment(async () =>
-      Response.json({ valid: true, status: "live", expiresAt: "2026-08-01T01:30:00Z" }),
+      Response.json({
+        valid: true,
+        status: "live",
+        expiresAt: "2026-08-01T01:30:00Z",
+        translationRevision: 7,
+      }),
     );
     const response = await handleLiveApiRequest(
       new Request("https://caption.example/api/live/channel/lease", {
@@ -295,6 +312,9 @@ describe("reusable OBS channel worker API", () => {
     expect(forwarded.url).toBe("https://caption-room/internal/lease");
     expect(body.controllerHash).toHaveLength(64);
     expect(body.controllerHash).not.toContain("controller-secret");
+    await expect(response!.json()).resolves.toMatchObject({
+      translationRevision: 7,
+    });
   });
 
   it("replaces a viewer link through the protected current-controller route", async () => {
@@ -374,8 +394,110 @@ describe("reusable OBS channel worker API", () => {
     });
   });
 
+  it("forwards a controller-authorized translation refresh with its CAS revision", async () => {
+    const { env, fetch } = environment(async () =>
+      Response.json({
+        action: "refresh-translation",
+        status: "paused",
+        translationRevision: 8,
+      }),
+    );
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/control", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-caption-controller": "controller-secret",
+        },
+        body: JSON.stringify({
+          action: "refresh-translation",
+          expectedTranslationRevision: 7,
+          refreshRequestId: "refresh-request-0001",
+        }),
+      }),
+      env,
+    );
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    const body = (await forwarded.json()) as {
+      action: string;
+      controllerHash: string;
+      expectedTranslationRevision: number;
+      refreshRequestId: string;
+    };
+
+    expect(response?.status).toBe(200);
+    expect(forwarded.url).toBe("https://caption-room/internal/control");
+    expect(body).toMatchObject({
+      action: "refresh-translation",
+      expectedTranslationRevision: 7,
+      refreshRequestId: "refresh-request-0001",
+    });
+    expect(body.controllerHash).toHaveLength(64);
+    expect(body.controllerHash).not.toContain("controller-secret");
+    await expect(response!.json()).resolves.toMatchObject({
+      translationRevision: 8,
+    });
+  });
+
+  it("forwards caption translation revisions without exposing the controller token", async () => {
+    const { env, fetch } = environment(async () =>
+      Response.json({ published: true, sequence: 4, translationRevision: 7 }),
+    );
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/caption", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-caption-controller": "controller-secret",
+        },
+        body: JSON.stringify({
+          publicText: "Selamat datang",
+          targetLanguage: "id",
+          style: {},
+          translationRevision: 7,
+        }),
+      }),
+      env,
+    );
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    const body = (await forwarded.json()) as {
+      controllerHash: string;
+      translationRevision: number;
+    };
+
+    expect(response?.status).toBe(200);
+    expect(body.translationRevision).toBe(7);
+    expect(body.controllerHash).toHaveLength(64);
+    expect(body.controllerHash).not.toContain("controller-secret");
+  });
+
   it.each([
     ["invalid control", "/api/live/channel/control", { action: "rewind" }, 400],
+    [
+      "refresh without a CAS revision",
+      "/api/live/channel/control",
+      {
+        action: "refresh-translation",
+        refreshRequestId: "refresh-request-0001",
+      },
+      400,
+    ],
+    [
+      "refresh without a request ID",
+      "/api/live/channel/control",
+      { action: "refresh-translation", expectedTranslationRevision: 1 },
+      400,
+    ],
+    [
+      "refresh with an unsafe request ID",
+      "/api/live/channel/control",
+      {
+        action: "refresh-translation",
+        expectedTranslationRevision: 1,
+        refreshRequestId: "contains spaces",
+      },
+      400,
+    ],
     ["oversized control", "/api/live/channel/control", { action: "clear", padding: "x".repeat(4_097) }, 413],
     ["oversized caption", "/api/live/channel/caption", { publicText: "x".repeat(8_193) }, 413],
   ])("rejects %s before the room", async (_label, path, body, status) => {

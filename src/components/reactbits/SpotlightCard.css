@@ -1,0 +1,54 @@
+/**
+ * Adapted from React Bits SpotlightCard.
+ * Copyright (c) 2026 David Haz.
+ * MIT + Commons Clause License Condition v1.0; see THIRD_PARTY_NOTICES.md.
+ */
+
+.rb-spotlight-card {
+  --rb-spotlight-x: 50%;
+  --rb-spotlight-y: 50%;
+  --rb-spotlight-color: rgba(17, 17, 17, 0.08);
+  --rb-spotlight-size: 360px;
+
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--line, #d7d7d1);
+  border-radius: var(--radius-lg, 14px);
+  background: var(--card, #ffffff);
+}
+
+.rb-spotlight-card::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+  background: radial-gradient(
+    circle var(--rb-spotlight-size) at var(--rb-spotlight-x)
+      var(--rb-spotlight-y),
+    var(--rb-spotlight-color),
+    transparent 72%
+  );
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .rb-spotlight-card::before {
+    display: block;
+  }
+
+  .rb-spotlight-card:hover::before,
+  .rb-spotlight-card:focus-within::before {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce), (pointer: coarse) {
+  .rb-spotlight-card::before {
+    display: none;
+    transition: none;
+  }
+}

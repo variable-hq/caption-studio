@@ -325,7 +325,7 @@ protected APIs, WebSockets, OBS, portrait/landscape layout, backgrounding, devic
 audio interruption, or network recovery. The default `APP_BASE_URL` still names the
 existing Worker and does not prove that Worker contains this working revision.
 
-### Mobile viewer, speech buffer, and translation prompt QA — 23 August 2026
+### Mobile viewer, initial selectable buffer, and fixed-prompt QA — 23 August 2026
 
 The web-focused branch adds one replaceable mobile link per service, a selectable
 6-/9-/12-second speech buffer, and a fixed idiomatic translation system prompt. The mobile
@@ -375,11 +375,60 @@ stream, Cloudflare Access bypass, multiple physical viewer devices, OBS machine,
 90-minute service was tested. Prompt tests validate request construction and policy, not
 translation quality for an intended language pair.
 
+### Live-editable translation settings and custom-prompt scope — 23 August 2026
+
+A subsequent working-branch change makes source/target language, terminology, public
+filters, speech buffer, and operator translation prompt editable during live or paused
+operation. Edits remain drafts until the operator confirms a translation-session refresh.
+The refresh design advances a server-owned revision, clears unfinished/queued audio,
+recent translation context, previews, and latest public output, and rejects late captions
+from an earlier revision. It is designed to preserve service identity, live/paused state,
+original timer/expiry and usage, controller ownership, mobile-viewer link, and reusable
+OBS link.
+
+The prompt design replaces fixed operator guidance with a reviewed default or bounded
+custom value beneath an immutable server safety/output envelope. Custom values are
+trimmed, limited to 4,000 characters, and rejected for invalid type, unsupported control
+characters, or overlength input rather than truncated. Caption, recent context, and terms
+remain JSON-encoded untrusted data. Unsaved drafts stay in page memory. A custom prompt
+uses unencrypted browser `localStorage` only after explicit save, while the full applied
+translation snapshot uses unencrypted tab `sessionStorage` solely for same-tab
+active-service recovery and is removed on End, takeover, or idle cleanup. The active
+prompt crosses the protected translation/Groq boundary, but no translation setting enters
+the Durable Object, viewer stream, or OBS.
+
+The refreshed operator interface uses locally adapted React Bits navigation, spotlight,
+and pending-state components without adding a runtime dependency. Upstream attribution
+and licence conditions are recorded in `THIRD_PARTY_NOTICES.md`.
+
+On 23 August 2026, `npm run validate` passed on the working branch: 103 tests across 12
+files, strict TypeScript, ESLint, the optimized Next.js build, the OpenNext Cloudflare
+bundle, and `git diff --check`. The Durable Object tests cover live and paused refresh,
+preserved status/timestamps/counters/credentials/sockets, stale-publication rejection, and
+request-ID-based idempotent retry. API/prompt tests cover bounded custom guidance and the
+immutable request envelope.
+
+Real-browser UI QA covered section navigation and explicit prompt save/reset/reload at a
+1280 × 720 viewport. Rendered checks at 1920 × 1080 and 1200 × 900 preserved the intended
+desktop layout. Exact 390 × 844 and 320 × 720 iframe viewports reported body
+`scrollWidth === clientWidth`; translation and prompt controls remained readable and
+reachable, and browser logs contained no application errors. Reduced-motion rules and
+keyboard semantics were source-reviewed, but still need stakeholder assistive-technology
+rehearsal. The local Next server has no Durable Object binding and Groq was unconfigured,
+so the browser pass did not exercise a real live/paused refresh or microphone/provider
+journey.
+
+This remains local source/build/UI evidence. It makes no claim of Cloudflare deployment,
+production configuration, real Groq quality, microphone/OBS hardware behavior, or a
+completed live service.
+
 ## Not validated
 
 - Cloudflare deployment of a reviewed revision containing these web changes;
 - a real `openai/gpt-oss-20b` response from the deployed environment;
 - deployed 6-/9-/12-second capture and the ceiling of 900 reserved transcription attempts;
+- deployed live/paused translation refresh, stale-revision rejection, custom-prompt
+  behavior, and preservation of service/controller/viewer/OBS identity;
 - the current reusable Main-channel Durable Object, OBS, and active mobile-viewer journey;
 - exact Cloudflare Access bypasses for `/view*` and `/api/live/viewer*`, late join with a
   real caption, concurrent physical viewers, link replacement, End/expiry, and takeover;

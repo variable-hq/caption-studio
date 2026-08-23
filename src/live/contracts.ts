@@ -10,6 +10,7 @@ export const MAX_TRANSCRIPTION_REQUESTS = Math.floor(
 );
 export const MAX_CAPTION_EVENTS = 1_400;
 export const MAIN_CHANNEL_ID = "main" as const;
+const TRANSLATION_REFRESH_REQUEST_ID = /^[A-Za-z0-9_-]{16,64}$/;
 
 export interface CaptionStyle {
   fontSize: number;
@@ -28,6 +29,7 @@ const LIVE_SESSION_CONTROL_ACTIONS = [
   "resume",
   "clear",
   "show-test",
+  "refresh-translation",
 ] as const;
 
 export type LiveSessionControlAction =
@@ -48,11 +50,14 @@ export interface LiveSessionControlRequest {
   action: LiveSessionControlAction;
   targetLanguage?: LanguageLocale;
   style?: CaptionStyle;
+  expectedTranslationRevision?: number;
+  refreshRequestId?: string;
 }
 
 export interface LiveSessionControlResponse {
   action: LiveSessionControlAction;
   status: Exclude<ChannelStatus, "unconfigured">;
+  translationRevision: number;
   sequence?: number;
 }
 
@@ -60,6 +65,7 @@ export interface PublicCaptionRequest {
   publicText: string;
   targetLanguage: LanguageLocale;
   style: CaptionStyle;
+  translationRevision: number;
 }
 
 export interface PublicCaptionEvent extends PublicCaptionRequest {
@@ -76,6 +82,7 @@ export interface ObsChannelDetails {
   startedAt: string | null;
   expiresAt: string | null;
   transcriptionRequests: number;
+  translationRevision: number;
 }
 
 export interface LiveServiceDetails {
@@ -84,6 +91,7 @@ export interface LiveServiceDetails {
   viewerUrl: string | null;
   startedAt: string;
   expiresAt: string;
+  translationRevision: number;
 }
 
 export interface LiveSessionState {
@@ -95,6 +103,7 @@ export interface LiveSessionState {
     | "pausing"
     | "paused"
     | "resuming"
+    | "refreshing"
     | "ending"
     | "taken-over"
     | "error";
@@ -114,6 +123,7 @@ export type LiveApiErrorCode =
   | "channel_not_configured"
   | "controller_replaced"
   | "invalid_overlay_key"
+  | "translation_session_refreshed"
   | "transcription_limit_reached";
 
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
@@ -130,6 +140,16 @@ export function normalizeSpeechBufferMs(value: unknown): SpeechBufferMs {
   return SPEECH_BUFFER_OPTIONS_MS.includes(number as SpeechBufferMs)
     ? (number as SpeechBufferMs)
     : DEFAULT_SPEECH_BUFFER_MS;
+}
+
+export function normalizeTranslationRevision(value: unknown) {
+  return Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : 0;
+}
+
+export function isTranslationRefreshRequestId(value: unknown): value is string {
+  return (
+    typeof value === "string" && TRANSLATION_REFRESH_REQUEST_ID.test(value)
+  );
 }
 
 export function normalizeCaptionStyle(input: Partial<CaptionStyle>): CaptionStyle {
