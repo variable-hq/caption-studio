@@ -26,7 +26,8 @@ The current codebase implements the Phase 1 cloud prototype:
   visual feedback while keeping appearance controls beside the live-updating preview;
 - Start, Pause/Resume, Clear, idle-or-paused synthetic test, confirmed End, and
   confirmed takeover controls;
-- active-service time and transcription-request usage indicators;
+- a Live AI consumption dashboard for service time, transcription attempts, successful
+  translation calls/tokens, and the latest provider-reported quota headroom;
 - one reusable, explicitly rotatable OBS URL backed by a Durable Object WebSocket; and
 - one replaceable per-service mobile link showing only the latest moderated translation.
 
@@ -304,15 +305,20 @@ requests. The synthetic test caption does not call Groq.
 Before each transcription attempt, the client atomically reserves one of the service's
 900 allotted transcription attempts—derived from the fastest six-second option—while
 validating its short-lived controller lease in the Main Durable Object. This counter
-survives reloads and takeovers. A successful non-silent
-chunk can make at most one translation call, so a service can also make at most 900
-translation calls. The extra small Cloudflare request prevents a replaced operator from
-continuing Groq usage.
+survives same-tab reloads; a confirmed takeover starts a fresh service with fresh
+counters. A successful non-silent chunk can make at most one translation call, so a
+service can also make at most 900 translation calls. The extra small Cloudflare request
+prevents a replaced operator from continuing Groq usage. Before each actual translation,
+a second low-volume Durable Object claim rejects duplicate provider work for the same
+reserved attempt. A successful translation is returned to the browser only after its
+bounded usage record is acknowledged.
 
 These controls cannot guarantee account-wide free usage: Groq limits apply to the
-organization and Cloudflare limits apply to the account, while the UI meter covers this
-application's current Main-channel service. Other applications share those limits. Keep
-both accounts on their Free plans and check their provider dashboards before a service.
+organization and Cloudflare limits apply to the account, while the consumption dashboard
+covers this application's current Main-channel service plus only the most recent Groq
+RPD/TPM response-header snapshot. Other applications share those limits, and Groq does
+not report remaining daily tokens in those headers. Keep both accounts on their Free
+plans and check their provider dashboards before a service.
 GPT-OSS 20B currently has a lower daily token allowance than the previous model, so a
 content-heavy service can still stop on a provider `429` before all 900 reserved
 transcription attempts are used.
@@ -326,7 +332,8 @@ The prototype has no production SLA; exhaustion stops captions.
 - The app sends short-lived audio chunks to Groq and does not store audio.
 - The Main Durable Object keeps constant-size channel configuration: encrypted OBS
   token, token hash, shared style, controller hash while active, sequence, timestamps,
-  and at most the latest moderated public caption.
+  active-service AI usage totals and the latest sanitized provider-limit snapshot, and at
+  most the latest moderated public caption.
 - Protected source captions remain in browser memory only during the active service.
 - Only the caption-style preference and an explicitly saved custom operator prompt use
   unencrypted browser `localStorage`; ordinary language, terminology, filter, buffer, and
@@ -336,8 +343,11 @@ The prototype has no production SLA; exhaustion stops captions.
   takeover, or idle cleanup and is never synchronized to a church account.
 - The custom prompt is not placed in the Durable Object, viewer stream, or OBS output;
   the active value is sent only to the protected translation API and Groq.
-- The usage indicator combines browser-measured elapsed time with the server-owned
-  active-service transcription count; it is not billing or account metering.
+- The protected AI usage dashboard combines browser-measured elapsed time with
+  server-owned active-service transcription attempts and successful translation
+  call/token totals. It also shows Groq's latest daily-request and per-minute-token
+  response-header snapshot when available. These values reset with the service and are
+  not billing or complete account metering.
 - Groq ZDR is required for real-sermon testing. Groq still retains non-content usage
   metadata under its published data policy.
 - Bible text must not be imported without permission for the chosen translation.

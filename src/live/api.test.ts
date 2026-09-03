@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { encryptOverlayToken } from "@/live/channel-crypto";
-import { handleLiveApiRequest, type LiveWorkerEnvironment } from "@/live/api";
+import {
+  claimTranslationAttempt,
+  handleLiveApiRequest,
+  recordTranslationUsage,
+  type LiveWorkerEnvironment,
+} from "@/live/api";
 
 const ENCRYPTION_KEY = "test-observer-channel-key-32-bytes-minimum";
 
@@ -351,6 +356,63 @@ describe("reusable OBS channel worker API", () => {
     expect(url.hash).toMatch(/^#main\./u);
     expect(token).toHaveLength(43);
     expect(body.viewerTokenHash).not.toBe(token);
+  });
+
+  it("claims one reserved translation attempt with a hashed controller", async () => {
+    const { env, fetch } = environment(async () =>
+      Response.json({ claimed: true }),
+    );
+    const controllerToken = "c".repeat(43);
+
+    const response = await claimTranslationAttempt(
+      env,
+      controllerToken,
+      4,
+    );
+
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    const body = (await forwarded.json()) as {
+      controllerHash: string;
+      transcriptionAttempt: number;
+    };
+    expect(response.status).toBe(200);
+    expect(forwarded.url).toBe(
+      "https://caption-room/internal/translation/claim",
+    );
+    expect(body).toMatchObject({ transcriptionAttempt: 4 });
+    expect(body.controllerHash).toHaveLength(64);
+    expect(body.controllerHash).not.toContain(controllerToken);
+  });
+
+  it("records server-produced translation usage with a hashed controller", async () => {
+    const { env, fetch } = environment(async () =>
+      Response.json({ recorded: true }),
+    );
+    const controllerToken = "c".repeat(43);
+
+    await recordTranslationUsage(env, controllerToken, 4, {
+      usage: { promptTokens: 80, completionTokens: 12, totalTokens: 92 },
+      rateLimit: {
+        model: "openai/gpt-oss-20b",
+        observedAt: "2026-08-23T08:00:00.000Z",
+        requestsPerDay: { limit: 1000, remaining: 990, reset: "10h" },
+        tokensPerMinute: null,
+      },
+    });
+
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    const body = (await forwarded.json()) as {
+      controllerHash: string;
+      transcriptionAttempt: number;
+      usage: { totalTokens: number };
+    };
+    expect(forwarded.url).toBe("https://caption-room/internal/usage");
+    expect(body).toMatchObject({
+      transcriptionAttempt: 4,
+      usage: { totalTokens: 92 },
+    });
+    expect(body.controllerHash).toHaveLength(64);
+    expect(body.controllerHash).not.toContain(controllerToken);
   });
 
   it("keeps viewer-link replacement behind Cloudflare Access", async () => {

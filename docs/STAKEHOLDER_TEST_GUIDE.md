@@ -62,9 +62,9 @@ cannot be confirmed by the project owner.
    and service details are grouped on the left, while preview, appearance, and live
    outputs are on the right. Repeat at a 1200px intermediate width. At both 390px and
    320px widths, confirm the same sections form one reachable column without horizontal
-   scroll. Confirm the four setup labels match the numbered panels, controls remain easy
-   to target, focus remains visible, and live/paused/error states remain understandable
-   from their text rather than colour alone.
+   scroll. Confirm the six setup labels match the available workspace panels, controls
+   remain easy to target, focus remains visible, and live/paused/error states remain
+   understandable from their text rather than colour alone.
 6. Configure text size, font, colour, per-line highlight, transparency, position, and
    horizontal/vertical safe margins. Confirm the dashboard preview changes during each
    adjustment, then select **Save as default** and reload once to confirm the shared
@@ -101,8 +101,13 @@ cannot be confirmed by the project owner.
 14. Confirm OBS shows only the public caption. Change each display setting while live and
    confirm the overlay updates without restarting.
 15. Note the channel-wide overlay sequence, skipped count, reserved transcription-attempt
-    count, and displayed processing-latency range. Confirm the usage UI shows a ceiling of
-    900 transcription attempts. The sequence includes synthetic tests and survives End,
+    count, and displayed processing-latency range. Open **AI usage** and confirm separate
+    service-time and 900-attempt meters, successful translation calls, and
+    prompt/completion/total tokens. After a translated caption, verify provider headroom
+    is either a labelled latest snapshot or explicitly unavailable—never a fabricated
+    zero. Pause, reload this operator tab, and verify service totals recover. Compare them
+    with the Groq console without expecting an exact account-wide match. The sequence
+    includes synthetic tests and survives End,
     so it is not a per-service caption count. Normal spoken-to-screen delay is the selected
     6, 9, or 12 seconds plus the processing value.
 16. Open **Viewer link security**, cancel once, then confirm **Replace mobile link**.
@@ -175,6 +180,7 @@ cannot be demonstrated safely.
 | Ownership | A second start is blocked; confirmed takeover replaces the prior controller without mixed captions. |
 | Recovery | Reload recovers the same controller paused; End preserves the URL; Rotate alone invalidates it. |
 | Performance | Processing latency, skipped chunks, and transcription usage stay inside stakeholder-agreed limits. |
+| AI usage | Service time, reserved transcription attempts, successful translation calls/tokens, and latest provider headroom remain separate; reload preserves active-service totals and public outputs receive none of this metadata. |
 | Translation refresh | Live and paused drafts apply only after confirmation; unfinished audio/context/output clears; stale captions are rejected; service timer/state, usage, controller, viewer link, and OBS link remain unchanged. |
 | Buffer | 6-, 9-, and 12-second choices match observed cadence, apply after translation refresh, and communicate the latency tradeoff. |
 | Cost | Provider dashboards show no paid usage or unexpected concurrent consumption. |
@@ -189,9 +195,11 @@ sample-based thresholds for the intended service.
   recording time. Fixed windows can reduce fragmentation but cannot detect every complete thought.
 - One target language is supported per service. There is no source-caption fallback,
   manual correction, history, archive, or sermon summary.
-- The usage bar covers only the current Main-channel service. Its server-owned
-  transcription counter survives reload and takeover, but it is not a provider billing
-  meter. Free tiers have no availability guarantee.
+- The AI usage dashboard covers only the current Main-channel service plus Groq's latest
+  daily-request/per-minute-token response-header snapshot. Active-service counters survive
+  same-tab reload; takeover starts fresh counters. It cannot see remaining daily tokens or
+  concurrent organization consumption and is not a provider billing meter. Free tiers
+  have no availability guarantee.
 - Language and theological quality remain unvalidated for the full supported matrix.
 - Device unplug/replug, long network loss, provider quota/outage, Access expiry, and a
   complete 90-minute service still require controlled validation.

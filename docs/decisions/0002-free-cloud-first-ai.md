@@ -71,7 +71,8 @@ no paid resource, account-wide usage meter, sermon archive, or paid fallback. Th
 bypass remains limited to `/overlay*` and `/api/live/overlay*`; all Main-channel
 retrieval, control, takeover, End, and rotation routes remain Access protected.
 The amendment also moved the active-service attempt counter into the Durable Object so it
-survives reload and confirmed takeover.
+survives same-tab reload. A confirmed takeover deliberately starts a new service with a
+fresh timer and counters.
 
 ## Translation-model migration amendment (2026-08-02)
 
@@ -150,6 +151,26 @@ read-only viewer stream, or OBS. The UI uses locally maintained, dependency-free
 Bits adaptations with attribution in `THIRD_PARTY_NOTICES.md`, avoiding a new runtime
 package while retaining keyboard, reduced-motion, coarse-pointer, and touch safeguards.
 
+## Service-local AI consumption amendment (2026-08-23)
+
+The operator dashboard now exposes service-local AI consumption without claiming an
+account billing meter. The Main Durable Object persists successful translation-call and
+prompt/completion/total-token totals for the active service. Each total is associated with
+the server-reserved transcription-attempt number, verified against the current controller,
+and claimed atomically before inference so a duplicate request cannot spend twice for one
+attempt. Successful usage is then acknowledged and deduplicated before accumulation and
+before the caption response returns. Same-language and silent chunks do not create a
+translation claim or record. Pause, same-tab recovery, and translation refresh preserve
+usage; End, expiry, and takeover reset it with the service.
+
+Groq's successful chat response provides exact per-call token usage. Its rate-limit
+headers provide daily-request and per-minute-token limit, remaining, and reset values.
+The dashboard shows the latest sanitized snapshot but does not infer missing values as
+zero. Those headers do not expose remaining daily tokens or complete organization usage,
+and other applications may consume the same limits. The Groq console therefore remains
+authoritative for account-wide monitoring. Account-aware budgets and hard spending
+controls remain a Phase 1B requirement before any paid path.
+
 ## Free-tier envelope at decision time
 
 The published Groq free limits for both Whisper models are 20 requests per minute,
@@ -164,7 +185,7 @@ Cloudflare Workers Free publishes 100,000 dynamic requests per day with 10 ms CP
 invocation. External-network wait time is not the same as CPU time, but the OpenNext
 build and audio proxy still require production-runtime validation.
 
-These limits were rechecked on 4 August 2026. They are provider policy, not an SLA, and
+These limits were rechecked on 23 August 2026. They are provider policy, not an SLA, and
 may change. Before each pilot the
 operator must check the account's actual limits. No paid billing fallback is enabled in
 Phase 1A.

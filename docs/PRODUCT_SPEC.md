@@ -249,19 +249,28 @@ named display profiles.
 - Audio windows are 6, 9, or 12 seconds. The server ceiling remains 900 reserved
   transcription attempts in a 90-minute service, derived from the fastest option.
   Non-silent captions whose source differs from the target can make one additional
-  translation call, so there are no more than 900 translation calls.
+  translation call, so there are no more than 900 translation calls. Translation is
+  claimed against its reserved attempt before inference; a duplicate POST is rejected
+  before it can spend provider quota.
 - A service supports one translation target at a time and no automatic paid fallback.
 - A quota response stops the affected service without revoking its OBS URL.
-- The UI shows active-service elapsed time and reserved transcription-attempt progress.
+- The UI shows separate active-service meters for elapsed time and reserved
+  transcription attempts, plus successful translation-call and prompt/completion/total
+  token counts persisted for the service.
+- After a translated caption, the operator can see the latest Groq daily-request and
+  per-minute-token limit/remaining/reset headers. Missing headroom is shown as unknown,
+  never zero.
 - Translation completions are capped at 256 tokens. GPT-OSS 20B additionally uses low
   reasoning effort, and only glossary mappings relevant to the current caption and up to
   the four most recent retained source captions enter its prompt.
 
-The usage meter is not an account billing meter. It cannot see concurrent services or
+The consumption dashboard is not an account billing meter. Its service totals survive
+an operator-page refresh, but it cannot see concurrent services or
 usage by other applications in the same Groq organization or Cloudflare account. Owners
 must keep provider accounts on the intended Free plans and verify their dashboards. The
-provider's daily token allowance may stop a content-heavy service before the visible
-ceiling of 900 reserved transcription attempts or the 90-minute limit.
+provider response headers do not expose remaining daily tokens, so a content-heavy
+service may stop before the visible ceiling of 900 reserved transcription attempts or
+the 90-minute limit.
 
 ## Prototype acceptance criteria
 
@@ -270,6 +279,9 @@ Code-level acceptance:
 - An operator can select an input, source, target, and 6-, 9-, or 12-second buffer. During
   live or paused operation, language, terminology, filter, buffer, and custom-prompt edits
   stay draft until an explicit confirmed translation refresh.
+- The AI usage section separates service time, reserved transcription attempts,
+  successful translation calls/tokens, and provider headroom; it remains truthful when
+  provider headers are unavailable and never claims account-wide consumption.
 - A refresh applies all drafts, clears unfinished audio/context/current output, rejects a
   stale-revision publish, and preserves service identity/timer, usage, controller, viewer,
   OBS URL, and live/paused state.

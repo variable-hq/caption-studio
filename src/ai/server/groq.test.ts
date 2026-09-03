@@ -8,6 +8,7 @@ import {
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
 import {
+  GroqProviderError,
   buildTranscriptionPrompt,
   buildTranslationMessages,
   transcribeWithGroq,
@@ -17,6 +18,7 @@ import {
 
 describe("Groq cloud provider prompts", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
   });
@@ -280,6 +282,100 @@ describe("Groq cloud provider prompts", () => {
       reasoning_effort: "low",
       max_completion_tokens: 256,
     });
+  });
+
+  it("returns sanitized token consumption and provider headroom", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-23T08:00:00.000Z"));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json(
+          {
+            choices: [{ message: { content: "Kasih karunia" } }],
+            usage: {
+              prompt_tokens: 144,
+              completion_tokens: 18,
+              total_tokens: 162,
+              ignored_provider_field: "not exposed",
+            },
+          },
+          {
+            headers: {
+              "x-ratelimit-limit-requests": "1000",
+              "x-ratelimit-remaining-requests": "973",
+              "x-ratelimit-reset-requests": "12h",
+              "x-ratelimit-limit-tokens": "8000",
+              "x-ratelimit-remaining-tokens": "7240",
+              "x-ratelimit-reset-tokens": "8s",
+            },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      translateWithGroq({
+        text: "Grace",
+        sourceLanguage: "en",
+        targetLanguage: "id",
+        recentContext: [],
+        preferredTerms: {},
+      }),
+    ).resolves.toEqual({
+      text: "Kasih karunia",
+      usage: { promptTokens: 144, completionTokens: 18, totalTokens: 162 },
+      rateLimit: {
+        model: "openai/gpt-oss-20b",
+        observedAt: "2026-08-23T08:00:00.000Z",
+        requestsPerDay: { limit: 1000, remaining: 973, reset: "12h" },
+        tokensPerMinute: { limit: 8000, remaining: 7240, reset: "8s" },
+      },
+    });
+  });
+
+  it("preserves safe provider headroom on a quota error", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-23T08:00:00.000Z"));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json(
+          { error: { message: "provider detail must stay private" } },
+          {
+            status: 429,
+            headers: {
+              "retry-after": "7",
+              "x-ratelimit-limit-requests": "1000",
+              "x-ratelimit-remaining-requests": "0",
+              "x-ratelimit-reset-requests": "7s",
+            },
+          },
+        ),
+      ),
+    );
+
+    const error = await translateWithGroq({
+      text: "Grace",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(GroqProviderError);
+    expect(error).toMatchObject({
+      status: 429,
+      retryAfter: "7",
+      message:
+        "The free AI quota is temporarily exhausted. Try again after the provider reset.",
+      rateLimit: {
+        requestsPerDay: { limit: 1000, remaining: 0, reset: "7s" },
+      },
+    });
+    expect(String(error)).not.toContain("provider detail");
   });
 
   it("does not send GPT-OSS reasoning effort to another explicit model", async () => {

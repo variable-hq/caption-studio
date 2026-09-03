@@ -90,7 +90,9 @@ memory. During an active service, their applied snapshot is copied to unencrypte
 `sessionStorage` solely for same-tab recovery and removed on End, takeover, or idle cleanup.
 Only caption-style preferences and a custom prompt explicitly saved by the operator use
 unencrypted `localStorage`; none of these browser values is synchronized to a workspace.
-Audio, captions, and service usage are not persisted after the active page/service. The UI
+Audio and protected caption text are not persisted after the active page/service.
+Service-local AI counters and the latest sanitized provider-limit snapshot live in the
+Durable Object only for the active service, then reset on End, expiry, or takeover. The UI
 has no manual correction, caption history, archive, or summary controls today. Pause stops
 browser capture, discards queued chunks, and keeps the reusable channel and service expiry.
 The service clock continues while the reserved transcription-attempt count does not.
@@ -133,7 +135,11 @@ device lock, or network interruption.
 `custom-worker.ts` routes `/overlay`, `/view`, and `/api/live/*` to the live runtime before
 the generated OpenNext handler. Next.js serves the dashboard and `/api/ai/*` routes. The
 Worker environment provides the Durable Object binding, Access configuration, server-only
-Groq credential, and OBS token-encryption secret.
+Groq credential, and OBS token-encryption secret. After validating Cloudflare Access,
+successful protected translation requests first claim their controller and reserved
+transcription-attempt number in the live room. After inference, the Worker records the
+sanitized usage payload and waits for that acknowledgement before returning a successful
+translation to the browser.
 
 Production protection is layered:
 
@@ -172,7 +178,10 @@ completion is capped at 256 tokens; low reasoning effort is sent only to GPT-OSS
 
 The browser talks only to same-origin APIs and never receives the Groq key. The dashboard
 reads the actual configured model identifiers from `/api/ai/health`, while the server
-performs a separate model-availability check before starting a service.
+performs a separate model-availability check before starting a service. Successful chat
+responses expose only normalized prompt/completion/total token counts and Groq's
+daily-request/per-minute-token limit headers. Provider request IDs, raw error details, and
+unused timings do not cross the API boundary.
 
 Transcription accepts only WebM, Ogg, or MP4 audio and is bounded to a 3 MB chunk, at
 most 40 keyword hints, 100 characters per hint, a bounded multipart request, and a
@@ -201,9 +210,10 @@ API/Groq boundary while active, but is not part of Durable Object state, the mob
 payload, or the OBS payload.
 
 `TranscriptionProvider` and `TranslationProvider` keep the client independent of a
-specific vendor response shape. Only fields used by the live pipeline cross the
-same-origin API boundary; unused provider segment identifiers, timings, provider-only
-latency fields, and dormant provider modes are not retained. Summary interfaces will be
+specific vendor response shape. Only fields used by the live pipeline and operator usage
+dashboard cross the same-origin API boundary; unused provider segment identifiers,
+timings, provider-only latency fields, and dormant provider modes are not retained.
+Summary interfaces will be
 introduced only when the archive and review design is approved.
 
 ### Deterministic caption pipeline
@@ -238,7 +248,9 @@ The Durable Object stores:
 - encrypted OBS token and SHA-256 validation hash;
 - shared caption style and a channel-wide sequence number;
 - idle/live/paused state, controller and current viewer hashes, service timestamps,
-  transcription-request count, event count, and a monotonic translation revision; and
+  transcription-request count, bounded claimed/recorded translation-attempt sets,
+  aggregated translation tokens, latest sanitized provider-limit snapshot, event count,
+  and a monotonic translation revision; and
 - the latest moderated public caption.
 
 The Durable Object assigns monotonically increasing sequence numbers, limits public
@@ -246,10 +258,19 @@ caption length, and broadcasts captions, clears, style, and service-state change
 Transactions serialize caption/control/takeover mutations. Before provider work for each
 audio chunk, the browser has the Durable Object validate its controller and atomically
 reserve one of the 900 allotted transcription attempts. The server-owned counter survives
-reload and takeover, and stops a displaced tab before its next provider request. A takeover
-atomically replaces the controller and viewer hashes and clears public output; stale
+same-tab reload. A takeover atomically begins a new service with fresh counters, replaces
+the controller and viewer hashes, and clears public output; stale
 controller requests return `controller_replaced`. A new or reconnected overlay receives
 current style, state, and at most the latest public caption.
+
+Each non-same-language translation request atomically claims its reserved attempt number
+before inference. A room transaction verifies the active controller and rejects stale,
+unreserved, paused, or already-claimed attempts, so a duplicate POST cannot make a second
+provider call for the same audio attempt. After a successful provider response, a second
+transaction idempotently records prompt, completion, and total tokens before the response
+returns to the browser. These counters and the latest sanitized provider headroom survive
+page recovery, Pause, and translation refresh; they reset with the service and never enter
+public WebSocket payloads.
 
 End and the 90-minute alarm deactivate only the service: they delete the controller,
 viewer hash, and latest caption but keep the OBS credential, shared style, and sequence.
@@ -331,6 +352,8 @@ select the source explicitly when script-specific handling matters.
 | Service state, timestamps, and event count | Durable Object | Active service; state resets on End/expiry |
 | Translation revision | Durable Object | Channel lifetime; advances on service start and confirmed refresh |
 | Reserved transcription-attempt count | Durable Object | Active service; resets on End/expiry |
+| Successful translation attempts and prompt/completion/total tokens | Durable Object | Active service; resets on End, expiry, or takeover |
+| Latest sanitized Groq RPD/TPM headroom snapshot | Durable Object and protected operator page | Active service; replaced by a later translation response and never sent to OBS/viewer clients |
 | Dropped-chunk and processing-latency metrics | Browser memory | Active page/service |
 | Native processing-notice acknowledgement | iOS app-local preferences | Until app data is cleared |
 
@@ -346,9 +369,18 @@ usage metadata remains outside this application's control.
   provider failures and silent results.
 - Each successful non-silent chunk whose source differs from its target can make one
   additional translation request, so a service can make at most 900 translation calls.
+  Successful results are deduplicated by their reserved attempt number before their token
+  totals enter the Durable Object.
 - Each attempted chunk first makes one low-volume controller-lease request that reserves
-  the counter atomically. It adds no Groq call and prevents reload or takeover from
-  resetting or bypassing the ceiling.
+  the counter atomically. It adds no Groq call, survives page recovery, and prevents a
+  displaced controller from bypassing the current service ceiling. A confirmed takeover
+  deliberately starts a new service with a fresh ceiling.
+- Each chunk that needs translation makes one additional low-volume claim request before
+  Groq inference. It adds no provider call itself and rejects a second translation request
+  for the same reserved attempt. A successful translation waits for one low-volume usage
+  acknowledgement before the caption response returns.
+- An Access-protected page observing another operator's active service refreshes these
+  server counters every five seconds. The read makes no Groq request.
 - The room accepts at most 250 concurrent mobile-viewer sockets; additional connections
   fail closed without affecting OBS or operator control.
 - The dashboard latency metric starts after the selected window finishes recording. It
@@ -375,9 +407,11 @@ usage metadata remains outside this application's control.
   controller and prevents two microphones from publishing to the same channel.
 - There is no automatic paid provider or overage path.
 
-Current UI usage is service-local. Groq organization limits and Cloudflare account limits
-can be consumed by other applications or services, so provider dashboards are the
-authoritative account-wide meters. The service ceiling of 900 reserved transcription
+Current UI usage is service-local. The latest Groq response exposes daily-request and
+per-minute-token headroom, but not daily-token remaining or complete organization usage.
+Groq organization limits and Cloudflare account limits can be consumed by other
+applications or services, so provider dashboards are the authoritative account-wide
+meters. The service ceiling of 900 reserved transcription
 attempts stays below the replacement model's 1,000-request daily Free limit for one
 uninterrupted service, but its 200,000-token daily allowance can still fail earlier for
 content-heavy prompts.

@@ -136,6 +136,12 @@ Current behavior:
   recovery, then removed on End, takeover, or idle cleanup;
 - the active custom prompt crosses the protected translation API and Groq inference
   boundary, but is not written to the Durable Object or sent to the mobile viewer or OBS;
+- successful translation usage is reduced to bounded numeric token totals plus the latest
+  sanitized Groq daily-request/per-minute-token headroom. It is stored only in the active
+  Main Durable Object and returned only through the Access-protected operator channel
+  read; an active controller must claim its reserved attempt before inference, and the
+  successful response waits for usage acknowledgement; OBS and mobile-viewer
+  documents/WebSockets never receive it;
 - a translation-session refresh clears unfinished/queued audio, recent translation
   context, and current public output without rotating the controller, viewer, or OBS
   credentials or extending the original service expiry; and
@@ -187,7 +193,8 @@ setting.
 - Review Cloudflare routes after every domain or Access-application change.
 - Test takeover, controller replacement, End-with-link-retention, explicit rotation,
   service expiry, the server-owned ceilings of 900 reserved transcription attempts and
-  1,400 caption events, the 250-viewer socket ceiling, malformed channel IDs,
+  1,400 caption events, service-local translation-usage deduplication/reset, the
+  250-viewer socket ceiling, malformed channel IDs,
   cross-protocol tokens, invalid origins, oversized bodies, and provider failures with
   synthetic data before a live pilot.
 - If Apple distribution is explicitly reopened, confirm the legal publisher and bundle

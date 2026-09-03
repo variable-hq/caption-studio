@@ -600,6 +600,164 @@ describe("reusable caption channel", () => {
     });
   });
 
+  it("authorizes provider work once and persists its usage idempotently", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(
+      request("/internal/lease", { controllerHash: CONTROLLER_A }),
+    );
+    const claimed = await room.fetch(
+      request("/internal/translation/claim", {
+        controllerHash: CONTROLLER_A,
+        transcriptionAttempt: 1,
+      }),
+    );
+    expect(claimed.status).toBe(200);
+    const duplicateClaim = await room.fetch(
+      request("/internal/translation/claim", {
+        controllerHash: CONTROLLER_A,
+        transcriptionAttempt: 1,
+      }),
+    );
+    expect(duplicateClaim.status).toBe(409);
+    await expect(duplicateClaim.json()).resolves.toMatchObject({
+      code: "translation_attempt_used",
+    });
+
+    const usageRecord = {
+      controllerHash: CONTROLLER_A,
+      transcriptionAttempt: 1,
+      usage: {
+        promptTokens: 120,
+        completionTokens: 24,
+        totalTokens: 144,
+      },
+      rateLimit: {
+        model: "openai/gpt-oss-20b",
+        observedAt: "2026-08-23T08:00:00.000Z",
+        requestsPerDay: { limit: 1000, remaining: 980, reset: "12h" },
+        tokensPerMinute: { limit: 8000, remaining: 7000, reset: "8s" },
+      },
+    };
+    const recorded = await room.fetch(
+      request("/internal/usage", usageRecord),
+    );
+    expect(recorded.status).toBe(200);
+    await expect(recorded.json()).resolves.toMatchObject({
+      recorded: true,
+      llmUsage: {
+        translationRequests: 1,
+        promptTokens: 120,
+        completionTokens: 24,
+        totalTokens: 144,
+      },
+    });
+
+    await room.fetch(request("/internal/usage", usageRecord));
+    await expect(storage.get("configuration")).resolves.toMatchObject({
+      recordedTranslationAttempts: [1],
+      llmUsage: {
+        translationRequests: 1,
+        totalTokens: 144,
+      },
+    });
+    const channel = await room.fetch(
+      request("/internal/channel", undefined, "GET"),
+    );
+    await expect(channel.json()).resolves.toMatchObject({
+      llmUsage: {
+        translationRequests: 1,
+        promptTokens: 120,
+        completionTokens: 24,
+        totalTokens: 144,
+      },
+    });
+  });
+
+  it("preserves usage through translation refresh and resets it on takeover", async () => {
+    const { room } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(
+      request("/internal/lease", { controllerHash: CONTROLLER_A }),
+    );
+    await room.fetch(
+      request("/internal/translation/claim", {
+        controllerHash: CONTROLLER_A,
+        transcriptionAttempt: 1,
+      }),
+    );
+    await room.fetch(
+      request("/internal/usage", {
+        controllerHash: CONTROLLER_A,
+        transcriptionAttempt: 1,
+        usage: { promptTokens: 40, completionTokens: 8, totalTokens: 48 },
+      }),
+    );
+
+    await room.fetch(
+      request("/internal/control", {
+        action: "refresh-translation",
+        controllerHash: CONTROLLER_A,
+        expectedTranslationRevision: 1,
+        refreshRequestId: REFRESH_REQUEST_A,
+      }),
+    );
+    const refreshed = await room.fetch(
+      request("/internal/channel", undefined, "GET"),
+    );
+    await expect(refreshed.json()).resolves.toMatchObject({
+      translationRevision: 2,
+      llmUsage: { translationRequests: 1, totalTokens: 48 },
+    });
+
+    await startService(room, CONTROLLER_B, true);
+    const takenOver = await room.fetch(
+      request("/internal/channel", undefined, "GET"),
+    );
+    await expect(takenOver.json()).resolves.toMatchObject({
+      transcriptionRequests: 0,
+      llmUsage: {
+        translationRequests: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        providerRateLimit: null,
+      },
+    });
+
+    const stale = await room.fetch(
+      request("/internal/usage", {
+        controllerHash: CONTROLLER_A,
+        transcriptionAttempt: 1,
+      }),
+    );
+    expect(stale.status).toBe(409);
+    await expect(stale.json()).resolves.toMatchObject({
+      code: "controller_replaced",
+    });
+  });
+
+  it("rejects translation usage without a matching reserved attempt", async () => {
+    const { room } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+
+    const response = await room.fetch(
+      request("/internal/usage", {
+        controllerHash: CONTROLLER_A,
+        transcriptionAttempt: 1,
+        usage: { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Translation usage does not match this service.",
+    });
+  });
+
   it("enforces the transcription ceiling atomically across controller leases", async () => {
     const { room, storage } = roomFixture();
     await createChannel(room);
@@ -832,6 +990,22 @@ describe("reusable caption channel", () => {
     await createChannel(room);
     await startService(room);
     await room.fetch(request("/internal/caption", caption()));
+    await room.fetch(
+      request("/internal/lease", { controllerHash: CONTROLLER_A }),
+    );
+    await room.fetch(
+      request("/internal/translation/claim", {
+        controllerHash: CONTROLLER_A,
+        transcriptionAttempt: 1,
+      }),
+    );
+    await room.fetch(
+      request("/internal/usage", {
+        controllerHash: CONTROLLER_A,
+        transcriptionAttempt: 1,
+        usage: { promptTokens: 20, completionTokens: 4, totalTokens: 24 },
+      }),
+    );
 
     const response = await room.fetch(
       request(
@@ -846,6 +1020,16 @@ describe("reusable caption channel", () => {
       encryptedToken: "encrypted-a",
       status: "idle",
       lastSequence: 1,
+      transcriptionRequests: 0,
+      claimedTranslationAttempts: [],
+      recordedTranslationAttempts: [],
+      llmUsage: {
+        translationRequests: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        providerRateLimit: null,
+      },
     });
     await expect(storage.get("configuration")).resolves.not.toHaveProperty(
       "viewerTokenHash",
@@ -959,6 +1143,49 @@ describe("reusable caption channel", () => {
         { type: "state", status: "idle", expiresAt: null },
       ]),
     );
+  });
+
+  it("clears public sockets when a usage record observes service expiry", async () => {
+    const { room, storage, socket, viewerSocket } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(request("/internal/caption", caption()));
+    await room.fetch(
+      request("/internal/lease", { controllerHash: CONTROLLER_A }),
+    );
+    await room.fetch(
+      request("/internal/translation/claim", {
+        controllerHash: CONTROLLER_A,
+        transcriptionAttempt: 1,
+      }),
+    );
+    const configuration = await storage.get<Record<string, unknown>>(
+      "configuration",
+    );
+    await storage.put("configuration", {
+      ...configuration,
+      expiresAt: Date.now() - 1,
+    });
+
+    const response = await room.fetch(
+      request("/internal/usage", {
+        controllerHash: CONTROLLER_A,
+        transcriptionAttempt: 1,
+        usage: { promptTokens: 20, completionTokens: 4, totalTokens: 24 },
+      }),
+    );
+
+    expect(response.status).toBe(410);
+    expect(socket.messages.map((message) => JSON.parse(message))).toEqual(
+      expect.arrayContaining([
+        { type: "clear" },
+        { type: "state", status: "idle", expiresAt: null },
+      ]),
+    );
+    expect(viewerSocket.closes.at(-1)).toEqual({
+      code: 4002,
+      reason: "Live service ended.",
+    });
   });
 
   it("rejects messages from both read-only socket roles", () => {

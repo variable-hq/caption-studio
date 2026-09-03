@@ -1,3 +1,4 @@
+import type { LlmSessionUsage } from "@/ai/contracts";
 import type { LanguageLocale } from "@/domain/languages";
 
 export const SPEECH_BUFFER_OPTIONS_MS = [6_000, 9_000, 12_000] as const;
@@ -82,6 +83,7 @@ export interface ObsChannelDetails {
   startedAt: string | null;
   expiresAt: string | null;
   transcriptionRequests: number;
+  llmUsage: LlmSessionUsage;
   translationRevision: number;
 }
 
@@ -111,6 +113,7 @@ export interface LiveSessionState {
   sequence: number;
   droppedChunks: number;
   transcriptionRequests: number;
+  llmUsage: LlmSessionUsage;
   latestSourceText: string;
   latestPublicText: string;
   lastLatencyMs: number | null;

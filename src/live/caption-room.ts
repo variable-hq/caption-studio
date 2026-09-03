@@ -1,3 +1,9 @@
+import type { LlmSessionUsage, TranslationResult } from "@/ai/contracts";
+import {
+  accumulateLlmSessionUsage,
+  emptyLlmSessionUsage,
+  normalizeLlmSessionUsage,
+} from "@/ai/usage";
 import { isLanguageLocale } from "@/domain/languages";
 import {
   MAX_CAPTION_EVENTS,
@@ -24,6 +30,9 @@ interface ChannelConfiguration {
   lastSequence: number;
   serviceEventCount: number;
   transcriptionRequests: number;
+  llmUsage: LlmSessionUsage;
+  claimedTranslationAttempts: number[];
+  recordedTranslationAttempts: number[];
   translationRevision: number;
   lastTranslationRefreshRequestId?: string;
   controllerHash?: string;
@@ -39,12 +48,22 @@ interface StartServiceRequest {
   takeover: boolean;
 }
 
+interface TranslationAttemptRequest {
+  controllerHash: string;
+  transcriptionAttempt: number;
+}
+
+interface RecordTranslationUsageRequest
+  extends TranslationAttemptRequest,
+    Pick<TranslationResult, "usage" | "rateLimit"> {}
+
 type MutationResult<T> =
   | { kind: "ok"; value: T; clear?: boolean; revokeViewers?: boolean }
   | { kind: "channel-not-configured" }
   | { kind: "channel-in-use"; expiresAt?: number }
   | { kind: "controller-replaced" }
   | { kind: "transcription-limit" }
+  | { kind: "translation-attempt-used" }
   | { kind: "translation-session-refreshed"; translationRevision: number }
   | { kind: "inactive"; clear?: boolean }
   | { kind: "invalid" };
@@ -89,6 +108,35 @@ function normalizeConfiguration(configuration: ChannelConfiguration) {
     transcriptionRequests: Number.isSafeInteger(configuration.transcriptionRequests)
       ? Math.max(0, configuration.transcriptionRequests)
       : 0,
+    llmUsage: normalizeLlmSessionUsage(configuration.llmUsage),
+    claimedTranslationAttempts: Array.isArray(
+      configuration.claimedTranslationAttempts,
+    )
+      ? [
+          ...new Set(
+            configuration.claimedTranslationAttempts.filter(
+              (attempt) =>
+                Number.isSafeInteger(attempt) &&
+                attempt > 0 &&
+                attempt <= MAX_TRANSCRIPTION_REQUESTS,
+            ),
+          ),
+        ].slice(0, MAX_TRANSCRIPTION_REQUESTS)
+      : [],
+    recordedTranslationAttempts: Array.isArray(
+      configuration.recordedTranslationAttempts,
+    )
+      ? [
+          ...new Set(
+            configuration.recordedTranslationAttempts.filter(
+              (attempt) =>
+                Number.isSafeInteger(attempt) &&
+                attempt > 0 &&
+                attempt <= MAX_TRANSCRIPTION_REQUESTS,
+            ),
+          ),
+        ].slice(0, MAX_TRANSCRIPTION_REQUESTS)
+      : [],
     translationRevision: normalizeTranslationRevision(
       configuration.translationRevision,
     ),
@@ -100,6 +148,9 @@ function deactivate(configuration: ChannelConfiguration) {
   current.status = "idle";
   current.serviceEventCount = 0;
   current.transcriptionRequests = 0;
+  current.llmUsage = emptyLlmSessionUsage();
+  current.claimedTranslationAttempts = [];
+  current.recordedTranslationAttempts = [];
   delete current.controllerHash;
   delete current.viewerTokenHash;
   delete current.startedAt;
@@ -145,6 +196,18 @@ function validCaptionBody(body: Partial<PublicCaptionRequest>) {
   );
 }
 
+function validTranslationAttemptBody<
+  T extends Partial<TranslationAttemptRequest>,
+>(body: T): body is T & TranslationAttemptRequest {
+  return (
+    typeof body.controllerHash === "string" &&
+    body.controllerHash.length === 64 &&
+    Number.isSafeInteger(body.transcriptionAttempt) &&
+    Number(body.transcriptionAttempt) > 0 &&
+    Number(body.transcriptionAttempt) <= MAX_TRANSCRIPTION_REQUESTS
+  );
+}
+
 function publicConfiguration(configuration: ChannelConfiguration) {
   const current = normalizeConfiguration(configuration);
   return {
@@ -156,6 +219,7 @@ function publicConfiguration(configuration: ChannelConfiguration) {
     expiresAt: current.expiresAt ?? null,
     lastSequence: current.lastSequence,
     transcriptionRequests: current.transcriptionRequests,
+    llmUsage: current.llmUsage,
     translationRevision: current.translationRevision,
   };
 }
@@ -208,6 +272,15 @@ export class CaptionRoom {
     if (url.pathname === "/internal/lease" && request.method === "POST") {
       return this.reserveTranscriptionAttempt(request);
     }
+    if (
+      url.pathname === "/internal/translation/claim" &&
+      request.method === "POST"
+    ) {
+      return this.claimTranslationAttempt(request);
+    }
+    if (url.pathname === "/internal/usage" && request.method === "POST") {
+      return this.recordTranslationUsage(request);
+    }
     if (url.pathname === "/internal/caption" && request.method === "POST") {
       return this.publishCaption(request);
     }
@@ -251,6 +324,9 @@ export class CaptionRoom {
           lastSequence: 0,
           serviceEventCount: 0,
           transcriptionRequests: 0,
+          llmUsage: emptyLlmSessionUsage(),
+          claimedTranslationAttempts: [],
+          recordedTranslationAttempts: [],
           translationRevision: 0,
         };
         await transaction.put("configuration", created);
@@ -422,6 +498,9 @@ export class CaptionRoom {
       configuration.expiresAt = startedAt + MAX_LIVE_SESSION_MS;
       configuration.serviceEventCount = 0;
       configuration.transcriptionRequests = 0;
+      configuration.llmUsage = emptyLlmSessionUsage();
+      configuration.claimedTranslationAttempts = [];
+      configuration.recordedTranslationAttempts = [];
       configuration.translationRevision += 1;
       delete configuration.lastTranslationRefreshRequestId;
       configuration.style = normalizeCaptionStyle(body.style ?? configuration.style);
@@ -696,6 +775,144 @@ export class CaptionRoom {
       return json({ error: "Transcription reservation failed." }, 500);
     }
     return json({ valid: true, ...result.value });
+  }
+
+  private async claimTranslationAttempt(request: Request) {
+    const body = (await request.json()) as Partial<TranslationAttemptRequest>;
+    if (!validTranslationAttemptBody(body)) {
+      return json({ error: "Invalid translation attempt." }, 400);
+    }
+    const transcriptionAttempt = body.transcriptionAttempt;
+
+    const result = await this.state.storage.transaction<MutationResult<null>>(
+      async (transaction) => {
+        const stored = await transaction.get<ChannelConfiguration>("configuration");
+        if (!stored) return { kind: "channel-not-configured" };
+        let configuration = normalizeConfiguration(stored);
+        if (serviceExpired(configuration)) {
+          configuration = deactivate(configuration);
+          await Promise.all([
+            transaction.put("configuration", configuration),
+            transaction.delete("latest"),
+          ]);
+          return { kind: "inactive", clear: true };
+        }
+        if (!isActive(configuration) || configuration.status !== "live") {
+          return { kind: "inactive" };
+        }
+        if (!controllerMatches(configuration, body.controllerHash)) {
+          return { kind: "controller-replaced" };
+        }
+        if (transcriptionAttempt > configuration.transcriptionRequests) {
+          return { kind: "invalid" };
+        }
+        if (
+          configuration.claimedTranslationAttempts.includes(
+            transcriptionAttempt,
+          )
+        ) {
+          return { kind: "translation-attempt-used" };
+        }
+        configuration.claimedTranslationAttempts.push(transcriptionAttempt);
+        await transaction.put("configuration", configuration);
+        return { kind: "ok", value: null };
+      },
+    );
+
+    if (result.kind === "channel-not-configured") return channelNotConfigured();
+    if (result.kind === "controller-replaced") return controllerReplaced();
+    if (result.kind === "inactive") {
+      if (result.clear) {
+        this.broadcastPublic({ type: "clear" });
+        this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
+        this.closeViewerSockets(4002, "Live service ended.");
+      }
+      return json({ error: "The live service is not accepting translations." }, 410);
+    }
+    if (result.kind === "translation-attempt-used") {
+      return json(
+        {
+          error: "This transcription attempt already requested a translation.",
+          code: "translation_attempt_used",
+        },
+        409,
+      );
+    }
+    if (result.kind === "invalid") {
+      return json({ error: "Translation does not match a reserved attempt." }, 400);
+    }
+    if (result.kind !== "ok") {
+      return json({ error: "Translation authorization failed." }, 500);
+    }
+    return json({ claimed: true });
+  }
+
+  private async recordTranslationUsage(request: Request) {
+    const body = (await request.json()) as Partial<RecordTranslationUsageRequest>;
+    if (!validTranslationAttemptBody(body)) {
+      return json({ error: "Invalid translation usage record." }, 400);
+    }
+    const transcriptionAttempt = body.transcriptionAttempt;
+
+    const result = await this.state.storage.transaction<
+      MutationResult<LlmSessionUsage>
+    >(async (transaction) => {
+      const stored = await transaction.get<ChannelConfiguration>("configuration");
+      if (!stored) return { kind: "channel-not-configured" };
+      let configuration = normalizeConfiguration(stored);
+      if (serviceExpired(configuration)) {
+        configuration = deactivate(configuration);
+        await Promise.all([
+          transaction.put("configuration", configuration),
+          transaction.delete("latest"),
+        ]);
+        return { kind: "inactive", clear: true };
+      }
+      if (!isActive(configuration)) return { kind: "inactive" };
+      if (!controllerMatches(configuration, body.controllerHash)) {
+        return { kind: "controller-replaced" };
+      }
+      if (
+        transcriptionAttempt > configuration.transcriptionRequests ||
+        !configuration.claimedTranslationAttempts.includes(
+          transcriptionAttempt,
+        )
+      ) {
+        return { kind: "invalid" };
+      }
+      if (configuration.recordedTranslationAttempts.includes(transcriptionAttempt)) {
+        return { kind: "ok", value: configuration.llmUsage };
+      }
+
+      configuration.llmUsage = accumulateLlmSessionUsage(
+        configuration.llmUsage,
+        {
+          usage: body.usage,
+          rateLimit: body.rateLimit,
+        },
+      );
+      configuration.recordedTranslationAttempts.push(transcriptionAttempt);
+      await transaction.put("configuration", configuration);
+      return { kind: "ok", value: configuration.llmUsage };
+    });
+
+    if (result.kind === "channel-not-configured") return channelNotConfigured();
+    if (result.kind === "controller-replaced") return controllerReplaced();
+    if (result.kind === "inactive") {
+      if (result.clear) {
+        this.broadcastPublic({ type: "clear" });
+        this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
+        this.closeViewerSockets(4002, "Live service ended.");
+      }
+      return json({ error: "The live service is no longer active." }, 410);
+    }
+    if (result.kind === "invalid") {
+      return json({ error: "Translation usage does not match this service." }, 400);
+    }
+    if (result.kind !== "ok") {
+      return json({ error: "Translation usage could not be recorded." }, 500);
+    }
+    return json({ recorded: true, llmUsage: result.value });
   }
 
   private async controlService(request: Request) {

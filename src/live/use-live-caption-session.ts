@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { CloudProviderClient } from "@/ai/cloud-provider-client";
+import {
+  CloudProviderClient,
+  CloudProviderClientError,
+  isTerminalTranslationControlError,
+} from "@/ai/cloud-provider-client";
+import type { TranslationResult } from "@/ai/contracts";
+import {
+  accumulateLlmSessionUsage,
+  emptyLlmSessionUsage,
+  withLlmProviderRateLimit,
+} from "@/ai/usage";
 import { chooseAudioInputDevice } from "@/live/audio-devices";
 import { parseGlossaryInput, parseModerationInput, preferredTermMap } from "@/live/config";
 import {
@@ -64,6 +74,7 @@ const INITIAL_LIVE_STATE: LiveSessionState = {
   sequence: 0,
   droppedChunks: 0,
   transcriptionRequests: 0,
+  llmUsage: emptyLlmSessionUsage(),
   latestSourceText: "",
   latestPublicText: "",
   lastLatencyMs: null,
@@ -84,7 +95,10 @@ function recorderOptions() {
 }
 
 function isControllerReplaced(error: unknown) {
-  return error instanceof LiveApiError && error.code === "controller_replaced";
+  return (
+    (error instanceof LiveApiError || error instanceof CloudProviderClientError) &&
+    error.code === "controller_replaced"
+  );
 }
 
 export function useLiveCaptionSession(settings: LiveCaptionSettings) {
@@ -303,9 +317,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         message,
         latestSourceText: "",
         latestPublicText: "",
+        transcriptionRequests: 0,
+        llmUsage: emptyLlmSessionUsage(),
         service: null,
         channel: current.channel
-          ? { ...current.channel, status: "live" }
+          ? {
+              ...current.channel,
+              status: "live",
+              startedAt: null,
+              expiresAt: null,
+              transcriptionRequests: 0,
+              llmUsage: emptyLlmSessionUsage(),
+            }
           : current.channel,
       }));
     },
@@ -337,6 +360,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           ...current,
           status: failed ? "error" : "idle",
           message,
+          transcriptionRequests: 0,
+          llmUsage: emptyLlmSessionUsage(),
           service: null,
         }));
         endingRef.current = false;
@@ -369,6 +394,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           message,
           latestSourceText: "",
           latestPublicText: "",
+          transcriptionRequests: 0,
+          llmUsage: emptyLlmSessionUsage(),
           service: null,
           channel: current.channel
             ? {
@@ -376,6 +403,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
                 status: "idle",
                 startedAt: null,
                 expiresAt: null,
+                transcriptionRequests: 0,
+                llmUsage: emptyLlmSessionUsage(),
               }
             : current.channel,
         }));
@@ -504,20 +533,42 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         );
       }
 
-      const translation =
-        detectedLanguage === current.targetLanguage
-          ? { text: sourceText }
-          : await cloudClientRef.current.translate(
-              {
-                text: sourceText,
-                sourceLanguage: detectedLanguage,
-                targetLanguage: current.targetLanguage,
-                recentContext: recentContextRef.current,
-                preferredTerms: preferredTermMap(glossary, current.targetLanguage),
-                translationSystemPrompt: current.translationSystemPrompt,
-              },
-              signal,
-            );
+      let translation: TranslationResult = { text: sourceText };
+      if (detectedLanguage !== current.targetLanguage) {
+        try {
+          translation = await cloudClientRef.current.translate(
+            {
+              text: sourceText,
+              sourceLanguage: detectedLanguage,
+              targetLanguage: current.targetLanguage,
+              recentContext: recentContextRef.current,
+              preferredTerms: preferredTermMap(glossary, current.targetLanguage),
+              translationSystemPrompt: current.translationSystemPrompt,
+            },
+            signal,
+            serviceAtStart.controllerToken,
+            lease.transcriptionRequests,
+          );
+        } catch (error) {
+          if (
+            error instanceof CloudProviderClientError &&
+            error.rateLimit
+          ) {
+            setLiveState((state) => ({
+              ...state,
+              llmUsage: withLlmProviderRateLimit(
+                state.llmUsage,
+                error.rateLimit,
+              ),
+            }));
+          }
+          throw error;
+        }
+        setLiveState((state) => ({
+          ...state,
+          llmUsage: accumulateLlmSessionUsage(state.llmUsage, translation),
+        }));
+      }
       if (!isCurrentCapture()) return;
 
       const forms = prepareCaptionForms({
@@ -583,6 +634,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           const message =
             error instanceof Error ? error.message : "Caption processing failed.";
           if (
+            isTerminalTranslationControlError(error) ||
             (error instanceof LiveApiError &&
               error.code === "transcription_limit_reached") ||
             /quota|expired|event limit|language could not be detected|authentication/i.test(
@@ -687,18 +739,20 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     [clearServiceTimer, endService],
   );
 
-  const loadChannel = useCallback(async () => {
+  const loadChannel = useCallback(async (silent = false) => {
     const loadGeneration = ++loadGenerationRef.current;
     const loadIsCurrent = () =>
       loadGenerationRef.current === loadGeneration &&
       !endingRef.current &&
       !endRetryRequiredRef.current;
     if (!loadIsCurrent()) return;
-    setLiveState((current) => ({
-      ...current,
-      status: "loading-channel",
-      message: "Loading the Main OBS channel…",
-    }));
+    if (!silent) {
+      setLiveState((current) => ({
+        ...current,
+        status: "loading-channel",
+        message: "Loading the Main OBS channel…",
+      }));
+    }
     try {
       const channel = await liveClientRef.current.getChannel();
       if (!loadIsCurrent()) return;
@@ -761,6 +815,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             },
             service: recovered,
             transcriptionRequests: channel.transcriptionRequests,
+            llmUsage: channel.llmUsage,
           });
           return;
         } catch {
@@ -798,9 +853,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           : "Create the Main OBS channel, then add its reusable URL to OBS.",
         channel,
         transcriptionRequests: channel.transcriptionRequests,
+        llmUsage: channel.llmUsage,
       });
     } catch (error) {
       if (!loadIsCurrent()) return;
+      if (silent) return;
       setRotationRecoveryRequired(
         error instanceof LiveApiError && error.code === "invalid_overlay_key",
       );
@@ -962,6 +1019,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const startSession = useCallback(
     async (takeover = false) => {
       if (serviceRef.current || endingRef.current) return;
+      loadGenerationRef.current += 1;
       endRetryRequiredRef.current = false;
       setEndRetryRequired(false);
       setTakeoverRequired(false);
@@ -972,6 +1030,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         sequence: 0,
         droppedChunks: 0,
         transcriptionRequests: 0,
+        llmUsage: emptyLlmSessionUsage(),
         latestSourceText: "",
         latestPublicText: "",
         lastLatencyMs: null,

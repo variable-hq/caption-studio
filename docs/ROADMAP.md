@@ -34,7 +34,9 @@ Implemented in the codebase:
 - draft language, terminology, filter, buffer, and prompt changes applied through an
   explicit translation-session refresh that preserves the service and public links;
 - bounded biblical/church hints, preferred terms, and public masking;
-- source/public previews, status, latency, queue, service-time, and request indicators;
+- source/public previews, status, latency, queue, and a service-local AI consumption
+  dashboard with persisted transcription attempts, successful translation calls/tokens,
+  and latest provider-reported RPD/TPM headroom;
 - one encrypted, reusable Main OBS channel with a reconnecting read-only overlay;
 - one separately tokenized, replaceable mobile viewer link per active service, exposing
   only the current moderated translation and service status;
@@ -51,6 +53,8 @@ Pending validation:
 - full-service tests for every supported source/target language;
 - approved biblical name, reference, accent, and mixed-language samples;
 - latency, dropped chunks, provider quota, Worker CPU/request, and browser compatibility;
+- dashboard token totals against real Groq responses, same-tab recovery, reset semantics,
+  and comparison with the authoritative Groq organization console;
 - device loss, internet loss, Access expiry, Groq `429`, timeout, and model outage;
 - GPT-OSS 20B output quality, all three buffer/latency tradeoffs, and the lower daily token
   allowance across every approved source/target pair;
@@ -161,6 +165,9 @@ or the full reusable Durable Object/OBS/mobile-viewer journey.
 - Record results without sermon content, credentials, or active OBS/viewer URLs.
 - Test agreed language pairs, church terminology, filter behavior, operator usability,
   processing latency, and dropped chunks.
+- Confirm **AI usage** separates time, transcription attempts, translation calls/tokens,
+  and provider headroom; reload the operator page while paused and verify service totals
+  recover without appearing in the mobile viewer or OBS.
 - Confirm Groq and Cloudflare account usage remains inside the intended Free plans.
 - Triage failures and agree explicit quality, latency, recovery, and go/no-go thresholds.
 

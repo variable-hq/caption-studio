@@ -1,3 +1,8 @@
+import type { LlmSessionUsage, TranslationResult } from "@/ai/contracts";
+import {
+  emptyLlmSessionUsage,
+  normalizeLlmSessionUsage,
+} from "@/ai/usage";
 import { CloudAccessError, requireCloudAccess } from "@/auth/cloudflare-access";
 import { isLanguageLocale } from "@/domain/languages";
 import {
@@ -8,6 +13,7 @@ import {
 import { captionTokenHash } from "@/live/caption-room";
 import {
   MAIN_CHANNEL_ID,
+  MAX_TRANSCRIPTION_REQUESTS,
   isLiveSessionControlAction,
   isTranslationRefreshRequestId,
   normalizeCaptionStyle,
@@ -50,6 +56,7 @@ interface InternalChannelDetails {
   startedAt?: number | null;
   expiresAt?: number | null;
   transcriptionRequests?: number;
+  llmUsage?: LlmSessionUsage;
   translationRevision?: number;
 }
 
@@ -85,6 +92,20 @@ async function requireOperator(request: Request, env: LiveWorkerEnvironment) {
     teamDomain: env.CLOUDFLARE_ACCESS_TEAM_DOMAIN,
     allowUnconfigured: env.CAPTION_LOCAL_AUTH_BYPASS === "true",
   });
+}
+
+export async function authorizeProtectedAiRequest(
+  request: Request,
+  env: LiveWorkerEnvironment,
+) {
+  try {
+    await requireOperator(request, env);
+    return null;
+  } catch (error) {
+    return error instanceof CloudAccessError
+      ? json({ error: error.message }, error.status)
+      : json({ error: "Cloud AI authorization failed." }, 500);
+  }
 }
 
 async function internalJson<T>(response: Response) {
@@ -131,6 +152,7 @@ async function publicChannelDetails(
       startedAt: null,
       expiresAt: null,
       transcriptionRequests: 0,
+      llmUsage: emptyLlmSessionUsage(),
       translationRevision: 0,
     };
   }
@@ -158,10 +180,66 @@ async function publicChannelDetails(
     transcriptionRequests: Number.isSafeInteger(internal.transcriptionRequests)
       ? Math.max(0, internal.transcriptionRequests ?? 0)
       : 0,
+    llmUsage: normalizeLlmSessionUsage(internal.llmUsage),
     translationRevision: normalizeTranslationRevision(
       internal.translationRevision,
     ),
   };
+}
+
+function validTranslationAttemptContext(
+  controllerToken: string,
+  transcriptionAttempt: number,
+) {
+  return (
+    /^[A-Za-z0-9_-]{43}$/u.test(controllerToken) &&
+    Number.isSafeInteger(transcriptionAttempt) &&
+    transcriptionAttempt > 0 &&
+    transcriptionAttempt <= MAX_TRANSCRIPTION_REQUESTS
+  );
+}
+
+export async function claimTranslationAttempt(
+  env: LiveWorkerEnvironment,
+  controllerToken: string,
+  transcriptionAttempt: number,
+) {
+  if (!validTranslationAttemptContext(controllerToken, transcriptionAttempt)) {
+    return json({ error: "Invalid translation attempt." }, 400);
+  }
+  return channelRoom(env).fetch(
+    new Request("https://caption-room/internal/translation/claim", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        controllerHash: await captionTokenHash(controllerToken),
+        transcriptionAttempt,
+      }),
+    }),
+  );
+}
+
+export async function recordTranslationUsage(
+  env: LiveWorkerEnvironment,
+  controllerToken: string,
+  transcriptionAttempt: number,
+  result: Pick<TranslationResult, "usage" | "rateLimit">,
+) {
+  if (!validTranslationAttemptContext(controllerToken, transcriptionAttempt)) {
+    return json({ error: "Invalid translation usage record." }, 400);
+  }
+  return channelRoom(env).fetch(
+    new Request("https://caption-room/internal/usage", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        controllerHash: await captionTokenHash(controllerToken),
+        transcriptionAttempt,
+        usage: result.usage,
+        rateLimit: result.rateLimit,
+      }),
+    }),
+  );
 }
 
 async function getChannel(request: Request, env: LiveWorkerEnvironment) {
