@@ -34,6 +34,7 @@ import {
   type SpeechBufferMs,
 } from "@/live/contracts";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
+import { startSerialPolling } from "@/live/serial-polling";
 import {
   normalizeTranslationSessionSettings,
   translationSettingsChanges,
@@ -768,10 +769,7 @@ export default function OperatorDashboard() {
 
   useEffect(() => {
     if (!anotherOperatorActive || isBusy) return;
-    const refreshObservedService = () => void reloadChannel(true);
-    refreshObservedService();
-    const interval = window.setInterval(refreshObservedService, 5_000);
-    return () => window.clearInterval(interval);
+    return startSerialPolling(() => reloadChannel(true), 5_000);
   }, [anotherOperatorActive, isBusy, reloadChannel]);
 
   const copyOverlayUrl = async () => {

@@ -231,8 +231,8 @@ export function consumptionPercent(used: number, limit: number) {
 
 export function consumptionStatus(used: number, limit: number): UsageStatus {
   if (used <= 0) return "Not started";
+  if (used >= limit) return "Limit reached";
   const percent = consumptionPercent(used, limit);
-  if (percent >= 100) return "Limit reached";
   if (percent >= 80) return "Approaching limit";
   return "Within limit";
 }

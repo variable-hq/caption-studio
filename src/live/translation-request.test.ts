@@ -118,10 +118,33 @@ describe("translation usage control", () => {
     const response = await handleTranslationRequest(
       translationRequest(),
       env,
-      async () => Response.json({ text: "Kasih karunia" }),
+      async () =>
+        Response.json({
+          text: "Kasih karunia",
+          usage: { promptTokens: 80, completionTokens: 12, totalTokens: 92 },
+        }),
     );
 
     expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "translation_usage_unavailable",
+    });
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["malformed", { promptTokens: "80", completionTokens: null }],
+  ])("fails closed when provider usage is %s", async (_label, usage) => {
+    const { env, fetch } = environment(() => Response.json({ claimed: true }));
+
+    const response = await handleTranslationRequest(
+      translationRequest(),
+      env,
+      async () => Response.json({ text: "Kasih karunia", usage }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(fetch).toHaveBeenCalledOnce();
     await expect(response.json()).resolves.toMatchObject({
       code: "translation_usage_unavailable",
     });

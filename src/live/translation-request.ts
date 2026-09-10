@@ -1,4 +1,5 @@
 import type { TranslationResult } from "@/ai/contracts";
+import { normalizeLlmTokenUsage } from "@/ai/usage";
 import {
   authorizeProtectedAiRequest,
   claimTranslationAttempt,
@@ -50,6 +51,9 @@ export async function handleTranslationRequest(
 
   try {
     const result = (await response.clone().json()) as TranslationResult;
+    if (!normalizeLlmTokenUsage(result.usage)) {
+      throw new Error("Provider token usage unavailable.");
+    }
     const usageResponse = await recordTranslationUsage(
       env,
       controllerToken,
