@@ -155,6 +155,9 @@ describe("LLM consumption normalization", () => {
     expect(consumptionStatus(0, 100)).toBe("Not started");
     expect(consumptionStatus(79, 100)).toBe("Within limit");
     expect(consumptionStatus(80, 100)).toBe("Approaching limit");
+    expect(consumptionPercent(999, 1_000)).toBe(100);
+    expect(consumptionStatus(999, 1_000)).toBe("Approaching limit");
+    expect(consumptionStatus(896, 900)).toBe("Approaching limit");
     expect(consumptionStatus(100, 100)).toBe("Limit reached");
   });
 });
