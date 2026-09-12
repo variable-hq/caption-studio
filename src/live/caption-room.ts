@@ -31,8 +31,10 @@ interface ChannelConfiguration {
   serviceEventCount: number;
   transcriptionRequests: number;
   llmUsage: LlmSessionUsage;
+  claimedTranscriptionAttempts: number[];
   claimedTranslationAttempts: number[];
   recordedTranslationAttempts: number[];
+  inferenceAttemptFloor: number;
   translationRevision: number;
   lastTranslationRefreshRequestId?: string;
   controllerHash?: string;
@@ -63,7 +65,7 @@ type MutationResult<T> =
   | { kind: "channel-in-use"; expiresAt?: number }
   | { kind: "controller-replaced" }
   | { kind: "transcription-limit" }
-  | { kind: "translation-attempt-used" }
+  | { kind: "inference-attempt-used" }
   | { kind: "translation-session-refreshed"; translationRevision: number }
   | { kind: "inactive"; clear?: boolean }
   | { kind: "invalid" };
@@ -92,6 +94,14 @@ function isActive(configuration: ChannelConfiguration) {
   return configuration.status === "live" || configuration.status === "paused";
 }
 
+function normalizedAttempts(value: unknown): number[] {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((attempt): attempt is number =>
+        Number.isSafeInteger(attempt) && attempt > 0 && attempt <= MAX_TRANSCRIPTION_REQUESTS,
+      ))].slice(0, MAX_TRANSCRIPTION_REQUESTS)
+    : [];
+}
+
 function normalizeConfiguration(configuration: ChannelConfiguration) {
   return {
     ...configuration,
@@ -109,34 +119,13 @@ function normalizeConfiguration(configuration: ChannelConfiguration) {
       ? Math.max(0, configuration.transcriptionRequests)
       : 0,
     llmUsage: normalizeLlmSessionUsage(configuration.llmUsage),
-    claimedTranslationAttempts: Array.isArray(
-      configuration.claimedTranslationAttempts,
-    )
-      ? [
-          ...new Set(
-            configuration.claimedTranslationAttempts.filter(
-              (attempt) =>
-                Number.isSafeInteger(attempt) &&
-                attempt > 0 &&
-                attempt <= MAX_TRANSCRIPTION_REQUESTS,
-            ),
-          ),
-        ].slice(0, MAX_TRANSCRIPTION_REQUESTS)
-      : [],
-    recordedTranslationAttempts: Array.isArray(
-      configuration.recordedTranslationAttempts,
-    )
-      ? [
-          ...new Set(
-            configuration.recordedTranslationAttempts.filter(
-              (attempt) =>
-                Number.isSafeInteger(attempt) &&
-                attempt > 0 &&
-                attempt <= MAX_TRANSCRIPTION_REQUESTS,
-            ),
-          ),
-        ].slice(0, MAX_TRANSCRIPTION_REQUESTS)
-      : [],
+    claimedTranscriptionAttempts: normalizedAttempts(configuration.claimedTranscriptionAttempts),
+    inferenceAttemptFloor: Number.isSafeInteger(configuration.inferenceAttemptFloor)
+      ? Math.max(0, configuration.inferenceAttemptFloor)
+      // Pre-claim deployments cannot prove which older reservations already reached Groq.
+      : Math.max(0, configuration.transcriptionRequests || 0),
+    claimedTranslationAttempts: normalizedAttempts(configuration.claimedTranslationAttempts),
+    recordedTranslationAttempts: normalizedAttempts(configuration.recordedTranslationAttempts),
     translationRevision: normalizeTranslationRevision(
       configuration.translationRevision,
     ),
@@ -149,6 +138,8 @@ function deactivate(configuration: ChannelConfiguration) {
   current.serviceEventCount = 0;
   current.transcriptionRequests = 0;
   current.llmUsage = emptyLlmSessionUsage();
+  current.claimedTranscriptionAttempts = [];
+  current.inferenceAttemptFloor = 0;
   current.claimedTranslationAttempts = [];
   current.recordedTranslationAttempts = [];
   delete current.controllerHash;
@@ -276,7 +267,10 @@ export class CaptionRoom {
       url.pathname === "/internal/translation/claim" &&
       request.method === "POST"
     ) {
-      return this.claimTranslationAttempt(request);
+      return this.claimInferenceAttempt(request, "translation");
+    }
+    if (url.pathname === "/internal/transcription/claim" && request.method === "POST") {
+      return this.claimInferenceAttempt(request, "transcription");
     }
     if (url.pathname === "/internal/usage" && request.method === "POST") {
       return this.recordTranslationUsage(request);
@@ -325,6 +319,8 @@ export class CaptionRoom {
           serviceEventCount: 0,
           transcriptionRequests: 0,
           llmUsage: emptyLlmSessionUsage(),
+          claimedTranscriptionAttempts: [],
+          inferenceAttemptFloor: 0,
           claimedTranslationAttempts: [],
           recordedTranslationAttempts: [],
           translationRevision: 0,
@@ -499,6 +495,8 @@ export class CaptionRoom {
       configuration.serviceEventCount = 0;
       configuration.transcriptionRequests = 0;
       configuration.llmUsage = emptyLlmSessionUsage();
+      configuration.claimedTranscriptionAttempts = [];
+      configuration.inferenceAttemptFloor = 0;
       configuration.claimedTranslationAttempts = [];
       configuration.recordedTranslationAttempts = [];
       configuration.translationRevision += 1;
@@ -777,10 +775,10 @@ export class CaptionRoom {
     return json({ valid: true, ...result.value });
   }
 
-  private async claimTranslationAttempt(request: Request) {
+  private async claimInferenceAttempt(request: Request, stage: "transcription" | "translation") {
     const body = (await request.json()) as Partial<TranslationAttemptRequest>;
     if (!validTranslationAttemptBody(body)) {
-      return json({ error: "Invalid translation attempt." }, 400);
+      return json({ error: "Invalid inference attempt.", code: `invalid_${stage}_attempt` }, 400);
     }
     const transcriptionAttempt = body.transcriptionAttempt;
 
@@ -803,17 +801,16 @@ export class CaptionRoom {
         if (!controllerMatches(configuration, body.controllerHash)) {
           return { kind: "controller-replaced" };
         }
-        if (transcriptionAttempt > configuration.transcriptionRequests) {
+        if (transcriptionAttempt > configuration.transcriptionRequests || transcriptionAttempt <= configuration.inferenceAttemptFloor) {
           return { kind: "invalid" };
         }
-        if (
-          configuration.claimedTranslationAttempts.includes(
-            transcriptionAttempt,
-          )
-        ) {
-          return { kind: "translation-attempt-used" };
+        const attempts = stage === "transcription"
+          ? configuration.claimedTranscriptionAttempts
+          : configuration.claimedTranslationAttempts;
+        if (attempts.includes(transcriptionAttempt)) {
+          return { kind: "inference-attempt-used" };
         }
-        configuration.claimedTranslationAttempts.push(transcriptionAttempt);
+        attempts.push(transcriptionAttempt);
         await transaction.put("configuration", configuration);
         return { kind: "ok", value: null };
       },
@@ -827,22 +824,22 @@ export class CaptionRoom {
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
         this.closeViewerSockets(4002, "Live service ended.");
       }
-      return json({ error: "The live service is not accepting translations." }, 410);
+      return json({ error: "The live service is not accepting inference.", code: "service_inactive" }, 410);
     }
-    if (result.kind === "translation-attempt-used") {
+    if (result.kind === "inference-attempt-used") {
       return json(
         {
-          error: "This transcription attempt already requested a translation.",
-          code: "translation_attempt_used",
+          error: `This reserved attempt already requested ${stage}.`,
+          code: `${stage}_attempt_used`,
         },
         409,
       );
     }
     if (result.kind === "invalid") {
-      return json({ error: "Translation does not match a reserved attempt." }, 400);
+      return json({ error: "Inference does not match a current reserved attempt.", code: `invalid_${stage}_attempt` }, 400);
     }
     if (result.kind !== "ok") {
-      return json({ error: "Translation authorization failed." }, 500);
+      return json({ error: "Inference authorization failed." }, 500);
     }
     return json({ claimed: true });
   }
@@ -984,6 +981,7 @@ export class CaptionRoom {
           };
         }
         configuration.translationRevision += 1;
+        configuration.inferenceAttemptFloor = configuration.transcriptionRequests;
         configuration.lastTranslationRefreshRequestId = body.refreshRequestId;
         await Promise.all([
           transaction.put("configuration", configuration),
@@ -1040,6 +1038,7 @@ export class CaptionRoom {
             : { kind: "invalid" };
         }
         configuration.status = "paused";
+        configuration.inferenceAttemptFloor = configuration.transcriptionRequests;
       } else if (action === "resume") {
         if (configuration.status !== "paused") {
           return expired

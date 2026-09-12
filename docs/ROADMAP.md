@@ -1,6 +1,6 @@
 # Roadmap
 
-Last reviewed 23 August 2026.
+Improvement priorities reviewed 12 September 2026.
 
 Status labels describe the current repository, not proof that a live church pilot has
 passed.
@@ -25,6 +25,8 @@ Still required:
 
 Implemented in the codebase:
 
+- a six-step first-visit operator tutorial, with browser-local dismissal and **How to use**
+  replay, covering USB audio input, translation, separate OBS, audience links, and controls;
 - Next.js/OpenNext Cloudflare Workers deployment configuration;
 - encrypted Groq secret and signed Cloudflare Access verification;
 - selected microphone/audio-interface capture and a live-editable 6-, 9-, or 12-second
@@ -34,8 +36,12 @@ Implemented in the codebase:
 - draft language, terminology, filter, buffer, and prompt changes applied through an
   explicit translation-session refresh that preserves the service and public links;
 - bounded biblical/church hints, preferred terms, and public masking;
+- Access-before-dispatch one-time claims for both inference stages, canonical route
+  enforcement, and invalidation of pre-Pause, pre-refresh, and legacy reservations;
+- script-aware public word boundaries and incomplete-output skipping with acknowledged
+  usage retained; these safeguards pass local automated and synthetic runtime checks;
 - source/public previews, status, latency, queue, and a service-local AI consumption
-  dashboard with persisted transcription attempts, successful translation calls/tokens,
+  dashboard with persisted transcription attempts, acknowledged translation calls/tokens,
   and latest provider-reported RPD/TPM headroom;
 - one encrypted, reusable Main OBS channel with a reconnecting read-only overlay;
 - one separately tokenized, replaceable mobile viewer link per active service, exposing
@@ -50,6 +56,10 @@ Implemented in the codebase:
 
 Pending validation:
 
+- isolated deployment setup and deployed verification of the latest safeguards, subject
+  to [the readiness record](DEPLOYMENT_REHEARSAL_READINESS.md);
+- first-pair Indonesian→English review: Operator is selected, but
+  [all 30 prepared samples](evaluation/ID_EN_REVIEW.md) await human scoring and approval;
 - full-service tests for every supported source/target language;
 - approved biblical name, reference, accent, and mixed-language samples;
 - latency, dropped chunks, provider quota, Worker CPU/request, and browser compatibility;
@@ -138,7 +148,17 @@ Only if the owner explicitly reopens native distribution:
 There is no current native exit condition or Apple release target. Any future reopening
 requires a new recorded decision and would not replace the web pilot gates.
 
-## Current step: controlled stakeholder test
+## Current step: close pilot gaps, then run a controlled stakeholder test
+
+The [current gap analysis](GAP_ANALYSIS.md) ranks the next work. The parallel
+[benchmark review](BENCHMARK_RESEARCH.md) supports improving the existing browser/OBS
+journey before expanding product scope. Local UI, automated, and synthetic runtime
+validation pass. Both-stage service claims, script-aware masking, and incomplete-output
+skipping are implemented locally under the
+[recorded policy](evaluation/CAPTION_POLICY_DECISION.md). Deployment remains pending
+[plan/access/test-secret prerequisites](DEPLOYMENT_REHEARSAL_READINESS.md). The first pair
+is Indonesian→English; Operator review of the 30-sample set has not begun. A verified
+deployment, physical rehearsal, and full-service measurement remain separate gates.
 
 PR #18 merged the GPT-OSS migration into `main` at `e680576` on 2 August 2026. No current
 evidence yet proves that exact revision in Cloudflare, a real GPT-OSS response, the
@@ -163,7 +183,8 @@ or the full reusable Durable Object/OBS/mobile-viewer journey.
 - Verify the mobile viewer at 320px and 390px, including copy/open, late join, Pause,
   replacement, End, expiry, and takeover behavior.
 - Record results without sermon content, credentials, or active OBS/viewer URLs.
-- Test agreed language pairs, church terminology, filter behavior, operator usability,
+- Review the Indonesian→English sample set first, then test approved church terminology,
+  filter behavior, operator usability,
   processing latency, and dropped chunks.
 - Confirm **AI usage** separates time, transcription attempts, translation calls/tokens,
   and provider headroom; reload the operator page while paused and verify service totals
@@ -179,6 +200,9 @@ criterion and the owner decides whether Phase 1B work or a limited pilot is appr
 - Add deliberate source-caption fallback only after operator behavior is approved.
 - Improve audio-device disconnect and browser lifecycle recovery.
 - Add optional manual correction with clear revision and audit semantics.
+- Use [pilot improvement designs](PILOT_IMPROVEMENTS.md) for local QR joining, reusable
+  terminology, and correction only when measured rehearsal demand justifies them; these
+  designs are not implemented features or current pilot prerequisites.
 - Decide whether voice-activity or semantic-boundary flushing is needed beyond the fixed
   6/9/12-second windows.
 - Compare paid or realtime providers using the same approved recordings.
@@ -210,7 +234,10 @@ rules never leak or rewrite protected data unexpectedly.
 Exit condition: an authorized reviewer can trace, correct, approve, export, and delete a
 summary, and retention behavior matches the documented policy.
 
-## Phase 4: controlled production pilot
+## Controlled production pilot gate — after Phase 1 reliability
+
+Optional church profiles, archives, and summaries are not prerequisites for a limited
+live-caption pilot. Each optional phase keeps its own scope and approval requirements.
 
 - Complete privacy and threat-model reviews.
 - Run duration, load, browser, device, language, and OBS compatibility tests.

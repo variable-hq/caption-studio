@@ -3,12 +3,23 @@
 Cloud-hosted, near-live transcription and translation for church services, with a
 configurable OBS Browser Source overlay and a read-only mobile translation viewer.
 
-Documentation reviewed 23 August 2026.
+UI and improvement priorities reviewed 12 September 2026. See the [UI/UX review](docs/UI_UX_REVIEW.md) for the latest standards-based changes.
+
+Start with the [gap analysis and next steps](docs/GAP_ANALYSIS.md) and the
+[Wordly, spf.io, LiveVoice, and OBS benchmark comparison](docs/BENCHMARK_RESEARCH.md).
+The current UI pass adds audio/language/OBS preflight, truthful configuration and channel
+labels, active-versus-draft context, keyboard navigation, a visible confirmed End action,
+and audience text sizing/reconnection controls. The latest local changes also bind both
+inference stages to one-time service claims and skip incomplete provider output while
+retaining acknowledged usage. Local automated, build, and synthetic runtime checks pass; see the
+[validation report](docs/VALIDATION_REPORT.md) and
+[deployment rehearsal prerequisites](docs/DEPLOYMENT_REHEARSAL_READINESS.md).
 
 ## Status
 
 The current codebase implements the Phase 1 cloud prototype:
 
+- a first-visit, six-step operator tutorial with panel shortcuts, compact mobile navigation, Skip, Back/Next, and **How to use** replay;
 - browser microphone and audio-interface selection with an input meter;
 - a selectable 6-, 9-, or 12-second speech buffer that can be revised during a service;
 - Groq Whisper transcription and contextual Groq translation;
@@ -26,8 +37,9 @@ The current codebase implements the Phase 1 cloud prototype:
   visual feedback while keeping appearance controls beside the live-updating preview;
 - Start, Pause/Resume, Clear, idle-or-paused synthetic test, confirmed End, and
   confirmed takeover controls;
-- a Live AI consumption dashboard for service time, transcription attempts, successful
-  translation calls/tokens, and the latest provider-reported quota headroom;
+- a Live AI consumption dashboard for service time, transcription attempts, acknowledged
+  translation calls/tokens (including skipped incomplete output), and the latest
+  provider-reported quota headroom;
 - one reusable, explicitly rotatable OBS URL backed by a Durable Object WebSocket; and
 - one replaceable per-service mobile link showing only the latest moderated translation.
 
@@ -44,10 +56,10 @@ PR #18 merged GPT-OSS 20B translation, six-second capture, and the ceiling of 90
 transcription attempts into `main` at `e680576` on 2 August 2026. The 20 July production
 smoke test remains useful evidence for the earlier four-second, disposable-room journey
 and Access boundaries, but it does not prove the currently merged revision, a real
-GPT-OSS response, or the reusable Main-channel lifecycle. Current automated and
-local-build evidence supports a controlled stakeholder test; deployed Durable Object,
-shared-link, takeover, real-OBS, latency, and language-quality checks remain rollout
-gates. See the
+GPT-OSS response, or the reusable Main-channel lifecycle. Historical local checks do not
+establish deployed behavior for the latest inference changes. Current local validation
+passes; isolated deployment setup remains pending, followed by deployed Durable Object, shared-link, takeover,
+real-OBS, latency, and language-quality checks. See the
 [validation report](docs/VALIDATION_REPORT.md) and follow the
 [stakeholder test guide](docs/STAKEHOLDER_TEST_GUIDE.md).
 
@@ -107,6 +119,12 @@ Simplified and Traditional Chinese share the same Chinese speech-recognition cod
 the selected script is enforced in translated output. The prototype assumes Mandarin,
 not Cantonese. Explicit source selection is recommended for a live service, although
 automatic detection is available.
+
+The first evaluation pair is **Indonesian→English**. The user selected **Operator** as
+reviewer; [all 30 prepared samples](docs/evaluation/ID_EN_REVIEW.md) still await human
+review. Selector availability is not language-quality certification. See the
+[filtering and completion policy](docs/evaluation/CAPTION_POLICY_DECISION.md) and
+[evidence-gated pilot improvement designs](docs/PILOT_IMPROVEMENTS.md).
 
 ## Biblical terminology
 
@@ -289,9 +307,9 @@ operator/public output, and then applies the draft settings. A server translatio
 rejects late captions produced under the previous settings. If the service was live,
 capture continues with the refreshed settings; if it was paused, it stays paused.
 
-The UI's latency value is cloud **processing** time after the selected recording buffer
-has completed. Approximate spoken-to-screen time is therefore 6, 9, or 12 seconds plus
-the displayed processing time and normal browser/network rendering delay.
+The UI's latency value is **processing** time after a completed chunk leaves the queue.
+Spoken-to-screen time also includes the 6-, 9-, or 12-second recording buffer, any queue
+wait, and audience rendering delay. The displayed value is not end-to-end latency.
 
 ## Free-plan guardrails
 
@@ -308,10 +326,19 @@ validating its short-lived controller lease in the Main Durable Object. This cou
 survives same-tab reloads; a confirmed takeover starts a fresh service with fresh
 counters. A successful non-silent chunk can make at most one translation call, so a
 service can also make at most 900 translation calls. The extra small Cloudflare request
-prevents a replaced operator from continuing Groq usage. Before each actual translation,
-a second low-volume Durable Object claim rejects duplicate provider work for the same
-reserved attempt. A successful translation is returned to the browser only after its
-bounded usage record is acknowledged.
+checks service ownership. The Worker verifies Access and atomically claims the reserved
+attempt before each transcription or translation dispatch. Each stage may consume that
+attempt once; noncanonical inference-path aliases are rejected before Next.js routing.
+Pause and confirmed translation refresh invalidate every earlier reservation, including
+after Resume; legacy state conservatively invalidates its existing reservations. New
+reservations retain the original 900-attempt ceiling and service expiry.
+
+A translated result reaches the browser only after its bounded usage record is
+acknowledged. Empty or non-`stop` provider output is skipped with
+`422 translation_incomplete`: available usage still counts, the operator sees the skip,
+and no partial text is published. Missing or failed usage acknowledgement remains
+terminal. These safeguards pass local validation; deployed
+verification remains pending under [G01 and G07](docs/GAP_ANALYSIS.md).
 
 These controls cannot guarantee account-wide free usage: Groq limits apply to the
 organization and Cloudflare limits apply to the account, while the consumption dashboard
@@ -335,17 +362,19 @@ The prototype has no production SLA; exhaustion stops captions.
   active-service AI usage totals and the latest sanitized provider-limit snapshot, and at
   most the latest moderated public caption.
 - Protected source captions remain in browser memory only during the active service.
-- Only the caption-style preference and an explicitly saved custom operator prompt use
-  unencrypted browser `localStorage`; ordinary language, terminology, filter, buffer, and
-  unsaved-prompt drafts remain in page memory.
+- The caption-style preference, an explicitly saved custom operator prompt, and a
+  tutorial-dismissal flag use browser `localStorage`; ordinary language, terminology,
+  filter, buffer, and unsaved-prompt drafts remain in page memory. The tutorial stores
+  no content or progress history and can be reopened with **How to use**.
 - While a service is active, the complete active translation snapshot is kept in that
   tab's unencrypted `sessionStorage` solely for same-tab recovery. It is removed on End,
   takeover, or idle cleanup and is never synchronized to a church account.
 - The custom prompt is not placed in the Durable Object, viewer stream, or OBS output;
   the active value is sent only to the protected translation API and Groq.
 - The protected AI usage dashboard combines browser-measured elapsed time with
-  server-owned active-service transcription attempts and successful translation
-  call/token totals. It also shows Groq's latest daily-request and per-minute-token
+  server-owned active-service transcription attempts and acknowledged translation
+  call/token totals, including incomplete output skipped after usage persistence. It also
+  shows Groq's latest daily-request and per-minute-token
   response-header snapshot when available. These values reset with the service and are
   not billing or complete account metering.
 - Groq ZDR is required for real-sermon testing. Groq still retains non-content usage

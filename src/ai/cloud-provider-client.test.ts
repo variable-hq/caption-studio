@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CloudProviderClient,
   CloudProviderClientError,
-  isTerminalTranslationControlError,
+  isTerminalInferenceControlError,
 } from "@/ai/cloud-provider-client";
 
 const request = {
@@ -104,6 +104,40 @@ describe("cloud translation client usage context", () => {
     expect(error).toMatchObject({
       code: "translation_usage_unavailable",
     });
-    expect(isTerminalTranslationControlError(error)).toBe(true);
+    expect(isTerminalInferenceControlError(error)).toBe(true);
+  });
+
+  it("authenticates transcription attempts and preserves terminal rejection codes", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      error: "Transcription attempt already used.", code: "transcription_attempt_used",
+    }, { status: 409 })));
+    const controllerToken = "c".repeat(43);
+    const error = await new CloudProviderClient().transcribe({
+      audio: new Blob(["synthetic"], { type: "audio/webm" }),
+      sourceLanguage: "id", keywordHints: [],
+    }, undefined, controllerToken, 7).catch((caught: unknown) => caught);
+
+    const headers = new Headers(vi.mocked(fetch).mock.calls[0][1]?.headers);
+    expect(headers.get("x-caption-controller")).toBe(controllerToken);
+    expect(headers.get("x-caption-transcription-attempt")).toBe("7");
+    expect(error).toMatchObject({ code: "transcription_attempt_used" });
+    expect(isTerminalInferenceControlError(error)).toBe(true);
+  });
+
+  it("keeps normalized incomplete usage without accepting partial text or ending capture", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      error: "Incomplete translation skipped.", code: "translation_incomplete",
+      text: "Partial output must not be used",
+      usage: { promptTokens: 10, completionTokens: 2, totalTokens: 1, privateField: "ignored" },
+    }, { status: 422 })));
+    const error = await new CloudProviderClient().translate(request).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({
+      code: "translation_incomplete",
+      usage: { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+    });
+    expect(error).not.toHaveProperty("text");
+    expect(JSON.stringify(error)).not.toContain("privateField");
+    expect(isTerminalInferenceControlError(error)).toBe(false);
   });
 });

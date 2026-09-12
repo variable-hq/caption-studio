@@ -1,6 +1,6 @@
 # Product specification
 
-Last reviewed 23 August 2026.
+UI, local inference safeguards, and current limitations reviewed 12 September 2026.
 
 ## Product vision
 
@@ -22,6 +22,11 @@ reviewer and must never invent speech, scripture, or doctrine.
 Reviewer, pastor/approver, administrator, and workspace-member roles belong to the future
 archive and summary product. They are not implemented in the current prototype.
 
+The first evaluation direction is **Indonesian→English**, with **Operator** selected as
+the human reviewer outside the app. [All 30 prepared samples](evaluation/ID_EN_REVIEW.md)
+still await review; no language-quality gate has passed. This is not a new application
+role or approval queue.
+
 The repository retains a deferred iPhone/iPad feasibility shell for the operator. It is
 not part of the current product scope, active acceptance, or release plan. The browser is
 the sole active client. See [`ios/README.md`](../ios/README.md).
@@ -29,6 +34,15 @@ the sole active client. See [`ios/README.md`](../ios/README.md).
 ## Implemented service journey
 
 ### Before the service
+
+On a browser's first visit, a six-step modal guide explains the setup, USB audio
+interface, languages, separate OBS computer, audience link, and live controls. Users
+can move between steps, skip with a button or Escape, and reopen it with **How to use**.
+A step shortcut opens its related panel and focuses the panel heading. Reopening returns
+to the same step until page reload. Phones use a compact, labelled step selector.
+It opens automatically only after channel loading settles and no service is active.
+Manual replay during a service states that the service continues. The guide changes no
+translation setting, requests no microphone permission, and never starts a service.
 
 1. The operator signs in through Cloudflare Access.
 2. The operator chooses a browser-visible microphone or audio interface and confirms its
@@ -56,8 +70,8 @@ the sole active client. See [`ios/README.md`](../ios/README.md).
 3. If source and target differ, the protected API translates with an immutable server
    safety/output envelope, the active bounded operator prompt, up to four recent source
    captions, and approved mappings.
-4. Deterministic processing applies preferred translations and masks configured whole
-   terms in the public form.
+4. Deterministic processing applies preferred translations and script-aware whole-term
+   masking in the public form. Incomplete provider output is skipped before publication.
 5. The operator sees source and public previews, status, channel-wide overlay sequence,
    post-recording processing latency, dropped chunks, elapsed service time, and the
    server-owned reserved transcription-attempt count for the active service.
@@ -169,14 +183,22 @@ implemented.
   doctrine, facts, missing words, or unsaid meaning.
 - Current caption, approved terms, and recent context are structured as untrusted data.
   Context may resolve ambiguity but must not be translated, repeated, or summarized.
+- Publishable model output must be nonempty text with provider finish reason `stop`.
+  Other completions are skipped with an operator message and skipped-count increment;
+  available usage is persisted before the `422 translation_incomplete` response.
+  Missing or failed usage acknowledgement stops capture. A correctly translated source
+  fragment may remain incomplete speech; `stop` does not prove meaning or accuracy.
 
 The app uses prompting and glossary mappings, not custom model training or a licensed
 Bible retrieval corpus. Output can still be inaccurate and needs validation by the
 church for important names, references, and theological terms.
 
 Translation drafts stay in React/page memory. A custom prompt enters unencrypted browser
-`localStorage` only when the operator explicitly saves it; caption style is the only other
-local preference. During a service, the full active language, terminology, filter, buffer,
+`localStorage` only when the operator explicitly saves it. Caption style and the tutorial
+dismissal flag are also local preferences. Dismissing or completing the tutorial stores
+only `dismissed`; no step history, identity, or content is retained. If storage is blocked,
+the guide remains usable but may reappear after reload. Clearing site data resets this
+first-visit behavior. During a service, the full active language, terminology, filter, buffer,
 and prompt snapshot is held in that tab's unencrypted `sessionStorage` solely for same-tab
 recovery and removed on End, takeover, or idle cleanup. The active prompt is sent through
 the protected inference path to Groq, but no translation setting is stored in the Durable
@@ -189,9 +211,14 @@ The prototype accepts up to 40 glossary rows and 40 filter terms. A glossary row
 provide a canonical source term and a preferred target translation. Keyword terms are
 also sent as bounded transcription hints.
 
-Public filtering currently masks configured whole terms after translation. It does not
-alter the protected source preview. Replace, hide, scope, priority, phonetic variants,
-and persistent workspace rules are future features.
+Public filtering masks configured whole terms after translation. Terms containing Han,
+Hiragana, or Katakana use native target-language word boundaries; other terms retain
+Unicode whole-word matching. Missing native segmentation prevents affected publication
+with a browser-update error. Protected source remains unchanged. Terms need review in
+the intended browser; the policy is not exhaustive multilingual safety. See the
+[filtering and completion decision](evaluation/CAPTION_POLICY_DECISION.md).
+Replace, hide, scope, priority, phonetic variants, and persistent workspace controls are
+future UI features.
 
 Terminology and filter edits made during an active service are drafts until the same
 explicit translation refresh used for language, buffer, and prompt changes.
@@ -203,8 +230,18 @@ explicit translation refresh used for language, buffer, and prompt changes.
 - Locally adapted React Bits navigation, spotlight, and pending-state glow components add
   restrained hierarchy and feedback without a runtime package dependency; reduced-motion,
   keyboard, coarse-pointer, and touch behavior remain explicit.
-- Setup stage labels match the numbered panels: Audio and languages, Terminology,
-  Appearance, and Outputs.
+- Setup opens with Audio input, then Translation, Appearance, Live outputs, AI usage,
+  and optional AI instructions. A preflight strip highlights audio, language, and actual
+  OBS verification; a persistent snapshot separates the active configuration from drafts.
+- Cloud AI configured describes configuration, and Main-channel state describes the
+  server room. Neither claims observed OBS connectivity or measured translation quality.
+- A skip link and workspace-heading focus support keyboard navigation. End is a visible
+  live action with a native confirmation dialog; Clear captions affects both public outputs.
+- The output monitor tags each displayed caption with its own language, including paused
+  synthetic tests. Subsequent draft language edits do not relabel existing text.
+- Failed clipboard actions have hidden-by-default manual-copy recovery: OBS in Live
+  outputs before a service or More during one, and the audience link in Mobile viewer.
+  More closes with Escape and expands inline on mobile without covering later controls.
 - Form labels remain readable, action targets are at least 44px high, and mobile inputs
   use a zoom-safe text size.
 - Layout gutters scale continuously and the same logical order reflows without horizontal
@@ -223,7 +260,12 @@ explicit translation refresh used for language, buffer, and prompt changes.
   sequence protection, and explicit rotation.
 - One read-only mobile link per active service with a separate token, automatic reconnect,
   late-join recovery of at most the latest caption, and controller-gated replacement.
-- The mobile page exposes no source caption, history, style controls, operator state,
+- The mobile page offers Standard, Large, and Extra large local text sizes without saving
+  content or changing OBS styling. English controls retain their language while translated
+  captions carry their own language attribute. Connection loss appears when the browser
+  reports socket closure; exhausted retries offer Reconnect. Physical loss-detection
+  delay remains unmeasured. Invalid or revoked links do not offer that recovery.
+- The mobile page exposes no source caption, history, broadcast style controls, operator state,
   controller token, OBS token, or inference capability. Pause clears it; End, expiry,
   takeover, and replacement revoke it.
 - The shared style persists in the channel; the browser preference remains a fallback.
@@ -249,15 +291,19 @@ named display profiles.
 - Audio windows are 6, 9, or 12 seconds. The server ceiling remains 900 reserved
   transcription attempts in a 90-minute service, derived from the fastest option.
   Non-silent captions whose source differs from the target can make one additional
-  translation call, so there are no more than 900 translation calls. Translation is
-  claimed against its reserved attempt before inference; a duplicate POST is rejected
-  before it can spend provider quota.
+  translation call, so there are no more than 900 translation calls. Access is verified
+  before a separate one-time claim for each inference stage; direct/replayed calls and
+  noncanonical inference-path aliases cannot bypass the Worker claim boundary.
+- Pause and confirmed refresh invalidate earlier reservations even after Resume; legacy
+  state invalidates existing reservations whose dispatch history is unknown. Fresh
+  reservations preserve the original ceiling and expiry. Local checks pass; deployed
+  verification remains pending under [G01](GAP_ANALYSIS.md).
 - A service supports one translation target at a time and no automatic paid fallback.
 - A quota response stops the affected service without revoking its OBS URL.
 - The UI shows separate active-service meters for elapsed time and reserved
-  transcription attempts, plus successful translation-call and prompt/completion/total
-  token counts persisted for the service.
-- After a translated caption, the operator can see the latest Groq daily-request and
+  transcription attempts, plus acknowledged translation-call and prompt/completion/total
+  token counts persisted for the service, including skipped incomplete output.
+- After an acknowledged translation result, the operator can see the latest Groq daily-request and
   per-minute-token limit/remaining/reset headers. Missing headroom is shown as unknown,
   never zero.
 - Translation completions are capped at 256 tokens. GPT-OSS 20B additionally uses low
@@ -280,7 +326,7 @@ Code-level acceptance:
   live or paused operation, language, terminology, filter, buffer, and custom-prompt edits
   stay draft until an explicit confirmed translation refresh.
 - The AI usage section separates service time, reserved transcription attempts,
-  successful translation calls/tokens, and provider headroom; it remains truthful when
+  acknowledged translation calls/tokens, and provider headroom; it remains truthful when
   provider headers are unavailable and never claims account-wide consumption.
 - A refresh applies all drafts, clears unfinished audio/context/current output, rejects a
   stale-revision publish, and preserves service identity/timer, usage, controller, viewer,
@@ -288,14 +334,19 @@ Code-level acceptance:
 - The operator can restore the reviewed prompt default; invalid or overlength prompts are
   rejected rather than silently changed, and the immutable server envelope remains active.
 - Supported audio is transcribed and translated through protected cloud APIs.
+- Access and one-time stage claims precede provider dispatch; missing, duplicate, stale,
+  paused, expired, invalidated, unreserved, over-ceiling, and aliased requests cannot spend
+  provider quota. Pausing/resuming or refreshing does not restore an old reservation.
+- Incomplete provider output never reaches public captions; available usage is counted
+  before the structured skip response, and unavailable usage fails closed.
 - A preferred term can affect transcription guidance and translated output.
 - A configured mask changes public output without changing the protected source preview.
 - Style changes reach a connected overlay without restarting the service.
 - Appearance controls update the dashboard design preview continuously before Save.
-- Setup keeps audio, languages, terminology, and service details on the left, with the
-  preview, appearance controls, and OBS Browser Source on the right at desktop widths.
+- Setup separates preflight, navigation and active/draft context, the selected settings
+  panel, and the output monitor at desktop widths.
 - The primary operator viewport is 1920 × 1080, with dashboard content capped at a
-  readable 1440px rather than stretched across the full display.
+  readable 1600px rather than stretched across the full display.
 - The Setup layout reflows without horizontal scrolling from 320px through desktop
   widths, including immediately around the 680px and 980px breakpoints.
 - The mobile Start bar remains reachable without hiding its blocking or takeover context.

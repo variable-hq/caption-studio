@@ -17,9 +17,9 @@ function escapeRegularExpression(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function ruleExpression(rule: ModerationRule) {
+function ruleExpression(rule: ModerationRule, segmented: boolean) {
   const escaped = escapeRegularExpression(rule.term);
-  return rule.matchInsideWords
+  return rule.matchInsideWords || segmented
     ? new RegExp(escaped, "giu")
     : new RegExp(`(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`, "giu");
 }
@@ -27,6 +27,7 @@ function ruleExpression(rule: ModerationRule) {
 export function applyModeration(
   translatedText: string,
   rules: readonly ModerationRule[],
+  locale = "en",
 ): ModerationResult {
   let publicText = translatedText;
   const appliedRuleIds: string[] = [];
@@ -34,8 +35,30 @@ export function applyModeration(
   for (const rule of rules) {
     if (rule.enabled === false || !rule.term.trim()) continue;
 
-    const expression = ruleExpression(rule);
-    if (!expression.test(publicText)) continue;
+    const segmented = !rule.matchInsideWords &&
+      /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(rule.term);
+    if (segmented && typeof Intl.Segmenter !== "function") {
+      throw new Error("This browser cannot apply Chinese/Japanese word filters. Update the browser before using these filters.");
+    }
+    const boundaries = segmented
+      ? new Set(
+          [...new Intl.Segmenter(locale, { granularity: "word" }).segment(publicText)]
+            .flatMap(({ index, segment }) => [index, index + segment.length]),
+        )
+      : null;
+    let matchedRule = false;
+    const nextText = publicText.replace(ruleExpression(rule, segmented), (matched, offset: number) => {
+      if (boundaries && (!boundaries.has(offset) || !boundaries.has(offset + matched.length))) {
+        return matched;
+      }
+      matchedRule = true;
+      return rule.mode === "replace"
+        ? (rule.replacement ?? "")
+        : rule.mode === "mask"
+          ? "•".repeat([...matched].length)
+          : matched;
+    });
+    if (!matchedRule) continue;
 
     appliedRuleIds.push(rule.id);
 
@@ -43,12 +66,7 @@ export function applyModeration(
       return { publicText: "", appliedRuleIds, hidden: true };
     }
 
-    expression.lastIndex = 0;
-    publicText = publicText.replace(expression, (matched) =>
-      rule.mode === "replace"
-        ? (rule.replacement ?? "")
-        : "•".repeat([...matched].length),
-    );
+    publicText = nextText;
   }
 
   return { publicText, appliedRuleIds, hidden: false };

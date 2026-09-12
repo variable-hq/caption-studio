@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CloudProviderClient,
   CloudProviderClientError,
-  isTerminalTranslationControlError,
+  isTerminalInferenceControlError,
 } from "@/ai/cloud-provider-client";
 import type { TranslationResult } from "@/ai/contracts";
 import {
@@ -77,6 +77,7 @@ const INITIAL_LIVE_STATE: LiveSessionState = {
   llmUsage: emptyLlmSessionUsage(),
   latestSourceText: "",
   latestPublicText: "",
+  latestPublicLanguage: null,
   lastLatencyMs: null,
   channel: null,
   service: null,
@@ -317,6 +318,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         message,
         latestSourceText: "",
         latestPublicText: "",
+        latestPublicLanguage: null,
         transcriptionRequests: 0,
         llmUsage: emptyLlmSessionUsage(),
         service: null,
@@ -394,6 +396,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           message,
           latestSourceText: "",
           latestPublicText: "",
+          latestPublicLanguage: null,
           transcriptionRequests: 0,
           llmUsage: emptyLlmSessionUsage(),
           service: null,
@@ -461,6 +464,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           "Translation was refreshed from another controller tab. Local audio stopped before more provider work. Review the draft and refresh this translation session to continue.",
         latestSourceText: "",
         latestPublicText: "",
+        latestPublicLanguage: null,
         lastLatencyMs: null,
         transcriptionRequests:
           transcriptionRequests ?? current.transcriptionRequests,
@@ -517,6 +521,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           keywordHints: keywordHints(glossary),
         },
         signal,
+        serviceAtStart.controllerToken,
+        lease.transcriptionRequests,
       );
       if (!isCurrentCapture()) return;
 
@@ -552,14 +558,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         } catch (error) {
           if (
             error instanceof CloudProviderClientError &&
-            error.rateLimit
+            (error.rateLimit || error.usage)
           ) {
             setLiveState((state) => ({
               ...state,
-              llmUsage: withLlmProviderRateLimit(
-                state.llmUsage,
-                error.rateLimit,
-              ),
+              llmUsage: error.usage
+                ? accumulateLlmSessionUsage(state.llmUsage, error)
+                : withLlmProviderRateLimit(state.llmUsage, error.rateLimit),
             }));
           }
           throw error;
@@ -601,6 +606,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         sequence: published.sequence,
         latestSourceText: forms.protectedSourceText,
         latestPublicText: forms.publicText,
+        latestPublicLanguage: forms.publicText ? current.targetLanguage : null,
         lastLatencyMs: Math.round(performance.now() - startedAt),
       }));
     },
@@ -634,7 +640,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           const message =
             error instanceof Error ? error.message : "Caption processing failed.";
           if (
-            isTerminalTranslationControlError(error) ||
+            isTerminalInferenceControlError(error) ||
             (error instanceof LiveApiError &&
               error.code === "transcription_limit_reached") ||
             /quota|expired|event limit|language could not be detected|authentication/i.test(
@@ -644,7 +650,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             await endService(message, true);
             break;
           }
-          setLiveState((state) => ({ ...state, status: "live", message }));
+          setLiveState((state) => ({
+            ...state,
+            status: "live",
+            message,
+            droppedChunks: state.droppedChunks + (
+              error instanceof CloudProviderClientError && error.code === "translation_incomplete" ? 1 : 0
+            ),
+          }));
         }
       }
     } finally {
@@ -848,7 +861,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         status: "idle",
         message: channel.configured
           ? channel.status === "idle"
-            ? "Main OBS channel ready. Complete setup, then start captions."
+            ? "Main channel configured. Complete setup, then start captions."
             : "The Main channel is currently controlled by another operator."
           : "Create the Main OBS channel, then add its reusable URL to OBS.",
         channel,
@@ -931,6 +944,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         status: "idle",
         message: "OBS URL rotated. Replace the old Browser Source URL in OBS.",
         latestPublicText: "",
+        latestPublicLanguage: null,
         channel,
       }));
     } catch (error) {
@@ -1033,6 +1047,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         llmUsage: emptyLlmSessionUsage(),
         latestSourceText: "",
         latestPublicText: "",
+        latestPublicLanguage: null,
         lastLatencyMs: null,
       }));
       try {
@@ -1199,6 +1214,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         message: "Paused. The URL and 90-minute expiry are unchanged.",
         latestSourceText: "",
         latestPublicText: "",
+        latestPublicLanguage: null,
         channel: current.channel ? { ...current.channel, status: "paused" } : null,
       }));
     } catch (error) {
@@ -1274,6 +1290,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         status: "live",
         message: "Listening again. The reusable OBS URL and expiry are unchanged.",
         latestPublicText: "",
+        latestPublicLanguage: null,
         channel: current.channel ? { ...current.channel, status: "live" } : null,
       }));
     } catch (error) {
@@ -1402,6 +1419,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               "Translation settings refreshed. Listening continues in the same service.",
             latestSourceText: "",
             latestPublicText: "",
+            latestPublicLanguage: null,
             lastLatencyMs: null,
             service: updatedService,
             channel: current.channel
@@ -1460,6 +1478,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
                 }`,
             latestSourceText: "",
             latestPublicText: "",
+            latestPublicLanguage: null,
             lastLatencyMs: null,
             service: updatedService,
             channel: current.channel
@@ -1514,6 +1533,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               }`,
               latestSourceText: "",
               latestPublicText: "",
+              latestPublicLanguage: null,
               lastLatencyMs: null,
               service: updatedService,
               channel: current.channel
@@ -1533,6 +1553,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             "Translation settings refreshed. The service remains paused with the same timer and links.",
           latestSourceText: "",
           latestPublicText: "",
+          latestPublicLanguage: null,
           lastLatencyMs: null,
           service: updatedService,
           channel: current.channel
@@ -1572,6 +1593,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           }`,
           latestSourceText: "",
           latestPublicText: "",
+          latestPublicLanguage: null,
           channel: current.channel
             ? { ...current.channel, status: "paused" }
             : current.channel,
@@ -1610,6 +1632,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             : "OBS is clear. The next valid caption may replace it.",
         latestSourceText: "",
         latestPublicText: "",
+        latestPublicLanguage: null,
       }));
     } catch (error) {
       if (isControllerReplaced(error)) handleTakenOver();
@@ -1646,6 +1669,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         sequence: response.sequence ?? state.sequence,
         latestSourceText: "",
         latestPublicText: SAMPLE_CAPTIONS[current.targetLanguage],
+        latestPublicLanguage: current.targetLanguage,
         channel: state.channel
           ? { ...state.channel, style: normalizeCaptionStyle(current.style) }
           : state.channel,
@@ -1676,6 +1700,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         message: "App inactive. Audio stopped; confirming the channel is paused.",
         latestSourceText: "",
         latestPublicText: "",
+        latestPublicLanguage: null,
         channel: current.channel ? { ...current.channel, status: "paused" } : null,
       }));
       void fetch("/api/live/channel/control", {

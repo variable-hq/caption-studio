@@ -2,7 +2,7 @@
 import nextHandler from "./.open-next/worker.js";
 
 import { handleLiveApiRequest } from "./src/live/api";
-import { handleTranslationRequest } from "./src/live/translation-request";
+import { handleInferenceRequest } from "./src/live/inference-request";
 export { CaptionRoom } from "./src/live/caption-room";
 
 export default {
@@ -10,14 +10,7 @@ export default {
     const liveResponse = await handleLiveApiRequest(request, env);
     if (liveResponse) return liveResponse;
 
-    const url = new URL(request.url);
-    const isTranslationRequest =
-      request.method === "POST" && url.pathname === "/api/ai/translate";
-    if (!isTranslationRequest) {
-      return nextHandler.fetch(request, env, context);
-    }
-
-    return handleTranslationRequest(request, env, () =>
+    return handleInferenceRequest(request, env, () =>
       nextHandler.fetch(request, env, context),
     );
   },

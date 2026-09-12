@@ -33,7 +33,7 @@ interface GroqTranscriptResponse {
 }
 
 interface GroqChatResponse {
-  choices?: Array<{ message?: { content?: string } }>;
+  choices?: Array<{ finish_reason?: unknown; message?: { content?: unknown } }>;
   usage?: {
     prompt_tokens?: unknown;
     completion_tokens?: unknown;
@@ -325,11 +325,9 @@ export async function translateWithGroq(
     signal,
   }, model);
   const payload = (await response.json()) as GroqChatResponse;
-  const text = payload.choices?.[0]?.message?.content?.trim();
-
-  if (!text) {
-    throw new GroqProviderError("The cloud translation response was empty.", 502);
-  }
+  const choice = payload.choices?.[0];
+  const text = typeof choice?.message?.content === "string" ? choice.message.content.trim() : "";
+  const incomplete = choice?.finish_reason !== "stop" || !text;
 
   const usage = normalizeLlmTokenUsage({
     promptTokens: payload.usage?.prompt_tokens,
@@ -339,7 +337,8 @@ export async function translateWithGroq(
   const rateLimit = providerRateLimitFromHeaders(response.headers, model);
 
   return {
-    text,
+    text: incomplete ? "" : text,
+    ...(incomplete ? { incomplete: true as const } : {}),
     ...(usage ? { usage } : {}),
     ...(rateLimit ? { rateLimit } : {}),
   };

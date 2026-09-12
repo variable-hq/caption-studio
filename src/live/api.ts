@@ -187,7 +187,7 @@ async function publicChannelDetails(
   };
 }
 
-function validTranslationAttemptContext(
+function validInferenceAttemptContext(
   controllerToken: string,
   transcriptionAttempt: number,
 ) {
@@ -204,11 +204,31 @@ export async function claimTranslationAttempt(
   controllerToken: string,
   transcriptionAttempt: number,
 ) {
-  if (!validTranslationAttemptContext(controllerToken, transcriptionAttempt)) {
-    return json({ error: "Invalid translation attempt." }, 400);
+  return claimInferenceAttempt(env, controllerToken, transcriptionAttempt, "translation");
+}
+
+export async function claimTranscriptionAttempt(
+  env: LiveWorkerEnvironment,
+  controllerToken: string,
+  transcriptionAttempt: number,
+) {
+  return claimInferenceAttempt(env, controllerToken, transcriptionAttempt, "transcription");
+}
+
+async function claimInferenceAttempt(
+  env: LiveWorkerEnvironment,
+  controllerToken: string,
+  transcriptionAttempt: number,
+  stage: "transcription" | "translation",
+) {
+  if (!validInferenceAttemptContext(controllerToken, transcriptionAttempt)) {
+    return json({
+      error: "Inference authentication requires a current controller and reserved attempt. Reload the operator page.",
+      code: `invalid_${stage}_attempt`,
+    }, 400);
   }
   return channelRoom(env).fetch(
-    new Request("https://caption-room/internal/translation/claim", {
+    new Request(`https://caption-room/internal/${stage}/claim`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -225,7 +245,7 @@ export async function recordTranslationUsage(
   transcriptionAttempt: number,
   result: Pick<TranslationResult, "usage" | "rateLimit">,
 ) {
-  if (!validTranslationAttemptContext(controllerToken, transcriptionAttempt)) {
+  if (!validInferenceAttemptContext(controllerToken, transcriptionAttempt)) {
     return json({ error: "Invalid translation usage record." }, 400);
   }
   return channelRoom(env).fetch(
