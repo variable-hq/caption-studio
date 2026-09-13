@@ -1,554 +1,188 @@
 # Architecture
 
-UI, inference safeguards, and remaining runtime limits reviewed 12 September 2026.
-
-This document describes the cloud prototype and the Plan 1 implementation under review.
-The Plan 1 section and decision record supersede the earlier future-archive proposal.
-Deployment and church-approved semantic evaluation remain separate release gates.
-
-## System context
-
-```text
-Microphone or audio interface
-  -> operator browser or internal iOS WebKit shell (Cloudflare Access protected)
-  -> selected 6-, 9-, or 12-second audio file over HTTPS
-  -> Cloudflare Worker / OpenNext API
-  -> Groq Whisper transcription
-  -> Groq GPT-OSS 20B contextual translation, unless source equals target
-  -> deterministic glossary and public moderation pipeline
-  -> authenticated Main-channel API with controller lease
-  -> SQLite-backed Durable Object with constant-size shared state
-  -> purpose-specific token-authenticated WebSockets
-  -> reusable OBS Browser Source and per-service mobile viewer
-```
-
-The normal operator path captures audio in a desktop browser, with 1920 × 1080 as the
-primary workstation viewport and a responsive path down to 320px. The dashboard content
-uses a 1600px ceiling to preserve scanning and reading distance on the wider display. The
-internal iPhone/iPad feasibility shell can host the same dashboard in WebKit, but neither
-client runs transcription or translation models. The prototype has no separate
-object storage or audio archive. Plan 1 adds bounded per-service sermon journals and a
-separate rolling numeric usage ledger; see the implementation section below.
-
-## Source and deployment path
-
-```mermaid
-flowchart LR
-  Contributor["Contributor workstation<br/>local validation"] --> PR["Private GitHub repository<br/>branch and pull request"]
-  PR -->|"merge to main"| Build["Cloudflare Workers Builds"]
-  Build --> Bundle["OpenNext Worker and static assets"]
-  Bundle --> Runtime["Cloudflare Worker<br/>production runtime"]
-```
-
-GitHub is the source-review system only. The repository has no GitHub Actions workflow,
-so a push does not consume a GitHub-hosted runner or deploy from GitHub. Cloudflare's
-connected build watches `main`, creates the OpenNext bundle, and publishes the Worker.
-Cloudflare deployment status is therefore authoritative; contributors run tests, strict
-type checking, lint, and builds locally before merge. The manual `npm run deploy` command
-is an owner-controlled recovery path, not the normal collaboration flow.
-
-The repository preserves a separate native build experiment: XcodeGen creates
-`ios/ChurchLiveCaption.xcodeproj` from `ios/project.yml`. That path was deferred on
-10 August 2026 and is not part of current architecture acceptance or release work. The
-browser/Cloudflare path is the only active application architecture.
-
-## Components
-
-### Operator browser
-
-The Next.js client provides:
-
-- microphone and browser-visible audio-interface enumeration;
-- explicit microphone permission and a live input meter;
-- an audio/language/OBS preflight, six-section navigation, selected settings panel,
-  active/draft snapshot, and separate output monitor, followed by a Live operator console;
-- fluid gutters and a single-column reflow without horizontal scrolling down to the
-  declared 320px minimum;
-- a flat monochrome dashboard visual system that keeps operational status legible in
-  text and shape while leaving OBS caption colours under operator control;
-- readable 13–16px form typography, at least 44px action controls, visible focus, and a
-  mobile Start panel that retains blocking or takeover context without obscuring content;
-- source language, target language, glossary, filter, speech-buffer, custom operator-prompt,
-  and shared caption-style controls;
-- primary pause/resume, Clear captions, and confirmed End controls, plus secondary test and copy;
-- input-event-driven appearance controls so range and colour changes update the
-  dashboard preview continuously before they are saved as the default;
-- a `MediaRecorder` that creates independent 6-, 9-, or 12-second audio chunks, using the
-  active translation settings until an operator confirms a translation-session refresh;
-- a two-chunk in-memory queue to bound latency and memory use;
-- protected source and moderated public-caption previews;
-- active-service time, reserved transcription-attempt count, dropped chunk count, and last
-  processing latency after a chunk leaves the queue;
-- one reusable OBS URL, one separate per-service mobile viewer URL, purpose-specific
-  rotation/replacement, and confirmed operator takeover; and
-- a controller credential and active translation snapshot in tab `sessionStorage`, plus
-  caption-style, explicitly saved custom-prompt, and tutorial-dismissal preferences in
-  `localStorage`.
-
-Language, terminology, filter, buffer, and unsaved-prompt drafts live only in React/page
-memory. During an active service, their applied snapshot is copied to unencrypted tab
-`sessionStorage` solely for same-tab recovery and removed on End, takeover, or idle cleanup.
-Caption-style preferences, a custom prompt explicitly saved by the operator, and a
-tutorial-dismissal flag use unencrypted `localStorage`; none is synchronized to a workspace.
-`OperatorTutorial` uses a native modal dialog for focus containment and a browser-local
-flag to suppress first-visit replay after dismissal. It is educational only: its controls
-do not call capture, inference, or service APIs or mutate translation drafts. Automatic
-opening waits for a settled, inactive channel; manual replay remains available. Section
-shortcuts dismiss the dialog and reuse the dashboard navigation callback, including
-panel-heading focus. The current tutorial step stays in React memory until page reload.
-Audio is never persisted. Protected source persists only after explicit pre-service
-opt-in, for seven days after End.
-Service-local AI counters and the latest sanitized provider-limit snapshot live in the
-Durable Object only for the active service, then reset on End, expiry, or takeover. The UI also provides private source corrections, archive review, and manual summary
-controls; see the Plan 1 implementation section below. Pause stops
-browser capture, discards queued chunks, and keeps the reusable channel and service expiry.
-The service clock continues while the reserved transcription-attempt count does not.
-
-### Deferred iOS feasibility shell
-
-The preserved shell under [`ios/`](../ios/README.md) targets iPhone and iPad on iOS 17 or
-newer. It is inactive research and not an alternate caption pipeline or current client:
-
-- SwiftUI presents an approved-audio and cloud-processing notice, requests native
-  microphone permission, and permits a view-only path;
-- `WKWebView` loads the `APP_BASE_URL` value only after configuration rejects a non-HTTPS
-  or credential-bearing URL;
-- the WebKit media delegate grants microphone capture only to the exact configured HTTPS
-  main-frame origin and denies other origins, frames, and media types;
-- in-app navigation is limited to the configured dashboard and Cloudflare Access, while
-  external user-selected links leave the app;
-- a bounded JavaScript bridge accepts service and microphone status only from the exact
-  dashboard main frame; it does not receive captions, secrets, or controller credentials;
-- becoming inactive stops capture and requests a server pause, while foregrounding
-  reconciles the authoritative channel state; the native target has no background-audio
-  mode; and
-- `PrivacyInfo.xcprivacy` declares only the native `UserDefaults` access used to remember
-  acknowledgement of the preflight notice. App Store privacy answers must still cover the
-  web client, Cloudflare, and Groq.
-
-Local feasibility evidence from 4 August 2026 consists of a pre-hardening unsigned
-simulator build, three passing configuration tests on an iPhone 17 simulator running iOS
-26.5, and a pre-hardening unsigned arm64 archive for version 0.1.0 build 1. The hardened
-sources define four tests and compiled in a follow-up simulator build attempt, but the
-sandbox blocked CoreSimulator asset packaging and the fresh test run. The earlier archive
-has no Team or Signing Identity and is not the current release candidate. No result yet
-covers a current complete archive, signed build, Organizer validation, App Store Connect,
-TestFlight installation, a physical device, Cloudflare Access inside WebKit, `audio/mp4`
-`MediaRecorder` output, the protected same-origin APIs, WebSockets, OBS, backgrounding,
-device lock, or network interruption.
-
-### Cloudflare Worker and OpenNext
-
-`custom-worker.ts` routes `/overlay`, `/view`, and `/api/live/*` to the live runtime before
-the generated OpenNext handler. Next.js serves the dashboard and `/api/ai/*` routes. The
-Worker environment provides the Durable Object binding, Access configuration, server-only
-Groq credential, and OBS token-encryption secret. The Worker accepts only canonical POST
-paths for transcription and translation, rejecting encoded/repeated-slash/trailing-slash
-aliases before OpenNext routing. Unsupported `/_next/data/*` URLs are also rejected to
-prevent OpenNext from rewriting them around the claim boundary. After validating Cloudflare Access, each inference stage
-atomically claims its controller and reserved transcription-attempt number in the room.
-After translation, the Worker records sanitized usage and waits for acknowledgement
-before returning either usable text or a structured incomplete-output error.
-
-These safeguards pass local validation, not deployed proof. Isolated environment
-setup remains pending; see [deployment readiness](DEPLOYMENT_REHEARSAL_READINESS.md).
-
-Production protection is layered:
-
-- Cloudflare Access gates the dashboard and all operator/API paths at the edge;
-- readiness, transcription, translation, and live-channel mutation handlers also verify
-  the signed Access JWT in application code;
-- `/api/ai/health` returns configuration booleans and model names but no secret; it
-  relies on the deployment's edge Access policy;
-- `/overlay*`, `/api/live/overlay*`, `/view*`, and `/api/live/viewer*` require exact,
-  narrow Access-layer bypass rules and expose no inference or operator mutations; and
-- each WebSocket endpoint validates its own OBS or mobile-viewer credential inside the
-  Durable Object. Tokens from one protocol cannot authorize the other.
-
-Access verification checks issuer and audience against Cloudflare's remote JWKS. JWKS
-loaders are cached by team domain at module scope.
-
-All JSON and multipart operator requests pass through a shared streaming body reader.
-It rejects an oversized declared `Content-Length`, also counts the bytes actually
-received when that header is absent or inaccurate, and parses only after the byte limit
-passes. Route-specific validation then bounds audio, languages, keyword hints, prompt
-context, caption text, control actions, and styles.
-
-### AI provider layer
-
-Phase 1 uses GroqCloud:
-
-- `whisper-large-v3-turbo` for transcription; and
-- `openai/gpt-oss-20b` for translation, with low reasoning effort and a bounded
-  256-token completion.
-
-The deprecated Free-tier value `llama-3.1-8b-instant` is treated as stale even when it
-remains in a dashboard-managed `GROQ_TRANSLATION_MODEL` variable, so an old deployment
-override cannot silently defeat the migration. Other explicit model overrides remain
-supported and must pass the normal model-availability readiness check. Every translation
-completion is capped at 256 tokens; low reasoning effort is sent only to GPT-OSS models.
-
-The browser talks only to same-origin APIs and never receives the Groq key. The dashboard
-reads the actual configured model identifiers from `/api/ai/health`, while the server
-performs a separate model-availability check before starting a service. Successful chat
-responses expose only normalized prompt/completion/total token counts and Groq's
-daily-request/per-minute-token limit headers. Provider request IDs, raw error details, and
-unused timings do not cross the API boundary.
-
-Transcription accepts only WebM, Ogg, or MP4 audio and is bounded to a 3 MB chunk, at
-most 40 keyword hints, 100 characters per hint, a bounded multipart request, and a
-900-character provider prompt. The prompt asks Whisper to preserve biblical names,
-Bible books, verse numbers, and church terms.
-
-Translation is skipped when source and target are the same. Otherwise the model receives
-the current source caption, up to the four most recent retained source captions, and only
-preferred-term mappings relevant to exactly that retained text/context. The system message
-combines two layers without an agent wrapper: an immutable server envelope and a clearly
-delimited operator prompt. The envelope fixes source/target direction, Simplified or
-Traditional Chinese script, non-invention and untrusted-data rules, and the one-caption
-output contract. The bounded operator layer defaults to reviewed idiomatic guidance and
-can customize phrasing, tone, nuance, repetition, and quotation treatment. The operator
-cannot edit the envelope, and the model is instructed to prioritize it over conflicting
-custom text, but this remains a probabilistic prompt boundary rather than guaranteed
-enforcement. Blank input restores the default; non-text, unsupported control characters,
-and values over 4,000 characters are rejected rather than truncated. Caption, context,
-and terms remain JSON-encoded untrusted data. Provider calls have browser and server
-timeouts.
-
-The custom prompt enters unencrypted browser `localStorage` only after explicit **Save
-prompt**. Unsaved edits stay in page memory; the applied value also forms part of the
-active tab's `sessionStorage` recovery snapshot. It crosses the protected translation
-API/Groq boundary while active, but is not part of Durable Object state, the mobile-viewer
-payload, or the OBS payload.
-
-`TranscriptionProvider` and `TranslationProvider` keep the client independent of a
-specific vendor response shape. Only fields used by the live pipeline and operator usage
-dashboard cross the same-origin API boundary; unused provider segment identifiers,
-timings, provider-only latency fields, and dormant provider modes are not retained.
-Summary interfaces will be
-introduced only when the archive and review design is approved.
-
-### Deterministic caption pipeline
-
-After AI translation, application code:
-
-1. preserves the source text as the protected browser preview;
-2. applies approved glossary mappings to the translated display form;
-3. applies script-aware whole-term public moderation rules; and
-4. publishes only the resulting public text to the live room.
-
-The current UI supports mask rules. The pipeline keeps moderation separate from the
-protected source form so a public filter never silently rewrites what was spoken. No
-protected transcript is sent to OBS or stored in the Durable Object.
-
-For terms containing Han, Hiragana, or Katakana, native `Intl.Segmenter` uses target-language
-word boundaries. Other terms retain Unicode whole-word matching; the explicit internal
-substring opt-in is unchanged. Missing native segmentation prevents an affected caption
-from publishing with an actionable browser error. This does not cover every spelling,
-inflection, or cross-caption term. See the [policy decision](evaluation/CAPTION_POLICY_DECISION.md).
-
-### Durable Object, OBS overlay, and mobile viewer
-
-The authenticated one-time Create action initializes the deterministic `channel:main`
-Durable Object and produces a 256-bit OBS token. The URL stores `main.token` in its
-fragment. The self-contained overlay extracts it and supplies the token as a WebSocket
-subprotocol, keeping the bearer value out of the document request and query string.
-
-The Worker derives an AES-GCM key from the server-only
-`OBS_CHANNEL_ENCRYPTION_KEY`. The Durable Object stores the encrypted token for recovery
-by Access-approved collaborators and its SHA-256 hash for public WebSocket validation.
-Starting a service creates separate 256-bit controller and mobile-viewer tokens. Only
-their hashes are stored, while the raw controller and viewer URL stay in the operator
-tab's `sessionStorage`. A new service always creates a new viewer token.
-
-The Durable Object stores:
-
-- encrypted OBS token and SHA-256 validation hash;
-- shared caption style and a channel-wide sequence number;
-- idle/live/paused state, controller and current viewer hashes, service timestamps,
-  transcription-request count, bounded per-stage claimed-attempt sets, recorded
-  translation-attempt set, an inference-attempt floor,
-  aggregated translation tokens, latest sanitized provider-limit snapshot, event count,
-  and a monotonic translation revision; and
-- the latest moderated public caption.
-
-The Durable Object assigns monotonically increasing sequence numbers, limits public
-caption length, and broadcasts captions, clears, style, and service-state changes.
-Transactions serialize caption/control/takeover mutations. Before provider work for each
-audio chunk, the browser has the Durable Object validate its controller and atomically
-reserve one of the 900 allotted transcription attempts. The server-owned counter survives
-same-tab reload. A takeover atomically begins a new service with fresh counters, replaces
-the controller and viewer hashes, and clears public output; stale
-controller requests return `controller_replaced`. A new or reconnected overlay receives
-current style, state, and at most the latest public caption.
-
-Each transcription request and each non-same-language translation request atomically
-claims its reserved attempt before inference. Separate stage claims allow one call per
-stage for the same audio attempt. A transaction rejects stale controllers, inactive or
-paused services, unreserved/duplicate attempts, and attempts beyond 900. Pause and
-confirmed refresh advance an attempt floor to invalidate all prior reservations without
-resetting usage or expiry. Loading legacy state without a floor invalidates its existing
-reservations because their previous dispatch cannot be established.
-
-After a provider completion, a transaction idempotently records normalized prompt,
-completion, and total tokens before returning to the browser. Empty/non-text output or a
-finish reason other than `stop` has its text discarded and returns
-`422 translation_incomplete` only after available usage is acknowledged. The browser
-updates usage and skipped count without publication. Missing/failed usage persistence
-remains terminal. Counters and latest sanitized headroom survive page recovery, Pause,
-and refresh; they reset with the service and never enter public WebSocket payloads.
-
-End and the 90-minute alarm deactivate only the service: they delete the controller,
-viewer hash, and latest caption but keep the OBS credential, shared style, and sequence.
-Explicit OBS Rotate is allowed only while idle; it replaces the reusable credential and
-closes existing OBS sockets with the revocation close code. Protected mobile-link
-replacement is allowed only for the current controller, changes only the service viewer
-hash, and immediately closes existing viewer sockets.
-
-The protected control endpoint accepts Pause, Resume, Clear, and Show test. Pause and
-Resume clear the display, Pause blocks live-caption writes, and Show test is permitted
-while idle or paused. Test content comes from bounded application constants and never
-calls the AI provider. Reload recovery validates the tab controller and forces the
-service into a safe paused state before microphone capture can resume.
-
-It also accepts an explicit translation-session refresh from the current controller. The
-browser treats live edits to language, terminology, filter, buffer, and operator prompt as
-drafts until this mutation succeeds. Refresh increments the server revision and clears
-the latest public caption while preserving live/paused status, service start/expiry,
-transcription count, controller hash, viewer hash, and OBS credential. The client aborts
-the unfinished recorder, clears queued audio, recent source context, and operator/public
-previews, then adopts the draft. Every published caption carries the revision under which
-its provider work began; the room rejects stale late arrivals after refresh. Existing OBS
-and viewer sockets receive the clear event and remain on the same links.
-
-The overlay document has no Next.js asset dependency, provider credential, operator
-control, history request, or archive capability. It renders a transparent 1920 × 1080
-friendly canvas and reconnects with bounded exponential delay.
-
-The overlay remains connected while idle and shows a transparent blank canvas. It retries
-abnormal closures at most 12 times with exponential delay capped at 30 seconds, never
-renders operational errors publicly, and stops immediately when explicit rotation closes
-the old source with code `4001`.
-
-The self-contained mobile document reads a different per-service token from its fragment
-and opens the `church-caption-viewer-v1` protocol. It renders a single current moderated
-translation plus target language and service status using `textContent`; it has no source
-text, caption history, style payload, operator control, OBS credential, or inference route.
-Late joiners receive at most the current caption. Pause clears the caption but retains the
-connection. Replacement, End, expiry, and takeover close viewers with terminal codes;
-other disconnects show connection loss when the browser reports socket closure, then
-use a bounded reconnect loop. The viewer has no heartbeat or connection timeout, so
-these changes do not establish physical network-loss detection time.
-Only a ready payload resets the retry count; an open-then-drop socket cannot continually
-reset it. Exhaustion offers a page reload through Reconnect. Local text-size controls
-change only the viewer page, and caption language does not change the English controls.
-Security headers disable caching,
-indexing, framing, referrers, and sensitive browser permissions.
-
-## Language representation
-
-The product locale is kept separate from Groq's speech code:
-
-| Product selection | Locale | Speech code |
-| --- | --- | --- |
-| English | `en` | `en` |
-| Indonesian | `id` | `id` |
-| Japanese | `ja` | `ja` |
-| Korean | `ko-KR` | `ko` |
-| Tagalog | `tl-PH` | `tl` |
-| Chinese (Simplified) | `zh-Hans` | `zh` |
-| Chinese (Traditional) | `zh-Hant` | `zh` |
-| Vietnamese | `vi` | `vi` |
-
-Chinese script is a text-output preference rather than a separate acoustic language.
-Automatic Chinese detection resolves to the Simplified product locale; operators should
-select the source explicitly when script-specific handling matters.
-
-## State and retention
-
-| Data | Location | Lifetime |
-| --- | --- | --- |
-| Raw audio chunk | Browser, Worker request, Groq inference | One active inference request |
-| Recent source context | Browser memory | Active page/service |
-| Protected source preview | Browser memory | Active page/service |
-| Moderated public caption | Browser and Durable Object | Latest item until clear, End, or expiry |
-| Unsaved translation-setting draft | React/page memory | Current page load |
-| Explicitly saved custom operator prompt | Browser unencrypted `localStorage` | Until reset or site data is cleared in that browser |
-| Active translation snapshot: language, terms, filter, buffer, prompt | Tab unencrypted `sessionStorage` | Same-tab active-service recovery; removed on End, takeover, or idle cleanup |
-| Browser fallback caption style | Browser `localStorage` | Until cleared in that browser |
-| Tutorial dismissal flag (`dismissed`) | Browser `localStorage` | Until site data is cleared; no identity, content, or step history |
-| Shared caption style | Durable Object | Channel lifetime |
-| OBS token | Encrypted Durable Object value; URL fragment and OBS memory | Until explicit rotation |
-| OBS token hash and channel sequence | Durable Object | Channel lifetime |
-| Controller token/hash | Tab `sessionStorage` / Durable Object | Active service, maximum 90 minutes |
-| Mobile viewer token/hash | URL fragment and operator-tab `sessionStorage` / Durable Object hash | Active service; replaced on demand and deleted on End, expiry, or takeover |
-| Service state, timestamps, and event count | Durable Object | Active service; state resets on End/expiry |
-| Translation revision | Durable Object | Channel lifetime; advances on service start and confirmed refresh |
-| Reserved transcription-attempt count | Durable Object | Active service; resets on End/expiry |
-| Successful translation attempts and prompt/completion/total tokens | Durable Object | Active service; resets on End, expiry, or takeover |
-| Latest sanitized Groq RPD/TPM headroom snapshot | Durable Object and protected operator page | Active service; replaced by a later translation response and never sent to OBS/viewer clients |
-| Dropped-chunk and processing-latency metrics | Browser memory | Active page/service |
-| Native processing-notice acknowledgement | iOS app-local preferences | Until app data is cleared |
-
-Groq may retain provider-side data according to the active organization's Data Controls.
-Zero Data Retention is a deployment prerequisite for approved sermon audio; provider
-usage metadata remains outside this application's control.
-
-## Limits and failure behavior
-
-- The active service ends after 90 minutes and allows at most 1,400 caption events.
-- The selectable 6-, 9-, or 12-second windows share a hard ceiling of 900 reserved
-  transcription attempts per service, derived from the fastest option and including
-  provider failures and silent results.
-- Each successful non-silent chunk whose source differs from its target can make one
-  additional translation request, so a service can make at most 900 translation calls.
-  Acknowledged results, including skipped incomplete output, are deduplicated by their
-  reserved attempt number before their token totals enter the Durable Object.
-- Each attempted chunk first makes one low-volume controller-lease request that reserves
-  the counter atomically. It adds no Groq call, survives page recovery, and prevents a
-  displaced controller from bypassing the current service ceiling. A confirmed takeover
-  deliberately starts a new service with a fresh ceiling.
-- Each inference stage makes a low-volume server-to-room claim before Groq dispatch.
-  This adds no provider call itself and rejects a second request for the same stage and
-  reserved attempt. Translation waits for a usage acknowledgement before returning
-  usable text or the structured incomplete-output error.
-- An Access-protected page observing another operator's active service refreshes these
-  server counters every five seconds. The read makes no Groq request.
-- The room accepts at most 250 concurrent mobile-viewer sockets; additional connections
-  fail closed without affecting OBS or operator control.
-- The dashboard processing metric starts after a completed chunk leaves the queue. It
-  measures upload, transcription, translation, processing, and publication. Audience
-  delay also includes the selected recording buffer, queue wait, and rendering; these
-  are not measured by that metric. A fixed window cannot guarantee a semantic boundary.
-- When two chunks are already queued, a new chunk is dropped and the operator is warned.
-- Pausing deliberately discards the unfinished active window and queued audio without
-  counting them as dropped chunks; paused time still counts toward service expiry.
-- Confirmed translation refresh also discards unfinished and queued audio, recent source
-  context, and current output. It keeps the original service clock, credentials, links,
-  usage count, and live/paused state; stale-revision captions fail closed.
-- Safe margins are bounded to 0–20% per axis and use viewport-relative units in OBS.
-- A transcription quota, authentication, language-detection, or service-expiry error
-  ends the service while preserving the OBS URL.
-- Other transient provider errors are shown while the next queued chunk may retry the
-  normal flow; no caption is fabricated.
-- Translation currently has no source-language fallback. A translation error is visible
-  to the operator and that chunk is not published.
-- A non-`stop` or empty model completion is skipped with acknowledged usage retained.
-  Repeated skips require operator Pause/review or End; no automatic token increase,
-  same-claim retry, or paid fallback occurs. A normally stopped source fragment may
-  remain a fragment; completion status does not establish semantic correctness.
-- The overlay reconnects and restores only the latest public caption, not missed history.
-- End or expiry clears public/service state and revokes the mobile link while preserving
-  the OBS URL. Only explicit OBS Rotate revokes the reusable OBS link.
-- A normal second start returns `channel_in_use`; confirmed takeover replaces the active
-  controller and prevents two microphones from publishing to the same channel.
-- There is no automatic paid provider or overage path.
-
-Current UI usage is service-local. The latest Groq response exposes daily-request and
-per-minute-token headroom, but not daily-token remaining or complete organization usage.
-Groq organization limits and Cloudflare account limits can be consumed by other
-applications or services, so provider dashboards are the authoritative account-wide
-meters. The service ceiling of 900 reserved transcription
-attempts stays below the replacement model's 1,000-request daily Free limit for one
-uninterrupted service, but its 200,000-token daily allowance can still fail earlier for
-content-heavy prompts.
-
-## Deferred architecture
-
-Archive and AI summary work is not part of the live prototype. Before adding it, the
-project needs explicit decisions and a separate threat/privacy design for:
-
-- church workspaces, roles, and row-level authorization;
-- consent and recording state visible to operators and participants;
-- source, translated, corrected, and public transcript forms;
-- approved Bible versions, licensing, and reference metadata;
-- summary grounding, uncertainty flags, and human approval;
-- retention, export, deletion, backup, and audit behavior; and
-- storage/provider cost caps.
-
-Supabase or another database remains an option, not a current dependency or decision.
-
-## Code and dependency boundary
-
-The web production dependency surface is deliberately small: Next.js, React, React DOM, and
-`jose` for Cloudflare Access JWT verification. Cloudflare/OpenNext, Wrangler, TypeScript,
-ESLint, Vitest, and type packages are development-only build or validation dependencies.
-The project contains no local-model runtime, database client, analytics SDK, paid-provider
-fallback, or sermon-storage library. Convention-loaded build files are verified through
-the OpenNext build rather than deleted solely because a static import graph cannot see
-their loader.
-
-The React Bits-inspired operator components are local, dependency-free adaptations rather
-than an installed package. They use the project's existing React/CSS stack and are listed
-with upstream attribution and licence conditions in
-[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
-
-The iOS shell uses Apple SwiftUI, WebKit, AVFoundation, an asset catalogue, and a privacy
-manifest generated into an Xcode project by XcodeGen. It adds no JavaScript or Swift
-package dependency and embeds no web-service secret. Its Xcode build, tests, signing, and
-distribution gates remain separate from `npm run validate`.
-
-The PostCSS override is pinned to patched version 8.5.23. As of 23 August 2026, both the
-production-only and full dependency audits are clean after compatible Nano ID, JS-YAML,
-Wrangler, Miniflare, and Undici updates documented in the validation report.
-
-## Validation priorities
-
-Before a controlled live pilot, validate with synthetic or approved recordings:
-
-- the deployed Git revision and configured model identifiers;
-- every source and target language, accents, mixed-language speech, and Chinese scripts;
-- biblical names, Bible references, numbers, glossary mappings, and filter boundaries;
-- latency and dropped-chunk behavior for an entire service;
-- all three buffer choices, custom/default prompt behavior, immutable envelope, and the
-  prompt's idiom, repetition, incomplete-speech, quote, and non-invention behavior;
-- live and paused translation refresh for each editable setting, including clearing stale
-  output while preserving timer, controller, viewer, and OBS identity;
-- mobile-viewer late join, pause, replacement, End, expiry, takeover, Access boundaries,
-  and the 250-connection ceiling;
-- Groq `429`, timeout, invalid-model, and network-loss behavior;
-- device disconnect and microphone permission failure;
-- Access rejection, bypass route scope, token theft, controller replacement, takeover,
-  explicit rotation, and service expiry;
-- OBS initial connection, reconnection, styling, and browser-source compatibility; and
-- actual Cloudflare and Groq account usage against the intended Free plans.
-
-Native validation is not a current priority or release gate. If the experiment is ever
-reopened, define fresh signed-device, authentication, audio, WebSocket, lifecycle,
-responsive-layout, privacy, and isolated-backend acceptance criteria first.
-
-## Plan 1 implementation
-
-See [ADR: service history and optional inference](decisions/0011-service-history-and-optional-inference.md)
-for the current extension; this supersedes the earlier future-archive proposal above.
-
-`custom-worker.ts` routes `/api/live/experience/*` and `/api/live/reader` before Next.
-`CaptionRoom` owns service identity, immutable history consent, controller attempts,
-Clear epochs, paired remote commands, and retriable journal lifecycle messages.
-`SermonJournal` owns a single service's bounded source/paragraph records and alarm jobs.
-`AiUsageLedger` admits provider calls before dispatch and reconciles numeric outcomes.
-No reader poll or remote command invokes a model.
-
-1. Start creates service and reader credentials, snapshots saving consent, and initializes
-   its journal. A failed initialization releases the undisclosed controller.
-2. Lease reserves an attempt. Existing inference middleware claims it once. Groq routes
-   admit numeric usage before sending transcription/translation requests.
-3. The capture client saves recognized source only when opted in; reviewed whole-word
-   recognition variants are separate corrections. It publishes moderated translation
-   with the current Clear epoch and translation revision.
-4. The Main room broadcasts the fast caption, then appends the public chunk to the journal.
-   Every 30 seconds, a bounded batch can use optional Workers AI phrasing, followed by
-   another moderation pass. Existing translation is the fallback. A saved checkpoint
-   recovers interrupted reader work without dispatching the provider again.
-5. Pause/Clear/refresh invalidate unfinished output while keeping committed paragraphs.
-   End finalizes private history and starts the 30-minute reader grace period. Takeover
-   revokes the old reader and remote. Commands report confirmed only after host ACK.
-6. A manual summary runs bounded source sections and final synthesis. Original source,
-   corrections, exclusions, evidence IDs and immutable TB2 policy govern its input.
-   Context, call and daily neuron limits fail visibly; outputs remain private drafts.
-7. Content expires after seven days, numeric usage after 30. Tombstones and revision checks
-   prevent deleted or superseded work from returning. Archive pagination is independent
-   for source segments and public paragraphs.
-
-The operator, remote, reader and latest-caption viewer share typography, controls, focus,
-spacing and palette. OBS caption appearance remains operator-configurable.
+Reviewed against merged Plan 1 source, 13 September 2026. Cloudflare deployed `20597d8`
+after the proxy fix; see the [runbook](DEPLOYMENT.md). Deployment success does not establish
+physical-device, provider-output or semantic acceptance.
+
+## Components and trust boundaries
+
+| Component | Responsibility |
+| --- | --- |
+| Capture browser | Audio selection, 6/9/12-second MediaRecorder chunks, two-chunk queue, source preview, terminology, moderation, controls and same-tab recovery |
+| Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
+| `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
+| `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, remote commands and archive index |
+| `SermonJournal` | One service's source/corrections/exclusions, reader paragraphs, lifecycle checkpoints and manual summary jobs |
+| `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
+| Groq | Whisper transcription and contextual GPT-OSS 20B translation |
+| Workers AI | Optional shared reader phrasing and bounded manual summaries |
+
+The browser is the sole active client platform. The [native shell](../ios/README.md)
+is a deferred experiment, not an alternative live AI pipeline. There is no audio object
+store, D1, Queues, Supabase, analytics SDK, local model runtime or paid fallback.
+
+GitHub handles source review. Cloudflare Workers Builds builds OpenNext and deploys
+`custom-worker.ts` plus assets after merges to main. There is no GitHub Actions workflow.
+Direct deployment uses the existing `OPEN_NEXT_DEPLOY` guard to avoid an unnecessary
+remote AI proxy; see [Deployment](DEPLOYMENT.md#why-the-deploy-command-sets-open_next_deploy).
+The default OpenNext config has no configured incremental/tag cache or skew protection.
+
+## API and inference sequence
+
+1. An Access-authenticated `POST /api/live/channel/service` starts or explicitly takes
+   over the service. It creates a controller, latest-viewer and reader credentials,
+   snapshots immutable history consent, and initializes a journal. Failed initialization
+   releases the undisclosed controller.
+2. The browser reserves an attempt through `POST /api/live/channel/lease`. The room
+   enforces active ownership, status, expiry, and the service ceiling.
+3. `POST /api/ai/transcribe` carries `x-caption-controller` and
+   `x-caption-transcription-attempt`. The Worker verifies Access, then atomically claims
+   transcription for that attempt. Numeric usage is admitted before Groq dispatch.
+4. With saving enabled, the browser separately sends recognized source to
+   `POST /api/live/experience/source`. Original text is retained; approved recognition
+   aliases become separate corrections.
+5. Non-silent source differing from the target goes to `POST /api/ai/translate` with
+   the same header pair. It consumes a separate stage claim and usage admission. The
+   response waits for sanitized service usage acknowledgement.
+6. The browser applies glossary and public moderation, then sends
+   `POST /api/live/channel/caption` with the translation revision and Clear epoch.
+   The room broadcasts the fast caption to OBS and the latest viewer and appends the
+   public chunk to the journal.
+7. A journal alarm batches at most five chunks roughly every 30 seconds. Optional Workers
+   AI phrasing is followed by glossary/filter processing again. Fallback joins already
+   moderated translations. `GET /api/live/reader` polls existing output; no poll starts AI.
+8. `DELETE /api/live/channel/service` ends capture, finalizes history and starts reader
+   grace. An Access-protected manual summary request can then queue bounded journal work.
+   Every model stage admits/reconciles usage independently.
+
+Canonical inference POST paths are required. Encoded, repeated-slash, trailing-slash and
+unsupported `/_next/data/*` aliases cannot bypass claims. Access verification checks
+issuer/audience against cached team JWKS. Shared body readers enforce received bytes
+before parsing JSON/multipart, not only declared Content-Length.
+
+Claims reject paused, expired, unreserved, duplicate and displaced-controller work.
+Pause/refresh invalidate earlier reservations even after Resume. Legacy reservations
+with unknown dispatch history are invalidated conservatively. A downstream failure
+still consumes its claim; it cannot be replayed to spend again.
+
+## Credentials and public surfaces
+
+| Surface | Credential and capability |
+| --- | --- |
+| Operator / experience APIs | Cloudflare Access; current controller additionally required for live actions |
+| `/operator/mobile` | Access plus a paired service remote token; Pause/Resume/Clear and command status only |
+| `/overlay` / overlay WebSocket | Reusable 256-bit OBS token; latest public caption/style only |
+| `/view` / viewer WebSocket | Separate 256-bit per-service token; latest moderated target text/status only |
+| `/read` / reader API | Separate service reader token; translated paragraphs only |
+
+Bearer links use fragments, not query strings. OBS/latest-viewer sockets send credentials
+as purpose-specific subprotocols; the reader/remote use their own request headers.
+Wrong-purpose credentials are rejected. Audience clients receive no private source,
+summary, usage, controller or provider secrets.
+
+The Main room stores an OBS token hash and AES-GCM-encrypted recoverable copy under the
+server-only `OBS_CHANNEL_ENCRYPTION_KEY`. Other raw live credentials stay in the
+operator tab's sessionStorage; server state retains hashes. End/expiry preserves the
+OBS URL and style. Only explicit idle rotation changes that reusable credential.
+
+The latest viewer is revoked at End, expiry, takeover or replacement. The reader keeps
+30 minutes of access after End/expiry; replacement, takeover and archive deletion revoke
+it immediately on the server. A disconnected phone reflects revocation only after it
+successfully reconnects/polls. Remote pairing ends with the service/controller.
+
+Public documents and their specific data/static paths need narrow Access bypasses;
+all operator and inference paths remain protected. See [Security](../SECURITY.md)
+and the [exact deployment paths](DEPLOYMENT.md#access-paths).
+
+## Live, remote, and reader lifecycle
+
+The room owns server sequence numbers, translation revisions and Clear epochs. Clear
+blanks current output without pausing capture, rejects old publication, and drops pending
+reader work. Pause/refresh also create boundaries; committed reader paragraphs remain.
+Refresh adopts reviewed drafts without replacing credentials, resetting usage, or
+extending the original 90-minute expiry.
+
+The capture computer polls paired remote status about every two seconds. Server-side
+remote Pause blocks claims before the host acknowledges physical capture stopping.
+Commands use bounded IDs and cached results; duplicate retries do not repeat actions.
+Resume must be acknowledged by the host. A missing host cannot be reported as confirmed.
+
+The reader polls about every two seconds, pages saved paragraphs, and follows new content
+only when near the bottom. It keeps earlier paragraphs/revisions/languages rather than
+rewriting the whole sermon. The journal keeps retryable lifecycle metadata and, when
+saving is enabled, a reader-flight checkpoint. Interrupted generation falls back without
+another model dispatch. Summary-flight interruption fails visibly for manual review.
+
+Remove passage marks the public paragraph removed, excludes its source IDs from future
+summary input and invalidates drafts; original private source is preserved. The API also
+requests a clear if the current live caption uses one of those source IDs. It never
+publishes a replacement caption. Delete requires End and confirmation, removes private/public history and
+the archive index, and leaves a tombstone. Revision/deletion checks reject late results.
+
+## Storage and retention
+
+| Data | Store and lifetime |
+| --- | --- |
+| Raw audio and queued chunks | Browser/request memory only; never archived |
+| Draft translation settings | Page memory; active snapshot in tab sessionStorage for recovery |
+| Explicitly saved prompt, style, tutorial dismissal | Unencrypted browser localStorage until cleared; shared channel style also persists |
+| OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
+| Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
+| Latest public caption | Main live state; cleared by controls and End/expiry |
+| Source, corrections, exclusions, paragraphs, summaries with saving on | Private per-service journal; expires seven days after End/expiry |
+| Reader text with saving off | Object/browser memory; may be lost on eviction; no private source archive |
+| Reader rule snapshot/checkpoint with saving on | Bounded glossary/filter and pending public input in journal while needed for processing/recovery |
+| Numeric usage and deduplication entries | Separate usage object; each expires 30 days after its original attempt |
+| Archive index / deletion tombstones | Content-free lifecycle records; expired index entries cleaned, tombstones reject late writes |
+
+Saving is default-off, explicit before Start, and immutable for that service. All
+Access-approved operators share archives; there is no per-email tenancy. Read-time expiry
+checks deny access even if alarms run late. Application deletion does not promise
+immediate physical erasure of provider recovery copies or recall of exported content.
+Provider data policies/settings require separate verification.
+
+## Models, prompting and bounds
+
+The live defaults are `whisper-large-v3-turbo` and `openai/gpt-oss-20b`.
+Readiness verifies configured model availability. Stale `llama-3.1-8b-instant`
+overrides resolve to the migrated translation default. Other explicit overrides require
+normal readiness and quality review.
+
+Transcription accepts WebM/Ogg/MP4, at most 3 MB of audio, and bounded hints. The provider
+prompt uses a conservative 224 UTF-8-byte budget. Only canonical names enter ASR hints;
+approved whole-word recognition variants are deterministic corrections, not training.
+
+Translation receives current source, at most four retained source captions, relevant
+glossary mappings, an immutable server envelope, and up to 4,000 characters of editable
+guidance. Completion is capped at 256 tokens; GPT-OSS uses low reasoning effort.
+Only nonempty text with finish reason `stop` is publishable. Incomplete output is
+stripped but available usage retained; missing usage acknowledgement stops capture.
+There is no automatic source-language fallback.
+
+Masking uses native word boundaries for Han/Hiragana/Katakana and Unicode whole-word
+matching elsewhere. Missing required segmentation blocks publication. Neither prompts,
+filters, nor successful finish reasons establish semantic faithfulness.
+
+Optional Workers AI requires `CAPTION_OPTIONAL_AI_ENABLED=true`. Reader uses Llama 3.1
+8B FP8; summaries allow that model or Llama 3.3 70B FP8 Fast. Summary stages use bounded
+source sections (about 10 KB) and evidence notes (at most 14 KB), then synthesis.
+Immutable TB2 grounding and source-ID membership checks constrain drafts; they do not
+prove meaning. No authorized TB2 passage retrieval or autonomous tool loop is present.
+
+## Limits and remaining validation
+
+Services allow 90 minutes, 900 reserved transcription attempts and 1,400 caption events.
+At most one translation follows an eligible chunk. The latest viewer allows 250 sockets.
+Two queued audio chunks bound backlog; additional chunks are dropped with operator feedback.
+
+Reader/summary calls are capped at 200/60 per service. The ledger conservatively reserves
+up to 9,000 estimated neurons per UTC day, including a 6,000 reader ceiling. Reservations
+stay charged on uncertainty. Failed admission blocks dispatch; unknown consumption never
+becomes an invented zero. This ledger measures this deployment, not all provider-account
+activity or a renewable monthly allowance.
+
+The processing metric excludes recording, queue wait and audience rendering. Real
+latency, physical devices/OBS, cloud alarms, long-service behavior, human accessibility
+and church-language quality remain [rehearsal gates](STAKEHOLDER_TEST_GUIDE.md).
+See [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md), [remaining gaps](GAP_ANALYSIS.md), and
+[ADR 0011](decisions/0011-service-history-and-optional-inference.md).

@@ -51,8 +51,9 @@ machine-wide `xcode-select` setting.
    explicitly; it does not place the Team ID or credentials in the project.
 4. Confirm the microphone purpose string and in-app processing notice with the privacy
    owner.
-5. Complete App Store Connect privacy and export-compliance answers. Do not infer "no
-   data collected" merely because the application does not archive sermons.
+5. Complete App Store Connect privacy and export-compliance answers. The current web
+   backend supports opted-in private sermon history and summaries; include their retention,
+   provider processing and independent numeric usage in that review.
 6. Test Cloudflare Access, microphone permission, `audio/mp4` MediaRecorder output,
    WebSockets, foreground/background behavior, network loss, and device lock on a
    physical iPhone or iPad.

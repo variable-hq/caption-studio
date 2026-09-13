@@ -1,4 +1,11 @@
-# Validation report — updated 12 September 2026
+# Historical validation report — July to 12 September 2026
+
+This preserves results for the dated candidates below. Present-tense status within an
+entry refers to that date, not current main. Plan 1 later merged/deployed and added
+history, summaries, reader/remote and rolling usage. Use [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md),
+[cleanup QA](CLEANUP_DEPLOY_QA.md), [Deployment](DEPLOYMENT.md) and the
+[documentation index](README.md) for newer evidence. Local `test-results/` paths are
+ignored artifacts, not committed files available in a fresh clone.
 
 ## Decision
 
@@ -59,12 +66,12 @@ CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa node scripts/tutorial-qa.mjs
 CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa node scripts/operator-ui-qa.mjs
 ```
 
-Evidence: [tutorial results](../test-results/tutorial/results.json),
-[operator results](../test-results/ui-optimisation/operator-results.json),
-[mobile dashboard](../test-results/ui-optimisation/operator-setup-390.png), and
-[enlarged-text guide](../test-results/tutorial/enlarged-text-390.png),
-[final validation log](../test-results/ui-optimisation/validate-ui-optimisation.log), and
-[dependency audit](../test-results/ui-optimisation/audit-ui-optimisation.json).
+Evidence: tutorial results (`test-results/tutorial/results.json`, local-only artifact),
+operator results (`test-results/ui-optimisation/operator-results.json`, local-only artifact),
+mobile dashboard (`test-results/ui-optimisation/operator-setup-390.png`, local-only artifact), and
+enlarged-text guide (`test-results/tutorial/enlarged-text-390.png`, local-only artifact),
+final validation log (`test-results/ui-optimisation/validate-ui-optimisation.log`, local-only artifact), and
+dependency audit (`test-results/ui-optimisation/audit-ui-optimisation.json`, local-only artifact).
 Physical audio/OBS, production behavior, actual browser zoom, screen-reader use, and
 operator usability remain unverified. This is a local UI improvement, not a deployment
 or WCAG conformance certification.
@@ -101,11 +108,11 @@ npm run dev -- --hostname 127.0.0.1 --port 3100
 CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa node scripts/tutorial-qa.mjs
 ```
 
-Local evidence: [results](../test-results/tutorial/results.json),
-[desktop guide](../test-results/tutorial/step-1-1920.png),
-[mobile audio step](../test-results/tutorial/step-2-320.png),
-[operator regression](../test-results/tutorial/regression/operator-results.json), and
-[validation log](../test-results/tutorial/validate-tutorial-final.log).
+Local evidence: results (`test-results/tutorial/results.json`, local-only artifact),
+desktop guide (`test-results/tutorial/step-1-1920.png`, local-only artifact),
+mobile audio step (`test-results/tutorial/step-2-320.png`, local-only artifact),
+operator regression (`test-results/tutorial/regression/operator-results.json`, local-only artifact), and
+validation log (`test-results/tutorial/validate-tutorial-final.log`, local-only artifact).
 These are local synthetic checks. Human usability, screen-reader behavior, actual browser
 zoom, physical audio/OBS performance, and deployed behavior remain unverified. The earlier
 inference-candidate manifest below predates this tutorial and is not the current tree.
@@ -130,15 +137,15 @@ Implemented locally:
 
 | Gate | Result and scope |
 | --- | --- |
-| Final `npm run validate` | 176 tests in 18 files, strict TypeScript, warning-free ESLint, Next.js production build, OpenNext Cloudflare bundle, and diff check completed with exit 0. [Final log](../test-results/ux-review/validate-id-en-final.log). |
-| Final Worker packaging | `wrangler deploy --dry-run` bundles the custom Worker without cloud mutation; [final log](../test-results/ux-review/bundle-id-en-final.log). |
+| Final `npm run validate` | 176 tests in 18 files, strict TypeScript, warning-free ESLint, Next.js production build, OpenNext Cloudflare bundle, and diff check completed with exit 0. Final log (`test-results/ux-review/validate-id-en-final.log`, local-only artifact). |
+| Final Worker packaging | `wrangler deploy --dry-run` bundles the custom Worker without cloud mutation; final log (`test-results/ux-review/bundle-id-en-final.log`, local-only artifact). |
 | Real local Worker/room | Direct `wrangler dev` on port 3102, local-only Access bypass, test-only encryption key, a real Durable Object, and a real viewer WebSocket passed 21 synthetic requests: English publication, Pause/Resume, refresh and stale-revision rejection, viewer replacement/replay, and End/reset. First transcription claim reached an unconfigured Next route (503); replay returned 409; paused returned 410; resumed/refreshed old attempts returned 400. No Groq call occurred. |
 | Browser incomplete-output recovery | Mocked APIs and fake microphone at 1200px and 320px, Indonesian→English: incomplete output skipped, then one valid English caption published. Both attempts sent the controller/attempt pair; two acknowledged calls totaled 476 tokens, with one skipped chunk. No raw-source fallback, page error, Axe violation, or horizontal overflow occurred. |
 | Fresh dependency audits | Production and full audits each report 0 known vulnerabilities on 12 September. |
 
-Content-free local evidence: [Worker/claim results](../test-results/ux-review/worker-claims-results.json)
-and [browser recovery results](../test-results/ux-review/incomplete-recovery-results.json).
-The [candidate manifest](../test-results/ux-review/id-en-candidate-manifest.json) records
+Content-free local evidence: Worker/claim results (`test-results/ux-review/worker-claims-results.json`, local-only artifact)
+and browser recovery results (`test-results/ux-review/incomplete-recovery-results.json`, local-only artifact).
+The candidate manifest (`test-results/ux-review/id-en-candidate-manifest.json`, local-only artifact) records
 the base commit and SHA-256 hashes of 70 source/configuration/test inputs and three final
 bundle files. It identifies the earlier uncommitted inference candidate before the
 tutorial change, not the current tree or a deployed version.
@@ -208,9 +215,9 @@ validation passed while the preview was still running.
 
 Local, ignored evidence is retained in `test-results/ux-review/`: operator/viewer JSON
 results, shared-save and Worker-smoke results, and screenshots. Examples:
-[desktop setup](../test-results/ux-review/operator-setup-1920.png),
-[mobile setup](../test-results/ux-review/operator-setup-390.png), and
-[mobile viewer](../test-results/ux-review/viewer-390.png). These are synthetic local
+desktop setup (`test-results/ux-review/operator-setup-1920.png`, local-only artifact),
+mobile setup (`test-results/ux-review/operator-setup-390.png`, local-only artifact), and
+mobile viewer (`test-results/ux-review/viewer-390.png`, local-only artifact). These are synthetic local
 artifacts, not committed production evidence. Viewer checks exercise the self-contained
 document with a mocked socket. Operator checks intercept every API request and use a
 synthetic microphone; they make no Groq calls. Worker preview separately verifies the
@@ -729,7 +736,8 @@ or a completed 90-minute production service.
 - device loss, long network loss, Access expiry, Groq quota/model outage, or Worker
   exhaustion;
 - account-wide Cloudflare/Groq usage under concurrent applications; or
-- archives and AI summaries, which are not implemented.
+- archives and AI summaries, which were not implemented in this candidate (later delivered
+  under Plan 1; see the newer QA record).
 
 Follow [the stakeholder test guide](STAKEHOLDER_TEST_GUIDE.md) for the next controlled
 test. A pilot go/no-go decision still needs owner-approved accuracy, latency, recovery,

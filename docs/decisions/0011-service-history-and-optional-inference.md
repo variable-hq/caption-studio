@@ -1,7 +1,8 @@
 # Service history, reader phrasing, and optional inference
 
-Accepted implementation design, 13 September 2026. Release remains subject to protected
-Cloudflare rehearsal and church-approved Indonesian evaluation.
+Accepted implementation design, merged in PR #26 and deployed 13 September 2026.
+[Deployment](../DEPLOYMENT.md) records the corrected build. Real-sermon acceptance remains
+subject to protected runtime rehearsal and church-approved Indonesian evaluation.
 
 ## Decision
 
@@ -82,7 +83,8 @@ export, and generated text is never automatically published.
 
 ## Deployment and release gates
 
-1. Deploy the `v2` SQLite migration and `SERMON_JOURNALS`, `AI_USAGE`, and `AI` bindings.
+1. Verify the deployed `v2` SQLite migration and `SERMON_JOURNALS`, `AI_USAGE`, and `AI`
+   bindings during the runtime rehearsal; the corrected upload includes them.
 2. Preserve Access protection on `/`, `/operator/mobile`, `/api/ai/*`, and
    `/api/live/experience/*`. Add public bypass only for `/read` and `/api/live/reader`,
    alongside existing output paths. Never bypass `/api/live/*` wholesale.

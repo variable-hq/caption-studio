@@ -1,8 +1,10 @@
 # Evidence-gated pilot improvements
 
-Prepared 12 September 2026. Status: design and rehearsal plan only. QR joining,
-saved terminology packs, and manual correction are not implemented by this document.
-No dependency, browser storage, server storage, or public protocol is added now.
+Prepared 12 September; scope reconciled 13 September 2026. QR joining, reusable saved
+terminology packs and live public-caption correction remain proposals. Plan 1 has since
+implemented private source corrections, approved recognition aliases and passage exclusion;
+those do not edit an already displayed OBS caption. See [current product scope](PRODUCT_SPEC.md).
+This document adds no runtime feature or new data retention.
 
 Use this plan after the critical implementation checks and the protected rehearsal in
 [STAKEHOLDER_TEST_GUIDE.md](STAKEHOLDER_TEST_GUIDE.md). It addresses the optional
@@ -51,7 +53,7 @@ they do not replace its lifecycle, filtering, cost, or security checks.
 | T1: prepare approved terms | Give the operator a small church-reviewed terminology list through the agreed private channel. Have the operator enter or paste it, select the intended direction, and ask the reviewer to check every mapping. | Pack/scenario ID, entry count, preparation time, assistance, omitted entries, incorrect mappings, and wrong-direction attempts. Do not copy the list into the evidence sheet. |
 | T2: repeat setup | End the service and open a fresh setup. Ask the same operator to prepare the same terms using today's paste controls; repeat once with a second representative operator if available. Do not assume the active-tab recovery snapshot is a reusable profile. | Reused-entry count, time, errors, and whether paste already solves the problem. Record whether same-browser reuse or transfer between operators is the actual need. |
 | C1: observe correction demand | During approved language-quality samples, the bilingual reviewer marks scenario IDs and severity while the observer times the output. For a critical meaning or safety failure, stop capture/output using the existing controls and follow the guide. | Error class, severity, detection time, action taken, estimated audience exposure, and whether the intended meaning could still be corrected usefully. No copied source or translated text. |
-| C2: simulate correction after stopping | With capture stopped, replay the approved scenario privately. Ask the operator to describe the intended correction and the observer to time detection, review, and the decision to publish or discard. Use a paper/mock control sequence; there is no correction button in the current app. | Time needed, reviewer availability, whether the operator could still supervise audio/OBS, and preference for correction after publication versus approval before publication. Do not treat a paper simulation as delivered-runtime evidence. |
+| C2: simulate correction after stopping | With capture stopped, replay the approved scenario privately. Ask the operator to describe the intended correction and the observer to time detection, review, and the decision to publish or discard. Use a paper/mock control sequence; there is no live public-caption correction button; archive source correction is separate. | Time needed, reviewer availability, whether the operator could still supervise audio/OBS, and preference for correction after publication versus approval before publication. Do not treat a paper simulation as delivered-runtime evidence. |
 
 The owner must define an acceptable audience recovery window with the bilingual reviewer;
 this plan does not invent a universal number for correcting scripture, negation, or
@@ -168,7 +170,7 @@ shared profiles belongs to the separate workspace/role/retention design in the r
 
 ### Current flow and smallest change
 
-There is no correction editor today. The operator sees the latest source/public
+There is no live public-caption correction editor today. The operator sees the latest source/public
 caption, but [`use-live-caption-session.ts`](../src/live/use-live-caption-session.ts)
 clears these when Pause succeeds. [`caption-room.ts`](../src/live/caption-room.ts)
 also deletes the latest public caption on Pause, and normal caption publication is
@@ -214,8 +216,9 @@ and discard the draft. If that recovery is inadequate, agree a bounded idempoten
 and reconciliation response before implementation. No append-only correction log is
 required for this minimal proposal.
 
-Public filtering currently runs in the browser pipeline; the Durable Object does not
-own the active filter/glossary. Reusing the existing masking function preserves that
+Fast-caption filtering runs in the browser pipeline; the Main room does not own the
+complete active translation settings. Plan 1 additionally sends bounded filter/glossary
+context to the sermon journal for reader processing. Reusing the existing masking function preserves that
 trust model but does not create server-authoritative filtering. Any requirement for
 server-owned rules needs a separate data/control decision. Also decide whether approved
 term replacements should rewrite a human edit: blindly reapplying the mapping that

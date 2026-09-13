@@ -1,13 +1,19 @@
-# Deployment rehearsal readiness
+# Historical deployment rehearsal readiness — 12 September 2026
+
+This is a dated account/setup snapshot, not the current deployment guide. Later Access
+management and the successful Plan 1 deployment supersede its production-access/version
+findings. Do not reuse the old single-binding configuration or deploy commands: use
+[Deployment](DEPLOYMENT.md), [Architecture](ARCHITECTURE.md) and the
+[current rehearsal script](STAKEHOLDER_TEST_GUIDE.md). The dated findings below remain
+as evidence; they do not imply that earlier CLI authentication is still available.
 
 Checked 12 September 2026 using local source, Wrangler 4.125.0, read-only
 Cloudflare API calls, and unauthenticated HTTP probes. No deployment, provider
 inference, cloud configuration change, or production channel mutation occurred.
 Secret values, account identifiers, bearer links, and user content are omitted.
 
-The user has authorized an isolated test deployment in principle. Execution is
-blocked by the concrete account, Access, and credential prerequisites below,
-not by a missing generic deployment approval.
+At the time of this investigation, isolated deployment was authorized in principle but
+blocked by the concrete account, Access and credential prerequisites below.
 
 ## Verified state
 
@@ -38,7 +44,7 @@ substitute for an authenticated test of the deployed candidate.
 
 After implementation, the [local validation report](VALIDATION_REPORT.md) records the
 completed 176-test validation, dry bundle, and short real local-room/socket check.
-The [inference-candidate manifest](../test-results/ux-review/id-en-candidate-manifest.json)
+The inference-candidate manifest (`test-results/ux-review/id-en-candidate-manifest.json`, local-only artifact)
 hashes that earlier candidate relative to the base commit; it predates the subsequent
 operator tutorial. Freeze the reviewed PR head as the next candidate identity before
 deployment. The candidate was uncommitted at the time of that check and remains

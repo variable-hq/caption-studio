@@ -1,6 +1,7 @@
 # First-visit operator tutorial
 
-Date: 12 September 2026. Status: implemented locally at the user's request.
+Date: 12 September 2026. Status: implemented and merged. Current deployment evidence
+is in [Deployment](../DEPLOYMENT.md); the original local UI results remain dated evidence.
 
 ## Decision
 

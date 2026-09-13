@@ -20,6 +20,8 @@ Explain the user, operator, or contributor need.
 - [ ] Operator routes remain Cloudflare Access-protected
 - [ ] OBS overlay access remains read-only, token-protected, explicitly rotatable, and long-lived
 - [ ] Mobile-viewer access remains read-only, separately tokenized, service-scoped, and replaceable
+- [ ] Reader access stays separate from private source/summary data; the paired remote grants no inference capability
+- [ ] Seven-day opted-in content retention and independent rolling 30-day usage remain explicit
 - [ ] Biblical-context and AI-output risks, testing, and required human oversight are documented
 - [ ] Failure and recovery behavior were considered
 
@@ -27,6 +29,7 @@ Explain the user, operator, or contributor need.
 
 - [ ] Maintained documentation matches the implemented behavior
 - [ ] Historical evidence remains clearly separated from current validation claims
+- [ ] Deployment changes include the build, deploy dry run, and relevant Cloudflare result
 
 ## Follow-up
 

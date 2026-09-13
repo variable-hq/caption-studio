@@ -1,6 +1,8 @@
 # Operator UI usability review
 
-12 September 2026. Scope: local web dashboard and first-visit operator guide.
+12 September 2026. Historical scope: local web dashboard and first-visit operator guide.
+The later reader/remote/archive UI is covered by [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
+Use [the documentation index](README.md) for current product and deployment status.
 
 The guide now supports reading a step, opening its dashboard section, and returning to
 that same step. On phones, a native step selector replaces the six-button tutorial

@@ -1,6 +1,8 @@
 # Product specification
 
-UI, local inference safeguards, and current limitations reviewed 12 September 2026.
+Reviewed against merged Plan 1, 13 September 2026. The corrected Cloudflare deploy
+succeeded; protected runtime and church-language acceptance remain separate gates.
+See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
 ## Product vision
 
@@ -18,9 +20,13 @@ reviewer and must never invent speech, scripture, or doctrine.
 - **Stream viewer:** reads the current moderated caption through the OBS output.
 - **Mobile viewer:** opens a service-scoped read-only link and sees the latest moderated
   translation without operator access or transcript history.
-
-Reviewer, pastor/approver, administrator, and workspace-member roles belong to the future
-archive and summary product. They are not implemented in the current prototype.
+- **Audience reader:** opens `/read` for appending translated paragraphs, separate from
+  the latest-caption viewer.
+- **Operator remote:** uses an Access-authenticated, paired phone to control Pause,
+  Resume and Clear on the capture computer.
+- **Archive reviewer:** any Access-approved operator can review/correct saved source and
+  generate/export private summary drafts. There is no distinct reviewer role or per-email
+  archive ownership. Workspace/administrator roles remain deferred.
 
 The first evaluation direction is **Indonesian→English**, with **Operator** selected as
 the human reviewer outside the app. [All 30 prepared samples](evaluation/ID_EN_REVIEW.md)
@@ -98,7 +104,11 @@ translation setting, requests no microphone permission, and never starts a servi
    cannot be confirmed, the dashboard retains controller state and offers Retry End.
 3. The OBS URL and shared style remain ready for the next service. Only a separately
    confirmed Rotate action revokes the bearer URL and requires updating OBS.
-4. The app retains no sermon transcript, summary, or audio.
+4. If saving was explicitly enabled before Start, private source, corrections, exclusions,
+   paragraphs and summaries remain for seven days after End/expiry. No audio is stored.
+5. The separate reader has 30 minutes of post-End reading grace. An operator may manually
+   generate a summary when optional AI is enabled; End itself makes no summary call.
+6. Numeric usage survives service/content actions for a rolling 30 days.
 
 ## Supported languages
 
@@ -201,8 +211,9 @@ the guide remains usable but may reappear after reload. Clearing site data reset
 first-visit behavior. During a service, the full active language, terminology, filter, buffer,
 and prompt snapshot is held in that tab's unencrypted `sessionStorage` solely for same-tab
 recovery and removed on End, takeover, or idle cleanup. The active prompt is sent through
-the protected inference path to Groq, but no translation setting is stored in the Durable
-Object or included in mobile-viewer or OBS messages. Operators must not enter credentials
+the protected inference path to Groq, but the live translation prompt is not sent to OBS/viewer clients or stored in the room.
+The journal receives bounded glossary/filter snapshots to process public reader paragraphs;
+with saving on, its pending-work checkpoint persists that context while needed. Operators must not enter credentials
 or confidential pastoral information.
 
 ### Keywords and public filtering
@@ -217,8 +228,11 @@ Unicode whole-word matching. Missing native segmentation prevents affected publi
 with a browser-update error. Protected source remains unchanged. Terms need review in
 the intended browser; the policy is not exhaustive multilingual safety. See the
 [filtering and completion decision](evaluation/CAPTION_POLICY_DECISION.md).
-Replace, hide, scope, priority, phonetic variants, and persistent workspace controls are
-future UI features.
+Approved whole-word recognition aliases are implemented, for example an explicitly reviewed
+`Saul|swauf => Saul`. The TB2 vocabulary action is scoped to Indonesian/automatic source
+and English target. It supplies canonical names only; incorrect aliases are not boosted
+in transcription hints. This is not model training or fuzzy identity resolution.
+Replace/hide controls, rule scopes/priorities and persistent workspace packs remain deferred.
 
 Terminology and filter edits made during an active service are drafts until the same
 explicit translation refresh used for language, buffer, and prompt changes.
@@ -236,7 +250,7 @@ explicit translation refresh used for language, buffer, and prompt changes.
 - Cloud AI configured describes configuration, and Main-channel state describes the
   server room. Neither claims observed OBS connectivity or measured translation quality.
 - A skip link and workspace-heading focus support keyboard navigation. End is a visible
-  live action with a native confirmation dialog; Clear captions affects both public outputs.
+  live action with a native confirmation dialog; Clear captions blanks OBS and the latest viewer, while preserving committed reader paragraphs.
 - The output monitor tags each displayed caption with its own language, including paused
   synthetic tests. Subsequent draft language edits do not relabel existing text.
 - Failed clipboard actions have hidden-by-default manual-copy recovery: OBS in Live
@@ -311,8 +325,8 @@ named display profiles.
   the four most recent retained source captions enter its prompt.
 
 The consumption dashboard is not an account billing meter. Its service totals survive
-an operator-page refresh, but it cannot see concurrent services or
-usage by other applications in the same Groq organization or Cloudflare account. Owners
+an operator-page refresh. The separate rolling ledger spans this deployment's services,
+but cannot see usage by other applications in the same Groq organization or Cloudflare account. Owners
 must keep provider accounts on the intended Free plans and verify their dashboards. The
 provider response headers do not expose remaining daily tokens, so a content-heavy
 service may stop before the visible ceiling of 900 reserved transcription attempts or
@@ -363,7 +377,8 @@ Code-level acceptance:
 - Second starts fail with `channel_in_use`; confirmed takeover rejects stale controllers.
 - Reload with the same tab controller recovers in a safe paused state.
 - Production operator mutations fail closed without valid Access configuration.
-- Audio and sermon transcripts are not persisted by the application.
+- Audio is never persisted. Source/history is saved only with immutable pre-service opt-in;
+  content expires seven days after End/expiry and numeric usage separately after 30 days.
 
 Local iOS-shell acceptance currently proves only that the pre-hardening generated Swift
 project built without signing for the simulator, three configuration tests passed on an
@@ -391,38 +406,65 @@ edge-access boundaries. It did not validate the currently merged revision, reusa
 channel, language quality, a complete 90-minute run, quota/outage behavior, or a real OBS
 production computer. Those remain stakeholder and pilot acceptance work.
 
-## Deferred archive and summary product
+## Reader, private history and summary requirements
 
-The requested sermon archive and biblically contextual summary are valuable but require
-a new consent and data architecture. A future approved design may include:
+Plan 1 is implemented under [ADR 0011](decisions/0011-service-history-and-optional-inference.md).
+The `/read` audience link is distinct from `/view`; one shared journal job processes at
+most five moderated translation chunks about every 30 seconds. Polling and additional
+viewers make no AI calls. With optional AI off or failed, existing translations are joined.
+With saving off, reader text lives in memory and may be lost on object eviction.
 
-- explicit recording and retention state visible to the operator;
-- church workspaces and owner, admin, operator, reviewer, and viewer roles;
-- separate source, translated, corrected, and public transcript forms;
-- licensed Bible-reference profiles with version and language metadata;
-- grounded summary sections such as theme, outline, key points, mentioned passages,
-  applications, and uncertainty warnings;
-- human editing and approval before publication;
-- export, deletion, retention expiry, audit, and backup controls; and
-- hard storage and AI cost limits.
+Clear, Pause and refresh discard pending work and preserve committed paragraphs. The
+reader follows new text only near the bottom; older revisions/languages remain labelled.
+End grants 30 minutes of reading grace. Takeover, replacement and archive deletion revoke
+access immediately on the server; disconnected clients reflect it on successful polling.
 
-A summary must distinguish words actually spoken from a model inference, a paraphrase,
-and retrieved Bible material. It must not manufacture a citation or present retrieved
-text as a preacher's quotation.
+History saving is off by default and cannot be enabled after Start. Saved records expire
+seven days after End/expiry. Archive pages expose private original source, separate
+corrections and source-linked reader paragraphs. Confirmed Remove passage excludes its
+source IDs and invalidates summaries without deleting originals. If the current live
+caption uses one of those IDs, removal also requests its clearing; it never rewrites OBS.
+Confirmed Delete requires End, removes content and the archive index, and rejects late jobs.
 
-## Decisions required before persistent data or a live pilot
+Manual summaries use opted-in, ended history with a frozen source revision. Operators
+select an allowlisted Workers AI model, output language, short/detailed length and up to
+2,000 characters of guidance. Server-owned TB2 grounding rules cannot be edited. Bounded
+source sections and final synthesis produce points linked to source IDs; failures at
+context, call or daily budgets are visible. Source membership validation is not semantic
+proof. Operators must review the private draft before JSON export. Transcript JSON export
+is also available; generating or regenerating never extends retention.
 
-1. Which Bible versions and translations may be used, under what licence?
+Exact TB2 text, licensed retrieval, an editable structured summary, section-selection UI,
+workspace roles, multiple providers and autonomous agent tools are not implemented.
+Summaries must not manufacture scripture or claim a generated paraphrase is an exact quote.
+
+## Usage history and optional AI
+
+A separate numeric ledger spans services for a rolling 30 days. It records admissions
+before provider dispatch, deduplicates outcomes and preserves unknown consumption.
+End, Clear, refresh, takeover, source removal and archive deletion never reset it.
+The UI groups by service/day/stage/model and labels capacity as an estimate under stated
+limits, not an account billing meter or a calendar-month allowance.
+
+Optional Workers AI requires `CAPTION_OPTIONAL_AI_ENABLED=true`; it defaults off.
+Per-service ceilings are 200 reader and 60 summary calls. Conservative reservations permit
+at most 9,000 estimated neurons per UTC day, including a 6,000 reader ceiling; uncertain
+calls remain charged. No paid fallback is implemented. Verify actual plans, content
+settings, availability and approved semantic quality before enabling it for sermons.
+
+## Remaining decisions before a live pilot
+
+1. TB2 is selected; which authorized text source/licence permits exact passage retrieval?
 2. Who approves church-specific theological terminology?
 3. What caption latency and error rate are acceptable for each language?
 4. Is live manual correction required before captions reach OBS?
 5. Should translation failure skip the caption or deliberately fall back to source text?
 6. What is the device-disconnect and internet-loss operating procedure?
-7. For archives, what consent notice, retention period, transcript forms, export, and
-   deletion process are required?
+7. Approve the participant notice and rehearse the implemented opt-in, seven-day retention,
+   corrections/exclusions, JSON export and deletion behavior.
 8. How many simultaneous services, operators, and overlay viewers are expected?
 9. What provider-account monitoring or external hard cap is required beyond the
-   service-local, server-owned transcription counter and UI indicator?
+   service counters, 30-day deployment ledger and optional-AI reservation guards?
 
 Apple distribution is deferred. Reopening it would require a new owner decision covering
 cost, publisher, signing, privacy, export compliance, testing, and distribution scope.

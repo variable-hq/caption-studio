@@ -1,323 +1,170 @@
 # Stakeholder test guide
 
-Web UI and inference rehearsal steps reviewed 12 September 2026.
-
-## Purpose
-
-This guide covers a controlled usability and technical rehearsal of the Phase 1 cloud
-prototype. Passing it supports a decision about the next pilot step; it is not a
-production, theological, accessibility, or every-language certification.
-
-The main script below is the complete current client and OBS acceptance journey. Apple
-distribution is deferred; the preserved native rehearsal later in this guide is a
-historical appendix and must not be included in the current test scope.
-
-Use an isolated, Access-protected test Worker after its exact revision and configuration
-are verified. The existing <https://church-live-caption.lukas-ka.workers.dev/> is production,
-not a verified rehearsal environment. The user has authorized isolated deployment in
-principle; [missing plan, access, and test-secret setup](DEPLOYMENT_REHEARSAL_READINESS.md)
-currently blocks it. The latest safeguards pass local automated and synthetic runtime
-checks; these do not establish deployed or physical behavior.
-
-The first pair is **Indonesian→English**. **Operator** is selected as reviewer, but
-[all 30 prepared samples](evaluation/ID_EN_REVIEW.md) still await human review. Use the
-[filtering/completion decision](evaluation/CAPTION_POLICY_DECISION.md) during scoring;
-do not treat the draft references as approved translations.
+Reviewed 13 September 2026 for merged Plan 1. Use a protected, verified deployment,
+synthetic speech or explicitly approved recordings. Deployment success and local QA do
+not establish a passing physical service, semantic quality or WCAG conformance.
 
 ## Confirmed rehearsal setup
 
-The user confirmed a microphone AUX feed through a USB audio interface, with OBS on a
-separate computer. The planned capture path is AUX into the interface, then USB into the
-computer running the caption dashboard. Select the USB audio interface in that browser's
-**Audio input** panel.
-The separate OBS computer displays the reusable hosted OBS URL in its Browser Source.
-Both computers need access to the verified rehearsal deployment.
+The microphone AUX feed enters a USB audio interface connected to the capture computer.
+OBS runs on a separate computer using the hosted reusable Browser Source URL.
+Use a signed-in paired phone for the operator remote and separate signed-out audience
+phones for `/view` and `/read`. Device models and physical signal routing remain untested.
 
-The USB audio interface model, computer models and operating systems, and audience
-phones remain unspecified. The connection type is confirmed; signal routing and physical behavior
-have not been tested.
+The browser is the sole active client. The [iOS experiment](../ios/README.md) is deferred
+and its native/signing checklists are not web release gates.
 
 ## Before the test
 
-- Use a recent Chrome or Edge browser and a stable internet connection.
-- Confirm the tester's email is approved in Cloudflare Access.
-- Connect the microphone AUX feed to the USB audio interface and connect the interface
-  to the caption computer. Verify the interface's name in the input dropdown.
-- Install OBS on the separate streaming computer and prepare a 1920 × 1080 Browser
-  Source.
-- Prepare a separate phone at both 390px-class and 320px-class widths for the read-only
-  mobile viewer. It must not be signed in as an operator.
-- Confirm with the owner that Groq ZDR is enabled and both provider accounts remain on
-  the intended Free plans. Never send or paste keys to a tester.
-- Confirm Cloudflare reports a successful deployment of a reviewed Git revision that
-  contains the latest inference claims, filtering, completion handling, and UI changes.
-  Record both the exact Git revision and final Worker version after test secrets are set,
-  not build logs containing secrets. Current production metadata has no Git SHA.
-- Use synthetic speech or a recording with explicit consent. Do not use confidential
-  sermon, pastoral, member, or counselling content.
-- Reserve 15–20 minutes for one source/target pair and the reusable-link checks. End the
-  service when finished.
-- Confirm exact Access bypasses exist for `/overlay*`, `/api/live/overlay*`, `/view*`, and
-  `/api/live/viewer*`, while `/api/live/channel*` remains operator-protected.
-- Do not put an active OBS or mobile-viewer URL in screenshots, tickets, chat, analytics,
-  or test notes.
+- Record the reviewed Git SHA and final Worker version from a successful deploy.
+  [Deployment](DEPLOYMENT.md) gives current commands, bindings and exact Access paths.
+  Production is not an isolated test environment; use the owner-approved environment.
+- Verify approved operator access, scoped public bypasses, all three Durable Objects,
+  AI/assets bindings and secrets by name/type only.
+- Verify actual provider Free plans, Groq ZDR, model availability and headroom.
+  Leave optional Workers AI disabled until its privacy/model/quality checks are approved.
+- Use the first Indonesian→English [30-sample review](evaluation/ID_EN_REVIEW.md);
+  all scores and terminology approvals are still pending. Do not treat draft references
+  as approved translations.
+- Decide whether this synthetic service should save history. Saving must be explicitly
+  enabled before Start; off is the default. Explain seven-day content and independent
+  30-day numeric retention to operators/participants.
+- Keep tokens, emails, private sermon content, prompts and active bearer URLs out of
+  screenshots, Git, issues and shared evidence. Use sample IDs and status/timing metadata.
+- Schedule a short rehearsal before a duration run. Paused time counts toward the
+  original 90-minute service expiry.
 
-## Test script
+## Setup and fast-caption journey
 
-On a fresh browser profile, first check the tutorial overlay. Follow all six steps,
-test Back and direct step selection, then finish with **Go to dashboard**. Verify that
-no audio starts and settings remain unchanged. Reload: the guide stays dismissed in
-that browser. Reopen it with **How to use**, then test Skip and Escape with focus returning
-to that button. Check at 1920px, 1200px, 390px, and 320px, including keyboard navigation.
-Also open a panel from a tutorial step: the panel heading receives focus, and **How to use**
-returns to the same topic until reload. The shortcut must not change settings or request audio.
-On phones, use the **Tutorial step** selector to jump between topics.
-A browser with blocked preference storage may show the guide again after reload.
-During an existing live or paused service, the guide must not open automatically;
-manual replay must clearly state that the service continues.
+1. In a fresh browser profile, complete the six-step tutorial, test Back, direct selection,
+   Skip/Escape and panel shortcuts. Reopen with **How to use**; focus returns correctly.
+   Reload after dismissal; no audio or service action occurs from the guide.
+2. Check at 1920, 1200, 390 and 320 CSS pixels. Use keyboard navigation, visible focus,
+   actual zoom, reduced motion and an assistive-technology user where available. No control,
+   dialog or long record should create horizontal page overflow or hide the next action.
+3. Sign in; confirm configured models in Service details. Defaults are
+   `whisper-large-v3-turbo` and `openai/gpt-oss-20b`. Configuration is not a model-output test.
+4. Enable the audio test, select the USB interface and speak into the AUX feed. Mute that
+   feed and confirm nearby computer speech does not reveal an unintended input. Verify the
+   selected device after reconnecting it.
+5. Choose Indonesian→English and a 9-second buffer. Review the TB2 vocabulary action and
+   approved mappings; test `Saul|swauf => Saul` only as an explicit reviewed alias.
+   Compare original recognition and translation separately; do not infer the biblical identity.
+6. Add safe synthetic glossary/filter data. Review translation guidance; unsaved drafts
+   stay page-local, while explicit browser-default saving uses unencrypted localStorage.
+7. Create/retrieve Main once. Copy the concealed OBS URL directly to a 1920 × 1080 Browser
+   Source on the separate computer. Test denied clipboard recovery without exposing the
+   link to a recording. Set font, size, colours, highlight, placement and safe margins;
+   preview updates continuously and saved shared style survives reload.
+8. Show and Clear a synthetic idle test. It makes no AI call or microphone capture.
+   Start captions with the intended history choice; Start performs readiness and ownership checks.
+9. Speak approved samples. Confirm private source versus moderated public output, glossary
+   behavior, masks, caption language, skipped chunks and processing-time labels.
+   The processing number excludes buffer, queue wait and audience rendering.
+10. While live and paused, draft language, terms, filters, buffer and prompt changes.
+    Cancel refresh once, then confirm it. Old output/context disappears; old results cannot
+    reappear. Timer, controller, links, usage and live/paused state remain. Repeat a short
+    sample at 6 and 12 seconds; longer windows do not guarantee complete sentences.
+11. Pause at a natural break: microphone and queued work stop, OBS/latest viewer blank,
+    and attempts stop increasing. Show/clear a paused test; Resume clears it before capture.
+    Clear alone keeps capture active, so new valid speech can appear afterward.
 
-1. Open the dashboard, complete Cloudflare Access, confirm **Cloud AI configured**, open
-   **Translation**, and expand **Service details**. Verify the configured identifiers are
-   `whisper-large-v3-turbo` and `openai/gpt-oss-20b`, unless the owner has recorded an
-   intentional override. Start later performs the separate model-availability check.
-2. Select **Enable audio test** to grant permission and populate the device list. Choose
-   the USB audio interface, enable the audio test again if the meter stops, and speak
-   into the microphone feeding AUX. Confirm the meter follows that feed. Mute the feed
-   and verify speech near the caption computer does not produce an unintended input.
-   Restore the feed and recheck the displayed device name before continuing.
-3. Select Indonesian as the spoken source and English as the target, then select the
-   9-second **Balanced** speech buffer. Confirm the UI says longer windows add latency.
-   Later, repeat one short synthetic sample at 6 and 12 seconds to verify cadence and the
-   refresh behavior without treating any option as a guaranteed sentence boundary.
-4. Add one safe test mapping, such as `Betlehem => Bethlehem`, for Indonesian→English.
-   Add one synthetic filter word that is safe to say in the rehearsal.
-   Review the default translation prompt, choose **Reset to reviewed default**, then make
-   one harmless custom change such as “Prefer concise captions.” Do not enter private
-   church information or credentials. An unsaved edit remains page-only; select **Save
-   as browser default** only if this synthetic value should persist in unencrypted browser storage.
-5. At the primary 1920 × 1080 operator viewport, confirm the preflight strip, task-ordered
-   navigation, selected settings panel, active/draft snapshot, and output monitor remain
-   easy to distinguish. Repeat at a 1200px intermediate width. At both 390px and
-   320px widths, confirm the same sections form one reachable column without horizontal
-   scroll. Confirm the six setup labels match the available workspace panels, controls
-   remain easy to target, focus remains visible, and live/paused/error states remain
-   understandable from their text rather than colour alone.
-6. Configure text size, font, colour, per-line highlight, transparency, position, and
-   horizontal/vertical safe margins. Confirm the dashboard preview changes during each
-   adjustment, then select **Save as default** and reload once to confirm the shared
-   Main-channel style returns.
-7. If this deployment has no Main channel, select **Create OBS channel**. Copy the URL
-   directly into the 1920 × 1080 Browser Source on the separate OBS computer. Use the
-   verified hosted URL for this two-computer test. Existing deployments should return
-   the same URL to every approved collaborator; never put it in test evidence. If clipboard
-   access is denied, reveal the URL manually in **Live outputs** before the service or
-   **More** during it. Keep the URL concealed until needed; Escape closes More and returns focus.
-8. Before starting capture, select **Show test** and confirm localized synthetic text,
-   style, and safe margins in OBS without microphone or transcription-attempt activity.
-   Select **Clear captions**, refresh the Browser Source, and confirm it remains blank.
-9. Start captions. Open **Mobile translation viewer**, copy its link to the separate
-   phone, and confirm the page fits at 390px and 320px with no horizontal scroll. It must
-   show only the current moderated target-language caption and status—never source text,
-   history, styling data, operator controls, or the OBS URL. Refresh or join late and
-   confirm it recovers at most the current caption. Test denied clipboard access: the
-   **Mobile viewer** section must offer a concealed manual-copy link. Test all three **Text size** choices;
-   they must not change OBS. With a non-English caption, English controls must retain
-   their English language semantics. Disconnect the phone and record the time until
-   connection loss appears; feedback depends on the browser detecting socket closure.
-   After retry exhaustion, test **Reconnect**. Replaced or
-   expired links must not offer that retry action.
-10. Record the service start/expiry, usage count, and only whether the OBS and viewer URLs
-    remain equal—never their values. While live, draft changes to source/target language,
-    terminology, filter, buffer, and custom prompt. Confirm the UI marks them pending and
-    the active pipeline does not silently switch. Select **Refresh translation session**,
-    review the warning, cancel once, then confirm. Verify current output/context clears,
-    no pre-refresh late caption reappears, capture uses the new settings, and live status,
-    timer/expiry, usage count, controller ownership, viewer link, and OBS link are retained.
-    Repeat one harmless draft-and-refresh while paused and confirm it remains paused.
-11. Select **Pause**, confirm the meter stops, OBS and mobile caption clear, both links
-    stay unchanged, and reserved transcription attempts stop increasing. Show and clear
-    another test while paused, then select **Resume** and confirm the test clears before
-    listening restarts. Pause at a natural break because the unfinished buffer is discarded.
-12. Speak the approved Indonesian evaluation phrases containing names, numbers, and
-    references. Record sample IDs and separate transcription/translation scores in the
-    review sheet. Do not paste or record licensed Bible text as test evidence.
-13. Confirm the protected source preview and the public translated preview are sensible.
-   Verify the glossary mapping and public mask without expecting the source preview to
-   be rewritten.
-14. Confirm OBS shows only the public caption. Change each display setting while live and
-   confirm the overlay updates without restarting.
-15. Note the channel-wide overlay sequence, skipped count, reserved transcription-attempt
-    count, and displayed processing-latency range. Open **AI usage** and confirm separate
-    service-time and 900-attempt meters, acknowledged translation calls, and
-    prompt/completion/total tokens. After a translated caption, verify provider headroom
-    is either a labelled latest snapshot or explicitly unavailable—never a fabricated
-    zero. Pause, reload this operator tab, and verify service totals recover. Compare them
-    with the Groq console without expecting an exact account-wide match. The sequence
-    includes synthetic tests and survives End,
-    so it is not a per-service caption count. Spoken-to-screen delay includes the selected
-    6-, 9-, or 12-second capture window, queue wait, processing, and audience delivery.
-    The processing value excludes capture, queue wait, and actual audience rendering;
-    measure the complete delay separately.
-16. Open **Viewer link security**, cancel once, then confirm **Replace mobile link**.
-    Confirm the old phone disconnects with a replaced-link message, the new link works,
-    and OBS is unaffected. Never place either viewer token in the evidence.
-17. Refresh the OBS Browser Source and confirm the latest public caption and style
-    return. In a second Access-approved browser, confirm **Main channel already live** and
-    **Take over channel** appear instead of a normal Start action. Cancel once, then
-    confirm takeover using synthetic audio. Confirm the first operator stops when its next
-    stale request is rejected. Confirm the previous service's mobile link is revoked and
-    the takeover operator receives a different link.
-18. Select **End service**, cancel once, then confirm End. Confirm OBS becomes blank but
-    the URL remains unchanged. Start and End a second short service and verify the same
-    Browser Source receives it without editing OBS; confirm both service-scoped mobile
-    links are invalid after their respective End actions.
-19. In a controlled synthetic setup, open Advanced link security, cancel Rotate once,
-    then confirm it. Verify the old Browser Source stops and the replacement URL works.
-    Do not rotate a production URL without the owner and OBS operator present.
+## Latest viewer, appending reader and remote
 
-## Deferred native rehearsal — do not run in the current phase
-
-Apple distribution was deferred on 10 August 2026. This checklist is preserved only to
-avoid losing prior research. Do not run it or treat it as a current blocker unless the
-owner records a new decision that explicitly reopens native distribution.
-
-1. Record the app version/build, exact Git revision, physical iPhone or iPad model, iOS
-   version, TestFlight group, configured dashboard origin, and deployed backend revision.
-   Do not record signing material, credentials, or the OBS URL.
-2. Install through TestFlight, launch from a fresh state, and confirm the native
-   approved-audio notice appears before the dashboard. Exercise both view-only and
-   microphone-approved paths.
-3. Complete Cloudflare Access sign-in. Confirm redirects return to the app, the dashboard
-   loads, and the authenticated session survives an ordinary app relaunch without an
-   Access bypass or embedded credential.
-4. Grant microphone permission, run the audio test, and verify the intended physical
-   input and meter. Confirm the produced `audio/mp4` chunks are accepted by the protected
-   transcription route using synthetic speech.
-5. Repeat the safe terminology, filter, appearance, Start, Pause/Resume, Clear OBS, End,
-   and URL-reuse portions of the main script. Use a separate test OBS computer when
-   validating the overlay and WebSocket path.
-6. Verify portrait and landscape reachability on the physical device, including visible
-   blocking, error, and takeover consequence text without horizontal overflow.
-7. While live with synthetic audio, background the app, lock the device, interrupt audio,
-   and briefly remove the network in separate trials. Confirm capture stops or recovers in
-   the documented safe state, no late caption is published, and returning status is
-   truthful before any Resume action.
-8. Submit content-free TestFlight feedback. Never attach a screenshot containing a
-   caption, Access detail, church-private term, or OBS bearer URL.
-
-The iOS feasibility pass is blocked if installation did not originate from TestFlight,
-the device is a simulator, the backend revision is unknown, Access is bypassed, a
-physical microphone or WebSocket path is untested, or background/device-lock behavior
-cannot be demonstrated safely.
-
-## Pass criteria
-
-| Area | Pass evidence |
+| Check | Expected result |
 | --- | --- |
-| Access | Unapproved users cannot reach the dashboard or protected APIs. |
-| Audio | Intended input is displayed, meter responds, and captions follow its speech. |
-| AI | Approved phrases produce usable source and target text without invented content. |
-| Prompt behavior | Reviewed default and harmless customization work beneath the immutable language/script/non-invention/output envelope; idioms are natural, intentional repetition remains, and incomplete or familiar quoted content is not invented or completed. |
-| Biblical terms | Agreed names/references are recognizable; mapping is applied where tested. |
-| Public safety | Configured mask affects public text without changing protected source text. |
-| OBS | Public captions and all chosen styles appear at the intended canvas position. |
-| Mobile viewer | At 320px and 390px it shows only current moderated target text/status; late join works; replacement, End, expiry, and takeover revoke the correct link without changing OBS. |
-| Layout | Desktop grouping is correct; mobile is reachable with no horizontal overflow; appearance changes update the preview continuously; keyboard and reduced-motion operation remain usable. |
-| Theme | Operator UI is monochrome with readable hierarchy and focus; OBS caption colours remain independently configurable. |
-| Controls | Pause stops capture/AI and clears OBS; Resume retains URL/expiry; idle and paused tests make no AI request. |
-| Ownership | A second start is blocked; confirmed takeover replaces the prior controller without mixed captions. |
-| Recovery | Reload recovers the same controller paused; End preserves the URL; Rotate alone invalidates it. |
-| Performance | Processing latency, skipped chunks, and transcription usage stay inside stakeholder-agreed limits. |
-| Inference enforcement | Authenticated synthetic fault checks reject missing, duplicate, stale, paused, expired, invalidated, over-ceiling, and aliased requests before provider dispatch; no real provider traffic is needed for the deterministic checks. |
-| Incomplete output | A mocked non-`stop`/empty completion publishes no text; acknowledged usage and skipped count update, while missing/failed usage acknowledgement stops capture. |
-| AI usage | Service time, reserved transcription attempts, acknowledged translation calls/tokens (including incomplete skips), and latest provider headroom remain separate; reload preserves active-service totals and public outputs receive none of this metadata. |
-| Translation refresh | Live and paused drafts apply only after confirmation; unfinished audio/context/output clears; stale captions are rejected; service timer/state, usage, controller, viewer link, and OBS link remain unchanged. |
-| Buffer | 6-, 9-, and 12-second choices match observed cadence, apply after translation refresh, and communicate the latency tradeoff. |
-| Cost | Provider dashboards show no paid usage or unexpected concurrent consumption. |
+| Open `/view` privately on a signed-out phone | Current moderated target caption/status only; local text sizing does not change OBS |
+| Refresh/join latest viewer late | At most current caption; no source, history, usage or operator access |
+| Open separate `/read` link | Appending translated paragraphs; no source or private summary |
+| Open more readers/remotes | No model call caused by opening/polling; reader work is shared |
+| Optional AI off | Reader joins existing translations and marks fallback; summary reports unavailable |
+| Optional AI on in approved synthetic test | Shared bounded phrasing improves tested punctuation without changing meaning; glossary/filter rules still apply |
+| Scroll reader away from bottom | New content does not yank scroll; return-to-live action is available |
+| Clear/Pause/refresh during pending paragraph work | Pending text discarded; committed paragraphs preserved; new revisions/languages separated |
+| Saving on, reader reload/late join | Paginated public history recovered for that service |
+| Saving off | No durable source archive; explain that object eviction can lose unreceived reader text |
+| Pair operator phone | Requires Access plus service remote credential; phone never captures audio |
+| Remote Pause | New server inference claims stop immediately; physical mic status confirmed only after host acknowledgement |
+| Remote Resume/Clear | Applies to the existing capture computer; duplicate commands do not repeat actions |
+| Capture computer disconnected | Phone reports pending/disconnected; no false microphone confirmation |
+| Replace viewer/reader link | Only intended capability changes; old link denied, OBS unchanged |
+| Takeover | Old controller/remote/reader/latest-viewer revoked; stale computer stops on reconciliation |
+| End/expiry | OBS blank but reusable; latest viewer/remote revoked; reader remains for 30-minute grace |
+| Network loss/reconnect | Truthful state and bounded recovery; record actual detection time, not only mocked socket behavior |
 
-Any failed safety, access, wrong-input, fabricated-content, or public-filter check is a
-test failure. Accuracy and latency cannot pass until stakeholders define numeric or
-sample-based thresholds for the intended service.
+Test authenticated missing/duplicate/stale/paused/expired attempt rejection through the
+synthetic harness. Do not publish credential values or spend inference quota to prove a
+rejection. A mocked incomplete completion must skip public text while retaining known
+usage; accounting failure stops capture.
 
-After the short rehearsal, the [readiness record](DEPLOYMENT_REHEARSAL_READINESS.md)
-defines a content-free 90-minute channel test using fixed synthetic captions and no AI
-routes. It measures channel/lifecycle endurance only. A provider/audio duration run needs
-separate verified Groq headroom and synthetic audio; intended hardware, physical viewers,
-meaning, and full audience latency still need their own evidence. Optional QR, terminology,
-and correction work follows the [pilot improvement gates](PILOT_IMPROVEMENTS.md).
+## Private archive and summaries
 
-## Known limitations
+1. End an opted-in service and inspect its archive. Original source, corrections and
+   paragraph/source IDs stay distinct; independent pagination does not repeat/skip records.
+2. Correct a private source record. Preserve the original and invalidate a prior summary.
+   This action does not edit already displayed OBS output or train a model.
+3. Cancel Remove passage once, then confirm. Reader removes the paragraph on successful
+   polling; source IDs become excluded from future summaries while originals remain private.
+   If the current live caption uses a removed source ID, verify it is also cleared.
+   Unrelated current captions must remain; Clear is the separate general blanking action.
+4. With optional AI enabled for approved synthetic testing, select model, language,
+   short/detailed length and harmless guidance. Generate manually after End.
+   Duplicate submission/lost acknowledgement must not schedule duplicate jobs.
+5. Inspect source-linked points, uncertain references, names and omissions. Guidance must
+   not override grounding. No exact TB2 passage text is imported; reject invented scripture
+   or unsupported points. Source-ID membership alone does not establish semantic support.
+6. Exercise disabled-provider, context-limit, quota, interrupted-job and network failures.
+   Show a visible failed state; never retry uncertain inference automatically or use paid fallback.
+7. Export the transcript privately as JSON. Summary export requires the explicit review
+   step. Clear local exports after the synthetic test; app deletion cannot recall copies.
+8. Cancel Delete once, then confirm after End. Archive/index and reader access disappear;
+   late jobs cannot restore content. Read-time expiry must deny content seven days after
+   End/expiry even if cleanup is late. Use a test clock only in isolated automated tests,
+   never alter production clocks/state to simulate retention.
 
-- The app records fixed 6-, 9-, or 12-second windows; the UI latency number excludes that
-  recording time. Fixed windows can reduce fragmentation but cannot detect every complete thought.
-- One target language is supported per service. There is no source-caption fallback,
-  manual correction, history, archive, or sermon summary.
-- The AI usage dashboard covers only the current Main-channel service plus Groq's latest
-  daily-request/per-minute-token response-header snapshot. Active-service counters survive
-  same-tab reload; takeover starts fresh counters. It cannot see remaining daily tokens or
-  concurrent organization consumption and is not a provider billing meter. Free tiers
-  have no availability guarantee.
-- Language and theological quality remain unvalidated for the full supported matrix.
-- The first Indonesian→English review is also pending; selecting Operator and preparing
-  samples does not constitute human review or a passing quality result.
-- Device unplug/replug, long network loss, provider quota/outage, Access expiry, and a
-  complete 90-minute service still require controlled validation.
-- The reusable OBS URL is a long-lived bearer credential. Rotation is the incident response,
-  not a normal per-service action.
-- The mobile viewer URL is a service-scoped bearer credential. It shows one current
-  caption, not scrolling history or multiple target languages.
-- Ordinary translation drafts remain in page memory. Caption style, an explicitly saved
-  custom prompt, and the tutorial-dismissal flag persist in unencrypted `localStorage`; the applied active snapshot
-  uses unencrypted tab `sessionStorage` for same-tab recovery and is cleared on End,
-  takeover, or idle cleanup. None is a shared church profile; do not enter secrets.
-- The iOS shell has only stale pre-hardening unsigned simulator and generic-device
-  archive evidence; the hardened sources compile, but their complete build and four-test
-  run remain pending. Apple signing, upload, TestFlight installation, physical-device
-  microphone/WebKit behavior, and compatibility with the protected deployed backend
-  remain unvalidated.
+## Usage and duration
 
-## Evidence template
+Verify active-service time, reserved attempts, acknowledged translation tokens and latest
+provider headroom separately from the **Last 30 days** history. Check per-service/day/model
+groups, unknown outcomes and capacity-estimate assumptions. More phones, Clear, End,
+takeover and archive deletion must not erase usage or create additional viewer inference.
+Each usage row expires 30 days after its original attempt, independently of content.
+The ledger cannot see unrelated provider-account traffic or renew a monthly allowance.
 
-Record metadata only; do not record credentials, URLs, audio, or caption content.
+Run a short content-free channel test before a 90-minute endurance test with optional AI
+off: use fixed synthetic public captions, no inference routes, no reserved transcription
+attempts, and zero provider usage. Preserve the original service to verify actual expiry;
+test a second service and takeover separately. Channel endurance does not test audio/AI.
+
+For a separate approved audio-duration run, measure provider usage on short samples first,
+then verify sufficient headroom. Observe full audience delay, queue drops, input loss,
+Access expiry and provider failure. Disconnect OBS and the capture computer separately to
+distinguish delivery failure from capture failure. Stop at quota/error limits.
+
+## Evidence and acceptance
+
+Record content-free metadata:
 
 ```text
-Date/time and tester:
-Deployed Git revision:
-Final Worker version / isolated environment:
-Client and version/build (browser or TestFlight):
-Browser/device and OS:
-TestFlight group and installation result (if applicable):
-Configured dashboard origin and backend revision (no tokens):
-Audio device:
-AUX receiving connection: USB audio interface (user-confirmed)
-USB audio interface model / device label / selected-input check:
-Caption computer / OS / browser:
-Separate OBS computer / OS / OBS version:
-Audience phone models / OS / browser:
-Configured transcription / translation models:
-Observed chunk cadence / displayed transcription ceiling:
-Selected speech buffer / refresh result:
-Source -> target:
-Operator reviewer / evaluation sample IDs / human-review status:
-Translation draft / confirmation / stale-output result:
-Service timer/controller/viewer/OBS preservation result (no token values):
-Reviewed-default / custom-prompt result (no prompt content):
-Synthetic/consented data approval:
-Duration:
-Overlay sequence / skipped count / reserved transcription attempts:
-Processing-latency range:
-OBS style/reload/revocation result:
-OBS-only connection loss/recovery / caption-computer state and timing:
-Mobile viewer late-join/replacement/End/takeover result:
-Groq and Cloudflare Free-plan check:
-Incomplete-output / usage-acknowledgement result (synthetic only):
-Issues and timestamps (no private content):
-Overall pass / fail / blocked:
+Date / approved environment / Git SHA / final Worker version:
+Device / OS / browser / selected USB interface:
+Separate OBS computer / OBS version / audience phone models:
+Source -> target / models / buffer / evaluation sample IDs:
+History consent / optional AI state / account-plan and data-control checks:
+Tutorial / keyboard / zoom / screen-reader / layout results:
+Fast output / glossary / filter / completion / attempt-claim results:
+Remote commands / host acknowledgement / disconnect results:
+Reader late join / Clear / Pause / revision / link expiry results:
+Source corrections / exclusions / summary grounding / export / deletion results:
+Service counters / rolling usage / unknown outcomes / retention results:
+Capture-to-display delay / processing time / queue drops / duration:
+Recovery / second service / takeover / expiry / OBS URL reuse:
+Issues / pass, fail or blocked / owner go-no-go:
 ```
 
-Stop immediately for an unintended audio input, private content, exposed credential,
-OBS URL, or mobile viewer link, Access bypass, public-filter failure, sustained provider
-errors, or any sign of paid usage. End the service, replace an exposed mobile link or
-rotate an exposed OBS URL as appropriate, preserve only content-free
-timing metadata, and report
-through the private process in [SECURITY.md](../SECURITY.md) when security is involved.
+Stop for unintended input, private-data exposure, failed authentication boundaries,
+invented/meaning-changing output, public-filter failure, sustained provider errors or
+paid usage. End capture, revoke the affected capability as described in
+[Security](../SECURITY.md#incident-response), and retain only safe diagnostic metadata.
+Acceptance needs owner-approved quality, latency, privacy, recovery and budget thresholds;
+screenshots and successful deployment alone are insufficient.
