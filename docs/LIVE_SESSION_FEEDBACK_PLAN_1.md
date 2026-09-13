@@ -1,7 +1,8 @@
 # LIVE_SESSION_FEEDBACK_PLAN_1
 
-Implementation review: 13 September 2026. The approved plan is implemented on
-`codex/live-session-experience-plan`; deployment and real-sermon acceptance remain pending.
+Implementation review: 13 September 2026. The approved plan merged in PR #26 at
+`20597d8` and deployed after the [proxy fix](DEPLOYMENT.md). Protected runtime rehearsal
+and real-sermon acceptance remain pending.
 See [implementation decisions](decisions/0011-service-history-and-optional-inference.md)
 for exact storage, provider, limits, and release gates. The sections below preserve the
 product design; the implementation choices in that decision record take precedence.
@@ -11,6 +12,26 @@ chunks only as reader input; seven-day opt-in archive; 30-minute reader grace; J
 exports; Cloudflare Workers AI behind an explicit deployment switch. Current OBS and
 `/view` remain free of extra inference. No exact TB2 passage import or automatic model
 training is included. Physical-device and semantic quality checks require a rehearsal.
+
+## Implemented choices versus the original proposal
+
+The numbered sections retain the approved design and its evaluated alternatives. Use
+this matrix and ADR 0011 for the delivered first-release scope:
+
+| Area | Implemented choice | Still deferred or unverified |
+| --- | --- | --- |
+| Reader | 30-second shared cadence, at most five moderated translation chunks per batch; 200 calls/service | Natural-boundary quality, physical latency and rich grammar guarantees |
+| History | Default-off, immutable pre-Start opt-in; seven days after End/expiry; JSON export | Mid-service opt-in, tenant roles and physical backup-erasure guarantees |
+| Summary | Manual ended-service job, allowlisted Workers AI models, language/length/guidance and source IDs; review before JSON export | Section selector, editable structured summary, other providers and exact TB2 retrieval |
+| Storage | Three SQLite Durable Objects and alarms | D1 and Queues alternatives were not selected |
+| Names | TB2 names and explicitly approved whole-word aliases | Persistent reusable packs, identity notes/database and automatic learning |
+| Clear/Remove | Clear pending/live output; Remove excludes a public paragraph's sources and invalidates summary | Remove requests a clear when current output matches its source IDs; it does not publish a correction |
+| Reader access | Active service plus 30-minute grace; immediate server revocation on replacement/takeover/deletion | Disconnected clients update on successful poll, not instant offline erasure |
+| Usage | Numeric rolling 30-day ledger; separate provider/stage totals and conservative optional-AI reservations | Account-wide billing and a renewable monthly token allowance |
+
+Optional Workers AI remains disabled unless explicitly enabled. The original alternative
+provider/20-second cost examples below are design comparisons, not measured consumption
+or the current call budget. The implementation makes no per-viewer inference call.
 
 ## Confirmed decisions
 
@@ -121,7 +142,8 @@ more audience phones must not trigger more AI calls.
 
 ## 4. Clear, pause, refresh, and end
 
-Rename the ordinary action **Clear live caption**. It clears current output, not history.
+The ordinary UI action is **Clear captions** (called Clear live caption in this design).
+It clears current output, not committed history.
 
 | Action | OBS/operator current caption | Audience reader | Saved transcript and summary input |
 | --- | --- | --- | --- |
@@ -416,9 +438,9 @@ capture-computer failure, quota exhaustion, and audience attempts to call operat
 Verify history and summary deletion with pending jobs and restored backups. Measure both
 fast-caption latency and readable-paragraph delay, plus total model usage for one service.
 
-Remaining product choices: accept or adjust the proposed 20–30-second reader cadence,
-30-minute post-service reading window, first summary profile/provider, and archive
-export format. TB2 is confirmed; authorized text access remains to be verified.
+Chosen first-release settings are 30-second reader cadence, 30-minute post-service
+reading window, Cloudflare Workers AI with an explicit switch, and JSON export.
+TB2 is confirmed; authorized passage-text access remains to be verified.
 Validate summary candidates against the same synthetic
 Indonesian sermon, approved names, ambiguous identities, unsupported references, and
 prompt-injection cases before selecting a model for real sermon content.

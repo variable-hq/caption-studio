@@ -1,6 +1,7 @@
 # Security policy
 
-Local safeguards and deployment evidence reviewed 12 September 2026.
+Reviewed 13 September 2026 against merged Plan 1. The deployment retry succeeded;
+[Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
 Church Live Caption is a pre-release prototype. Security fixes are supported only on
 the current `main` branch; no production security or availability SLA is offered.
@@ -19,7 +20,7 @@ itself.
 
 ## Security boundaries
 
-The backend deployment has two intentional access classes:
+The deployment separates operator authentication from scoped audience credentials:
 
 | Surface | Expected protection | Capability |
 | --- | --- | --- |
@@ -32,11 +33,16 @@ The backend deployment has two intentional access classes:
 | `/api/live/overlay*` | Reusable channel token and read-only WebSocket | Current public caption stream |
 | `/view*` | Public network path; no operator capability | Self-contained mobile viewer page |
 | `/api/live/viewer*` | Per-service viewer token and read-only WebSocket | Current moderated translation and service status |
+| `/operator/mobile`, remote experience APIs | Access plus explicitly paired remote credential | Pause/Resume/Clear and acknowledgement status |
+| `/api/live/experience/*` | Access; controller required for active-service operations | Private history, summaries and numeric usage |
+| `/read`, `/_next/static/*` | Public document/static assets | Reader UI, no embedded credentials |
+| `/api/live/reader` | Separate service reader credential | Published translated paragraphs only |
 
 The OBS and mobile-viewer paths need exact, more-specific Cloudflare Access bypasses
-because viewers cannot complete operator sign-in. Limit them to `/overlay*`,
-`/api/live/overlay*`, `/view*`, and `/api/live/viewer*`. Do not broaden the bypass to the
-dashboard, inference routes, or operator channel routes.
+because viewers cannot complete operator sign-in. Keep existing overlay/viewer bypasses
+narrow; add `/read`, `/api/live/reader` and `/_next/static/*` only as specified in
+[Deployment](docs/DEPLOYMENT.md#access-paths). Never bypass the dashboard, remote,
+experience, inference or operator channel routes.
 
 The local Worker now verifies Access before atomically claiming a reserved attempt for
 each inference stage. Direct or replayed transcription requests cannot skip this claim;
@@ -46,11 +52,10 @@ Pause and confirmed refresh invalidate earlier reservations even after Resume. L
 state invalidates all pre-existing reservations because their dispatch history is unknown.
 These controls pass local checks and await deployed verification; see [G01](docs/GAP_ANALYSIS.md).
 
-The [read-only deployment investigation](docs/DEPLOYMENT_REHEARSAL_READINESS.md) found
-only production, no isolated test Worker, and a deployed version without Git provenance.
-Unauthenticated channel/readiness probes returned edge HTTP 403, not application-auth
-proof. Plan evidence, authenticated operator access, test secrets, and exact public-route
-bypasses remain setup prerequisites; do not weaken Access to complete the rehearsal.
+The [12 September investigation](docs/DEPLOYMENT_REHEARSAL_READINESS.md) is historical.
+Current deployment identity is in the [runbook](docs/DEPLOYMENT.md); physical rehearsal,
+account-plan/data controls and exact public route behavior still require verification.
+Successful packaging/deployment is not an application-auth or semantic-quality test.
 
 ## Deferred iOS feasibility shell
 
@@ -159,8 +164,10 @@ Current behavior:
 - during an active service, the active language, terminology, filter, buffer, and prompt
   snapshot is stored in that tab's unencrypted `sessionStorage` solely for same-tab
   recovery, then removed on End, takeover, or idle cleanup;
-- the active custom prompt crosses the protected translation API and Groq inference
-  boundary, but is not written to the Durable Object or sent to the mobile viewer or OBS;
+- the active translation prompt crosses the protected API/Groq boundary and is not
+  stored in the room or sent to audience clients. The journal receives glossary/filter
+  context for reader work; opted-in checkpoints retain that bounded context while needed.
+  Summary settings/guidance are separately retained with opted-in private summary jobs;
 - acknowledged translation usage is reduced to bounded numeric token totals plus the latest
   sanitized Groq daily-request/per-minute-token headroom. These service counters are
   stored in the active Main Durable Object and returned only through the Access-protected operator channel
@@ -216,7 +223,8 @@ setting.
   collaborators promptly.
 - Keep the Worker on the intended plan and do not introduce paid fallback without an
   explicit owner decision.
-- Use the SQLite-backed Durable Object binding declared in `wrangler.jsonc`.
+- Preserve all three SQLite Durable Object bindings and v1/v2 migrations in
+  `wrangler.jsonc`, plus AI and assets. Optional AI remains disabled until configured.
 - Keep logs free of audio, captions, prompts, glossary terms, JWTs, OBS URLs, and mobile
   viewer links.
 - Review Cloudflare routes after every domain or Access-application change.
@@ -250,8 +258,8 @@ setting.
   before refresh cannot publish under the newly active settings.
 - Avoid raw exception details in public responses.
 
-As of 23 August 2026, `npm audit --omit=dev` and the full `npm audit` report no known
-vulnerabilities. Compatible lockfile updates include Nano ID 3.3.18, JS-YAML 4.3.1,
+On 13 September 2026, `npm audit --omit=dev` and full `npm audit` each reported zero
+known vulnerabilities; see [cleanup QA](docs/CLEANUP_DEPLOY_QA.md). Compatible lockfile updates include Nano ID 3.3.18, JS-YAML 4.3.1,
 Wrangler 4.125.0, Miniflare 5.20260820.0-alpha, and Undici 7.29.0. Continue to assess
 findings before updates and never apply `npm audit fix --force` without a compatibility
 review.
@@ -260,8 +268,10 @@ review.
 
 If a secret or token is exposed:
 
-1. End the active service. Replace the mobile link if it alone was exposed, or rotate the
-   OBS link if the long-lived OBS URL may be exposed.
+1. Stop capture. Replace an exposed latest-viewer or reader link, revoke/re-pair an
+   exposed remote, or rotate an exposed OBS link while idle. End revokes the latest
+   viewer and remote but leaves a 30-minute reader grace; replace the reader link while
+   active or delete an ended saved archive to revoke that reader immediately.
 2. Rotate the Groq or OBS encryption key, or invalidate the affected Cloudflare Access
    session, as appropriate. Rotating the encryption key also requires rotating the OBS URL.
 3. Check Worker and provider logs for time, routes, and usage metadata without copying
@@ -270,6 +280,8 @@ If a secret or token is exposed:
    necessary; deletion from the latest commit alone may be insufficient.
 5. Document the root cause, affected window, remediation, and follow-up controls in a
    private incident record.
+
+## Plan 1 history and optional inference
 
 The approved Plan 1 privacy and threat review is recorded in
 [the implementation decision](docs/decisions/0011-service-history-and-optional-inference.md).

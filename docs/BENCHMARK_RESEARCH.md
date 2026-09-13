@@ -4,7 +4,12 @@ Research date: 11 September 2026. All external sources below were accessed on
 2026-09-11. This is a comparison of published official workflows, not a hands-on
 performance test, procurement recommendation, or accessibility certification.
 
-Church Live Caption already implements the essential small-church workflow:
+Historical baseline: the local comparisons and recommendations below describe
+11 September. Plan 1 subsequently added a remote, reader, private history, summaries and
+rolling usage; see [current product scope](PRODUCT_SPEC.md). Vendor descriptions remain
+research dated at their cited access date, not a fresh availability/pricing check.
+
+At the research date, Church Live Caption already implemented the essential small-church workflow:
 browser audio capture, church terminology, operator previews, an OBS overlay,
 and a separate mobile audience page. Its strongest next step is a measured,
 repeatable service rehearsal. Commercial products establish useful interaction

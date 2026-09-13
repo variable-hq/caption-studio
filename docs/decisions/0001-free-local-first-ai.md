@@ -48,9 +48,9 @@ remains a desirable offline fallback.
 ## Upgrade boundary
 
 The superseded design anticipated transcription, translation, and later summary
-provider contracts. The current cloud implementation retains transcription and
-translation interfaces only; a summary contract will be designed with the future
-archive, consent, and review workflow rather than kept as unused code.
+provider contracts. At the original supersession, the cloud implementation kept only live transcription and
+translation interfaces. [ADR 0011](0011-service-history-and-optional-inference.md) later
+added approved history and bounded optional summary inference in September 2026.
 
 ## Supersession
 

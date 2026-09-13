@@ -1,7 +1,9 @@
 # Plan 1 validation
 
 13 September 2026. Synthetic fixtures only; no real sermon, provider call, or production
-deployment is part of this evidence. Related issue: #25.
+deployment is part of this evidence. Tested branch head: `ce49bd4` (merged in PR #26
+as `20597d8`). Related issue: #25. The later successful Cloudflare retry is recorded
+separately in [Deployment](DEPLOYMENT.md) and [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
 ## Automated checks
 

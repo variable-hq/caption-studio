@@ -3,7 +3,8 @@
 Date: 12 September 2026. Status: implemented for controlled testing; operator bilingual and
 church terminology review remains pending. Related findings: G01, G06, and G07 in the
 [gap analysis](../GAP_ANALYSIS.md). This record covers bounded correctness changes
-authorized with the next-step work, not approval for a live deployment or every language.
+authorized with the next-step work, not language-quality approval. Current deployment
+identity is in [Deployment](../DEPLOYMENT.md); the semantic/rehearsal limits below remain.
 
 ## One-time inference dispatch
 

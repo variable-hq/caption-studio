@@ -10,7 +10,9 @@
     "build": "next build",
     "build:cloudflare": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "deploy": "npm run build:cloudflare && npm run deploy:worker",
+    "deploy:worker": "OPEN_NEXT_DEPLOY=true wrangler deploy",
+    "deploy:check": "npm run deploy:worker -- --dry-run",
     "ios:generate": "xcodegen generate --spec ios/project.yml",
     "ios:build": "npm run ios:generate && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project ios/ChurchLiveCaption.xcodeproj -scheme ChurchLiveCaption -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build/DerivedData CODE_SIGNING_ALLOWED=NO build",
     "ios:test": "npm run ios:generate && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project ios/ChurchLiveCaption.xcodeproj -scheme ChurchLiveCaption -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ios/build/DerivedData CODE_SIGNING_ALLOWED=NO test",
@@ -21,7 +23,7 @@
     "typecheck": "tsc --noEmit",
     "typecheck:strict": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
     "test": "vitest run",
-    "validate": "npm test && npm run typecheck:strict && npm run lint && npm run build && npm run build:cloudflare && git diff --check"
+    "validate": "npm test -- --maxWorkers=1 && npm run typecheck:strict && npm run lint && npm run build && npm run build:cloudflare && npm run deploy:check && git diff --check"
   },
   "dependencies": {
     "jose": "^6.1.3",

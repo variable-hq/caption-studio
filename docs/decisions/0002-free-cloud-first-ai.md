@@ -2,8 +2,14 @@
 
 - Status: accepted for Phase 1 prototype
 - Date: 2026-07-19
-- Reviewed: 2026-08-23
+- Reviewed: 2026-09-13; live pipeline retained, history/optional AI extended by ADR 0011
 - Supersedes: ADR 0001
+
+The amendments below are dated decision history. [ADR 0011](0011-service-history-and-optional-inference.md)
+extends the implementation with opt-in journals, appending readers, a remote, rolling
+usage and optional Workers AI. Earlier no-archive, constant-size storage and four-path
+statements describe their date, not the full current runtime. See [Architecture](../ARCHITECTURE.md)
+and [Deployment](../DEPLOYMENT.md) for current behavior and routes.
 
 ## Context
 
@@ -207,12 +213,12 @@ GPT-OSS request succeeded.
   exhaust it.
 - The free translation model needs evaluation for every confirmed language and biblical
   terminology. A human-approved glossary remains authoritative.
-- Sermon storage and summaries remain separate, opt-in later phases; choosing cloud AI
-  does not grant permission to archive audio or transcripts.
+- Cloud AI alone does not authorize storage. The later ADR 0011 explicitly adds default-off
+  pre-service saving, seven-day private content and manual summaries; audio remains unstored.
 
 ## Upgrade boundary
 
 Quota exhaustion, latency, translation quality, or reliability can justify a paid
 provider later. `TranscriptionProvider` and `TranslationProvider` isolate the browser
-from Groq response shapes. A summary-provider contract is deliberately deferred until
-the project approves transcript consent, retention, grounding, and review behavior.
+from Groq response shapes. Optional Workers AI summary contracts now implement the approved
+consent, retention, grounding and review behavior in ADR 0011.
