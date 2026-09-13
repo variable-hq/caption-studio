@@ -43,6 +43,8 @@ import {
   type TranslationSessionSettings,
 } from "@/live/translation-settings";
 import { useLiveCaptionSession } from "@/live/use-live-caption-session";
+import { ServiceExperiencePanel } from "@/components/operator/ServiceExperiencePanel";
+import { UsageHistory } from "@/components/operator/UsageHistory";
 
 type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
 
@@ -56,6 +58,7 @@ const TRANSLATION_PROMPT_PREFERENCE_KEY =
   "church-live-caption:translation-system-prompt:v1";
 
 type WorkspaceSectionId =
+  | "history"
   | "audio"
   | "translation"
   | "usage"
@@ -73,12 +76,14 @@ const SETUP_WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
   },
   { id: "appearance", label: "Appearance", description: "Style the OBS captions" },
   { id: "outputs", label: "Live outputs", description: "OBS and mobile delivery" },
+  { id: "history", label: "Sermon history", description: "Reader, remote and summaries" },
   { id: "usage", label: "AI usage", description: "Consumption and limits" },
   { id: "prompt", label: "AI instructions", description: "Optional translation guidance" },
 ];
 
 const LIVE_WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
   { id: "translation", label: "Translation", description: "Change live configuration" },
+  { id: "history", label: "Sermon history", description: "Reader, remote and summaries" },
   { id: "usage", label: "AI usage", description: "Monitor consumption and limits" },
   { id: "prompt", label: "AI instructions", description: "Tune translation behaviour" },
   { id: "viewer", label: "Mobile viewer", description: "Share or replace the link" },
@@ -90,6 +95,7 @@ const WORKSPACE_SECTION_COPY: Record<
   WorkspaceSectionId,
   { eyebrow: string; title: string; description: string }
 > = {
+  history: { eyebrow: "Service experience", title: "Reader, remote and sermon history", description: "Share readable captions, pair the operator phone, and review saved sermons." },
   audio: {
     eyebrow: "Input",
     title: "Audio input",
@@ -433,6 +439,7 @@ export default function OperatorDashboard() {
     "Jesus Christ, Holy Spirit, Bethlehem",
   );
   const [filterText, setFilterText] = useState("");
+  const [saveHistory, setSaveHistory] = useState(false);
   const [speechBufferMs, setSpeechBufferMs] = useState<SpeechBufferMs>(
     DEFAULT_SPEECH_BUFFER_MS,
   );
@@ -505,8 +512,9 @@ export default function OperatorDashboard() {
     () => ({
       ...draftTranslationSettings,
       style,
+      saveHistory,
     }),
-    [draftTranslationSettings, style],
+    [draftTranslationSettings, style, saveHistory],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {
@@ -536,6 +544,7 @@ export default function OperatorDashboard() {
     pauseSession,
     resumeSession,
     clearCaption,
+    rememberReaderLink,
     showTestCaption,
     refreshTranslationSession,
     stopSession,
@@ -1135,6 +1144,14 @@ export default function OperatorDashboard() {
 
       <p className={`actionFeedback ${clipboardMessage ? "" : "visuallyHidden"}`} role="status" aria-live="polite">{clipboardMessage}</p>
 
+      <section className="historyConsent" aria-label="Transcript saving">
+        {liveState.historyIncomplete && <p role="alert">History saving failed for part of this service. Review transcript gaps before generating a summary.</p>}
+        <label className="checkLabel"><input type="checkbox" name="saveTranscript" checked={hasService ? liveState.service?.saveHistory === true : saveHistory}
+          disabled={hasService || isBusy} onChange={(event) => setSaveHistory(event.target.checked)} />
+          Save transcript history for this service</label>
+        <p className="helpText">{hasService ? liveState.service?.saveHistory ? "Saving privately during this service. Tell participants that transcript history is enabled." : "History saving is off for this service." : "Choose before Start and tell participants when saving is enabled. History deletes 7 days after End; numeric AI usage is retained separately for 30 days."}</p>
+      </section>
+
       {hasService ? (
         <section
           className={`liveConsole ${isPaused ? "paused" : ""} ${liveNeedsAttention ? "attention" : ""}`}
@@ -1235,7 +1252,7 @@ export default function OperatorDashboard() {
               title="Clear current captions from OBS and the mobile viewer without changing capture."
               onClick={() => void clearCaption()}
             >
-              {controlAction === "clear" ? "Clearing…" : "Clear captions"}
+              {controlAction === "clear" ? "Clearing…" : "Clear live caption"}
             </button>
             <details
               className="moreMenu"
@@ -1281,7 +1298,7 @@ export default function OperatorDashboard() {
               End service
             </button>
           </div>
-          <p className="liveControlHelp">Pause stops capture and clears both outputs. Clear captions removes text without changing capture. The 90-minute timer continues while paused.</p>
+          <p className="liveControlHelp">Pause stops capture and clears the current caption. Clear live caption drops pending reader text; committed reader paragraphs remain. The 90-minute timer continues while paused.</p>
         </section>
       ) : (
         <section className="setupHero" aria-labelledby="setup-heading">
@@ -1522,6 +1539,7 @@ export default function OperatorDashboard() {
               ) : null}
 
               {currentWorkspaceSection === "usage" ? (
+                <>
                 <AiUsageDashboard
                   active={hasService || anotherOperatorActive}
                   statusLabel={
@@ -1538,7 +1556,11 @@ export default function OperatorDashboard() {
                     cloudModels?.translation ?? "Configured translation model"
                   }
                 />
+                <UsageHistory />
+                </>
               ) : null}
+
+              {currentWorkspaceSection === "history" ? <ServiceExperiencePanel service={liveState.service} onReaderLink={rememberReaderLink} /> : null}
 
               {currentWorkspaceSection === "prompt" ? promptEditor : null}
 
@@ -1610,7 +1632,7 @@ export default function OperatorDashboard() {
                           disabled={controlAction !== null || anotherOperatorActive || isBusy}
                           onClick={() => void clearCaption()}
                         >
-                          {controlAction === "clear" ? "Clearing…" : "Clear captions"}
+                          {controlAction === "clear" ? "Clearing…" : "Clear live caption"}
                         </button>
                       </div>
                       <p className="helpText">{anotherOperatorActive ? "Another operator controls this channel. Test and clear are available when the channel is idle." : "Show test sends synthetic text without microphone capture or AI calls. Confirm it appears in OBS, then clear it."}</p>

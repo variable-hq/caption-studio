@@ -60,7 +60,7 @@ const STEPS = [
     instructions: [
       "Use Appearance to choose readable text and safe margins. Verify the result on the actual OBS computer.",
       "In Live outputs, create the channel if needed. Paste its OBS URL into an OBS Browser Source at 1920 × 1080.",
-      "Before capture, choose Show test, check OBS, then Clear captions. Keep the OBS URL private; viewers use the mobile link.",
+      "Before capture, choose Show test, check OBS, then Clear live caption. Keep the OBS URL private; viewers use the mobile link.",
     ],
     section: "appearance",
     action: "Open Appearance",
@@ -88,7 +88,7 @@ const STEPS = [
     example: "Pause stops capture · Clear keeps capture running",
     location: "Live controls and AI usage",
     instructions: [
-      "Pause stops capture and clears both outputs. Resume listens again. Clear captions removes text while capture continues.",
+      "Pause stops capture and clears the current caption. Resume listens again. Clear live caption keeps committed reader paragraphs while capture continues.",
       "Watch AI usage and skipped captions. Pause to review repeated problems. The 90-minute timer continues while paused.",
       "Choose End service and confirm when finished. Capture stops, outputs clear, and the mobile link expires. Keep the OBS URL for next time.",
     ],

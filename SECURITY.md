@@ -147,7 +147,8 @@ Current behavior:
 - raw audio is captured in a selected 6-, 9-, or 12-second browser window, forwarded for
   active inference,
   and not stored by this application;
-- protected source and translated text remain in active browser memory;
+- protected source and translated text remain in active browser memory; explicit
+  pre-service opt-in also stores private source and corrections for seven days after End;
 - only the latest moderated public caption is retained ephemerally in the live room;
 - caption-style preferences, a custom operator prompt explicitly saved by the operator,
   and the first-visit tutorial's dismissal flag use unencrypted browser `localStorage`;
@@ -161,8 +162,8 @@ Current behavior:
 - the active custom prompt crosses the protected translation API and Groq inference
   boundary, but is not written to the Durable Object or sent to the mobile viewer or OBS;
 - acknowledged translation usage is reduced to bounded numeric token totals plus the latest
-  sanitized Groq daily-request/per-minute-token headroom. It is stored only in the active
-  Main Durable Object and returned only through the Access-protected operator channel
+  sanitized Groq daily-request/per-minute-token headroom. These service counters are
+  stored in the active Main Durable Object and returned only through the Access-protected operator channel
   read; an active controller must claim its reserved attempt before inference, and the
   response waits for usage acknowledgement. Incomplete output is stripped and returned as
   `422 translation_incomplete` after its available usage is persisted; missing or failed
@@ -171,7 +172,9 @@ Current behavior:
 - a translation-session refresh clears unfinished/queued audio, recent translation
   context, and current public output without rotating the controller, viewer, or OBS
   credentials or extending the original service expiry; and
-- no sermon archive, summary database, analytics store, or audio bucket exists.
+- opted-in sermon journals store original source, reviewed corrections, exclusions,
+  reader paragraphs, and private summary drafts. Numeric usage has independent 30-day
+  retention. No audio bucket or third-party analytics store is introduced.
 
 Anyone with access to the same unlocked browser profile, or any same-origin script that
 runs in that profile, may be able to read `localStorage` and active-tab `sessionStorage`.
@@ -268,6 +271,27 @@ If a secret or token is exposed:
 5. Document the root cause, affected window, remediation, and follow-up controls in a
    private incident record.
 
-Persistent sermon storage and AI summaries must undergo a separate privacy and threat
-review before implementation, including consent, authorization, retention, export,
-deletion, grounding, and human approval.
+The approved Plan 1 privacy and threat review is recorded in
+[the implementation decision](docs/decisions/0011-service-history-and-optional-inference.md).
+Sermon journals are shared among this app's authorized operators, not isolated by email.
+History consent is explicit before Start and cannot be enabled retroactively. Content
+expires seven days after End/expiry; reader access ends after a 30-minute grace period.
+Read-time checks enforce expiry even if cleanup alarms are delayed. Original source is
+never sent to audience readers. Raw audio remains unstored.
+
+Numeric usage admissions and outcomes expire individually after 30 days and survive all
+content deletion and controller actions. Unknown outcomes remain unknown. Provider
+admission fails closed if accounting is unavailable, and uncertain calls are not replayed.
+
+`/api/live/reader` accepts only a separate service reader token. It never initiates AI.
+`/api/live/experience/*` requires Access; scoped remote credentials additionally authorize
+only Pause, Resume, Clear and command status. Pairing never grants inference or source
+access. Keep protected paths out of broad Access bypass policies.
+
+Optional Workers AI generation is disabled until explicitly configured. Reader output is
+moderated again; summaries use a fixed grounding policy and validate evidence IDs. These
+checks cannot prove semantic faithfulness. Operators must review summaries before export.
+Deletion and source revisions invalidate pending jobs; persistent tombstones prevent
+late responses from recreating deleted content. No exact TB2 reference corpus is present.
+Complete the protected rehearsal and approved content evaluation before enabling this
+workflow for real sermons.

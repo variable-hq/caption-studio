@@ -5,6 +5,7 @@
   "compatibility_date": "2026-07-18",
   "compatibility_flags": ["nodejs_compat"],
   "keep_vars": true,
+  "ai": { "binding": "AI" },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
@@ -17,6 +18,14 @@
       {
         "name": "CAPTION_ROOMS",
         "class_name": "CaptionRoom"
+      },
+      {
+        "name": "SERMON_JOURNALS",
+        "class_name": "SermonJournal"
+      },
+      {
+        "name": "AI_USAGE",
+        "class_name": "AiUsageLedger"
       }
     ]
   },
@@ -24,6 +33,10 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["CaptionRoom"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["SermonJournal", "AiUsageLedger"]
     }
   ]
 }

@@ -63,6 +63,9 @@ export interface LiveSessionControlResponse {
 }
 
 export interface PublicCaptionRequest {
+  captionEpoch?: number;
+  transcriptionAttempt?: number;
+  reader?: { filterText: string; keywordText: string };
   publicText: string;
   targetLanguage: LanguageLocale;
   style: CaptionStyle;
@@ -75,6 +78,8 @@ export interface PublicCaptionEvent extends PublicCaptionRequest {
 }
 
 export interface ObsChannelDetails {
+  serviceId?: string;
+  saveHistory?: boolean;
   channelId: typeof MAIN_CHANNEL_ID;
   configured: boolean;
   status: ChannelStatus;
@@ -88,6 +93,9 @@ export interface ObsChannelDetails {
 }
 
 export interface LiveServiceDetails {
+  serviceId?: string;
+  readerUrl?: string;
+  saveHistory?: boolean;
   channelId: typeof MAIN_CHANNEL_ID;
   controllerToken: string;
   viewerUrl: string | null;
@@ -97,6 +105,7 @@ export interface LiveServiceDetails {
 }
 
 export interface LiveSessionState {
+  historyIncomplete?: boolean;
   status:
     | "loading-channel"
     | "idle"
@@ -123,6 +132,8 @@ export interface LiveSessionState {
 }
 
 export type LiveApiErrorCode =
+  | "caption_cleared"
+  | "service_paused"
   | "channel_in_use"
   | "channel_not_configured"
   | "controller_replaced"

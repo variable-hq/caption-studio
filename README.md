@@ -394,3 +394,40 @@ documented separately in [`ios/README.md`](ios/README.md) and is currently defer
 
 This private repository intentionally has no open-source license. Copyright remains
 with the contributors unless the project owners adopt a license in a recorded decision.
+
+## Service history, reader, and operator remote
+
+The operator console now includes **Sermon history**. Before Start, explicitly choose
+**Save transcript history for this service** to retain private source and readable
+paragraphs for seven days after End. Default is off; numeric AI usage is always kept
+separately for a rolling 30 days. No audio is stored.
+
+Pair a phone from Sermon history to open `/operator/mobile`. The phone needs Cloudflare
+Access and its paired link. Pause blocks new inference immediately; microphone stop is
+confirmed only when the capture computer acknowledges it. Resume and Clear use the same
+capture computer. The phone never captures audio or receives its controller credential.
+
+Share the separate `/read` link for appending translated paragraphs. One shared job runs
+roughly every 30 seconds, independently of viewer count. **Clear live caption** drops
+unfinished reader text and clears the current OBS/latest-caption view; committed reader
+paragraphs remain. The existing `/view` is still an immediate mirror with no extra AI.
+Reader links last through the service plus 30 minutes; replacement/takeover revokes them.
+With saving off, missed reader paragraphs cannot be recovered after object eviction.
+
+After End, open a saved sermon to review/correct source, remove public passages, or
+manually generate a private summary. Removing a passage excludes its source IDs from
+summaries while retaining private originals. Summary points link to source segments;
+review is required before JSON export. Deleting an ended sermon removes its content and
+pending jobs, while usage totals remain. The TB2 profile supplies reviewed names only;
+exact TB2 text is not imported and recognition is not automatically trained.
+
+Deployment adds `SERMON_JOURNALS`, `AI_USAGE`, and `AI` bindings with SQLite migration
+`v2`. Optional reader phrasing and summaries require `CAPTION_OPTIONAL_AI_ENABLED=true`.
+Keep it off until the Cloudflare Free plan, content handling and synthetic model quality
+are verified. Without it, readers receive joined moderated translations and summaries
+report that optional AI is disabled. No paid fallback is configured.
+
+Protect `/api/live/experience/*` and `/operator/mobile` with Access. Add only narrow
+public bypasses for `/read` and `/api/live/reader`, and ensure their public static assets
+load. Never bypass all `/api/live/*`. See the [implementation decision and release gates](docs/decisions/0011-service-history-and-optional-inference.md)
+and [LIVE_SESSION_FEEDBACK_PLAN_1](docs/LIVE_SESSION_FEEDBACK_PLAN_1.md).

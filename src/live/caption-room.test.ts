@@ -498,7 +498,7 @@ describe("reusable caption channel", () => {
       }),
     );
     await expect(
-      (await room.fetch(request("/internal/caption", caption()))).json(),
+      (await room.fetch(request("/internal/caption", { ...caption(), captionEpoch: 2 }))).json(),
     ).resolves.toMatchObject({ sequence: 4 });
 
     await room.fetch(
@@ -803,7 +803,8 @@ describe("reusable caption channel", () => {
     const blocked = await room.fetch(
       request("/internal/lease", { controllerHash: CONTROLLER_A }),
     );
-    expect(blocked.status).toBe(410);
+    expect(blocked.status).toBe(409);
+    await expect(blocked.json()).resolves.toMatchObject({ code: "service_paused" });
     await expect(storage.get("configuration")).resolves.toMatchObject({
       transcriptionRequests: 0,
     });
@@ -858,6 +859,7 @@ describe("reusable caption channel", () => {
       ...before,
       translationRevision: 2,
       inferenceAttemptFloor: 1,
+      captionEpoch: 1,
       lastTranslationRefreshRequestId: REFRESH_REQUEST_A,
     });
     expect(storage.alarm).toBe(alarmBefore);
@@ -921,7 +923,7 @@ describe("reusable caption channel", () => {
     expect(await storage.get("latest")).toBeUndefined();
 
     const current = await room.fetch(
-      request("/internal/caption", caption(CONTROLLER_A, "New result", 2)),
+      request("/internal/caption", { ...caption(CONTROLLER_A, "New result", 2), captionEpoch: 1 }),
     );
     expect(current.status).toBe(200);
     await expect(current.json()).resolves.toMatchObject({
@@ -977,6 +979,7 @@ describe("reusable caption channel", () => {
       ...before,
       translationRevision: 2,
       lastTranslationRefreshRequestId: REFRESH_REQUEST_A,
+      captionEpoch: 2,
     });
     expect(storage.alarm).toBe(alarmBefore);
     expect(await storage.get("latest")).toBeUndefined();
@@ -1099,7 +1102,9 @@ describe("reusable caption channel", () => {
     await startService(room);
     await room.fetch(request("/internal/caption", caption()));
 
-    await room.alarm();
+    const active = await storage.get<{ expiresAt: number }>("configuration");
+    const now = vi.spyOn(Date, "now").mockReturnValue(active!.expiresAt + 1);
+    try { await room.alarm(); } finally { now.mockRestore(); }
     await expect(storage.get("configuration")).resolves.toMatchObject({
       tokenHash: TOKEN_A,
       status: "idle",

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { meteredGroq } from "@/experience/metering";
 
 import {
   GroqProviderError,
@@ -96,11 +97,11 @@ export async function POST(request: Request) {
       body.translationSystemPrompt,
     );
 
-    const result = await translateWithGroq(
+    const result = await meteredGroq(request, "translation", (telemetry) => translateWithGroq(
       {
-        text: body.text,
-        sourceLanguage: body.sourceLanguage,
-        targetLanguage: body.targetLanguage,
+        text: body.text!,
+        sourceLanguage: body.sourceLanguage!,
+        targetLanguage: body.targetLanguage!,
         recentContext: Array.isArray(body.recentContext)
           ? body.recentContext
               .filter((value): value is string => typeof value === "string")
@@ -111,7 +112,8 @@ export async function POST(request: Request) {
         translationSystemPrompt,
       },
       request.signal,
-    );
+      telemetry,
+    ));
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return errorResponse(error);

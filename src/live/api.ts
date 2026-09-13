@@ -30,6 +30,7 @@ import {
   readJsonObject,
 } from "@/http/request-body";
 import { viewerDocumentResponse } from "@/live/viewer-document";
+import type { ExperienceEnvironment } from "@/experience/contracts";
 
 interface DurableObjectStubLike {
   fetch(request: Request): Promise<Response>;
@@ -40,7 +41,7 @@ interface DurableObjectNamespaceLike {
   get(id: unknown): DurableObjectStubLike;
 }
 
-export interface LiveWorkerEnvironment {
+export interface LiveWorkerEnvironment extends ExperienceEnvironment {
   CAPTION_ROOMS: DurableObjectNamespaceLike;
   CLOUDFLARE_ACCESS_AUD?: string;
   CLOUDFLARE_ACCESS_TEAM_DOMAIN?: string;
@@ -49,6 +50,8 @@ export interface LiveWorkerEnvironment {
 }
 
 interface InternalChannelDetails {
+  serviceId?: string;
+  saveHistory?: boolean;
   configured: boolean;
   encryptedToken?: string;
   status: ChannelStatus;
@@ -166,6 +169,8 @@ async function publicChannelDetails(
   return {
     channelId: MAIN_CHANNEL_ID,
     configured: true,
+    serviceId: internal.serviceId,
+    saveHistory: internal.saveHistory,
     status: internal.status,
     overlayUrl: overlayUrl(request, token),
     style: normalizeCaptionStyle(internal.style ?? {}),
@@ -338,6 +343,7 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
   const body = (await readJsonObject(request, 4_096)) as {
     style?: unknown;
     takeover?: unknown;
+    saveHistory?: unknown;
   };
   if (body.takeover !== undefined && typeof body.takeover !== "boolean") {
     throw new InvalidRequestBodyError();
@@ -345,6 +351,9 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
   const style = optionalStyle(body.style);
   const controllerToken = randomToken();
   const viewerToken = randomToken();
+  const readerToken = randomToken();
+  if (body.saveHistory !== undefined && typeof body.saveHistory !== "boolean") throw new InvalidRequestBodyError();
+  if (body.saveHistory === true && !env.SERMON_JOURNALS) return json({ error: "Saved history is not configured." }, 503);
   const response = await channelRoom(env).fetch(
     new Request("https://caption-room/internal/service", {
       method: "POST",
@@ -352,6 +361,8 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
       body: JSON.stringify({
         controllerHash: await captionTokenHash(controllerToken),
         viewerTokenHash: await captionTokenHash(viewerToken),
+        readerHash: await captionTokenHash(readerToken),
+        saveHistory: body.saveHistory === true,
         ...(style ? { style } : {}),
         takeover: body.takeover === true,
       }),
@@ -359,6 +370,8 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
   );
   if (!response.ok) return response;
   const details = await internalJson<{
+    serviceId: string;
+    saveHistory: boolean;
     status: "live";
     startedAt: string;
     expiresAt: string;
@@ -367,6 +380,9 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
   return json({
     channelId: MAIN_CHANNEL_ID,
     controllerToken,
+    serviceId: details.serviceId,
+    saveHistory: details.saveHistory,
+    readerUrl: `${new URL("/read", request.url)}#${details.serviceId}.${readerToken}`,
     viewerUrl: viewerUrl(request, viewerToken),
     startedAt: details.startedAt,
     expiresAt: details.expiresAt,
