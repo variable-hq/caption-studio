@@ -37,6 +37,7 @@ records to establish release evidence.
 
 | Record | Scope |
 | --- | --- |
+| [Service-panel UI and QA](SERVICE_PANEL_UX_QA.md) | 13 September collapsible right controls, focused workspace pages and responsive validation |
 | [Dashboard UI and QA](DASHBOARD_UI_QA.md) | 13 September dashboard navigation, market references and responsive validation |
 | [Cleanup/deployment QA](CLEANUP_DEPLOY_QA.md) | 13 September documentation/file audit and deploy fix |
 | [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md) | 13 September unit/build, mocked UI and real local Durable Object checks |

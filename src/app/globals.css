@@ -1215,10 +1215,6 @@ html:has(.tutorialDialog[open]) {
   min-width: 0;
 }
 
-.operatorWorkspace.isLive .workspacePreview {
-  top: 176px;
-}
-
 .serviceSnapshot {
   border-top: 1px solid var(--line);
   padding-top: 4px;
@@ -1592,19 +1588,6 @@ html:has(.tutorialDialog[open]) {
   font-size: 18px;
 }
 
-.outputContextCard {
-  display: grid;
-  gap: 6px;
-  padding: 16px;
-  box-shadow: var(--shadow);
-}
-
-.outputContextCard p:last-child {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 @media (max-width: 1180px) {
   .operatorWorkspace {
     grid-template-columns: 210px minmax(0, 1fr);
@@ -1624,10 +1607,6 @@ html:has(.tutorialDialog[open]) {
   .primaryControls {
     grid-column: 1 / -1;
     justify-content: flex-start;
-  }
-
-  .operatorWorkspace.isLive .workspacePreview {
-    top: 220px;
   }
 }
 
@@ -1889,8 +1868,7 @@ html:has(.tutorialDialog[open]) {
     padding-left: 13px;
   }
 
-  .workspacePreview .previewCard,
-  .outputContextCard {
+  .workspacePreview .previewCard {
     padding: 13px;
   }
 }

@@ -45,7 +45,9 @@ import { useLiveCaptionSession } from "@/live/use-live-caption-session";
 import { ServiceExperiencePanel } from "@/components/operator/ServiceExperiencePanel";
 import { UsageHistory } from "@/components/operator/UsageHistory";
 import { DashboardIcon, DashboardNavigation } from "@/components/operator/DashboardNavigation";
+import { ServicePanel } from "@/components/operator/ServicePanel";
 import "./dashboard.css";
+import "./service-panel.css";
 
 type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
 
@@ -424,6 +426,8 @@ export default function OperatorDashboard() {
   );
   const [filterText, setFilterText] = useState("");
   const [saveHistory, setSaveHistory] = useState(false);
+  const [servicePanelOpen, setServicePanelOpen] = useState(false);
+  const servicePanelTriggerRef = useRef<HTMLButtonElement>(null);
   const [speechBufferMs, setSpeechBufferMs] = useState<SpeechBufferMs>(
     DEFAULT_SPEECH_BUFFER_MS,
   );
@@ -1085,8 +1089,68 @@ export default function OperatorDashboard() {
     </section>
   );
 
+  const captureControls = (
+    <>
+      {endRetryRequired ? (
+        <button
+          className="dangerButton"
+          disabled={endActionDisabled}
+          onClick={() => void stopSession()}
+        >
+          Retry End
+        </button>
+      ) : isPaused || liveState.status === "resuming" ? (
+        <button
+          className="primaryButton"
+          disabled={isBusy || controlAction !== null}
+          onClick={() => void resumeSession()}
+        >
+          {liveState.status === "resuming" ? "Resuming…" : "Resume"}
+        </button>
+      ) : (
+        <button
+          className="primaryButton"
+          disabled={isBusy || controlAction !== null}
+          onClick={() => void pauseSession()}
+        >
+          {liveState.status === "pausing" ? "Pausing…" : "Pause"}
+        </button>
+      )}
+      <button
+        className="secondaryButton compactButton"
+        disabled={isBusy || controlAction !== null}
+        title="Clear current captions from OBS and the mobile viewer without changing capture."
+        onClick={() => void clearCaption()}
+      >
+        {controlAction === "clear" ? "Clearing…" : "Clear live caption"}
+      </button>
+    </>
+  );
+  const captionPreview = (
+    <CaptionPreview
+      caption={hasService ? liveState.latestPublicText : SAMPLE_CAPTIONS[targetLanguage]}
+      sourceText={hasService ? liveState.latestSourceText : undefined}
+      targetLanguage={hasService ? liveState.latestPublicLanguage ?? undefined : targetLanguage}
+      sourceLanguage={displayedTranslationSettings?.sourceLanguage}
+      style={style}
+      badge={
+        hasService
+          ? liveNeedsAttention
+            ? "Output needs attention"
+            : isRefreshing
+              ? "Refreshing settings"
+              : isPaused
+                ? "Paused output"
+                : "Public caption"
+          : "Local sample"
+      }
+      live={hasService && isLive}
+    />
+  );
+  const translationSection = currentWorkspaceSection === "translation" || currentWorkspaceSection === "prompt";
+
   return (
-    <div className="dashboardShell">
+    <div className={`dashboardShell ${servicePanelOpen ? "servicePanelOpen" : ""}`}>
       <a className="skipLink" href="#workspace-panel-heading">Skip to workspace controls</a>
       <DashboardNavigation items={WORKSPACE_ITEMS} activeId={currentWorkspaceSection} onSelect={(id) => openWorkspaceSection(id as WorkspaceSectionId)} />
       <main className="dashboardMain">
@@ -1112,11 +1176,29 @@ export default function OperatorDashboard() {
             onOpenSection={openWorkspaceSection}
           />
         </div>
+          <button
+            ref={servicePanelTriggerRef}
+            type="button"
+            className="secondaryButton servicePanelToggle"
+            aria-expanded={servicePanelOpen}
+            aria-controls="service-panel"
+            onClick={() => setServicePanelOpen((open) => !open)}
+          >
+            <DashboardIcon name="panel" />
+            Service controls
+            <span aria-hidden="true">{servicePanelOpen ? "−" : "+"}</span>
+          </button>
       </header>
 
+      {hasService && !servicePanelOpen ? (
+        <section className="serviceQuickControls" aria-label="Quick live controls">
+          <span className="quickServiceState">{liveNeedsAttention ? "Capture needs attention" : isRefreshing ? "Refreshing" : isPaused ? "Paused" : "Capturing audio"}</span>
+          {captureControls}
+        </section>
+      ) : null}
       <div className="dashboardContent">
       <section
-        className={`statusBanner ${liveState.status} ${!hasService && liveState.status !== "error" ? "dashboardQuietStatus" : ""}`}
+        className={`statusBanner ${liveState.status} ${liveState.status !== "error" ? "visuallyHidden" : ""}`}
         role="status"
         aria-live="polite"
         aria-atomic="true"
@@ -1157,222 +1239,21 @@ export default function OperatorDashboard() {
         ) : null}
       </section>
 
+      {hasPendingTranslationChanges && !translationSection ? (
+        <div className="pendingSettingsBar">
+          <span>Translation changes are not active yet.</span>
+          <button type="button" className="textButton" onClick={() => openWorkspaceSection("translation")}>Review changes</button>
+        </div>
+      ) : null}
       <p className={`actionFeedback ${clipboardMessage ? "" : "visuallyHidden"}`} role="status" aria-live="polite">{clipboardMessage}</p>
       {liveState.historyIncomplete && <p className="privacyNote" role="alert">History saving failed for part of this service. Review transcript gaps before generating a summary.</p>}
 
-      {hasService ? (
-        <section
-          className={`liveConsole ${isPaused ? "paused" : ""} ${liveNeedsAttention ? "attention" : ""}`}
-          aria-label="Live controls"
-        >
-          <div className="liveIdentity">
-            <span
-              className={`liveIndicator ${
-                isPaused || isRefreshing || liveNeedsAttention ? "paused" : ""
-              }`}
-              aria-hidden="true"
-            />
-            <div>
-              <strong>
-                {liveNeedsAttention
-                  ? "Capture stopped"
-                  : isRefreshing
-                    ? "Refreshing translation"
-                  : isPaused
-                    ? "Paused"
-                    : liveState.status === "pausing"
-                      ? "Stopping capture"
-                      : liveState.status === "resuming"
-                        ? "Reopening microphone"
-                        : liveState.status === "ending"
-                          ? "Ending service"
-                          : "Capturing audio"}
-              </strong>
-              <p>
-                {activeSpeechBufferMs / 1_000}s buffer · {liveState.droppedChunks}{" "}
-                skipped · {liveState.lastLatencyMs === null
-                  ? "waiting for processing time"
-                  : `${liveState.lastLatencyMs} ms processing`}
-              </p>
-              <p>History saving {liveState.service?.saveHistory ? "on" : "off"}</p>
-              <div className="liveInputMeter">{audioMeter}</div>
-            </div>
-          </div>
-          <div className="compactUsage">
-            <div>
-              <span>
-                {elapsedMinutes}m {elapsedSeconds.toString().padStart(2, "0")}s / 90m
-              </span>
-              <span>
-                {liveState.transcriptionRequests} / {MAX_TRANSCRIPTION_REQUESTS}{" "}
-                attempts · {liveState.llmUsage.translationRequests} translations
-              </span>
-              <button
-                className="usageDetailsButton"
-                type="button"
-                onClick={() => openWorkspaceSection("usage")}
-              >
-                View usage
-              </button>
-            </div>
-            <div
-              className="usageProgress"
-              role="progressbar"
-              aria-label="Live service usage"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={usagePercent}
-              aria-valuetext={`${elapsedMinutes} minutes ${elapsedSeconds} seconds elapsed; ${liveState.transcriptionRequests} of ${MAX_TRANSCRIPTION_REQUESTS} transcription attempts used; ${liveState.llmUsage.translationRequests} translation calls and ${liveState.llmUsage.totalTokens} translation tokens`}
-            >
-              <span style={{ width: `${usagePercent}%` }} />
-            </div>
-          </div>
-          <div className="primaryControls">
-            {endRetryRequired ? (
-              <button
-                className="dangerButton"
-                disabled={endActionDisabled}
-                onClick={() => void stopSession()}
-              >
-                Retry End
-              </button>
-            ) : isPaused || liveState.status === "resuming" ? (
-              <button
-                className="primaryButton"
-                disabled={isBusy || controlAction !== null}
-                onClick={() => void resumeSession()}
-              >
-                {liveState.status === "resuming" ? "Resuming…" : "Resume"}
-              </button>
-            ) : (
-              <button
-                className="primaryButton"
-                disabled={isBusy || controlAction !== null}
-                onClick={() => void pauseSession()}
-              >
-                {liveState.status === "pausing"
-                  ? "Pausing…"
-                  : "Pause"}
-              </button>
-            )}
-            <button
-              className="secondaryButton compactButton"
-              disabled={isBusy || controlAction !== null}
-              title="Clear current captions from OBS and the mobile viewer without changing capture."
-              onClick={() => void clearCaption()}
-            >
-              {controlAction === "clear" ? "Clearing…" : "Clear live caption"}
-            </button>
-            <details
-              className="moreMenu"
-              onKeyDown={(event) => {
-                if (event.key !== "Escape") return;
-                event.preventDefault();
-                event.currentTarget.open = false;
-                event.currentTarget.querySelector("summary")?.focus();
-              }}
-            >
-              <summary>More</summary>
-              <div>
-                <button onClick={() => void copyOverlayUrl()}>
-                  {copied ? "Copied" : "Copy OBS URL"}
-                </button>
-                {viewerUrl ? (
-                  <button onClick={() => void copyViewerUrl()}>
-                    {viewerCopied
-                      ? "Mobile link copied"
-                      : "Copy mobile viewer link"}
-                  </button>
-                ) : null}
-                <button
-                  disabled={!isPaused || controlAction !== null}
-                  onClick={() => void showTestCaption()}
-                >
-                  {controlAction === "show-test"
-                    ? "Showing test…"
-                    : "Show test caption"}
-                </button>
-                <details className="credentialDisclosure">
-                  <summary>Reveal OBS URL for manual copy</summary>
-                  <p className="helpText">Keep this reusable credential private.</p>
-                  {overlayUrlField}
-                </details>
-              </div>
-            </details>
-            <button
-              className="textButton endServiceButton"
-              disabled={endActionDisabled}
-              onClick={() => endDialogRef.current?.showModal()}
-            >
-              End service
-            </button>
-          </div>
-          <p className="liveControlHelp">Pause stops capture and clears the current caption. Clear live caption drops pending reader text; committed reader paragraphs remain. The 90-minute timer continues while paused.</p>
-        </section>
-      ) : null}
 
-      <div className={`operatorWorkspace ${hasService ? "isLive" : "isSetup"}`}>
-      {!hasService ? (
-        <section
-          className={`startBar ${anotherOperatorActive ? "takeover" : ""}`}
-          aria-labelledby="start-service-heading"
-        >
-          {historyConsent}
-          <div className="startBarActions"><div>
-            <strong id="start-service-heading">{startHeading}</strong>
-            <p id="start-service-description">{startDescription}</p>
-          </div>
-          {confirmTakeover || takeoverRequired ? (
-            <div className="takeoverConfirmation">
-              <button
-                className="secondaryButton"
-                onClick={() => {
-                  setConfirmTakeover(false);
-                  cancelTakeover();
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="dangerButton"
-                aria-describedby="start-service-description"
-                disabled={cloudState !== "ready" || isBusy}
-                onClick={() => {
-                  setConfirmTakeover(false);
-                  void startSession(true);
-                }}
-              >
-                Confirm takeover
-              </button>
-            </div>
-          ) : (
-            <button
-              className={
-                anotherOperatorActive ? "dangerButton" : "primaryButton"
-              }
-              aria-describedby="start-service-description"
-              disabled={startDisabled}
-              onClick={() =>
-                anotherOperatorActive
-                  ? setConfirmTakeover(true)
-                  : void startSession()
-              }
-            >
-              {liveState.status === "starting"
-                ? "Starting securely…"
-                : anotherOperatorActive
-                  ? "Take over channel"
-                  : "Start captions"}
-            </button>
-          )}</div>
-        </section>
-      ) : null}
-
-
+      <div className={`operatorWorkspace ${currentWorkspaceSection === "appearance" ? "withPreview" : ""}`}>
 
         <BorderGlow
           className="workspacePanelGlow"
-          pending={hasPendingTranslationChanges || translationActionBusy}
+          pending={translationSection && (hasPendingTranslationChanges || translationActionBusy)}
           aria-busy={translationActionBusy}
         >
           <SpotlightCard
@@ -1387,7 +1268,7 @@ export default function OperatorDashboard() {
                 <h2 id="workspace-panel-heading" ref={workspaceHeadingRef} tabIndex={-1}>{currentSectionCopy.title}</h2>
                 <p>{currentSectionCopy.description}</p>
               </div>
-              <span
+              {translationSection ? <span
                 className={`statusChip ${
                   hasPendingTranslationChanges ? "pending" : "ready"
                 }`}
@@ -1400,11 +1281,11 @@ export default function OperatorDashboard() {
                         } pending`
                       : "Refresh required"
                     : "Live settings active"
-                  : "Before service"}
-              </span>
+                  : "Draft settings"}
+              </span> : null}
             </header>
 
-            {hasPendingTranslationChanges ? (
+            {hasPendingTranslationChanges && translationSection ? (
               <section
                 className="translationRefreshNotice"
                 aria-labelledby="translation-refresh-heading"
@@ -1490,9 +1371,7 @@ export default function OperatorDashboard() {
                   </div>
                 )}
               </section>
-            ) : hasService &&
-              (currentWorkspaceSection === "translation" ||
-                currentWorkspaceSection === "prompt") ? (
+            ) : hasService && translationSection ? (
               <p className="translationCurrentNote" role="status" aria-live="polite">
                 {translationActionBusy
                   ? "Refreshing translation context…"
@@ -1506,7 +1385,7 @@ export default function OperatorDashboard() {
                   <div className="overviewWelcome">
                     <span className="overviewSymbol"><DashboardIcon name={hasService ? "audio" : "overview"} /></span>
                     <div><h3>{hasService ? liveNeedsAttention ? "Service needs attention" : isRefreshing ? "Updating translation" : isPaused ? "Service paused" : "Your service is in progress" : anotherOperatorActive ? "Another operator is live" : "Prepare your next service"}</h3>
-                    <p>{hasService ? "Keep an eye on the output monitor. Pause, clear captions, or end the service using the live controls above." : anotherOperatorActive ? "Main channel is already in use. Taking over stops the current capture computer." : "Check your audio, confirm the languages, and connect your audience."}</p></div>
+                    <p>{hasService ? "Pause and Clear stay within reach. Open Service controls for the output monitor, service details, and End." : anotherOperatorActive ? "Main channel is already in use. Taking over stops the current capture computer." : "Check your audio, confirm the languages, and connect your audience."}</p></div>
                   </div>
                   <dl className="overviewMetrics">
                     <div><dt>Spoken language</dt><dd>{displayedSourceLabel ?? "Refresh required"}</dd></div>
@@ -1529,7 +1408,7 @@ export default function OperatorDashboard() {
                     </button>
                     {!hasService && <p className="helpText">Cloud status confirms configuration. Start checks model access; verify sound and the OBS source yourself.</p>}
                   </section>
-                  {hasService ? historyConsent : <div className="overviewNote"><DashboardIcon name="history" /><div><strong>Keep the message after the service</strong><p>Enable transcript saving before Start to review the sermon and generate a summary later. Private history expires 7 days after End.</p><button type="button" className="textButton" onClick={() => openWorkspaceSection("history")}>View sermon history <span aria-hidden="true">→</span></button></div></div>}
+                  {!hasService ? <div className="overviewNote"><DashboardIcon name="history" /><div><strong>Keep the message after the service</strong><p>Enable transcript saving before Start to review the sermon and generate a summary later. Private history expires 7 days after End.</p><button type="button" className="textButton" onClick={() => setServicePanelOpen(true)}>Review service setup <span aria-hidden="true">→</span></button></div></div> : <button type="button" className="secondaryButton" onClick={() => setServicePanelOpen(true)}>Open service controls</button>}
                 </div>
               ) : null}
               {currentWorkspaceSection === "audio" ? (
@@ -1599,6 +1478,8 @@ export default function OperatorDashboard() {
               ) : null}
 
               {currentWorkspaceSection === "outputs" ? (
+                <details className="outputDestination" open>
+                  <summary>OBS overlay <span>Reusable browser source</span></summary>
                 <div className="obsSetupCard workspaceOutputCard">
                   <div className="sectionHeading">
                     <div>
@@ -1705,11 +1586,14 @@ export default function OperatorDashboard() {
                     </>
                   )}
                 </div>
+                </details>
               ) : null}
 
               {currentWorkspaceSection === "outputs" ? (
+                <details className="outputDestination">
+                  <summary>Mobile translation viewer <span>Latest caption · No extra AI</span></summary>
                 <div className="viewerLinkPanel">
-                  <h3>Mobile translation viewer</h3>
+
                   <p>
                     Share this read-only link with intended viewers. It shows only the
                     current moderated translation and expires when this service ends or
@@ -1800,37 +1684,200 @@ export default function OperatorDashboard() {
                     </button>
                   )}
                 </div>
+                </details>
               ) : null}
-              {currentWorkspaceSection === "outputs" ? <ServiceExperiencePanel view="sharing" service={liveState.service} onReaderLink={rememberReaderLink} /> : null}
+              {currentWorkspaceSection === "outputs" ? (
+                <details className="outputDestination">
+                  <summary>Reader and operator phone <span>Shared paragraphs and remote controls</span></summary>
+                  <ServiceExperiencePanel view="sharing" service={liveState.service} onReaderLink={rememberReaderLink} />
+                </details>
+              ) : null}
             </div>
           </SpotlightCard>
         </BorderGlow>
 
-        <aside className="workspacePreview" aria-label="Caption output preview">
-          <CaptionPreview
-            caption={
-              hasService
-                ? liveState.latestPublicText
-                : SAMPLE_CAPTIONS[targetLanguage]
-            }
-            sourceText={hasService ? liveState.latestSourceText : undefined}
-            targetLanguage={hasService ? liveState.latestPublicLanguage ?? undefined : targetLanguage}
-            sourceLanguage={displayedTranslationSettings?.sourceLanguage}
-            style={style}
-            badge={
-              hasService
-                ? liveNeedsAttention
-                  ? "Output needs attention"
+        {currentWorkspaceSection === "appearance" ? (
+          <aside className="workspacePreview" aria-label="Caption output preview">
+            {captionPreview}
+          </aside>
+        ) : null}
+      </div>
+
+      <ServicePanel open={servicePanelOpen} onOpenChange={setServicePanelOpen} triggerRef={servicePanelTriggerRef}>
+        {servicePanelOpen && liveState.status === "error" ? <p className="errorText" role="alert">{liveState.message}</p> : null}
+        {servicePanelOpen && liveState.historyIncomplete ? <p className="privacyNote" role="alert">History saving failed for part of this service. Review transcript gaps before generating a summary.</p> : null}
+        {!hasService ? (
+        <section
+          className={`startBar ${anotherOperatorActive ? "takeover" : ""}`}
+          aria-labelledby="start-service-heading"
+        >
+          {historyConsent}
+          <div className="startBarActions"><div>
+            <strong id="start-service-heading">{startHeading}</strong>
+            <p id="start-service-description">{startDescription}</p>
+          </div>
+          {confirmTakeover || takeoverRequired ? (
+            <div className="takeoverConfirmation">
+              <button
+                className="secondaryButton"
+                onClick={() => {
+                  setConfirmTakeover(false);
+                  cancelTakeover();
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="dangerButton"
+                aria-describedby="start-service-description"
+                disabled={cloudState !== "ready" || isBusy}
+                onClick={() => {
+                  setConfirmTakeover(false);
+                  void startSession(true);
+                }}
+              >
+                Confirm takeover
+              </button>
+            </div>
+          ) : (
+            <button
+              className={
+                anotherOperatorActive ? "dangerButton" : "primaryButton"
+              }
+              aria-describedby="start-service-description"
+              disabled={startDisabled}
+              onClick={() =>
+                anotherOperatorActive
+                  ? setConfirmTakeover(true)
+                  : void startSession()
+              }
+            >
+              {liveState.status === "starting"
+                ? "Starting securely…"
+                : anotherOperatorActive
+                  ? "Take over channel"
+                  : "Start captions"}
+            </button>
+          )}</div>
+        </section>
+      ) : null}
+        {hasService ? (
+        <section
+          className={`liveConsole ${isPaused ? "paused" : ""} ${liveNeedsAttention ? "attention" : ""}`}
+          aria-label="Live controls"
+        >
+          <div className="liveIdentity">
+            <span
+              className={`liveIndicator ${
+                isPaused || isRefreshing || liveNeedsAttention ? "paused" : ""
+              }`}
+              aria-hidden="true"
+            />
+            <div>
+              <strong>
+                {liveNeedsAttention
+                  ? "Capture stopped"
                   : isRefreshing
-                  ? "Refreshing settings"
+                    ? "Refreshing translation"
                   : isPaused
-                    ? "Paused output"
-                    : "Public caption"
-                : "Local sample"
-            }
-            live={hasService && isLive}
-          />
-          <details className="serviceSnapshot" open={hasService}>
+                    ? "Paused"
+                    : liveState.status === "pausing"
+                      ? "Stopping capture"
+                      : liveState.status === "resuming"
+                        ? "Reopening microphone"
+                        : liveState.status === "ending"
+                          ? "Ending service"
+                          : "Capturing audio"}
+              </strong>
+              <p>
+                {activeSpeechBufferMs / 1_000}s buffer · {liveState.droppedChunks}{" "}
+                skipped · {liveState.lastLatencyMs === null
+                  ? "waiting for processing time"
+                  : `${liveState.lastLatencyMs} ms processing`}
+              </p>
+              <p>History saving {liveState.service?.saveHistory ? "on" : "off"}</p>
+              <div className="liveInputMeter">{audioMeter}</div>
+            </div>
+          </div>
+          <div className="compactUsage">
+            <div>
+              <span>
+                {elapsedMinutes}m {elapsedSeconds.toString().padStart(2, "0")}s / 90m
+              </span>
+              <span>
+                {liveState.transcriptionRequests} / {MAX_TRANSCRIPTION_REQUESTS}{" "}
+                attempts · {liveState.llmUsage.translationRequests} translations
+              </span>
+              <button
+                className="usageDetailsButton"
+                type="button"
+                onClick={() => { setServicePanelOpen(false); openWorkspaceSection("usage"); }}
+              >
+                View usage
+              </button>
+            </div>
+            <div
+              className="usageProgress"
+              role="progressbar"
+              aria-label="Live service usage"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={usagePercent}
+              aria-valuetext={`${elapsedMinutes} minutes ${elapsedSeconds} seconds elapsed; ${liveState.transcriptionRequests} of ${MAX_TRANSCRIPTION_REQUESTS} transcription attempts used; ${liveState.llmUsage.translationRequests} translation calls and ${liveState.llmUsage.totalTokens} translation tokens`}
+            >
+              <span style={{ width: `${usagePercent}%` }} />
+            </div>
+          </div>
+          <div className="primaryControls">
+            {captureControls}
+            <details
+              className="moreMenu"
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                event.preventDefault();
+                event.currentTarget.open = false;
+                event.currentTarget.querySelector("summary")?.focus();
+              }}
+            >
+              <summary>More</summary>
+              <div>
+                <button onClick={() => void copyOverlayUrl()}>
+                  {copied ? "Copied" : "Copy OBS URL"}
+                </button>
+                {viewerUrl ? (
+                  <button onClick={() => void copyViewerUrl()}>
+                    {viewerCopied
+                      ? "Mobile link copied"
+                      : "Copy mobile viewer link"}
+                  </button>
+                ) : null}
+                <button
+                  disabled={!isPaused || controlAction !== null}
+                  onClick={() => void showTestCaption()}
+                >
+                  {controlAction === "show-test"
+                    ? "Showing test…"
+                    : "Show test caption"}
+                </button>
+                <details className="credentialDisclosure">
+                  <summary>Reveal OBS URL for manual copy</summary>
+                  <p className="helpText">Keep this reusable credential private.</p>
+                  {overlayUrlField}
+                </details>
+              </div>
+            </details>
+            <button
+              className="textButton endServiceButton"
+              disabled={endActionDisabled}
+              onClick={() => endDialogRef.current?.showModal()}
+            >
+              End service
+            </button>
+          </div>
+          <p className="liveControlHelp">Pause stops capture and clears the current caption. Clear live caption drops pending reader text; committed reader paragraphs remain. The 90-minute timer continues while paused.</p>
+        </section>
+      ) : null}
+        <details className="serviceSnapshot" open={hasService}>
             <summary>{hasService ? "Active translation" : "Starting configuration"}</summary>
             <dl>
               <div>
@@ -1848,24 +1895,14 @@ export default function OperatorDashboard() {
             </dl>
             {hasPendingTranslationChanges ? <p className="helpText">Draft changes are not active until you confirm a refresh.</p> : null}
           </details>
-          <SpotlightCard
-            className="outputContextCard"
-            aria-labelledby="output-context-heading"
-            spotlightColor="rgba(17, 17, 17, 0.045)"
-          >
-            <p className="eyebrow">Output context</p>
-            <h3 id="output-context-heading">
-              Audience delivery
-            </h3>
-            <p>
-              {hasService
-                ? "OBS and the mobile viewer mirror the current caption. The reader appends shared paragraphs. Check each output directly; connection status is not monitored here."
-                : "OBS and the mobile viewer mirror captions without extra AI calls. The reader shares paragraphs and can use optional AI phrasing."}
-            </p>
-          </SpotlightCard>
-        </aside>
-      </div>
-
+        {currentWorkspaceSection !== "appearance" ? (
+          <details className="serviceMonitor">
+            <summary>Preview captions</summary>
+            {captionPreview}
+            <p className="helpText">OBS and the latest viewer mirror the caption without extra AI calls. The reader appends shared paragraphs.</p>
+          </details>
+        ) : <p className="helpText">The output monitor is beside the Appearance editor.</p>}
+      </ServicePanel>
       <dialog
         ref={endDialogRef}
         className="confirmationDialog"

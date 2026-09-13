@@ -1,0 +1,122 @@
+[
+  {
+    "width": 1920,
+    "screen": "viewer",
+    "violations": []
+  },
+  {
+    "width": 1920,
+    "screen": "reader",
+    "violations": []
+  },
+  {
+    "width": 1920,
+    "screen": "remote",
+    "violations": []
+  },
+  {
+    "width": 1920,
+    "screen": "archive",
+    "violations": []
+  },
+  {
+    "width": 1920,
+    "screen": "remove-dialog",
+    "violations": []
+  },
+  {
+    "width": 1920,
+    "screen": "usage",
+    "violations": []
+  },
+  {
+    "width": 1200,
+    "screen": "viewer",
+    "violations": []
+  },
+  {
+    "width": 1200,
+    "screen": "reader",
+    "violations": []
+  },
+  {
+    "width": 1200,
+    "screen": "remote",
+    "violations": []
+  },
+  {
+    "width": 1200,
+    "screen": "archive",
+    "violations": []
+  },
+  {
+    "width": 1200,
+    "screen": "remove-dialog",
+    "violations": []
+  },
+  {
+    "width": 1200,
+    "screen": "usage",
+    "violations": []
+  },
+  {
+    "width": 390,
+    "screen": "viewer",
+    "violations": []
+  },
+  {
+    "width": 390,
+    "screen": "reader",
+    "violations": []
+  },
+  {
+    "width": 390,
+    "screen": "remote",
+    "violations": []
+  },
+  {
+    "width": 390,
+    "screen": "archive",
+    "violations": []
+  },
+  {
+    "width": 390,
+    "screen": "remove-dialog",
+    "violations": []
+  },
+  {
+    "width": 390,
+    "screen": "usage",
+    "violations": []
+  },
+  {
+    "width": 320,
+    "screen": "viewer",
+    "violations": []
+  },
+  {
+    "width": 320,
+    "screen": "reader",
+    "violations": []
+  },
+  {
+    "width": 320,
+    "screen": "remote",
+    "violations": []
+  },
+  {
+    "width": 320,
+    "screen": "archive",
+    "violations": []
+  },
+  {
+    "width": 320,
+    "screen": "remove-dialog",
+    "violations": []
+  },
+  {
+    "width": 320,
+    "screen": "usage",
+    "violations": []
+  }
+]

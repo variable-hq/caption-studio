@@ -13,6 +13,7 @@ const ICON_PATHS = {
   usage: "M4 3v18h17 M8 17v-5 M13 17V7 M18 17v-8",
   prompt: "M8 4H4v4 M16 4h4v4 M4 16v4h4 M20 16v4h-4 M8 12h8 M12 8v8",
   menu: "M4 6h16 M4 12h16 M4 18h16",
+  panel: "M3 4h18v16H3z M15 4v16 M18 8v8",
   close: "M6 6l12 12 M18 6 6 18",
 } as const;
 

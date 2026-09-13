@@ -1,0 +1,66 @@
+[
+  {
+    "width": 1920,
+    "sixSteps": true,
+    "focusAndReplay": true,
+    "sectionShortcuts": true,
+    "lastTopicRetained": true,
+    "dismissalPersists": true,
+    "axeViolations": 0,
+    "audioRequests": 0,
+    "mutations": 0
+  },
+  {
+    "width": 1200,
+    "sixSteps": true,
+    "focusAndReplay": true,
+    "sectionShortcuts": true,
+    "lastTopicRetained": true,
+    "dismissalPersists": true,
+    "axeViolations": 0,
+    "audioRequests": 0,
+    "mutations": 0
+  },
+  {
+    "width": 390,
+    "sixSteps": true,
+    "focusAndReplay": true,
+    "sectionShortcuts": true,
+    "lastTopicRetained": true,
+    "dismissalPersists": true,
+    "axeViolations": 0,
+    "audioRequests": 0,
+    "mutations": 0
+  },
+  {
+    "width": 320,
+    "sixSteps": true,
+    "focusAndReplay": true,
+    "sectionShortcuts": true,
+    "lastTopicRetained": true,
+    "dismissalPersists": true,
+    "axeViolations": 0,
+    "audioRequests": 0,
+    "mutations": 0
+  },
+  {
+    "status": "live",
+    "automaticOpeningSuppressed": true,
+    "manualGuideWarnsServiceContinues": true,
+    "mutations": 0
+  },
+  {
+    "status": "paused",
+    "automaticOpeningSuppressed": true,
+    "manualGuideWarnsServiceContinues": true,
+    "mutations": 0
+  },
+  {
+    "storageUnavailable": "Guide remains usable; reappears after reload",
+    "shortLandscape": "568 × 320 passes"
+  },
+  {
+    "enlargedText": "200% computed font sizes plus WCAG text spacing at 390px, all six steps",
+    "actualBrowserZoom": "Not tested"
+  }
+]

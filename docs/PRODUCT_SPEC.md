@@ -251,16 +251,25 @@ explicit translation refresh used for language, buffer, and prompt changes.
 - Section-only URL fragments support direct links, reload and browser Back/Forward.
   In-page navigation keeps translation drafts and the before-Start history choice.
   Reload preserves the destination, not unsaved drafts. Links never include credentials.
-- The overview highlights audio, language and actual OBS verification. A visible service
-  card groups history consent with Start; the output monitor and configuration snapshot
-  separate local samples, live output, active settings and unapplied drafts.
-- Live outputs groups OBS, latest-viewer and reader sharing with phone pairing.
+- The overview highlights audio, language and actual OBS verification. Service controls
+  opens an initially collapsed right panel grouping history consent with Start, live
+  actions, configuration details and an expandable caption monitor. It docks from 1280px
+  and becomes a modal drawer below that width. Escape returns focus to the trigger;
+  crossing the breakpoint closes it and restores scrolling. Toggling it does not affect
+  capture or consent. A deliberately opened desktop panel stays open during navigation.
+- Only Appearance keeps an inline output preview. Other pages have the optional monitor
+  in Service controls. Active settings remain distinct from unapplied drafts; detailed
+  translation-refresh controls appear in Translation and AI instructions, with a compact
+  review link on other pages.
+- Live outputs groups OBS, latest-viewer and reader/phone sharing into expandable sections.
   Sermon history contains private archives, corrections and summaries. OBS link rotation
   stays disabled during a service; paused test captions remain under More.
 - Cloud AI configured describes configuration, and Main-channel state describes the
   server room. Neither claims observed OBS connectivity or measured translation quality.
-- A skip link and workspace-heading focus support keyboard navigation. End is a visible
-  live action with a native confirmation dialog; Clear captions blanks OBS and the latest viewer, while preserving committed reader paragraphs.
+- A skip link and workspace-heading focus support keyboard navigation. When Service
+  controls is collapsed, a compact sticky bar keeps Pause/Resume and Clear reachable.
+  End stays inside the service panel with a native confirmation dialog; Clear captions
+  blanks OBS and the latest viewer, while preserving committed reader paragraphs.
 - The output monitor tags each displayed caption with its own language, including paused
   synthetic tests. Subsequent draft language edits do not relabel existing text.
 - Failed clipboard actions have hidden-by-default manual-copy recovery: OBS in Live
@@ -367,13 +376,14 @@ Code-level acceptance:
 - A configured mask changes public output without changing the protected source preview.
 - Style changes reach a connected overlay without restarting the service.
 - Appearance controls update the dashboard design preview continuously before Save.
-- Setup separates preflight, navigation and active/draft context, the selected settings
-  panel, and the output monitor at desktop widths.
+- Setup separates navigation and the selected settings page from collapsible service
+  controls; only Appearance keeps its output monitor inline.
 - The primary operator viewport is 1920 × 1080, with dashboard content capped at a
-  readable 1600px rather than stretched across the full display.
+  readable 1160px rather than stretched across the full display.
 - The Setup layout reflows without horizontal scrolling from 320px through desktop
-  widths, including immediately around the 680px and 980px breakpoints.
-- The mobile Start bar remains reachable without hiding its blocking or takeover context.
+  widths, including the 680px, 980px and 1280px layout boundaries.
+- The mobile service drawer keeps Start, blocking/takeover context and its close action
+  reachable. Closing it restores the focused workspace and does not change the service.
 - The dashboard theme does not override the independently configured OBS caption colour
   or highlight.
 - Pause stops AI requests, clears OBS, and Resume retains the reusable URL and expiry.

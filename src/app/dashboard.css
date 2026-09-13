@@ -173,43 +173,16 @@ main.dashboardMain {
   padding: 28px max(32px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(32px, env(safe-area-inset-left));
 }
 
-.dashboardMain .dashboardQuietStatus {
-  margin: 0;
-  padding: 0;
-  min-height: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.dashboardQuietStatus > div {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.dashboardQuietStatus strong {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.dashboardQuietStatus p {
-  margin: 0;
-  font-size: 12px;
-}
-
 .dashboardMain .operatorWorkspace {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, .6fr);
-  grid-template-areas: "panel start" "panel preview";
-  grid-template-rows: auto 1fr;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "panel";
   gap: 24px;
-  margin-top: 22px;
+  margin-top: 0;
 }
 
-.dashboardMain .operatorWorkspace.isLive {
+.dashboardMain .operatorWorkspace.withPreview {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, .75fr);
   grid-template-areas: "panel preview";
-  grid-template-rows: auto;
 }
 
 .dashboardMain .workspacePanelGlow {
@@ -266,21 +239,6 @@ main.dashboardMain {
 .dashboardMain .serviceSnapshot dt {
   font-size: 10px;
   letter-spacing: .04em;
-}
-
-.dashboardMain .outputContextCard {
-  background: transparent;
-  box-shadow: none;
-  border: 0;
-  padding: 5px 3px;
-}
-
-.dashboardMain .outputContextCard h3 {
-  font-size: 13px;
-}
-
-.dashboardMain .outputContextCard .eyebrow {
-  display: none;
 }
 
 .dashboardMain .primaryButton {
@@ -473,7 +431,6 @@ main.dashboardMain {
 }
 
 .dashboardMain .startBar {
-  grid-area: start;
   display: block;
   position: static;
   margin: 0;
@@ -617,27 +574,12 @@ main.dashboardMain {
 }
 
 @media (max-width: 1350px) {
-  .dashboardMain .operatorWorkspace {
+  .dashboardMain .operatorWorkspace.withPreview {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "start" "panel" "preview";
-    grid-template-rows: auto;
-  }
-  .dashboardMain .operatorWorkspace.isLive {
     grid-template-areas: "panel" "preview";
   }
-  .dashboardMain .startBarActions {
-    flex-direction: row;
-    align-items: center;
-  }
   .dashboardMain .workspacePreview {
-    grid-template-columns: minmax(0, 1fr) minmax(220px, .8fr);
-    align-items: start;
-  }
-  .dashboardMain .outputContextCard {
-    grid-column: 2;
-  }
-  .dashboardMain .workspacePreview .previewCard {
-    grid-row: 1 / 3;
+    grid-template-columns: minmax(0, 1fr);
   }
   .dashboardMain .workspacePanelHeader h2 {
     font-size: 26px;
@@ -707,7 +649,7 @@ main.dashboardMain {
     padding: 18px max(16px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(16px, env(safe-area-inset-left));
   }
   .dashboardMain .operatorWorkspace {
-    margin-top: 18px;
+    margin-top: 0;
     gap: 18px;
   }
   .dashboardMain .workspacePanelHeader, .dashboardMain .workspacePanelBody {
@@ -760,9 +702,6 @@ main.dashboardMain {
   }
   .dashboardMain .workspacePreview .previewCard {
     grid-row: auto;
-  }
-  .dashboardMain .outputContextCard {
-    grid-column: auto;
   }
   .dashboardMain .startBarActions {
     flex-direction: column;
