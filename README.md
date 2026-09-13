@@ -324,11 +324,14 @@ Before each transcription attempt, the client atomically reserves one of the ser
 900 allotted transcription attempts—derived from the fastest six-second option—while
 validating its short-lived controller lease in the Main Durable Object. This counter
 survives same-tab reloads; a confirmed takeover starts a fresh service with fresh
-counters. A successful non-silent chunk can make at most one translation call, so a
-service can also make at most 900 translation calls. The extra small Cloudflare request
-checks service ownership. The Worker verifies Access and atomically claims the reserved
-attempt before each transcription or translation dispatch. Each stage may consume that
-attempt once; noncanonical inference-path aliases are rejected before Next.js routing.
+counters. Both cloud inference methods require the controller and reserved attempt
+together and send them in request headers. Missing or malformed context stops capture
+before the browser sends audio or text. A successful non-silent chunk can make at most
+one translation call, so a service can also make at most 900 translation calls. The
+extra small Cloudflare request checks service ownership. The Worker verifies Access
+and atomically claims the reserved attempt before each transcription or translation
+dispatch. Each stage may consume that attempt once; noncanonical inference-path aliases
+are rejected before Next.js routing.
 Pause and confirmed translation refresh invalidate every earlier reservation, including
 after Resume; legacy state conservatively invalidates its existing reservations. New
 reservations retain the original 900-attempt ceiling and service expiry.

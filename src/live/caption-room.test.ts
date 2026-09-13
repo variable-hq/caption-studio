@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { CloudProviderClient } from "@/ai/cloud-provider-client";
 import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
-import { MAX_TRANSCRIPTION_REQUESTS } from "@/live/contracts";
-import type { LiveWorkerEnvironment } from "@/live/api";
+import { MAX_TRANSCRIPTION_REQUESTS, normalizeCaptionStyle } from "@/live/contracts";
+import { handleLiveApiRequest, type LiveWorkerEnvironment } from "@/live/api";
 import { handleInferenceRequest } from "@/live/inference-request";
+import { LiveSessionClient } from "@/live/session-client";
 
 const CONTROLLER_A = "a".repeat(64);
 const CONTROLLER_B = "b".repeat(64);
@@ -1250,6 +1252,84 @@ describe("transcription dispatch enforcement", () => {
     const provider = vi.fn(async () => Response.json({ segments: [] }));
     return { ...fixture, hash, env, provider, roomFetch };
   }
+
+  it("carries the issued controller and reservation through both browser inference stages", async () => {
+    const { room, storage } = roomFixture();
+    const env: LiveWorkerEnvironment = {
+      CAPTION_LOCAL_AUTH_BYPASS: "true",
+      OBS_CHANNEL_ENCRYPTION_KEY: "synthetic-encryption-key-at-least-32-characters",
+      CAPTION_ROOMS: { idFromName: () => "main", get: () => room },
+    };
+    const provider = vi.fn(async (req: Request) => {
+      if (new URL(req.url).pathname === "/api/ai/transcribe") {
+        return Response.json({ segments: [{ text: "Grace", isFinal: true }] });
+      }
+      return Response.json({
+        text: "Kasih karunia",
+        usage: { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+      });
+    });
+    const browserFetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const req = new Request(
+        input instanceof Request ? input : new URL(String(input), "https://caption.example"),
+        init,
+      );
+      const liveResponse = await handleLiveApiRequest(req, env);
+      return liveResponse ?? handleInferenceRequest(req, env, () => provider(req));
+    });
+
+    try {
+      const live = new LiveSessionClient();
+      const cloud = new CloudProviderClient();
+      const style = normalizeCaptionStyle({});
+      await live.createChannel(style);
+      const service = await live.startService(style);
+      const lease = await live.reserveTranscriptionAttempt(service.controllerToken);
+      const context = {
+        controllerToken: service.controllerToken,
+        transcriptionAttempt: lease.transcriptionRequests,
+      };
+      const segments = await cloud.transcribe({
+        audio: new Blob(["synthetic"], { type: "audio/webm" }),
+        sourceLanguage: "en",
+        keywordHints: [],
+      }, context);
+      const translation = await cloud.translate({
+        text: segments[0].text,
+        sourceLanguage: "en",
+        targetLanguage: "id",
+        recentContext: [],
+        preferredTerms: {},
+      }, context);
+      await live.publish(service.controllerToken, {
+        publicText: translation.text,
+        targetLanguage: "id",
+        style,
+        translationRevision: lease.translationRevision,
+      });
+
+      expect(provider).toHaveBeenCalledTimes(2);
+      expect(await storage.get("configuration")).toMatchObject({
+        transcriptionRequests: 1,
+        claimedTranscriptionAttempts: [1],
+        claimedTranslationAttempts: [1],
+        llmUsage: { translationRequests: 1, totalTokens: 12 },
+      });
+      expect(await storage.get("latest")).toMatchObject({ publicText: "Kasih karunia" });
+
+      // A fresh browser request still cannot reuse an already consumed reservation.
+      await expect(cloud.translate({
+        text: "Grace",
+        sourceLanguage: "en",
+        targetLanguage: "id",
+        recentContext: [],
+        preferredTerms: {},
+      }, context)).rejects.toMatchObject({ code: "translation_attempt_used" });
+      expect(provider).toHaveBeenCalledTimes(2);
+    } finally {
+      browserFetch.mockRestore();
+    }
+  });
 
   it.each(["missing controller", "missing attempt", "stale controller", "paused", "expired", "unreserved", "above ceiling", "refreshed"])(
     "never dispatches for %s", async (reason) => {

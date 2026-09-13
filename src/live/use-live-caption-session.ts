@@ -7,7 +7,7 @@ import {
   CloudProviderClientError,
   isTerminalInferenceControlError,
 } from "@/ai/cloud-provider-client";
-import type { TranslationResult } from "@/ai/contracts";
+import type { InferenceAttemptContext, TranslationResult } from "@/ai/contracts";
 import {
   accumulateLlmSessionUsage,
   emptyLlmSessionUsage,
@@ -514,15 +514,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         ...state,
         transcriptionRequests: lease.transcriptionRequests,
       }));
+      const inferenceContext: InferenceAttemptContext = {
+        controllerToken: serviceAtStart.controllerToken,
+        transcriptionAttempt: lease.transcriptionRequests,
+      };
       const segments = await cloudClientRef.current.transcribe(
         {
           audio,
           sourceLanguage: current.sourceLanguage,
           keywordHints: keywordHints(glossary),
         },
+        inferenceContext,
         signal,
-        serviceAtStart.controllerToken,
-        lease.transcriptionRequests,
       );
       if (!isCurrentCapture()) return;
 
@@ -551,9 +554,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               preferredTerms: preferredTermMap(glossary, current.targetLanguage),
               translationSystemPrompt: current.translationSystemPrompt,
             },
+            inferenceContext,
             signal,
-            serviceAtStart.controllerToken,
-            lease.transcriptionRequests,
           );
         } catch (error) {
           if (

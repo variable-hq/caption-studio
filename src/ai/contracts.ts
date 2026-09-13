@@ -54,14 +54,27 @@ export interface TranslationResult {
   rateLimit?: LlmProviderRateLimitSnapshot;
 }
 
+export interface InferenceAttemptContext {
+  controllerToken: string;
+  transcriptionAttempt: number;
+}
+
 export interface TranscriptionProvider {
   readonly id: string;
   readonly mode: "cloud-free";
-  transcribe(request: TranscriptionRequest): Promise<TranscriptSegment[]>;
+  transcribe(
+    request: TranscriptionRequest,
+    context: InferenceAttemptContext,
+    signal?: AbortSignal,
+  ): Promise<TranscriptSegment[]>;
 }
 
 export interface TranslationProvider {
   readonly id: string;
   readonly mode: "cloud-free";
-  translate(request: TranslationRequest): Promise<TranslationResult>;
+  translate(
+    request: TranslationRequest,
+    context: InferenceAttemptContext,
+    signal?: AbortSignal,
+  ): Promise<TranslationResult>;
 }

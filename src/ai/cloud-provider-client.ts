@@ -1,4 +1,5 @@
 import type {
+  InferenceAttemptContext,
   LlmProviderRateLimitSnapshot,
   LlmTokenUsage,
   TranscriptSegment,
@@ -9,6 +10,7 @@ import type {
   TranslationResult,
 } from "@/ai/contracts";
 import { normalizeLlmTokenUsage, normalizeProviderRateLimitSnapshot } from "@/ai/usage";
+import { MAX_TRANSCRIPTION_REQUESTS } from "@/live/contracts";
 
 interface CloudProviderHealth {
   status: "ready" | "not-configured" | "unavailable";
@@ -71,12 +73,25 @@ export function isTerminalInferenceControlError(error: unknown) {
   );
 }
 
-function inferenceHeaders(controllerToken?: string, transcriptionAttempt?: number) {
+function inferenceHeaders(
+  context: InferenceAttemptContext,
+  stage: "transcription" | "translation",
+) {
+  if (
+    typeof context?.controllerToken !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/u.test(context.controllerToken) ||
+    !Number.isSafeInteger(context.transcriptionAttempt) ||
+    context.transcriptionAttempt <= 0 ||
+    context.transcriptionAttempt > MAX_TRANSCRIPTION_REQUESTS
+  ) {
+    throw new CloudProviderClientError(
+      "Caption authentication is missing or invalid. Reload the operator page before restarting captions.",
+      `invalid_${stage}_attempt`,
+    );
+  }
   return {
-    ...(controllerToken ? { "x-caption-controller": controllerToken } : {}),
-    ...(Number.isSafeInteger(transcriptionAttempt) && Number(transcriptionAttempt) > 0
-      ? { "x-caption-transcription-attempt": String(transcriptionAttempt) }
-      : {}),
+    "x-caption-controller": context.controllerToken,
+    "x-caption-transcription-attempt": String(context.transcriptionAttempt),
   };
 }
 
@@ -116,10 +131,10 @@ export class CloudProviderClient
 
   async transcribe(
     request: TranscriptionRequest,
+    context: InferenceAttemptContext,
     signal?: AbortSignal,
-    controllerToken?: string,
-    transcriptionAttempt?: number,
   ): Promise<TranscriptSegment[]> {
+    const headers = inferenceHeaders(context, "transcription");
     const form = new FormData();
     const extension = request.audio.type.includes("ogg")
       ? "ogg"
@@ -132,7 +147,7 @@ export class CloudProviderClient
 
     const response = await fetch("/api/ai/transcribe", {
       method: "POST",
-      headers: inferenceHeaders(controllerToken, transcriptionAttempt),
+      headers,
       body: form,
       signal: signal
         ? AbortSignal.any([signal, AbortSignal.timeout(35_000)])
@@ -153,15 +168,14 @@ export class CloudProviderClient
 
   async translate(
     request: TranslationRequest,
+    context: InferenceAttemptContext,
     signal?: AbortSignal,
-    controllerToken?: string,
-    transcriptionAttempt?: number,
   ): Promise<TranslationResult> {
     const response = await fetch("/api/ai/translate", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        ...inferenceHeaders(controllerToken, transcriptionAttempt),
+        ...inferenceHeaders(context, "translation"),
       },
       body: JSON.stringify(request),
       signal: signal
