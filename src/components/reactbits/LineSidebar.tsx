@@ -13,8 +13,11 @@ import "./LineSidebar.css";
 
 export interface LineSidebarItem {
   id: string;
+  href: string;
   label: ReactNode;
   description?: ReactNode;
+  icon?: ReactNode;
+  group?: string;
   disabled?: boolean;
 }
 
@@ -37,9 +40,9 @@ export function LineSidebar({
   onActiveChange,
   ariaLabel = "Dashboard sections",
   className,
-  showIndex = true,
+  showIndex = false,
 }: LineSidebarProps) {
-  const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const buttonRefs = useRef<Array<HTMLAnchorElement | null>>([]);
 
   const focusEnabledItem = (currentIndex: number, direction: 1 | -1) => {
     if (items.length < 2) return;
@@ -55,7 +58,7 @@ export function LineSidebar({
   };
 
   const handleKeyDown = (
-    event: KeyboardEvent<HTMLButtonElement>,
+    event: KeyboardEvent<HTMLAnchorElement>,
     index: number,
   ) => {
     if (event.key === "ArrowDown" || event.key === "ArrowRight") {
@@ -89,19 +92,29 @@ export function LineSidebar({
 
           return (
             <li className="rb-line-sidebar__item" key={item.id}>
-              <button
+              {item.group && item.group !== items[index - 1]?.group ? (
+                <p className="rb-line-sidebar__group">{item.group}</p>
+              ) : null}
+              <a
                 ref={(element) => {
                   buttonRefs.current[index] = element;
                 }}
-                type="button"
+                href={item.disabled ? undefined : item.href}
+                rel="noopener"
                 className="rb-line-sidebar__button"
-                aria-current={isActive ? "step" : undefined}
+                aria-current={isActive ? "page" : undefined}
                 data-active={isActive ? "true" : "false"}
-                disabled={item.disabled}
-                onClick={() => onActiveChange?.(item.id, item)}
+                aria-disabled={item.disabled || undefined}
+                tabIndex={item.disabled ? -1 : undefined}
+                onClick={(event) => {
+                  if (item.disabled) { event.preventDefault(); return; }
+                  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0 || !onActiveChange) return;
+                  event.preventDefault();
+                  onActiveChange(item.id, item);
+                }}
                 onKeyDown={(event) => handleKeyDown(event, index)}
               >
-                <span className="rb-line-sidebar__marker" aria-hidden="true" />
+                {item.icon ? <span className="rb-line-sidebar__icon" aria-hidden="true">{item.icon}</span> : null}
                 {showIndex ? (
                   <span className="rb-line-sidebar__index" aria-hidden="true">
                     {String(index + 1).padStart(2, "0")}
@@ -115,7 +128,7 @@ export function LineSidebar({
                     </span>
                   ) : null}
                 </span>
-              </button>
+              </a>
             </li>
           );
         })}

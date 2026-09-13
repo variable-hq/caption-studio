@@ -1,3 +1,4 @@
+import { openDashboardSection } from "./dashboard-qa-helpers.mjs";
 // Synthetic browser checks only. All API requests are mocked and external traffic is blocked.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -84,7 +85,7 @@ try {
   await page.getByText('clear: confirmed', { exact: true }).waitFor(); await check('remote');
   assert.ok(requests.every((url) => url === '/api/live/experience/remote'));
   await page.goto(origin); await page.getByText('Cloud AI configured', { exact: true }).waitFor();
-  await page.getByRole('navigation', { name: 'Service setup sections' }).getByRole('button', { name: /Sermon history/ }).click();
+  await openDashboardSection(page, "Sermon history");
   await page.getByRole('button', { name: 'Load saved sermons', exact: true }).click();
   await page.locator('.archiveList button').first().click();
   await page.getByText('Review transcript and corrections', { exact: true }).click();
@@ -107,7 +108,7 @@ try {
   await page.getByRole('button', { name: 'Confirm change', exact: true }).click();
   await page.getByText('Change confirmed.', { exact: true }).waitFor();
   assert.equal(await page.getByText('Synthetic supported summary.', { exact: false }).count(), 0);
-  await page.getByRole('navigation', { name: 'Service setup sections' }).getByRole('button', { name: /AI usage/ }).click();
+  await openDashboardSection(page, "AI usage");
   await page.waitForTimeout(250);
   await page.screenshot({ path: `${output}/usage-before-${width}.png`, fullPage: true });
   await fs.writeFile(`${output}/usage-before-${width}.txt`, await page.locator('body').innerText());

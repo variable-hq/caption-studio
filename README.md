@@ -11,6 +11,11 @@ first deployment failed after compilation. The deploy command was corrected and 
 Cloudflare retry **deployed successfully at 08:05 UTC**. See the
 [deployment runbook](docs/DEPLOYMENT.md) for the fix, commands and remaining rehearsal gates.
 
+The operator dashboard now opens on a service overview with grouped sidebar navigation.
+On phones, **Open navigation** opens a drawer. Section links support bookmarks and browser
+Back/Forward; switching sections does not start capture or add AI calls.
+See the [dashboard design and QA record](docs/DASHBOARD_UI_QA.md).
+
 Implemented: browser audio selection and meter; six-step setup guide; 6-, 9-, or 12-second
 capture; Groq Whisper transcription and contextual GPT-OSS 20B translation; biblical
 name hints, approved recognition aliases, preferred translations and public masking;
@@ -40,6 +45,10 @@ do not create more model calls. Reading delay is additional to the fast caption 
 The remote reports microphone actions as confirmed only after the capture computer
 acknowledges them. Server-side Pause blocks new inference claims immediately. Resume
 requires the capture computer to be connected and able to capture.
+
+Use **Live outputs** for OBS, the latest-caption viewer, reader links, and phone pairing,
+both before and during a service. Use **Sermon history** for private archives and summaries,
+and **AI usage** for service counters and rolling usage history.
 
 ## Service history, summaries, and controls
 

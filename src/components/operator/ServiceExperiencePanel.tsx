@@ -8,7 +8,7 @@ import { LANGUAGE_OPTIONS } from "@/domain/languages";
 interface Archive { details: Omit<JournalState, "readerHash">; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
 interface ServiceEntry { id: string; startedAt: number }
 
-export function ServiceExperiencePanel({ service, onReaderLink }: { service: LiveServiceDetails | null; onReaderLink: (url: string) => void }) {
+export function ServiceExperiencePanel({ view, service, onReaderLink }: { view: "sharing" | "archive"; service: LiveServiceDetails | null; onReaderLink: (url: string) => void }) {
   const [services, setServices] = useState<ServiceEntry[]>([]);
   const [archive, setArchive] = useState<Archive | null>(null);
   const [issuedLink, setIssuedLink] = useState<{ serviceId: string; url: string } | null>(null);
@@ -70,8 +70,9 @@ export function ServiceExperiencePanel({ service, onReaderLink }: { service: Liv
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   return <div className="experienceStack">
-    <section className="experienceCard"><h3>Reader and remote control</h3>
+    {view === "sharing" && <section className="experienceCard"><h3>Reader and remote control</h3>
       <p>The reader appends shared translated paragraphs. The operator phone controls the capture computer.</p>
+      {!service && <p className="privacyNote">Start captions to share the reader and pair your phone. Keep the capture computer open during the service.</p>}
       <div className="buttonGrid">
         <button className="secondaryButton" disabled={!service || busy} onClick={() => void perform(async () => {
           const result = await experienceRequest<{ url: string }>("pair", {}, service!.controllerToken); setIssuedLink({ serviceId: service!.serviceId!, url: result.url }); setMessage("Remote pairing created. Earlier pairing is revoked.");
@@ -85,16 +86,16 @@ export function ServiceExperiencePanel({ service, onReaderLink }: { service: Liv
       </div>
       {link && <label>Private link for intended recipients<input name="experienceLink" autoComplete="off" spellCheck={false} readOnly value={link} />
         <button className="secondaryButton" onClick={() => void perform(async () => { await navigator.clipboard.writeText(link); setMessage("Link copied."); })}>Copy link</button></label>}
-    </section>
-    <section className="experienceCard"><h3>Saved sermons</h3><p>Private transcripts expire seven days after End. Saving must be enabled before Start.</p>
+    </section>}
+    {view === "archive" && <section className="experienceCard"><h3>Saved sermons</h3><p>Private transcripts expire seven days after End. Saving must be enabled before Start.</p>
       <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => {
         const result = await experienceRequest<{ services: ServiceEntry[] }>("history"); setServices(result.services);
         if (!result.services.length) setMessage("No saved sermons in the retention window.");
       })}>Load saved sermons</button>
       <div className="archiveList">{services.map((entry) => <button className="secondaryButton" key={entry.id} disabled={busy}
         onClick={() => void perform(() => load(entry.id))}>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(entry.startedAt)}</button>)}</div>
-    </section>
-    {archive && <section className="experienceCard" aria-labelledby="archive-heading"><h3 id="archive-heading">Sermon archive</h3>
+    </section>}
+    {view === "archive" && archive && <section className="experienceCard" aria-labelledby="archive-heading"><h3 id="archive-heading">Sermon archive</h3>
       <p>{archive.details.status} · {archive.details.incomplete ? "History incomplete: review gaps" : "Review transcript coverage before sharing"}</p>
       <p className="helpText">Deletes {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format((archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION)}. Bible context: Indonesian TB2, approved names only; exact verse text is not imported.</p>
       <div className="buttonGrid"><button className="secondaryButton" disabled={busy} onClick={() => void perform(() => load(archive.details.id))}>Refresh archive</button>

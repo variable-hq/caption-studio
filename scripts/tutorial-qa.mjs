@@ -1,3 +1,4 @@
+import { openDashboardSection } from "./dashboard-qa-helpers.mjs";
 // Start npm run dev on port 3100. Set CAPTION_QA_TOOLS_DIR to an isolated directory
 // containing node_modules/playwright and node_modules/@axe-core/playwright.
 import assert from "node:assert/strict";
@@ -116,7 +117,7 @@ try {
     await page.reload();
     await page.getByText("Main channel · Idle", { exact: true }).waitFor();
     assert.equal(await dialog.isVisible(), false);
-    await page.getByRole("navigation", { name: "Service setup sections" }).getByRole("button", { name: /Translation/ }).click();
+    await openDashboardSection(page, "Translation");
     assert.equal(await page.getByTestId("source-language").inputValue(), "en");
     assert.equal(await page.getByTestId("target-language").inputValue(), "id");
     await page.getByTestId("source-language").selectOption("id");
@@ -148,7 +149,7 @@ try {
     assert.equal(await page.locator(":focus").getAttribute("id"), "tutorial-heading");
     await page.keyboard.press("Escape");
     assert.equal(await page.locator(":focus").innerText(), "How to use");
-    await page.getByRole("navigation", { name: "Service setup sections" }).getByRole("button", { name: /Translation/ }).click();
+    await openDashboardSection(page, "Translation");
     assert.equal(await page.getByTestId("source-language").inputValue(), "id");
     assert.equal(await page.getByTestId("target-language").inputValue(), "en");
     assert.equal(await page.evaluate(() => window.__audioRequests), 0);

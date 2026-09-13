@@ -13,7 +13,6 @@ import { PromptEditor } from "@/components/operator/PromptEditor";
 import { TranslationSettingsEditor } from "@/components/operator/TranslationSettingsEditor";
 import {
   BorderGlow,
-  LineSidebar,
   SpotlightCard,
   type LineSidebarItem,
 } from "@/components/reactbits";
@@ -45,6 +44,8 @@ import {
 import { useLiveCaptionSession } from "@/live/use-live-caption-session";
 import { ServiceExperiencePanel } from "@/components/operator/ServiceExperiencePanel";
 import { UsageHistory } from "@/components/operator/UsageHistory";
+import { DashboardIcon, DashboardNavigation } from "@/components/operator/DashboardNavigation";
+import "./dashboard.css";
 
 type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
 
@@ -65,37 +66,25 @@ type WorkspaceSectionId =
   | "prompt"
   | "appearance"
   | "outputs"
-  | "viewer";
+  | "overview";
 
-const SETUP_WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
-  { id: "audio", label: "Audio input", description: "Choose and test microphone" },
-  {
-    id: "translation",
-    label: "Translation",
-    description: "Languages, timing and terms",
-  },
-  { id: "appearance", label: "Appearance", description: "Style the OBS captions" },
-  { id: "outputs", label: "Live outputs", description: "OBS and mobile delivery" },
-  { id: "history", label: "Sermon history", description: "Reader, remote and summaries" },
-  { id: "usage", label: "AI usage", description: "Consumption and limits" },
-  { id: "prompt", label: "AI instructions", description: "Optional translation guidance" },
-];
-
-const LIVE_WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
-  { id: "translation", label: "Translation", description: "Change live configuration" },
-  { id: "history", label: "Sermon history", description: "Reader, remote and summaries" },
-  { id: "usage", label: "AI usage", description: "Monitor consumption and limits" },
-  { id: "prompt", label: "AI instructions", description: "Tune translation behaviour" },
-  { id: "viewer", label: "Mobile viewer", description: "Share or replace the link" },
-  { id: "appearance", label: "Appearance", description: "Update OBS styling" },
-  { id: "audio", label: "Audio input", description: "Pause to change device" },
+const WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
+  { id: "overview", href: "#workspace=overview", label: "Overview", group: "Workspace", icon: <DashboardIcon name="overview" /> },
+  { id: "audio", href: "#workspace=audio", label: "Audio input", group: "Setup", icon: <DashboardIcon name="audio" /> },
+  { id: "translation", href: "#workspace=translation", label: "Translation", group: "Setup", icon: <DashboardIcon name="translation" /> },
+  { id: "appearance", href: "#workspace=appearance", label: "Appearance", group: "Setup", icon: <DashboardIcon name="appearance" /> },
+  { id: "outputs", href: "#workspace=outputs", label: "Live outputs", group: "Service", icon: <DashboardIcon name="outputs" /> },
+  { id: "history", href: "#workspace=history", label: "Sermon history", group: "Service", icon: <DashboardIcon name="history" /> },
+  { id: "usage", href: "#workspace=usage", label: "AI usage", group: "Service", icon: <DashboardIcon name="usage" /> },
+  { id: "prompt", href: "#workspace=prompt", label: "AI instructions", group: "Settings", icon: <DashboardIcon name="prompt" /> },
 ];
 
 const WORKSPACE_SECTION_COPY: Record<
   WorkspaceSectionId,
   { eyebrow: string; title: string; description: string }
 > = {
-  history: { eyebrow: "Service experience", title: "Reader, remote and sermon history", description: "Share readable captions, pair the operator phone, and review saved sermons." },
+  overview: { eyebrow: "Main channel", title: "Service overview", description: "Your service, from the first sound check to the final caption." },
+  history: { eyebrow: "Service", title: "Sermon history", description: "Review saved transcripts, correct passages, and prepare a sermon summary." },
   audio: {
     eyebrow: "Input",
     title: "Audio input",
@@ -127,12 +116,7 @@ const WORKSPACE_SECTION_COPY: Record<
   outputs: {
     eyebrow: "Delivery",
     title: "Live outputs",
-    description: "Prepare the reusable OBS source and understand mobile viewer delivery.",
-  },
-  viewer: {
-    eyebrow: "Audience access",
-    title: "Mobile translation viewer",
-    description: "Share the current moderated translation without exposing the OBS credential.",
+    description: "Connect OBS, share audience captions, and pair your operator phone.",
   },
 };
 
@@ -449,7 +433,7 @@ export default function OperatorDashboard() {
   const [savedPromptFingerprint, setSavedPromptFingerprint] = useState("");
   const [promptStorageMessage, setPromptStorageMessage] = useState("");
   const [activeWorkspaceSection, setActiveWorkspaceSection] =
-    useState<WorkspaceSectionId>("audio");
+    useState<WorkspaceSectionId>("overview");
   const workspaceHeadingRef = useRef<HTMLHeadingElement>(null);
   const [confirmTranslationRefresh, setConfirmTranslationRefresh] =
     useState(false);
@@ -688,7 +672,6 @@ export default function OperatorDashboard() {
     sourceLanguage === "auto"
       ? "Automatic detection"
       : LANGUAGE_OPTIONS.find(({ locale }) => locale === sourceLanguage)?.label;
-  const targetLabel = LANGUAGE_OPTIONS.find(({ locale }) => locale === targetLanguage)?.label;
   const hasService = Boolean(liveState.service);
   const isLive = liveState.status === "live";
   const isPaused = liveState.status === "paused";
@@ -767,16 +750,7 @@ export default function OperatorDashboard() {
             ? "Create the reusable OBS Browser Source in the Live outputs section before going live."
             : "Start verifies the AI models, opens a 90-minute service window, and captures microphone audio.";
   const viewerUrl = liveState.service?.viewerUrl ?? null;
-  const workspaceItems = hasService
-    ? LIVE_WORKSPACE_ITEMS
-    : SETUP_WORKSPACE_ITEMS;
-  const currentWorkspaceSection = workspaceItems.some(
-    ({ id }) => id === activeWorkspaceSection,
-  )
-    ? activeWorkspaceSection
-    : hasService
-      ? "translation"
-      : "audio";
+  const currentWorkspaceSection = activeWorkspaceSection;
   const currentSectionCopy = WORKSPACE_SECTION_COPY[currentWorkspaceSection];
   const translationChanges = activeTranslationSettings
     ? translationSettingsChanges(
@@ -800,9 +774,31 @@ export default function OperatorDashboard() {
   const displayedTargetLabel = LANGUAGE_OPTIONS.find(({ locale }) => locale === displayedTranslationSettings?.targetLanguage)?.label;
 
   const openWorkspaceSection = (section: WorkspaceSectionId) => {
+    if (window.location.hash !== `#workspace=${section}`) {
+      window.history.pushState(window.history.state, "", `#workspace=${section}`);
+    }
     setActiveWorkspaceSection(section);
     window.requestAnimationFrame(() => workspaceHeadingRef.current?.focus());
   };
+
+  useEffect(() => {
+    const syncSection = (focus: boolean) => {
+      const hash = window.location.hash;
+      const id = hash === "" ? "overview" : hash.startsWith("#workspace=") ? hash.slice(11) : null;
+      if (!WORKSPACE_ITEMS.some((item) => item.id === id)) return;
+      setActiveWorkspaceSection(id as WorkspaceSectionId);
+      if (focus) window.requestAnimationFrame(() => workspaceHeadingRef.current?.focus());
+    };
+    const initial = window.requestAnimationFrame(() => syncSection(false));
+    const onHistory = () => syncSection(true);
+    window.addEventListener("popstate", onHistory);
+    window.addEventListener("hashchange", onHistory);
+    return () => {
+      window.cancelAnimationFrame(initial);
+      window.removeEventListener("popstate", onHistory);
+      window.removeEventListener("hashchange", onHistory);
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasService && !anotherOperatorActive) return;
@@ -1067,17 +1063,35 @@ export default function OperatorDashboard() {
     </>
   );
 
+  const historyConsent = (
+    <section className="historyConsent" aria-label="Transcript saving">
+      <label className="checkLabel">
+        <input
+          type="checkbox"
+          name="saveTranscript"
+          checked={hasService ? liveState.service?.saveHistory === true : saveHistory}
+          disabled={hasService || isBusy}
+          onChange={(event) => setSaveHistory(event.target.checked)}
+        />
+        Save transcript history for this service
+      </label>
+      <p className="helpText">
+        {hasService
+          ? liveState.service?.saveHistory
+            ? "Saving privately during this service. Tell participants that transcript history is enabled."
+            : "History saving is off for this service."
+          : "Choose before Start and tell participants when saving is enabled. History deletes 7 days after End; numeric AI usage is retained separately for 30 days."}
+      </p>
+    </section>
+  );
+
   return (
-    <main>
+    <div className="dashboardShell">
       <a className="skipLink" href="#workspace-panel-heading">Skip to workspace controls</a>
+      <DashboardNavigation items={WORKSPACE_ITEMS} activeId={currentWorkspaceSection} onSelect={(id) => openWorkspaceSection(id as WorkspaceSectionId)} />
+      <main className="dashboardMain">
       <header className="topbar">
-        <div className="brand">
-          <span className="brandMark" aria-hidden="true">CC</span>
-          <div>
-            <p className="eyebrow">Live translation console</p>
-            <h1>Church Live Caption</h1>
-          </div>
-        </div>
+        <div className="dashboardBreadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><h1>Main channel</h1></div>
         <div className="headerStatuses">
           <span className={`statusPill ${cloudState}`}>
             <span className="statusDot" aria-hidden="true" />
@@ -1095,13 +1109,14 @@ export default function OperatorDashboard() {
           <OperatorTutorial
             autoOpenAllowed={!isBusy && !hasService && !anotherOperatorActive}
             serviceActive={hasService || anotherOperatorActive}
-            onOpenSection={(section) => openWorkspaceSection(section === "outputs" && hasService ? "viewer" : section)}
+            onOpenSection={openWorkspaceSection}
           />
         </div>
       </header>
 
+      <div className="dashboardContent">
       <section
-        className={`statusBanner ${liveState.status}`}
+        className={`statusBanner ${liveState.status} ${!hasService && liveState.status !== "error" ? "dashboardQuietStatus" : ""}`}
         role="status"
         aria-live="polite"
         aria-atomic="true"
@@ -1143,14 +1158,7 @@ export default function OperatorDashboard() {
       </section>
 
       <p className={`actionFeedback ${clipboardMessage ? "" : "visuallyHidden"}`} role="status" aria-live="polite">{clipboardMessage}</p>
-
-      <section className="historyConsent" aria-label="Transcript saving">
-        {liveState.historyIncomplete && <p role="alert">History saving failed for part of this service. Review transcript gaps before generating a summary.</p>}
-        <label className="checkLabel"><input type="checkbox" name="saveTranscript" checked={hasService ? liveState.service?.saveHistory === true : saveHistory}
-          disabled={hasService || isBusy} onChange={(event) => setSaveHistory(event.target.checked)} />
-          Save transcript history for this service</label>
-        <p className="helpText">{hasService ? liveState.service?.saveHistory ? "Saving privately during this service. Tell participants that transcript history is enabled." : "History saving is off for this service." : "Choose before Start and tell participants when saving is enabled. History deletes 7 days after End; numeric AI usage is retained separately for 30 days."}</p>
-      </section>
+      {liveState.historyIncomplete && <p className="privacyNote" role="alert">History saving failed for part of this service. Review transcript gaps before generating a summary.</p>}
 
       {hasService ? (
         <section
@@ -1186,6 +1194,7 @@ export default function OperatorDashboard() {
                   ? "waiting for processing time"
                   : `${liveState.lastLatencyMs} ms processing`}
               </p>
+              <p>History saving {liveState.service?.saveHistory ? "on" : "off"}</p>
               <div className="liveInputMeter">{audioMeter}</div>
             </div>
           </div>
@@ -1300,79 +1309,66 @@ export default function OperatorDashboard() {
           </div>
           <p className="liveControlHelp">Pause stops capture and clears the current caption. Clear live caption drops pending reader text; committed reader paragraphs remain. The 90-minute timer continues while paused.</p>
         </section>
-      ) : (
-        <section className="setupHero" aria-labelledby="setup-heading">
-          <div>
-            <h2 id="setup-heading">Prepare the room, then go live</h2>
-            <p>
-              Check the input, choose the audience language, and test the actual OBS source before starting.
-            </p>
-          </div>
-          <div className="setupHeroMeta" aria-label="Service limits">
-            <span>90-minute window</span>
-            <span>1920 × 1080 OBS</span>
-            <span>Private operator source</span>
-          </div>
-        </section>
-      )}
-
-      {!hasService ? (
-        <section className="preflightChecklist" aria-label="Before starting captions">
-          <button type="button" className="preflightItem" onClick={() => openWorkspaceSection("audio")}>
-            <span className="preflightNumber" aria-hidden="true">01</span>
-            <span><strong>Check audio</strong><span>{microphoneState === "active" ? "Connected · Check the input meter" : microphoneState === "error" ? "Microphone needs attention" : "Enable the microphone and check its level"}</span></span>
-            <span className="preflightAction">Open audio</span>
-          </button>
-          <button type="button" className="preflightItem" onClick={() => openWorkspaceSection("translation")}>
-            <span className="preflightNumber" aria-hidden="true">02</span>
-            <span><strong>Confirm languages</strong><span>{sourceLabel} to {targetLabel} · Draft</span></span>
-            <span className="preflightAction">Review</span>
-          </button>
-          <button type="button" className="preflightItem" onClick={() => openWorkspaceSection("outputs")}>
-            <span className="preflightNumber" aria-hidden="true">03</span>
-            <span><strong>Test the OBS source</strong><span>{channelConfigured ? "Channel created · Verify the test in OBS" : "Create the reusable channel first"}</span></span>
-            <span className="preflightAction">Open outputs</span>
-          </button>
-          <p>Cloud status shows configuration only. Start verifies model access. OBS connection and audio quality require your check.</p>
-        </section>
       ) : null}
 
       <div className={`operatorWorkspace ${hasService ? "isLive" : "isSetup"}`}>
-        <aside className="workspaceNavigation" aria-label="Operator workspace navigation">
-          <div className="workspaceNavigationHeading">
-            <p className="eyebrow">{hasService ? "Live workspace" : "Setup workspace"}</p>
-            <h2>{hasService ? "Manage captions" : "Ready the service"}</h2>
-            <p>
-              {hasService
-                ? "Configuration stays editable. Apply translation changes with a controlled refresh."
-                : "Select a section to configure the service."}
-            </p>
+      {!hasService ? (
+        <section
+          className={`startBar ${anotherOperatorActive ? "takeover" : ""}`}
+          aria-labelledby="start-service-heading"
+        >
+          {historyConsent}
+          <div className="startBarActions"><div>
+            <strong id="start-service-heading">{startHeading}</strong>
+            <p id="start-service-description">{startDescription}</p>
           </div>
-          <LineSidebar
-            items={workspaceItems}
-            activeId={currentWorkspaceSection}
-            ariaLabel={hasService ? "Live caption sections" : "Service setup sections"}
-            onActiveChange={(id) => openWorkspaceSection(id as WorkspaceSectionId)}
-          />
-          <details className="serviceSnapshot" open={hasService}>
-            <summary>{hasService ? "Active translation" : "Starting configuration"}</summary>
-            <dl>
-              <div>
-                <dt>Spoken language</dt>
-                <dd>{displayedSourceLabel ?? "Refresh required"}</dd>
-              </div>
-              <div>
-                <dt>Audience language</dt>
-                <dd>{displayedTargetLabel ?? "Refresh required"}</dd>
-              </div>
-              <div>
-                <dt>{hasService ? "Active buffer" : "Draft buffer"}</dt>
-                <dd>{(hasService ? activeSpeechBufferMs : speechBufferMs) / 1_000}s</dd>
-              </div>
-            </dl>
-            {hasPendingTranslationChanges ? <p className="helpText">Draft changes are not active until you confirm a refresh.</p> : null}
-          </details>
-        </aside>
+          {confirmTakeover || takeoverRequired ? (
+            <div className="takeoverConfirmation">
+              <button
+                className="secondaryButton"
+                onClick={() => {
+                  setConfirmTakeover(false);
+                  cancelTakeover();
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="dangerButton"
+                aria-describedby="start-service-description"
+                disabled={cloudState !== "ready" || isBusy}
+                onClick={() => {
+                  setConfirmTakeover(false);
+                  void startSession(true);
+                }}
+              >
+                Confirm takeover
+              </button>
+            </div>
+          ) : (
+            <button
+              className={
+                anotherOperatorActive ? "dangerButton" : "primaryButton"
+              }
+              aria-describedby="start-service-description"
+              disabled={startDisabled}
+              onClick={() =>
+                anotherOperatorActive
+                  ? setConfirmTakeover(true)
+                  : void startSession()
+              }
+            >
+              {liveState.status === "starting"
+                ? "Starting securely…"
+                : anotherOperatorActive
+                  ? "Take over channel"
+                  : "Start captions"}
+            </button>
+          )}</div>
+        </section>
+      ) : null}
+
+
 
         <BorderGlow
           className="workspacePanelGlow"
@@ -1505,6 +1501,37 @@ export default function OperatorDashboard() {
             ) : null}
 
             <div className="workspacePanelBody">
+              {currentWorkspaceSection === "overview" ? (
+                <div className="dashboardOverview">
+                  <div className="overviewWelcome">
+                    <span className="overviewSymbol"><DashboardIcon name={hasService ? "audio" : "overview"} /></span>
+                    <div><h3>{hasService ? liveNeedsAttention ? "Service needs attention" : isRefreshing ? "Updating translation" : isPaused ? "Service paused" : "Your service is in progress" : anotherOperatorActive ? "Another operator is live" : "Prepare your next service"}</h3>
+                    <p>{hasService ? "Keep an eye on the output monitor. Pause, clear captions, or end the service using the live controls above." : anotherOperatorActive ? "Main channel is already in use. Taking over stops the current capture computer." : "Check your audio, confirm the languages, and connect your audience."}</p></div>
+                  </div>
+                  <dl className="overviewMetrics">
+                    <div><dt>Spoken language</dt><dd>{displayedSourceLabel ?? "Refresh required"}</dd></div>
+                    <div><dt>Audience language</dt><dd>{displayedTargetLabel ?? "Refresh required"}</dd></div>
+                    <div><dt>{hasService ? "Elapsed / 90 min" : "Service window"}</dt><dd>{hasService ? `${elapsedMinutes}m ${elapsedSeconds.toString().padStart(2, "0")}s` : "90 minutes"}</dd></div>
+                  </dl>
+                  <section className="overviewChecklist" aria-labelledby="overview-checklist-heading">
+                    <div className="overviewSectionHeading"><h3 id="overview-checklist-heading">{hasService ? "Manage your service" : "Before you go live"}</h3><span>{hasService ? "Live workspace" : "3 checks"}</span></div>
+                    <button type="button" className="overviewTask" onClick={() => openWorkspaceSection("audio")}>
+                      <span className="overviewTaskIcon"><DashboardIcon name="audio" /></span>
+                      <span><strong>Check your audio input</strong><small>{microphoneState === "active" ? "Microphone connected · Check the input meter" : microphoneState === "error" ? "Microphone needs attention" : "Choose a microphone and test the level"}</small></span><span aria-hidden="true">→</span>
+                    </button>
+                    <button type="button" className="overviewTask" onClick={() => openWorkspaceSection("translation")}>
+                      <span className="overviewTaskIcon"><DashboardIcon name="translation" /></span>
+                      <span><strong>Confirm translation settings</strong><small>{displayedSourceLabel ?? "Unknown"} → {displayedTargetLabel ?? "Unknown"} · {(hasService ? activeSpeechBufferMs : speechBufferMs) / 1_000}s buffer</small></span><span aria-hidden="true">→</span>
+                    </button>
+                    <button type="button" className="overviewTask" onClick={() => openWorkspaceSection("outputs")}>
+                      <span className="overviewTaskIcon"><DashboardIcon name="outputs" /></span>
+                      <span><strong>{hasService ? "Connect your audience" : "Test the OBS source"}</strong><small>{hasService ? "OBS, mobile captions, reader, and remote control" : channelConfigured ? "Channel created · Verify the test in OBS" : "Create your reusable OBS channel"}</small></span><span aria-hidden="true">→</span>
+                    </button>
+                    {!hasService && <p className="helpText">Cloud status confirms configuration. Start checks model access; verify sound and the OBS source yourself.</p>}
+                  </section>
+                  {hasService ? historyConsent : <div className="overviewNote"><DashboardIcon name="history" /><div><strong>Keep the message after the service</strong><p>Enable transcript saving before Start to review the sermon and generate a summary later. Private history expires 7 days after End.</p><button type="button" className="textButton" onClick={() => openWorkspaceSection("history")}>View sermon history <span aria-hidden="true">→</span></button></div></div>}
+                </div>
+              ) : null}
               {currentWorkspaceSection === "audio" ? (
                 <div className="panelStack">
                   {audioFields}
@@ -1560,7 +1587,7 @@ export default function OperatorDashboard() {
                 </>
               ) : null}
 
-              {currentWorkspaceSection === "history" ? <ServiceExperiencePanel service={liveState.service} onReaderLink={rememberReaderLink} /> : null}
+              {currentWorkspaceSection === "history" ? <ServiceExperiencePanel view="archive" service={liveState.service} onReaderLink={rememberReaderLink} /> : null}
 
               {currentWorkspaceSection === "prompt" ? promptEditor : null}
 
@@ -1619,7 +1646,7 @@ export default function OperatorDashboard() {
                         <summary>Reveal URL for manual copy</summary>
                         {overlayUrlField}
                       </details>
-                      <div className="buttonGrid">
+                      {!hasService && <div className="buttonGrid">
                         <button
                           className="secondaryButton"
                           disabled={controlAction !== null || anotherOperatorActive || isBusy}
@@ -1634,13 +1661,13 @@ export default function OperatorDashboard() {
                         >
                           {controlAction === "clear" ? "Clearing…" : "Clear live caption"}
                         </button>
-                      </div>
-                      <p className="helpText">{anotherOperatorActive ? "Another operator controls this channel. Test and clear are available when the channel is idle." : "Show test sends synthetic text without microphone capture or AI calls. Confirm it appears in OBS, then clear it."}</p>
+                      </div>}
+                      <p className="helpText">{hasService ? "Use the live controls to clear captions. Pause first to show a test caption from More." : anotherOperatorActive ? "Another operator controls this channel. Test and clear are available when the channel is idle." : "Show test sends synthetic text without microphone capture or AI calls. Confirm it appears in OBS, then clear it."}</p>
                       <details className="advancedActions">
                         <summary>Advanced link security</summary>
                         <p>
                           Rotate only if the URL was exposed. The old OBS source stops
-                          working immediately.
+                          working immediately. End the service before rotating.
                         </p>
                         {confirmRotate ? (
                           <div className="confirmationRow">
@@ -1653,7 +1680,7 @@ export default function OperatorDashboard() {
                             <button
                               className="dangerButton"
                               disabled={
-                                channelAction !== null || anotherOperatorActive
+                                channelAction !== null || anotherOperatorActive || hasService
                               }
                               onClick={() => {
                                 setConfirmRotate(false);
@@ -1668,7 +1695,7 @@ export default function OperatorDashboard() {
                         ) : (
                           <button
                             className="dangerOutlineButton"
-                            disabled={anotherOperatorActive}
+                            disabled={anotherOperatorActive || hasService}
                             onClick={() => setConfirmRotate(true)}
                           >
                             Rotate OBS link
@@ -1677,25 +1704,18 @@ export default function OperatorDashboard() {
                       </details>
                     </>
                   )}
-                  <div className="viewerSetupNote">
-                    <strong>Mobile translation viewer</strong>
-                    <p>
-                      A separate read-only link is created when captions start. It
-                      never exposes the reusable OBS credential and expires when the
-                      service ends or another operator takes over.
-                    </p>
-                  </div>
                 </div>
               ) : null}
 
-              {currentWorkspaceSection === "viewer" ? (
+              {currentWorkspaceSection === "outputs" ? (
                 <div className="viewerLinkPanel">
+                  <h3>Mobile translation viewer</h3>
                   <p>
                     Share this read-only link with intended viewers. It shows only the
                     current moderated translation and expires when this service ends or
                     another operator takes over.
                   </p>
-                  {viewerUrl ? (
+                  {!hasService ? <p className="privacyNote">Start captions to create a mobile viewer link. This mirror uses no additional AI calls.</p> : viewerUrl ? (
                     <>
                       <div className="buttonGrid">
                         <button
@@ -1781,6 +1801,7 @@ export default function OperatorDashboard() {
                   )}
                 </div>
               ) : null}
+              {currentWorkspaceSection === "outputs" ? <ServiceExperiencePanel view="sharing" service={liveState.service} onReaderLink={rememberReaderLink} /> : null}
             </div>
           </SpotlightCard>
         </BorderGlow>
@@ -1809,6 +1830,24 @@ export default function OperatorDashboard() {
             }
             live={hasService && isLive}
           />
+          <details className="serviceSnapshot" open={hasService}>
+            <summary>{hasService ? "Active translation" : "Starting configuration"}</summary>
+            <dl>
+              <div>
+                <dt>Spoken language</dt>
+                <dd>{displayedSourceLabel ?? "Refresh required"}</dd>
+              </div>
+              <div>
+                <dt>Audience language</dt>
+                <dd>{displayedTargetLabel ?? "Refresh required"}</dd>
+              </div>
+              <div>
+                <dt>{hasService ? "Active buffer" : "Draft buffer"}</dt>
+                <dd>{(hasService ? activeSpeechBufferMs : speechBufferMs) / 1_000}s</dd>
+              </div>
+            </dl>
+            {hasPendingTranslationChanges ? <p className="helpText">Draft changes are not active until you confirm a refresh.</p> : null}
+          </details>
           <SpotlightCard
             className="outputContextCard"
             aria-labelledby="output-context-heading"
@@ -1816,71 +1855,17 @@ export default function OperatorDashboard() {
           >
             <p className="eyebrow">Output context</p>
             <h3 id="output-context-heading">
-              {hasService ? "One public caption, two outputs" : "One setup, two outputs"}
+              Audience delivery
             </h3>
             <p>
               {hasService
-                ? "OBS and the mobile viewer receive the same moderated caption. Connection status is not monitored here; check each audience output directly."
-                : "OBS receives the transparent caption canvas. A separate mobile link is created only when the service begins."}
+                ? "OBS and the mobile viewer mirror the current caption. The reader appends shared paragraphs. Check each output directly; connection status is not monitored here."
+                : "OBS and the mobile viewer mirror captions without extra AI calls. The reader shares paragraphs and can use optional AI phrasing."}
             </p>
           </SpotlightCard>
         </aside>
       </div>
 
-      {!hasService ? (
-        <section
-          className={`startBar ${anotherOperatorActive ? "takeover" : ""}`}
-          aria-labelledby="start-service-heading"
-        >
-          <div>
-            <strong id="start-service-heading">{startHeading}</strong>
-            <p id="start-service-description">{startDescription}</p>
-          </div>
-          {confirmTakeover || takeoverRequired ? (
-            <div className="takeoverConfirmation">
-              <button
-                className="secondaryButton"
-                onClick={() => {
-                  setConfirmTakeover(false);
-                  cancelTakeover();
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="dangerButton"
-                aria-describedby="start-service-description"
-                disabled={cloudState !== "ready" || isBusy}
-                onClick={() => {
-                  setConfirmTakeover(false);
-                  void startSession(true);
-                }}
-              >
-                Confirm takeover
-              </button>
-            </div>
-          ) : (
-            <button
-              className={
-                anotherOperatorActive ? "dangerButton" : "primaryButton"
-              }
-              aria-describedby="start-service-description"
-              disabled={startDisabled}
-              onClick={() =>
-                anotherOperatorActive
-                  ? setConfirmTakeover(true)
-                  : void startSession()
-              }
-            >
-              {liveState.status === "starting"
-                ? "Starting securely…"
-                : anotherOperatorActive
-                  ? "Take over channel"
-                  : "Start captions"}
-            </button>
-          )}
-        </section>
-      ) : null}
       <dialog
         ref={endDialogRef}
         className="confirmationDialog"
@@ -1900,6 +1885,8 @@ export default function OperatorDashboard() {
           >Confirm End</button>
         </div>
       </dialog>
+      </div>
     </main>
+    </div>
   );
 }

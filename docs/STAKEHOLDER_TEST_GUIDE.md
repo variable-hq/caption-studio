@@ -42,6 +42,9 @@ and its native/signing checklists are not web release gates.
 2. Check at 1920, 1200, 390 and 320 CSS pixels. Use keyboard navigation, visible focus,
    actual zoom, reduced motion and an assistive-technology user where available. No control,
    dialog or long record should create horizontal page overflow or hide the next action.
+   Verify the grouped sidebar and phone navigation drawer, Escape/focus return, section
+   bookmarks and browser Back/Forward. Confirm drafts and the history checkbox survive
+   in-page navigation, and no navigation action starts capture.
 3. Sign in; confirm configured models in Service details. Defaults are
    `whisper-large-v3-turbo` and `openai/gpt-oss-20b`. Configuration is not a model-output test.
 4. Enable the audio test, select the USB interface and speak into the AUX feed. Mute that
@@ -91,6 +94,9 @@ and its native/signing checklists are not web release gates.
 | Takeover | Old controller/remote/reader/latest-viewer revoked; stale computer stops on reconciliation |
 | End/expiry | OBS blank but reusable; latest viewer/remote revoked; reader remains for 30-minute grace |
 | Network loss/reconnect | Truthful state and bounded recovery; record actual detection time, not only mocked socket behavior |
+
+Viewer/reader links and phone pairing are under **Live outputs**. Private transcript
+review and summaries are under **Sermon history**.
 
 Test authenticated missing/duplicate/stale/paused/expired attempt rejection through the
 synthetic harness. Do not publish credential values or spend inference quota to prove a
