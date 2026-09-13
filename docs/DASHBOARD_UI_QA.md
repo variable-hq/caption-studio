@@ -3,6 +3,10 @@
 13 September 2026. This record describes the dashboard navigation candidate.
 Production deployment is separate from local validation.
 
+The subsequent [service-panel change](SERVICE_PANEL_UX_QA.md) replaces the always-visible
+Start card and repeated output monitor described here. This record preserves the earlier
+dashboard candidate and its validation evidence.
+
 ## Design
 
 The operator page now uses a full-height desktop sidebar, stable grouped destinations,

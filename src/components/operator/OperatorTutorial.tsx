@@ -71,9 +71,9 @@ const STEPS = [
     description: "Begin only after audio, languages, and the OBS test are ready.",
     exampleLabel: "Two audience outputs",
     example: "OBS overlay · Mobile translation viewer",
-    location: "Start captions, then Live outputs",
+    location: "Service controls, then Live outputs",
     instructions: [
-      "Select Start captions. Resolve any cloud or channel setup message before continuing.",
+      "Open Service controls, choose whether to save transcript history, then select Start captions. Resolve any setup message before continuing.",
       "Speak an approved test phrase. Allow for the buffer and processing time, then check the caption in OBS.",
       "Open Live outputs to share the mobile viewer or reader link, and to pair your operator phone. Each viewer can adjust their own text size.",
     ],
@@ -90,7 +90,7 @@ const STEPS = [
     instructions: [
       "Pause stops capture and clears the current caption. Resume listens again. Clear live caption keeps committed reader paragraphs while capture continues.",
       "Watch AI usage and skipped captions. Pause to review repeated problems. The 90-minute timer continues while paused.",
-      "Choose End service and confirm when finished. Capture stops, outputs clear, and the mobile link expires. Keep the OBS URL for next time.",
+      "Open Service controls → End service and confirm. Capture stops, captions clear, and the mobile link expires. Keep the OBS URL.",
     ],
     section: "usage",
     action: "Open AI usage",

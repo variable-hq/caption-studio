@@ -14,7 +14,11 @@ Cloudflare retry **deployed successfully at 08:05 UTC**. See the
 The operator dashboard now opens on a service overview with grouped sidebar navigation.
 On phones, **Open navigation** opens a drawer. Section links support bookmarks and browser
 Back/Forward; switching sections does not start capture or add AI calls.
-See the [dashboard design and QA record](docs/DASHBOARD_UI_QA.md).
+**Service controls** opens a collapsible right panel with Start, history consent, live
+controls, and an optional caption preview. It starts closed; Pause/Resume and Clear remain
+in a compact bar during capture. Appearance keeps its preview beside the editor.
+See the [service-panel design and QA record](docs/SERVICE_PANEL_UX_QA.md) and the
+[earlier dashboard review](docs/DASHBOARD_UI_QA.md).
 
 Implemented: browser audio selection and meter; six-step setup guide; 6-, 9-, or 12-second
 capture; Groq Whisper transcription and contextual GPT-OSS 20B translation; biblical
@@ -47,7 +51,7 @@ acknowledges them. Server-side Pause blocks new inference claims immediately. Re
 requires the capture computer to be connected and able to capture.
 
 Use **Live outputs** for OBS, the latest-caption viewer, reader links, and phone pairing,
-both before and during a service. Use **Sermon history** for private archives and summaries,
+both before and during a service; expand the destination you need. Use **Sermon history** for private archives and summaries,
 and **AI usage** for service counters and rolling usage history.
 
 ## Service history, summaries, and controls

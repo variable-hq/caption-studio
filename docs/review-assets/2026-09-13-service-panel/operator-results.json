@@ -1,0 +1,26 @@
+[
+  {
+    "width": 1920,
+    "errors": [],
+    "violations": [],
+    "checks": "collapsed service panel across pages, modal/docked focus and resizing, consent persistence, quick live controls, contextual preview and settings notices, output disclosures, overview, linked destinations and Back/Forward/reload, navigation without inference, mobile drawer and focus/resize, history consent preservation, sharing/archive separation, setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear/end, draft isolation, responsive overflow"
+  },
+  {
+    "width": 1200,
+    "errors": [],
+    "violations": [],
+    "checks": "collapsed service panel across pages, modal/docked focus and resizing, consent persistence, quick live controls, contextual preview and settings notices, output disclosures, overview, linked destinations and Back/Forward/reload, navigation without inference, mobile drawer and focus/resize, history consent preservation, sharing/archive separation, setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear/end, draft isolation, responsive overflow"
+  },
+  {
+    "width": 390,
+    "errors": [],
+    "violations": [],
+    "checks": "collapsed service panel across pages, modal/docked focus and resizing, consent persistence, quick live controls, contextual preview and settings notices, output disclosures, overview, linked destinations and Back/Forward/reload, navigation without inference, mobile drawer and focus/resize, history consent preservation, sharing/archive separation, setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear/end, draft isolation, responsive overflow"
+  },
+  {
+    "width": 320,
+    "errors": [],
+    "violations": [],
+    "checks": "collapsed service panel across pages, modal/docked focus and resizing, consent persistence, quick live controls, contextual preview and settings notices, output disclosures, overview, linked destinations and Back/Forward/reload, navigation without inference, mobile drawer and focus/resize, history consent preservation, sharing/archive separation, setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear/end, draft isolation, responsive overflow"
+  }
+]

@@ -45,6 +45,8 @@ and its native/signing checklists are not web release gates.
    Verify the grouped sidebar and phone navigation drawer, Escape/focus return, section
    bookmarks and browser Back/Forward. Confirm drafts and the history checkbox survive
    in-page navigation, and no navigation action starts capture.
+   Service controls should start collapsed. Open/close its right panel, test keyboard
+   focus and resizing across 1280px, and confirm capture continues when it is closed.
 3. Sign in; confirm configured models in Service details. Defaults are
    `whisper-large-v3-turbo` and `openai/gpt-oss-20b`. Configuration is not a model-output test.
 4. Enable the audio test, select the USB interface and speak into the AUX feed. Mute that
@@ -60,7 +62,8 @@ and its native/signing checklists are not web release gates.
    link to a recording. Set font, size, colours, highlight, placement and safe margins;
    preview updates continuously and saved shared style survives reload.
 8. Show and Clear a synthetic idle test. It makes no AI call or microphone capture.
-   Start captions with the intended history choice; Start performs readiness and ownership checks.
+   Open **Service controls**, choose whether to save history, then **Start captions**;
+   Start performs readiness and ownership checks. Expand **Preview captions** when needed.
 9. Speak approved samples. Confirm private source versus moderated public output, glossary
    behavior, masks, caption language, skipped chunks and processing-time labels.
    The processing number excludes buffer, queue wait and audience rendering.
@@ -71,6 +74,8 @@ and its native/signing checklists are not web release gates.
 11. Pause at a natural break: microphone and queued work stop, OBS/latest viewer blank,
     and attempts stop increasing. Show/clear a paused test; Resume clears it before capture.
     Clear alone keeps capture active, so new valid speech can appear afterward.
+    Repeat Pause/Resume and Clear with Service controls collapsed. End remains inside
+    the panel; cancel its confirmation once and check focus returns to End service.
 
 ## Latest viewer, appending reader and remote
 
