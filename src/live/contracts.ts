@@ -116,6 +116,7 @@ export interface LiveSessionState {
   llmUsage: LlmSessionUsage;
   latestSourceText: string;
   latestPublicText: string;
+  latestPublicLanguage: LanguageLocale | null;
   lastLatencyMs: number | null;
   channel: ObsChannelDetails | null;
   service: LiveServiceDetails | null;

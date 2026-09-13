@@ -108,6 +108,35 @@ describe("translation usage control", () => {
     expect(invokeProvider).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { text: "Unfinished private output", incomplete: true },
+    { text: "  " },
+  ])("records incomplete work before rejecting publication: %j", async (output) => {
+    const events: string[] = [];
+    const { env } = environment((request) => {
+      events.push(new URL(request.url).pathname);
+      return Response.json({ recorded: true });
+    });
+    const response = await handleTranslationRequest(translationRequest(), env, async () => {
+      events.push("provider");
+      return Response.json({
+        ...output,
+        usage: { promptTokens: 10, completionTokens: 2, totalTokens: 1, privateField: "ignored" },
+      });
+    });
+
+    expect(events).toEqual(["/internal/translation/claim", "provider", "/internal/usage"]);
+    expect(response.status).toBe(422);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const payload = await response.json();
+    expect(payload).toMatchObject({
+      code: "translation_incomplete",
+      usage: { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+    });
+    expect(payload).not.toHaveProperty("text");
+    expect(payload).not.toHaveProperty("usage.privateField");
+  });
+
   it("fails closed when successful provider usage cannot be persisted", async () => {
     const { env } = environment((request) =>
       new URL(request.url).pathname === "/internal/translation/claim"

@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
 import { MAX_TRANSCRIPTION_REQUESTS } from "@/live/contracts";
+import type { LiveWorkerEnvironment } from "@/live/api";
+import { handleInferenceRequest } from "@/live/inference-request";
 
 const CONTROLLER_A = "a".repeat(64);
 const CONTROLLER_B = "b".repeat(64);
@@ -853,6 +855,7 @@ describe("reusable caption channel", () => {
     await expect(storage.get("configuration")).resolves.toEqual({
       ...before,
       translationRevision: 2,
+      inferenceAttemptFloor: 1,
       lastTranslationRefreshRequestId: REFRESH_REQUEST_A,
     });
     expect(storage.alarm).toBe(alarmBefore);
@@ -1221,5 +1224,137 @@ describe("reusable caption channel", () => {
     expect(
       socket.messages.map((message) => JSON.parse(message)).at(-3),
     ).toEqual({ type: "clear" });
+  });
+});
+
+describe("transcription dispatch enforcement", () => {
+  const controller = "c".repeat(43);
+  const transcribeRequest = (attempt = 1, token = controller, path = "/api/ai/transcribe") =>
+    new Request(`https://caption.example${path}`, {
+      method: "POST",
+      headers: { "x-caption-controller": token, "x-caption-transcription-attempt": String(attempt) },
+      body: "synthetic audio placeholder",
+    });
+
+  async function dispatchFixture() {
+    const fixture = roomFixture();
+    const hash = await captionTokenHash(controller);
+    await createChannel(fixture.room);
+    await startService(fixture.room, hash);
+    await fixture.room.fetch(request("/internal/lease", { controllerHash: hash }));
+    const roomFetch = vi.fn((req: Request) => fixture.room.fetch(req));
+    const env: LiveWorkerEnvironment = {
+      CAPTION_LOCAL_AUTH_BYPASS: "true",
+      CAPTION_ROOMS: { idFromName: () => "main", get: () => ({ fetch: roomFetch }) },
+    };
+    const provider = vi.fn(async () => Response.json({ segments: [] }));
+    return { ...fixture, hash, env, provider, roomFetch };
+  }
+
+  it.each(["missing controller", "missing attempt", "stale controller", "paused", "expired", "unreserved", "above ceiling", "refreshed"])(
+    "never dispatches for %s", async (reason) => {
+      const { room, storage, hash, env, provider } = await dispatchFixture();
+      const req = transcribeRequest(
+        reason === "unreserved" ? 2 : reason === "above ceiling" ? 901 : 1,
+        reason === "stale controller" ? "d".repeat(43) : controller,
+      );
+      if (reason === "missing controller") req.headers.delete("x-caption-controller");
+      if (reason === "missing attempt") req.headers.delete("x-caption-transcription-attempt");
+      if (reason === "paused") await room.fetch(request("/internal/control", { action: "pause", controllerHash: hash }));
+      if (reason === "expired") {
+        await storage.put("configuration", { ...await storage.get<object>("configuration"), expiresAt: Date.now() - 1 });
+      }
+      if (reason === "refreshed") await room.fetch(request("/internal/control", {
+        action: "refresh-translation", controllerHash: hash,
+        expectedTranslationRevision: 1, refreshRequestId: REFRESH_REQUEST_A,
+      }));
+      expect((await handleInferenceRequest(req, env, provider)).ok).toBe(false);
+      expect(provider).not.toHaveBeenCalled();
+    },
+  );
+
+  it("authorizes Access before a claim and fails closed when storage is unavailable", async () => {
+    const { env, provider, roomFetch } = await dispatchFixture();
+    delete env.CAPTION_LOCAL_AUTH_BYPASS;
+    expect((await handleInferenceRequest(transcribeRequest(), env, provider)).ok).toBe(false);
+    expect(roomFetch).not.toHaveBeenCalled();
+    env.CAPTION_LOCAL_AUTH_BYPASS = "true";
+    roomFetch.mockRejectedValueOnce(new Error("storage unavailable"));
+    const response = await handleInferenceRequest(transcribeRequest(), env, provider);
+    expect(response.status).toBe(503);
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it.each(["/api/ai/transcribe/", "/api/ai/%74ranscribe", "/api//ai/transcribe", "/api/ai/transcribe%2f", "/api/ai/translate/"])(
+    "rejects the route alias %s before routing to Next", async (path) => {
+      const { env, provider, roomFetch } = await dispatchFixture();
+      expect((await handleInferenceRequest(transcribeRequest(1, controller, path), env, provider)).status).toBe(400);
+      expect(roomFetch).not.toHaveBeenCalled();
+      expect(provider).not.toHaveBeenCalled();
+    },
+  );
+
+  it("dispatches concurrent duplicates once and still permits one translation for the attempt", async () => {
+    const { env, provider, storage } = await dispatchFixture();
+    const responses = await Promise.all([
+      handleInferenceRequest(transcribeRequest(), env, provider),
+      handleInferenceRequest(transcribeRequest(), env, provider),
+    ]);
+    expect(responses.map(({ status }) => status).sort()).toEqual([200, 409]);
+    expect(provider).toHaveBeenCalledOnce();
+    const translate = vi.fn(async () => Response.json({
+      text: "Grace", usage: { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+    }));
+    expect((await handleInferenceRequest(transcribeRequest(1, controller, "/api/ai/translate"), env, translate)).status).toBe(200);
+    expect((await handleInferenceRequest(transcribeRequest(1, controller, "/api/ai/translate"), env, translate)).status).toBe(409);
+    expect(translate).toHaveBeenCalledOnce();
+    expect(await storage.get("configuration")).toMatchObject({
+      claimedTranscriptionAttempts: [1], claimedTranslationAttempts: [1],
+      llmUsage: { translationRequests: 1, totalTokens: 12 },
+    });
+  });
+
+  it.each(["transcribe", "translate"])("rejects Next data aliases for %s before provider routing", async (stage) => {
+    const { env, provider, roomFetch } = await dispatchFixture();
+    const path = `/_next/data/build/api/ai/${stage}.json`;
+    expect((await handleInferenceRequest(transcribeRequest(1, controller, path), env, provider)).status).toBe(404);
+    expect(roomFetch).not.toHaveBeenCalled();
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("does not refund a claim after failed provider work or room reload", async () => {
+    const { env, provider, storage } = await dispatchFixture();
+    provider.mockResolvedValueOnce(Response.json({ error: "upstream timeout" }, { status: 504 }));
+    expect((await handleInferenceRequest(transcribeRequest(), env, provider)).status).toBe(504);
+    const reloaded = new CaptionRoom({ storage, getWebSockets: () => [] } as unknown as DurableObjectState);
+    env.CAPTION_ROOMS.get = () => reloaded;
+    expect((await handleInferenceRequest(transcribeRequest(), env, provider)).status).toBe(409);
+    expect(provider).toHaveBeenCalledOnce();
+  });
+
+  it("dispatches attempt 900 once, never 901", async () => {
+    const { room, storage, hash, env, provider } = await dispatchFixture();
+    await storage.put("configuration", { ...await storage.get<object>("configuration"), transcriptionRequests: 899 });
+    expect((await room.fetch(request("/internal/lease", { controllerHash: hash }))).status).toBe(200);
+    expect((await handleInferenceRequest(transcribeRequest(900), env, provider)).status).toBe(200);
+    expect((await handleInferenceRequest(transcribeRequest(900), env, provider)).status).toBe(409);
+    expect((await room.fetch(request("/internal/lease", { controllerHash: hash }))).status).toBe(429);
+    expect((await handleInferenceRequest(transcribeRequest(901), env, provider)).status).toBe(400);
+    expect(provider).toHaveBeenCalledOnce();
+  });
+
+  it("invalidates old reservations on Pause and safely migrates untracked legacy attempts", async () => {
+    const { room, storage, hash, env, provider } = await dispatchFixture();
+    await room.fetch(request("/internal/control", { action: "pause", controllerHash: hash }));
+    await room.fetch(request("/internal/control", { action: "resume", controllerHash: hash }));
+    expect((await handleInferenceRequest(transcribeRequest(), env, provider)).status).toBe(400);
+    const legacy = await storage.get<Record<string, unknown>>("configuration");
+    delete legacy!.inferenceAttemptFloor;
+    delete legacy!.claimedTranscriptionAttempts;
+    await storage.put("configuration", legacy);
+    expect((await handleInferenceRequest(transcribeRequest(), env, provider)).status).toBe(400);
+    await room.fetch(request("/internal/lease", { controllerHash: hash }));
+    expect((await handleInferenceRequest(transcribeRequest(2), env, provider)).status).toBe(200);
+    expect(provider).toHaveBeenCalledOnce();
   });
 });

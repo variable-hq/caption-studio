@@ -1,6 +1,6 @@
 # Security policy
 
-Last reviewed 23 August 2026.
+Local safeguards and deployment evidence reviewed 12 September 2026.
 
 Church Live Caption is a pre-release prototype. Security fixes are supported only on
 the current `main` branch; no production security or availability SLA is offered.
@@ -25,7 +25,8 @@ The backend deployment has two intentional access classes:
 | --- | --- | --- |
 | Dashboard and Next.js app | Cloudflare Access | Operator UI |
 | `/api/ai/health` | Deployment-level Cloudflare Access | Non-secret configuration status |
-| `/api/ai/readiness`, `/api/ai/transcribe`, `/api/ai/translate` | Access JWT plus server-side Groq secret | Provider verification and AI inference |
+| `/api/ai/readiness` | Access JWT plus server-side Groq secret | Provider model-availability verification |
+| `/api/ai/transcribe`, `/api/ai/translate` | Access JWT, active controller, one-time reserved attempt per stage, and server-side Groq secret | Bounded AI inference |
 | `/api/live/channel*` | Cloudflare Access JWT | Create, retrieve, control, take over, end, and rotate the Main channel |
 | `/overlay*` | Public network path; no operator capability | Self-contained OBS page |
 | `/api/live/overlay*` | Reusable channel token and read-only WebSocket | Current public caption stream |
@@ -36,6 +37,20 @@ The OBS and mobile-viewer paths need exact, more-specific Cloudflare Access bypa
 because viewers cannot complete operator sign-in. Limit them to `/overlay*`,
 `/api/live/overlay*`, `/view*`, and `/api/live/viewer*`. Do not broaden the bypass to the
 dashboard, inference routes, or operator channel routes.
+
+The local Worker now verifies Access before atomically claiming a reserved attempt for
+each inference stage. Direct or replayed transcription requests cannot skip this claim;
+noncanonical inference-path aliases are rejected before Next.js routing. Paused,
+expired, stale-controller, duplicate, unreserved, and over-ceiling requests fail closed.
+Pause and confirmed refresh invalidate earlier reservations even after Resume. Legacy
+state invalidates all pre-existing reservations because their dispatch history is unknown.
+These controls pass local checks and await deployed verification; see [G01](docs/GAP_ANALYSIS.md).
+
+The [read-only deployment investigation](docs/DEPLOYMENT_REHEARSAL_READINESS.md) found
+only production, no isolated test Worker, and a deployed version without Git provenance.
+Unauthenticated channel/readiness probes returned edge HTTP 403, not application-auth
+proof. Plan evidence, authenticated operator access, test secrets, and exact public-route
+bypasses remain setup prerequisites; do not weaken Access to complete the rehearsal.
 
 ## Deferred iOS feasibility shell
 
@@ -73,7 +88,7 @@ upload, installation, physical-device behavior, or backend compatibility.
   document request. Overlay JavaScript sends the token only as a WebSocket subprotocol.
 - The Durable Object keeps the token hash for validation and an AES-GCM-encrypted copy
   for retrieval by Cloudflare Access-approved collaborators. The encryption key is a
-  separate encrypted Worker secret and never reaches the browser.
+  separate Worker secret that must be encrypted and never reach the browser.
 - Starting a service creates a different 256-bit controller credential. Its hash gates
   captions, style changes, and live controls; the raw value stays in tab `sessionStorage`
   and expires with the 90-minute service.
@@ -86,6 +101,12 @@ The reusable overlay URL is a long-lived bearer credential. Anyone who receives 
 read public captions whenever the channel publishes them. Do not post it, log it, put it
 in analytics, or show it in screenshots. If it may have leaked, end the active service,
 rotate the link, and replace the Browser Source URL in OBS.
+
+The 12 September read-only check found production `OBS_CHANNEL_ENCRYPTION_KEY` stored
+as `plain_text`, contrary to that requirement. Its value was not extracted or reused,
+and production was not changed. An isolated rehearsal needs a fresh encrypted secret;
+production remediation must account for the existing encrypted OBS credential. See the
+[readiness record](docs/DEPLOYMENT_REHEARSAL_READINESS.md).
 
 ## Mobile viewer credential model
 
@@ -128,19 +149,24 @@ Current behavior:
   and not stored by this application;
 - protected source and translated text remain in active browser memory;
 - only the latest moderated public caption is retained ephemerally in the live room;
-- only caption-style preferences and a custom operator prompt explicitly saved by the
-  operator use unencrypted browser `localStorage`; other translation drafts remain in
-  React/page memory and disappear on reload;
+- caption-style preferences, a custom operator prompt explicitly saved by the operator,
+  and the first-visit tutorial's dismissal flag use unencrypted browser `localStorage`;
+  other translation drafts remain in React/page memory and disappear on reload. The
+  tutorial stores only `dismissed` under `church-live-caption:operator-tutorial:v1` on
+  Skip, Escape, or completion; it makes no audio, inference, service-control, or analytics
+  request. This browser-local flag lasts until site data is cleared;
 - during an active service, the active language, terminology, filter, buffer, and prompt
   snapshot is stored in that tab's unencrypted `sessionStorage` solely for same-tab
   recovery, then removed on End, takeover, or idle cleanup;
 - the active custom prompt crosses the protected translation API and Groq inference
   boundary, but is not written to the Durable Object or sent to the mobile viewer or OBS;
-- successful translation usage is reduced to bounded numeric token totals plus the latest
+- acknowledged translation usage is reduced to bounded numeric token totals plus the latest
   sanitized Groq daily-request/per-minute-token headroom. It is stored only in the active
   Main Durable Object and returned only through the Access-protected operator channel
   read; an active controller must claim its reserved attempt before inference, and the
-  successful response waits for usage acknowledgement; OBS and mobile-viewer
+  response waits for usage acknowledgement. Incomplete output is stripped and returned as
+  `422 translation_incomplete` after its available usage is persisted; missing or failed
+  acknowledgement remains terminal. OBS and mobile-viewer
   documents/WebSockets never receive it;
 - a translation-session refresh clears unfinished/queued audio, recent translation
   context, and current public output without rotating the controller, viewer, or OBS

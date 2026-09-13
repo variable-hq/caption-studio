@@ -8,6 +8,7 @@ import {
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
 import { AiUsageDashboard } from "@/components/operator/AiUsageDashboard";
+import { OperatorTutorial } from "@/components/operator/OperatorTutorial";
 import { PromptEditor } from "@/components/operator/PromptEditor";
 import { TranslationSettingsEditor } from "@/components/operator/TranslationSettingsEditor";
 import {
@@ -70,10 +71,10 @@ const SETUP_WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
     label: "Translation",
     description: "Languages, timing and terms",
   },
-  { id: "usage", label: "AI usage", description: "Consumption and limits" },
-  { id: "prompt", label: "AI instructions", description: "Review the system prompt" },
   { id: "appearance", label: "Appearance", description: "Style the OBS captions" },
   { id: "outputs", label: "Live outputs", description: "OBS and mobile delivery" },
+  { id: "usage", label: "AI usage", description: "Consumption and limits" },
+  { id: "prompt", label: "AI instructions", description: "Optional translation guidance" },
 ];
 
 const LIVE_WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
@@ -130,11 +131,11 @@ const WORKSPACE_SECTION_COPY: Record<
 };
 
 const CHANNEL_STATUS_LABELS: Record<ChannelStatus | "loading", string> = {
-  loading: "Checking OBS channel",
-  unconfigured: "OBS not set up",
-  idle: "OBS ready",
-  live: "OBS live",
-  paused: "OBS paused",
+  loading: "Checking Main channel",
+  unconfigured: "Channel not created",
+  idle: "Main channel · Idle",
+  live: "Main channel · Live",
+  paused: "Main channel · Paused",
 };
 
 const CAPTION_FONT_STACKS: Record<CaptionStyle["fontFamily"], string> = {
@@ -155,9 +156,19 @@ interface PreviewProps {
   badge: string;
   live?: boolean;
   sourceText?: string;
+  targetLanguage?: LanguageLocale;
+  sourceLanguage?: SourceLanguage;
 }
 
-function CaptionPreview({ caption, style, badge, live, sourceText }: PreviewProps) {
+function CaptionPreview({
+  caption,
+  style,
+  badge,
+  live,
+  sourceText,
+  targetLanguage,
+  sourceLanguage,
+}: PreviewProps) {
   const headingId = useId();
 
   return (
@@ -165,7 +176,7 @@ function CaptionPreview({ caption, style, badge, live, sourceText }: PreviewProp
       <div className="sectionHeading">
         <div>
           <p className="eyebrow">OBS canvas · 1920 × 1080</p>
-          <h2 id={headingId}>Caption preview</h2>
+          <h2 id={headingId}>Output monitor</h2>
         </div>
         <span className={`statusChip ${live ? "live" : ""}`}>{badge}</span>
       </div>
@@ -185,6 +196,7 @@ function CaptionPreview({ caption, style, badge, live, sourceText }: PreviewProp
           <div
             className="captionPreview"
             data-testid="caption-preview"
+            lang={targetLanguage}
             style={{
               color: style.textColor,
               fontFamily: CAPTION_FONT_STACKS[style.fontFamily],
@@ -208,11 +220,18 @@ function CaptionPreview({ caption, style, badge, live, sourceText }: PreviewProp
             </span>
           </div>
         </div>
+        {!caption ? (
+          <p className="previewEmpty">
+            No public caption
+            <span>{live ? "Listening for the next caption" : "The caption canvas is clear"}</span>
+          </p>
+        ) : null}
       </div>
+      <p className="previewHelp">Local preview. Verify the actual Browser Source in OBS.</p>
       {sourceText ? (
         <div className="sourceTranscript">
-          <strong>Protected source</strong>
-          <p>{sourceText}</p>
+          <strong>Source · Operator only</strong>
+          <p lang={sourceLanguage === "auto" ? undefined : sourceLanguage}>{sourceText}</p>
         </div>
       ) : null}
     </SpotlightCard>
@@ -423,14 +442,16 @@ export default function OperatorDashboard() {
   const [savedPromptFingerprint, setSavedPromptFingerprint] = useState("");
   const [promptStorageMessage, setPromptStorageMessage] = useState("");
   const [activeWorkspaceSection, setActiveWorkspaceSection] =
-    useState<WorkspaceSectionId>("translation");
+    useState<WorkspaceSectionId>("audio");
+  const workspaceHeadingRef = useRef<HTMLHeadingElement>(null);
   const [confirmTranslationRefresh, setConfirmTranslationRefresh] =
     useState(false);
   const refreshConfirmationHeadingRef = useRef<HTMLHeadingElement>(null);
   const refreshReviewButtonRef = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
   const [viewerCopied, setViewerCopied] = useState(false);
-  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [clipboardMessage, setClipboardMessage] = useState("");
+  const endDialogRef = useRef<HTMLDialogElement>(null);
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [confirmViewerReplace, setConfirmViewerReplace] = useState(false);
   const [confirmTakeover, setConfirmTakeover] = useState(false);
@@ -658,6 +679,7 @@ export default function OperatorDashboard() {
     sourceLanguage === "auto"
       ? "Automatic detection"
       : LANGUAGE_OPTIONS.find(({ locale }) => locale === sourceLanguage)?.label;
+  const targetLabel = LANGUAGE_OPTIONS.find(({ locale }) => locale === targetLanguage)?.label;
   const hasService = Boolean(liveState.service);
   const isLive = liveState.status === "live";
   const isPaused = liveState.status === "paused";
@@ -723,18 +745,18 @@ export default function OperatorDashboard() {
             ? "Checking OBS channel"
             : !channelConfigured
               ? "Create the OBS channel to continue"
-              : "Ready to start captions?";
+              : "Start the caption service";
   const startDescription = anotherOperatorActive
     ? "Takeover stops the other operator and clears OBS before this microphone starts."
     : liveState.status === "error"
       ? "Resolve the setup issue above before starting the service."
       : cloudState !== "ready"
-        ? "Cloud AI must be ready before microphone capture can begin."
+        ? "Cloud AI must be configured before microphone capture can begin."
         : checkingChannel
           ? "Wait while the existing OBS channel is checked."
           : !channelConfigured
             ? "Create the reusable OBS Browser Source in the Live outputs section before going live."
-            : "Starting opens a 90-minute service window and begins microphone capture.";
+            : "Start verifies the AI models, opens a 90-minute service window, and captures microphone audio.";
   const viewerUrl = liveState.service?.viewerUrl ?? null;
   const workspaceItems = hasService
     ? LIVE_WORKSPACE_ITEMS
@@ -760,12 +782,28 @@ export default function OperatorDashboard() {
   const translationEditorDisabled = hasService
     ? translationActionBusy || liveState.status === "ending"
     : isBusy;
+  const displayedTranslationSettings = hasService
+    ? activeTranslationSettings
+    : draftTranslationSettings;
+  const displayedSourceLabel = displayedTranslationSettings?.sourceLanguage === "auto"
+    ? "Automatic detection"
+    : LANGUAGE_OPTIONS.find(({ locale }) => locale === displayedTranslationSettings?.sourceLanguage)?.label;
+  const displayedTargetLabel = LANGUAGE_OPTIONS.find(({ locale }) => locale === displayedTranslationSettings?.targetLanguage)?.label;
+
+  const openWorkspaceSection = (section: WorkspaceSectionId) => {
+    setActiveWorkspaceSection(section);
+    window.requestAnimationFrame(() => workspaceHeadingRef.current?.focus());
+  };
 
   useEffect(() => {
     if (!hasService && !anotherOperatorActive) return;
     const interval = window.setInterval(() => setUsageClock(Date.now()), 1_000);
     return () => window.clearInterval(interval);
   }, [anotherOperatorActive, hasService]);
+
+  useEffect(() => {
+    if (!hasService) endDialogRef.current?.close();
+  }, [hasService]);
 
   useEffect(() => {
     if (!anotherOperatorActive || isBusy) return;
@@ -778,9 +816,14 @@ export default function OperatorDashboard() {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
+      setClipboardMessage("OBS URL copied. Keep this reusable credential private.");
       window.setTimeout(() => setCopied(false), 1_500);
     } catch {
-      setPreferenceError("The OBS URL could not be copied. Select and copy it manually.");
+      setClipboardMessage(
+        hasService
+          ? "The OBS URL could not be copied. Open More and reveal the URL for manual copy."
+          : "The OBS URL could not be copied. Open Live outputs and reveal the URL for manual copy.",
+      );
     }
   };
 
@@ -789,9 +832,10 @@ export default function OperatorDashboard() {
     try {
       await navigator.clipboard.writeText(viewerUrl);
       setViewerCopied(true);
+      setClipboardMessage("Mobile viewer link copied. Share only with intended viewers.");
       window.setTimeout(() => setViewerCopied(false), 1_500);
     } catch {
-      setPreferenceError("The mobile viewer link could not be copied. Try again.");
+      setClipboardMessage("The mobile viewer link could not be copied. Open Mobile viewer and reveal the link for manual copy.");
     }
   };
 
@@ -858,6 +902,7 @@ export default function OperatorDashboard() {
   const confirmAndRefreshTranslation = () => {
     setConfirmTranslationRefresh(false);
     void refreshTranslationSession();
+    window.requestAnimationFrame(() => workspaceHeadingRef.current?.focus());
   };
 
   const cancelTranslationRefreshConfirmation = () => {
@@ -881,7 +926,11 @@ export default function OperatorDashboard() {
     preferenceError ||
     (savedStyleFingerprint === styleFingerprint
       ? liveState.channel?.configured
-        ? "Saved to this browser and the Main channel."
+        ? channelAction === "save-style"
+          ? "Saved in this browser. Saving to the Main channel…"
+          : sharedStyleFingerprint === styleFingerprint
+            ? "Saved to this browser and the Main channel."
+            : "Saved in this browser. The Main channel save is not confirmed."
         : "Saved in this browser."
       : savedStyleFingerprint
         ? "Caption appearance has unsaved changes."
@@ -942,6 +991,36 @@ export default function OperatorDashboard() {
     />
   );
 
+  const audioMeter = (
+    <div className="meterRow">
+      <div
+        className="meter"
+        role="meter"
+        aria-label="Microphone input level"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(level * 100)}
+        aria-valuetext={`${Math.round(level * 100)} percent`}
+      >
+        <span style={{ width: `${level * 100}%` }} />
+      </div>
+      <span>{Math.round(level * 100)}%</span>
+    </div>
+  );
+
+  const overlayUrlField = (
+    <label>
+      Reusable Main channel URL
+      <input
+        value={liveState.channel?.overlayUrl ?? ""}
+        readOnly
+        autoComplete="off"
+        spellCheck={false}
+        aria-label="Reusable OBS browser-source URL"
+      />
+    </label>
+  );
+
   const audioFields = (
     <>
       <label>
@@ -962,27 +1041,15 @@ export default function OperatorDashboard() {
           )}
         </select>
       </label>
-      <div className="meterRow">
-        <div
-          className="meter"
-          role="meter"
-          aria-label="Microphone input level"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(level * 100)}
-          aria-valuetext={`${Math.round(level * 100)} percent`}
-        >
-          <span style={{ width: `${Math.max(2, level * 100)}%` }} />
-        </div>
-        <span>{Math.round(level * 100)}%</span>
-      </div>
+      {audioMeter}
       <button
         className="secondaryButton"
-        onClick={() => void startAudioTest()}
-        disabled={microphoneState === "requesting" || isLive || isBusy}
+        onClick={() => { void startAudioTest().catch(() => undefined); }}
+        disabled={microphoneState === "active" || microphoneState === "requesting" || isLive || isBusy}
       >
-        {microphoneState === "active" ? "Audio input ready" : "Enable audio test"}
+        {microphoneState === "active" ? "Microphone connected" : "Enable audio test"}
       </button>
+      <p className="helpText">Speak into the selected input and check that the meter moves. This test stays in the browser and makes no AI calls.</p>
       {microphoneError ? (
         <p className="errorText" role="alert">
           {microphoneError}
@@ -993,6 +1060,7 @@ export default function OperatorDashboard() {
 
   return (
     <main>
+      <a className="skipLink" href="#workspace-panel-heading">Skip to workspace controls</a>
       <header className="topbar">
         <div className="brand">
           <span className="brandMark" aria-hidden="true">CC</span>
@@ -1007,7 +1075,7 @@ export default function OperatorDashboard() {
             {cloudState === "checking"
               ? "Checking cloud AI"
               : cloudState === "ready"
-                ? "Cloud AI ready"
+                ? "Cloud AI configured"
                 : cloudState === "not-configured"
                   ? "Cloud setup needed"
                   : "Cloud AI unavailable"}
@@ -1015,6 +1083,11 @@ export default function OperatorDashboard() {
           <span className={`statusPill channel-${channelStatus}`}>
             {channelStatusLabel}
           </span>
+          <OperatorTutorial
+            autoOpenAllowed={!isBusy && !hasService && !anotherOperatorActive}
+            serviceActive={hasService || anotherOperatorActive}
+            onOpenSection={(section) => openWorkspaceSection(section === "outputs" && hasService ? "viewer" : section)}
+          />
         </div>
       </header>
 
@@ -1060,6 +1133,8 @@ export default function OperatorDashboard() {
         ) : null}
       </section>
 
+      <p className={`actionFeedback ${clipboardMessage ? "" : "visuallyHidden"}`} role="status" aria-live="polite">{clipboardMessage}</p>
+
       {hasService ? (
         <section
           className={`liveConsole ${isPaused ? "paused" : ""} ${liveNeedsAttention ? "attention" : ""}`}
@@ -1080,14 +1155,21 @@ export default function OperatorDashboard() {
                     ? "Refreshing translation"
                   : isPaused
                     ? "Paused"
-                    : "Captions live"}
+                    : liveState.status === "pausing"
+                      ? "Stopping capture"
+                      : liveState.status === "resuming"
+                        ? "Reopening microphone"
+                        : liveState.status === "ending"
+                          ? "Ending service"
+                          : "Capturing audio"}
               </strong>
               <p>
-                Overlay sequence {liveState.sequence} · {liveState.droppedChunks}{" "}
+                {activeSpeechBufferMs / 1_000}s buffer · {liveState.droppedChunks}{" "}
                 skipped · {liveState.lastLatencyMs === null
                   ? "waiting for processing time"
                   : `${liveState.lastLatencyMs} ms processing`}
               </p>
+              <div className="liveInputMeter">{audioMeter}</div>
             </div>
           </div>
           <div className="compactUsage">
@@ -1102,7 +1184,7 @@ export default function OperatorDashboard() {
               <button
                 className="usageDetailsButton"
                 type="button"
-                onClick={() => setActiveWorkspaceSection("usage")}
+                onClick={() => openWorkspaceSection("usage")}
               >
                 View usage
               </button>
@@ -1150,11 +1232,20 @@ export default function OperatorDashboard() {
             <button
               className="secondaryButton compactButton"
               disabled={isBusy || controlAction !== null}
+              title="Clear current captions from OBS and the mobile viewer without changing capture."
               onClick={() => void clearCaption()}
             >
-              {controlAction === "clear" ? "Clearing…" : "Clear OBS"}
+              {controlAction === "clear" ? "Clearing…" : "Clear captions"}
             </button>
-            <details className="moreMenu">
+            <details
+              className="moreMenu"
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                event.preventDefault();
+                event.currentTarget.open = false;
+                event.currentTarget.querySelector("summary")?.focus();
+              }}
+            >
               <summary>More</summary>
               <div>
                 <button onClick={() => void copyOverlayUrl()}>
@@ -1175,41 +1266,29 @@ export default function OperatorDashboard() {
                     ? "Showing test…"
                     : "Show test caption"}
                 </button>
-                {confirmEnd ? (
-                  <span className="confirmationRow">
-                    <button onClick={() => setConfirmEnd(false)}>Cancel</button>
-                    <button
-                      className="dangerText"
-                      disabled={endActionDisabled}
-                      onClick={() => {
-                        setConfirmEnd(false);
-                        void stopSession();
-                      }}
-                    >
-                      Confirm End
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    className="dangerText"
-                    disabled={endActionDisabled}
-                    onClick={() => setConfirmEnd(true)}
-                  >
-                    {endRetryRequired ? "Retry End" : "End service"}
-                  </button>
-                )}
+                <details className="credentialDisclosure">
+                  <summary>Reveal OBS URL for manual copy</summary>
+                  <p className="helpText">Keep this reusable credential private.</p>
+                  {overlayUrlField}
+                </details>
               </div>
             </details>
+            <button
+              className="textButton endServiceButton"
+              disabled={endActionDisabled}
+              onClick={() => endDialogRef.current?.showModal()}
+            >
+              End service
+            </button>
           </div>
+          <p className="liveControlHelp">Pause stops capture and clears both outputs. Clear captions removes text without changing capture. The 90-minute timer continues while paused.</p>
         </section>
       ) : (
         <section className="setupHero" aria-labelledby="setup-heading">
           <div>
-            <p className="eyebrow">Service setup</p>
             <h2 id="setup-heading">Prepare the room, then go live</h2>
             <p>
-              Work through each section once. The same controls stay available
-              during the service, without closing the session.
+              Check the input, choose the audience language, and test the actual OBS source before starting.
             </p>
           </div>
           <div className="setupHeroMeta" aria-label="Service limits">
@@ -1219,6 +1298,27 @@ export default function OperatorDashboard() {
           </div>
         </section>
       )}
+
+      {!hasService ? (
+        <section className="preflightChecklist" aria-label="Before starting captions">
+          <button type="button" className="preflightItem" onClick={() => openWorkspaceSection("audio")}>
+            <span className="preflightNumber" aria-hidden="true">01</span>
+            <span><strong>Check audio</strong><span>{microphoneState === "active" ? "Connected · Check the input meter" : microphoneState === "error" ? "Microphone needs attention" : "Enable the microphone and check its level"}</span></span>
+            <span className="preflightAction">Open audio</span>
+          </button>
+          <button type="button" className="preflightItem" onClick={() => openWorkspaceSection("translation")}>
+            <span className="preflightNumber" aria-hidden="true">02</span>
+            <span><strong>Confirm languages</strong><span>{sourceLabel} to {targetLabel} · Draft</span></span>
+            <span className="preflightAction">Review</span>
+          </button>
+          <button type="button" className="preflightItem" onClick={() => openWorkspaceSection("outputs")}>
+            <span className="preflightNumber" aria-hidden="true">03</span>
+            <span><strong>Test the OBS source</strong><span>{channelConfigured ? "Channel created · Verify the test in OBS" : "Create the reusable channel first"}</span></span>
+            <span className="preflightAction">Open outputs</span>
+          </button>
+          <p>Cloud status shows configuration only. Start verifies model access. OBS connection and audio quality require your check.</p>
+        </section>
+      ) : null}
 
       <div className={`operatorWorkspace ${hasService ? "isLive" : "isSetup"}`}>
         <aside className="workspaceNavigation" aria-label="Operator workspace navigation">
@@ -1235,27 +1335,26 @@ export default function OperatorDashboard() {
             items={workspaceItems}
             activeId={currentWorkspaceSection}
             ariaLabel={hasService ? "Live caption sections" : "Service setup sections"}
-            onActiveChange={(id) =>
-              setActiveWorkspaceSection(id as WorkspaceSectionId)
-            }
+            onActiveChange={(id) => openWorkspaceSection(id as WorkspaceSectionId)}
           />
-          <div className="serviceSnapshot">
-            <p className="eyebrow">Service engine</p>
+          <details className="serviceSnapshot" open={hasService}>
+            <summary>{hasService ? "Active translation" : "Starting configuration"}</summary>
             <dl>
               <div>
-                <dt>Transcription</dt>
-                <dd>{cloudModels?.transcription ?? cloudModelStatus}</dd>
+                <dt>Spoken language</dt>
+                <dd>{displayedSourceLabel ?? "Refresh required"}</dd>
               </div>
               <div>
-                <dt>Translation</dt>
-                <dd>{cloudModels?.translation ?? cloudModelStatus}</dd>
+                <dt>Audience language</dt>
+                <dd>{displayedTargetLabel ?? "Refresh required"}</dd>
               </div>
               <div>
                 <dt>{hasService ? "Active buffer" : "Draft buffer"}</dt>
                 <dd>{(hasService ? activeSpeechBufferMs : speechBufferMs) / 1_000}s</dd>
               </div>
             </dl>
-          </div>
+            {hasPendingTranslationChanges ? <p className="helpText">Draft changes are not active until you confirm a refresh.</p> : null}
+          </details>
         </aside>
 
         <BorderGlow
@@ -1272,7 +1371,7 @@ export default function OperatorDashboard() {
             <header className="workspacePanelHeader">
               <div>
                 <p className="eyebrow">{currentSectionCopy.eyebrow}</p>
-                <h2 id="workspace-panel-heading">{currentSectionCopy.title}</h2>
+                <h2 id="workspace-panel-heading" ref={workspaceHeadingRef} tabIndex={-1}>{currentSectionCopy.title}</h2>
                 <p>{currentSectionCopy.description}</p>
               </div>
               <span
@@ -1288,7 +1387,7 @@ export default function OperatorDashboard() {
                         } pending`
                       : "Refresh required"
                     : "Live settings active"
-                  : "Setup draft"}
+                  : "Before service"}
               </span>
             </header>
 
@@ -1405,7 +1504,8 @@ export default function OperatorDashboard() {
               {currentWorkspaceSection === "translation" ? (
                 <div className="panelStack">
                   {translationSettingsEditor}
-                  <div className="modelSummary serviceDetailStrip">
+                  <details className="modelSummary serviceDetailStrip advancedActions">
+                    <summary>Service details</summary>
                     <p>
                       <strong>Transcription:</strong>{" "}
                       <code>{cloudModels?.transcription ?? cloudModelStatus}</code>
@@ -1415,10 +1515,9 @@ export default function OperatorDashboard() {
                       <code>{cloudModels?.translation ?? cloudModelStatus}</code>
                     </p>
                     <p>
-                      <strong>Delivery:</strong> Cloudflare Durable Object · hibernating
-                      WebSocket
+                      <strong>Caption timing:</strong> The selected speech buffer plus queue wait, cloud processing, and audience delivery delay.
                     </p>
-                  </div>
+                  </details>
                 </div>
               ) : null}
 
@@ -1444,7 +1543,10 @@ export default function OperatorDashboard() {
               {currentWorkspaceSection === "prompt" ? promptEditor : null}
 
               {currentWorkspaceSection === "appearance" ? (
-                <StyleEditor {...styleEditorProps} />
+                <div className="panelStack">
+                  <p className="privacyNote">{hasService ? "Appearance changes update OBS during this service. Save as default also keeps this style for future services." : "Changes update this local preview. Save as default or Show test to send the style to the Main channel."}</p>
+                  <StyleEditor {...styleEditorProps} />
+                </div>
               ) : null}
 
               {currentWorkspaceSection === "outputs" ? (
@@ -1484,36 +1586,34 @@ export default function OperatorDashboard() {
                         Use a 1920 × 1080 Browser Source. The canvas stays transparent
                         between services.
                       </p>
-                      <label>
-                        Reusable Main channel URL
-                        <input
-                          value={liveState.channel.overlayUrl ?? ""}
-                          readOnly
-                          aria-label="Reusable OBS browser-source URL"
-                        />
-                      </label>
                       <button
                         className="primaryButton fullButton"
                         onClick={() => void copyOverlayUrl()}
                       >
                         {copied ? "URL copied" : "Copy OBS URL"}
                       </button>
+                      <p className="privacyNote">Keep this reusable URL private. Anyone holding it can read public captions.</p>
+                      <details className="credentialDisclosure">
+                        <summary>Reveal URL for manual copy</summary>
+                        {overlayUrlField}
+                      </details>
                       <div className="buttonGrid">
                         <button
                           className="secondaryButton"
-                          disabled={controlAction !== null}
+                          disabled={controlAction !== null || anotherOperatorActive || isBusy}
                           onClick={() => void showTestCaption()}
                         >
                           {controlAction === "show-test" ? "Showing…" : "Show test"}
                         </button>
                         <button
                           className="secondaryButton"
-                          disabled={controlAction !== null}
+                          disabled={controlAction !== null || anotherOperatorActive || isBusy}
                           onClick={() => void clearCaption()}
                         >
-                          {controlAction === "clear" ? "Clearing…" : "Clear OBS"}
+                          {controlAction === "clear" ? "Clearing…" : "Clear captions"}
                         </button>
                       </div>
+                      <p className="helpText">{anotherOperatorActive ? "Another operator controls this channel. Test and clear are available when the channel is idle." : "Show test sends synthetic text without microphone capture or AI calls. Confirm it appears in OBS, then clear it."}</p>
                       <details className="advancedActions">
                         <summary>Advanced link security</summary>
                         <p>
@@ -1591,6 +1691,19 @@ export default function OperatorDashboard() {
                           Open preview
                         </button>
                       </div>
+                      <details className="credentialDisclosure">
+                        <summary>Reveal mobile link for manual copy</summary>
+                        <label>
+                          Current mobile viewer link
+                          <input
+                            value={viewerUrl}
+                            readOnly
+                            autoComplete="off"
+                            spellCheck={false}
+                            aria-label="Mobile viewer URL"
+                          />
+                        </label>
+                      </details>
                       <details className="advancedActions">
                         <summary>Viewer link security</summary>
                         <p>
@@ -1658,6 +1771,8 @@ export default function OperatorDashboard() {
                 : SAMPLE_CAPTIONS[targetLanguage]
             }
             sourceText={hasService ? liveState.latestSourceText : undefined}
+            targetLanguage={hasService ? liveState.latestPublicLanguage ?? undefined : targetLanguage}
+            sourceLanguage={displayedTranslationSettings?.sourceLanguage}
             style={style}
             badge={
               hasService
@@ -1667,8 +1782,8 @@ export default function OperatorDashboard() {
                   ? "Refreshing settings"
                   : isPaused
                     ? "Paused output"
-                    : "Live output"
-                : "Design preview"
+                    : "Public caption"
+                : "Local sample"
             }
             live={hasService && isLive}
           />
@@ -1679,11 +1794,11 @@ export default function OperatorDashboard() {
           >
             <p className="eyebrow">Output context</p>
             <h3 id="output-context-heading">
-              {hasService ? "Audience delivery stays connected" : "One setup, two outputs"}
+              {hasService ? "One public caption, two outputs" : "One setup, two outputs"}
             </h3>
             <p>
               {hasService
-                ? "Refreshing translation settings keeps OBS, the mobile link, the service timer, and connected viewers active."
+                ? "OBS and the mobile viewer receive the same moderated caption. Connection status is not monitored here; check each audience output directly."
                 : "OBS receives the transparent caption canvas. A separate mobile link is created only when the service begins."}
             </p>
           </SpotlightCard>
@@ -1744,6 +1859,25 @@ export default function OperatorDashboard() {
           )}
         </section>
       ) : null}
+      <dialog
+        ref={endDialogRef}
+        className="confirmationDialog"
+        aria-labelledby="end-dialog-heading"
+        aria-describedby="end-dialog-description"
+      >
+        <p className="eyebrow">End live service</p>
+        <h2 id="end-dialog-heading">End captions for everyone?</h2>
+        <p id="end-dialog-description">This stops microphone capture, clears OBS and the mobile viewer, and expires the mobile link. The reusable OBS URL stays available for the next service.</p>
+        <div className="confirmationRow">
+          <button className="secondaryButton" type="button" autoFocus onClick={() => endDialogRef.current?.close()}>Keep service open</button>
+          <button
+            className="dangerButton"
+            type="button"
+            disabled={endActionDisabled}
+            onClick={() => { endDialogRef.current?.close(); void stopSession(); }}
+          >Confirm End</button>
+        </div>
+      </dialog>
     </main>
   );
 }

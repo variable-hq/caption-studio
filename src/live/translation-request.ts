@@ -1,5 +1,5 @@
 import type { TranslationResult } from "@/ai/contracts";
-import { normalizeLlmTokenUsage } from "@/ai/usage";
+import { normalizeLlmTokenUsage, normalizeProviderRateLimitSnapshot } from "@/ai/usage";
 import {
   authorizeProtectedAiRequest,
   claimTranslationAttempt,
@@ -51,7 +51,8 @@ export async function handleTranslationRequest(
 
   try {
     const result = (await response.clone().json()) as TranslationResult;
-    if (!normalizeLlmTokenUsage(result.usage)) {
+    const usage = normalizeLlmTokenUsage(result.usage);
+    if (!usage) {
       throw new Error("Provider token usage unavailable.");
     }
     const usageResponse = await recordTranslationUsage(
@@ -61,6 +62,14 @@ export async function handleTranslationRequest(
       result,
     );
     if (!usageResponse.ok) throw new Error("Usage record rejected.");
+    if (result.incomplete || !result.text?.trim()) {
+      return Response.json({
+        error: "The translation was incomplete and was skipped. Pause and review the buffer or end the service if this repeats.",
+        code: "translation_incomplete",
+        usage,
+        rateLimit: normalizeProviderRateLimitSnapshot(result.rateLimit),
+      }, { status: 422, headers: { "cache-control": "no-store" } });
+    }
   } catch {
     return translationControlError(
       "Translation completed, but its usage could not be recorded. Captions stopped to keep the service limit reliable.",

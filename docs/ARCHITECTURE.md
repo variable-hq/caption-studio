@@ -1,6 +1,6 @@
 # Architecture
 
-Last reviewed 23 August 2026.
+UI, inference safeguards, and remaining runtime limits reviewed 12 September 2026.
 
 This document describes the current Phase 1 cloud prototype. Proposed archive and
 summary components are intentionally separated at the end so they are not mistaken for
@@ -24,7 +24,7 @@ Microphone or audio interface
 
 The normal operator path captures audio in a desktop browser, with 1920 × 1080 as the
 primary workstation viewport and a responsive path down to 320px. The dashboard content
-uses a 1440px ceiling to preserve scanning and reading distance on the wider display. The
+uses a 1600px ceiling to preserve scanning and reading distance on the wider display. The
 internal iPhone/iPad feasibility shell can host the same dashboard in WebKit, but neither
 client runs transcription or translation models. The prototype has no separate
 sermon/archive database, object storage, or summary service; the Durable Object stores
@@ -60,18 +60,17 @@ The Next.js client provides:
 
 - microphone and browser-visible audio-interface enumeration;
 - explicit microphone permission and a live input meter;
-- a guided Setup workspace with audio, language, terminology, and service information
-  in the left column and preview, appearance, and output controls in the right column,
-  followed by a compact Live operator console;
-- four Setup-stage labels that match the numbered panels, fluid gutters, and a single-column
-  reflow without horizontal scrolling down to the declared 320px minimum;
+- an audio/language/OBS preflight, six-section navigation, selected settings panel,
+  active/draft snapshot, and separate output monitor, followed by a Live operator console;
+- fluid gutters and a single-column reflow without horizontal scrolling down to the
+  declared 320px minimum;
 - a flat monochrome dashboard visual system that keeps operational status legible in
   text and shape while leaving OBS caption colours under operator control;
 - readable 13–16px form typography, at least 44px action controls, visible focus, and a
-  compact mobile Start bar that retains blocking or takeover context;
+  mobile Start panel that retains blocking or takeover context without obscuring content;
 - source language, target language, glossary, filter, speech-buffer, custom operator-prompt,
   and shared caption-style controls;
-- primary pause/resume and Clear OBS controls, plus secondary test, copy, and confirmed End;
+- primary pause/resume, Clear captions, and confirmed End controls, plus secondary test and copy;
 - input-event-driven appearance controls so range and colour changes update the
   dashboard preview continuously before they are saved as the default;
 - a `MediaRecorder` that creates independent 6-, 9-, or 12-second audio chunks, using the
@@ -79,17 +78,24 @@ The Next.js client provides:
 - a two-chunk in-memory queue to bound latency and memory use;
 - protected source and moderated public-caption previews;
 - active-service time, reserved transcription-attempt count, dropped chunk count, and last
-  post-recording cloud processing latency;
+  processing latency after a chunk leaves the queue;
 - one reusable OBS URL, one separate per-service mobile viewer URL, purpose-specific
   rotation/replacement, and confirmed operator takeover; and
 - a controller credential and active translation snapshot in tab `sessionStorage`, plus
-  caption-style and explicitly saved custom-prompt preferences in `localStorage`.
+  caption-style, explicitly saved custom-prompt, and tutorial-dismissal preferences in
+  `localStorage`.
 
 Language, terminology, filter, buffer, and unsaved-prompt drafts live only in React/page
 memory. During an active service, their applied snapshot is copied to unencrypted tab
 `sessionStorage` solely for same-tab recovery and removed on End, takeover, or idle cleanup.
-Only caption-style preferences and a custom prompt explicitly saved by the operator use
-unencrypted `localStorage`; none of these browser values is synchronized to a workspace.
+Caption-style preferences, a custom prompt explicitly saved by the operator, and a
+tutorial-dismissal flag use unencrypted `localStorage`; none is synchronized to a workspace.
+`OperatorTutorial` uses a native modal dialog for focus containment and a browser-local
+flag to suppress first-visit replay after dismissal. It is educational only: its controls
+do not call capture, inference, or service APIs or mutate translation drafts. Automatic
+opening waits for a settled, inactive channel; manual replay remains available. Section
+shortcuts dismiss the dialog and reuse the dashboard navigation callback, including
+panel-heading focus. The current tutorial step stays in React memory until page reload.
 Audio and protected caption text are not persisted after the active page/service.
 Service-local AI counters and the latest sanitized provider-limit snapshot live in the
 Durable Object only for the active service, then reset on End, expiry, or takeover. The UI
@@ -135,11 +141,16 @@ device lock, or network interruption.
 `custom-worker.ts` routes `/overlay`, `/view`, and `/api/live/*` to the live runtime before
 the generated OpenNext handler. Next.js serves the dashboard and `/api/ai/*` routes. The
 Worker environment provides the Durable Object binding, Access configuration, server-only
-Groq credential, and OBS token-encryption secret. After validating Cloudflare Access,
-successful protected translation requests first claim their controller and reserved
-transcription-attempt number in the live room. After inference, the Worker records the
-sanitized usage payload and waits for that acknowledgement before returning a successful
-translation to the browser.
+Groq credential, and OBS token-encryption secret. The Worker accepts only canonical POST
+paths for transcription and translation, rejecting encoded/repeated-slash/trailing-slash
+aliases before OpenNext routing. Unsupported `/_next/data/*` URLs are also rejected to
+prevent OpenNext from rewriting them around the claim boundary. After validating Cloudflare Access, each inference stage
+atomically claims its controller and reserved transcription-attempt number in the room.
+After translation, the Worker records sanitized usage and waits for acknowledgement
+before returning either usable text or a structured incomplete-output error.
+
+These safeguards pass local validation, not deployed proof. Isolated environment
+setup remains pending; see [deployment readiness](DEPLOYMENT_REHEARSAL_READINESS.md).
 
 Production protection is layered:
 
@@ -222,12 +233,18 @@ After AI translation, application code:
 
 1. preserves the source text as the protected browser preview;
 2. applies approved glossary mappings to the translated display form;
-3. applies whole-term public moderation rules; and
+3. applies script-aware whole-term public moderation rules; and
 4. publishes only the resulting public text to the live room.
 
 The current UI supports mask rules. The pipeline keeps moderation separate from the
 protected source form so a public filter never silently rewrites what was spoken. No
 protected transcript is sent to OBS or stored in the Durable Object.
+
+For terms containing Han, Hiragana, or Katakana, native `Intl.Segmenter` uses target-language
+word boundaries. Other terms retain Unicode whole-word matching; the explicit internal
+substring opt-in is unchanged. Missing native segmentation prevents an affected caption
+from publishing with an actionable browser error. This does not cover every spelling,
+inflection, or cross-caption term. See the [policy decision](evaluation/CAPTION_POLICY_DECISION.md).
 
 ### Durable Object, OBS overlay, and mobile viewer
 
@@ -248,7 +265,8 @@ The Durable Object stores:
 - encrypted OBS token and SHA-256 validation hash;
 - shared caption style and a channel-wide sequence number;
 - idle/live/paused state, controller and current viewer hashes, service timestamps,
-  transcription-request count, bounded claimed/recorded translation-attempt sets,
+  transcription-request count, bounded per-stage claimed-attempt sets, recorded
+  translation-attempt set, an inference-attempt floor,
   aggregated translation tokens, latest sanitized provider-limit snapshot, event count,
   and a monotonic translation revision; and
 - the latest moderated public caption.
@@ -263,14 +281,21 @@ the controller and viewer hashes, and clears public output; stale
 controller requests return `controller_replaced`. A new or reconnected overlay receives
 current style, state, and at most the latest public caption.
 
-Each non-same-language translation request atomically claims its reserved attempt number
-before inference. A room transaction verifies the active controller and rejects stale,
-unreserved, paused, or already-claimed attempts, so a duplicate POST cannot make a second
-provider call for the same audio attempt. After a successful provider response, a second
-transaction idempotently records prompt, completion, and total tokens before the response
-returns to the browser. These counters and the latest sanitized provider headroom survive
-page recovery, Pause, and translation refresh; they reset with the service and never enter
-public WebSocket payloads.
+Each transcription request and each non-same-language translation request atomically
+claims its reserved attempt before inference. Separate stage claims allow one call per
+stage for the same audio attempt. A transaction rejects stale controllers, inactive or
+paused services, unreserved/duplicate attempts, and attempts beyond 900. Pause and
+confirmed refresh advance an attempt floor to invalidate all prior reservations without
+resetting usage or expiry. Loading legacy state without a floor invalidates its existing
+reservations because their previous dispatch cannot be established.
+
+After a provider completion, a transaction idempotently records normalized prompt,
+completion, and total tokens before returning to the browser. Empty/non-text output or a
+finish reason other than `stop` has its text discarded and returns
+`422 translation_incomplete` only after available usage is acknowledged. The browser
+updates usage and skipped count without publication. Missing/failed usage persistence
+remains terminal. Counters and latest sanitized headroom survive page recovery, Pause,
+and refresh; they reset with the service and never enter public WebSocket payloads.
 
 End and the 90-minute alarm deactivate only the service: they delete the controller,
 viewer hash, and latest caption but keep the OBS credential, shared style, and sequence.
@@ -310,7 +335,13 @@ translation plus target language and service status using `textContent`; it has 
 text, caption history, style payload, operator control, OBS credential, or inference route.
 Late joiners receive at most the current caption. Pause clears the caption but retains the
 connection. Replacement, End, expiry, and takeover close viewers with terminal codes;
-other disconnects use a bounded reconnect loop. Security headers disable caching,
+other disconnects show connection loss when the browser reports socket closure, then
+use a bounded reconnect loop. The viewer has no heartbeat or connection timeout, so
+these changes do not establish physical network-loss detection time.
+Only a ready payload resets the retry count; an open-then-drop socket cannot continually
+reset it. Exhaustion offers a page reload through Reconnect. Local text-size controls
+change only the viewer page, and caption language does not change the English controls.
+Security headers disable caching,
 indexing, framing, referrers, and sensitive browser permissions.
 
 ## Language representation
@@ -344,6 +375,7 @@ select the source explicitly when script-specific handling matters.
 | Explicitly saved custom operator prompt | Browser unencrypted `localStorage` | Until reset or site data is cleared in that browser |
 | Active translation snapshot: language, terms, filter, buffer, prompt | Tab unencrypted `sessionStorage` | Same-tab active-service recovery; removed on End, takeover, or idle cleanup |
 | Browser fallback caption style | Browser `localStorage` | Until cleared in that browser |
+| Tutorial dismissal flag (`dismissed`) | Browser `localStorage` | Until site data is cleared; no identity, content, or step history |
 | Shared caption style | Durable Object | Channel lifetime |
 | OBS token | Encrypted Durable Object value; URL fragment and OBS memory | Until explicit rotation |
 | OBS token hash and channel sequence | Durable Object | Channel lifetime |
@@ -369,24 +401,24 @@ usage metadata remains outside this application's control.
   provider failures and silent results.
 - Each successful non-silent chunk whose source differs from its target can make one
   additional translation request, so a service can make at most 900 translation calls.
-  Successful results are deduplicated by their reserved attempt number before their token
-  totals enter the Durable Object.
+  Acknowledged results, including skipped incomplete output, are deduplicated by their
+  reserved attempt number before their token totals enter the Durable Object.
 - Each attempted chunk first makes one low-volume controller-lease request that reserves
   the counter atomically. It adds no Groq call, survives page recovery, and prevents a
   displaced controller from bypassing the current service ceiling. A confirmed takeover
   deliberately starts a new service with a fresh ceiling.
-- Each chunk that needs translation makes one additional low-volume claim request before
-  Groq inference. It adds no provider call itself and rejects a second translation request
-  for the same reserved attempt. A successful translation waits for one low-volume usage
-  acknowledgement before the caption response returns.
+- Each inference stage makes a low-volume server-to-room claim before Groq dispatch.
+  This adds no provider call itself and rejects a second request for the same stage and
+  reserved attempt. Translation waits for a usage acknowledgement before returning
+  usable text or the structured incomplete-output error.
 - An Access-protected page observing another operator's active service refreshes these
   server counters every five seconds. The read makes no Groq request.
 - The room accepts at most 250 concurrent mobile-viewer sockets; additional connections
   fail closed without affecting OBS or operator control.
-- The dashboard latency metric starts after the selected window finishes recording. It
-  measures upload, transcription, translation, processing, and publication; approximate
-  spoken-to-screen time is the selected 6, 9, or 12 seconds plus that value and rendering
-  delay. A fixed window can reduce fragmentation but cannot guarantee a semantic boundary.
+- The dashboard processing metric starts after a completed chunk leaves the queue. It
+  measures upload, transcription, translation, processing, and publication. Audience
+  delay also includes the selected recording buffer, queue wait, and rendering; these
+  are not measured by that metric. A fixed window cannot guarantee a semantic boundary.
 - When two chunks are already queued, a new chunk is dropped and the operator is warned.
 - Pausing deliberately discards the unfinished active window and queued audio without
   counting them as dropped chunks; paused time still counts toward service expiry.
@@ -400,6 +432,10 @@ usage metadata remains outside this application's control.
   normal flow; no caption is fabricated.
 - Translation currently has no source-language fallback. A translation error is visible
   to the operator and that chunk is not published.
+- A non-`stop` or empty model completion is skipped with acknowledged usage retained.
+  Repeated skips require operator Pause/review or End; no automatic token increase,
+  same-claim retry, or paid fallback occurs. A normally stopped source fragment may
+  remain a fragment; completion status does not establish semantic correctness.
 - The overlay reconnects and restores only the latest public caption, not missed history.
 - End or expiry clears public/service state and revokes the mobile link while preserving
   the OBS URL. Only explicit OBS Rotate revokes the reusable OBS link.

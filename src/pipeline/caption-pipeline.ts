@@ -22,7 +22,7 @@ export function prepareCaptionForms(input: {
     input.targetLanguage,
     input.glossary,
   );
-  const moderation = applyModeration(translatedText, input.moderationRules);
+  const moderation = applyModeration(translatedText, input.moderationRules, input.targetLanguage);
 
   return {
     protectedSourceText: input.sourceText,

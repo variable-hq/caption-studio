@@ -169,7 +169,7 @@ export function AiUsageDashboard({
           <UsageMetric
             label="Translation calls"
             value={formatCount(llmUsage.translationRequests)}
-            detail="Successful LLM responses. Same-language captions bypass translation."
+            detail="Responses with recorded usage, including skipped incomplete output. Same-language captions bypass translation."
           />
           <UsageMetric
             label="Translation tokens"
@@ -215,7 +215,7 @@ export function AiUsageDashboard({
           </>
         ) : (
           <div className="providerSnapshotEmpty">
-            <strong>Waiting for the first translated caption</strong>
+            <strong>Waiting for provider quota information</strong>
             <p>
               Groq reports daily-request and per-minute-token headroom with a
               translation response. Daily token and complete account consumption are

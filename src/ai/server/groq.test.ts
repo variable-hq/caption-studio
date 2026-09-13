@@ -21,6 +21,7 @@ describe("Groq cloud provider prompts", () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it("includes church keyword hints in the transcription prompt", () => {
@@ -262,7 +263,7 @@ describe("Groq cloud provider prompts", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        Response.json({ choices: [{ message: { content: "Kasih karunia" } }] }),
+        Response.json({ choices: [{ finish_reason: "stop", message: { content: "Kasih karunia" } }] }),
       ),
     );
 
@@ -293,7 +294,7 @@ describe("Groq cloud provider prompts", () => {
       vi.fn(async () =>
         Response.json(
           {
-            choices: [{ message: { content: "Kasih karunia" } }],
+            choices: [{ finish_reason: "stop", message: { content: "Kasih karunia" } }],
             usage: {
               prompt_tokens: 144,
               completion_tokens: 18,
@@ -378,13 +379,44 @@ describe("Groq cloud provider prompts", () => {
     expect(String(error)).not.toContain("provider detail");
   });
 
+  it.each([
+    ["length", "Partial text must not be published"],
+    ["tool_calls", "Unexpected tool content"],
+    ["function_call", "Unexpected function content"],
+    ["unknown", "Unknown completion content"],
+    [null, "Missing completion status"],
+    [undefined, "Missing completion status"],
+    ["stop", "  "],
+    ["stop", { unexpected: "non-text content" }],
+  ])("strips incomplete %s output while retaining usage for acknowledgement", async (finishReason, content) => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      choices: [{ finish_reason: finishReason, message: { content } }],
+      usage: { prompt_tokens: 100, completion_tokens: 256, total_tokens: 356 },
+    }, { headers: {
+      "x-ratelimit-limit-requests": "1000",
+      "x-ratelimit-remaining-requests": "999",
+    } })));
+
+    const result = await translateWithGroq({
+      text: "This is synthetic speech.", sourceLanguage: "en", targetLanguage: "id",
+      recentContext: [], preferredTerms: {},
+    });
+    expect(result).toMatchObject({
+      text: "", incomplete: true,
+      usage: { promptTokens: 100, completionTokens: 256, totalTokens: 356 },
+      rateLimit: { requestsPerDay: { limit: 1000, remaining: 999 } },
+    });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
   it("does not send GPT-OSS reasoning effort to another explicit model", async () => {
     vi.stubEnv("GROQ_API_KEY", "test-key");
     vi.stubEnv("GROQ_TRANSLATION_MODEL", "qwen/qwen3.6-27b");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        Response.json({ choices: [{ message: { content: "Kasih karunia" } }] }),
+        Response.json({ choices: [{ finish_reason: "stop", message: { content: "Kasih karunia" } }] }),
       ),
     );
 

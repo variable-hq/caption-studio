@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Last reviewed 23 August 2026.
+Web UI and inference rehearsal steps reviewed 12 September 2026.
 
 ## Purpose
 
@@ -12,24 +12,47 @@ The main script below is the complete current client and OBS acceptance journey.
 distribution is deferred; the preserved native rehearsal later in this guide is a
 historical appendix and must not be included in the current test scope.
 
-Test the deployed dashboard at
-<https://church-live-caption.lukas-ka.workers.dev/>. Stop if its ownership or environment
-cannot be confirmed by the project owner.
+Use an isolated, Access-protected test Worker after its exact revision and configuration
+are verified. The existing <https://church-live-caption.lukas-ka.workers.dev/> is production,
+not a verified rehearsal environment. The user has authorized isolated deployment in
+principle; [missing plan, access, and test-secret setup](DEPLOYMENT_REHEARSAL_READINESS.md)
+currently blocks it. The latest safeguards pass local automated and synthetic runtime
+checks; these do not establish deployed or physical behavior.
+
+The first pair is **Indonesian→English**. **Operator** is selected as reviewer, but
+[all 30 prepared samples](evaluation/ID_EN_REVIEW.md) still await human review. Use the
+[filtering/completion decision](evaluation/CAPTION_POLICY_DECISION.md) during scoring;
+do not treat the draft references as approved translations.
+
+## Confirmed rehearsal setup
+
+The user confirmed a microphone AUX feed through a USB audio interface, with OBS on a
+separate computer. The planned capture path is AUX into the interface, then USB into the
+computer running the caption dashboard. Select the USB audio interface in that browser's
+**Audio input** panel.
+The separate OBS computer displays the reusable hosted OBS URL in its Browser Source.
+Both computers need access to the verified rehearsal deployment.
+
+The USB audio interface model, computer models and operating systems, and audience
+phones remain unspecified. The connection type is confirmed; signal routing and physical behavior
+have not been tested.
 
 ## Before the test
 
 - Use a recent Chrome or Edge browser and a stable internet connection.
 - Confirm the tester's email is approved in Cloudflare Access.
-- Use the intended microphone or audio interface and verify its name in the dropdown.
-- Install OBS on the intended streaming computer and prepare a 1920 × 1080 Browser
+- Connect the microphone AUX feed to the USB audio interface and connect the interface
+  to the caption computer. Verify the interface's name in the input dropdown.
+- Install OBS on the separate streaming computer and prepare a 1920 × 1080 Browser
   Source.
 - Prepare a separate phone at both 390px-class and 320px-class widths for the read-only
   mobile viewer. It must not be signed in as an operator.
 - Confirm with the owner that Groq ZDR is enabled and both provider accounts remain on
   the intended Free plans. Never send or paste keys to a tester.
 - Confirm Cloudflare reports a successful deployment of a reviewed Git revision that
-  contains both `e680576` and the 4 August documentation/code cleanup. Record the exact
-  revision identifier, not build logs containing secrets.
+  contains the latest inference claims, filtering, completion handling, and UI changes.
+  Record both the exact Git revision and final Worker version after test secrets are set,
+  not build logs containing secrets. Current production metadata has no Git SHA.
 - Use synthetic speech or a recording with explicit consent. Do not use confidential
   sermon, pastoral, member, or counselling content.
 - Reserve 15–20 minutes for one source/target pair and the reusable-link checks. End the
@@ -41,26 +64,40 @@ cannot be confirmed by the project owner.
 
 ## Test script
 
-1. Open the dashboard, complete Cloudflare Access, confirm **Cloud AI ready**, and expand
-   Service details. Verify the displayed configured identifiers are
+On a fresh browser profile, first check the tutorial overlay. Follow all six steps,
+test Back and direct step selection, then finish with **Go to dashboard**. Verify that
+no audio starts and settings remain unchanged. Reload: the guide stays dismissed in
+that browser. Reopen it with **How to use**, then test Skip and Escape with focus returning
+to that button. Check at 1920px, 1200px, 390px, and 320px, including keyboard navigation.
+Also open a panel from a tutorial step: the panel heading receives focus, and **How to use**
+returns to the same topic until reload. The shortcut must not change settings or request audio.
+On phones, use the **Tutorial step** selector to jump between topics.
+A browser with blocked preference storage may show the guide again after reload.
+During an existing live or paused service, the guide must not open automatically;
+manual replay must clearly state that the service continues.
+
+1. Open the dashboard, complete Cloudflare Access, confirm **Cloud AI configured**, open
+   **Translation**, and expand **Service details**. Verify the configured identifiers are
    `whisper-large-v3-turbo` and `openai/gpt-oss-20b`, unless the owner has recorded an
    intentional override. Start later performs the separate model-availability check.
 2. Select **Enable audio test** to grant permission and populate the device list. Choose
-   the intended input, enable the audio test again if the meter stops, speak, and confirm
-   the meter moves. Recheck the displayed device name before continuing.
-3. Select the spoken source explicitly, choose one target language, and select the
+   the USB audio interface, enable the audio test again if the meter stops, and speak
+   into the microphone feeding AUX. Confirm the meter follows that feed. Mute the feed
+   and verify speech near the caption computer does not produce an unintended input.
+   Restore the feed and recheck the displayed device name before continuing.
+3. Select Indonesian as the spoken source and English as the target, then select the
    9-second **Balanced** speech buffer. Confirm the UI says longer windows add latency.
    Later, repeat one short synthetic sample at 6 and 12 seconds to verify cadence and the
    refresh behavior without treating any option as a guaranteed sentence boundary.
-4. Add one safe test mapping, such as `Bethlehem => Betlehem`, if appropriate for the
-   chosen target. Add one synthetic filter word that is safe to say in the rehearsal.
+4. Add one safe test mapping, such as `Betlehem => Bethlehem`, for Indonesian→English.
+   Add one synthetic filter word that is safe to say in the rehearsal.
    Review the default translation prompt, choose **Reset to reviewed default**, then make
    one harmless custom change such as “Prefer concise captions.” Do not enter private
    church information or credentials. An unsaved edit remains page-only; select **Save
-   prompt** only if this synthetic value should persist in unencrypted browser storage.
-5. At the primary 1920 × 1080 operator viewport, confirm audio/languages, terminology,
-   and service details are grouped on the left, while preview, appearance, and live
-   outputs are on the right. Repeat at a 1200px intermediate width. At both 390px and
+   as browser default** only if this synthetic value should persist in unencrypted browser storage.
+5. At the primary 1920 × 1080 operator viewport, confirm the preflight strip, task-ordered
+   navigation, selected settings panel, active/draft snapshot, and output monitor remain
+   easy to distinguish. Repeat at a 1200px intermediate width. At both 390px and
    320px widths, confirm the same sections form one reachable column without horizontal
    scroll. Confirm the six setup labels match the available workspace panels, controls
    remain easy to target, focus remains visible, and live/paused/error states remain
@@ -70,16 +107,25 @@ cannot be confirmed by the project owner.
    adjustment, then select **Save as default** and reload once to confirm the shared
    Main-channel style returns.
 7. If this deployment has no Main channel, select **Create OBS channel**. Copy the URL
-   directly into the 1920 × 1080 OBS Browser Source. Existing deployments should return
-   the same URL to every approved collaborator; never put it in test evidence.
+   directly into the 1920 × 1080 Browser Source on the separate OBS computer. Use the
+   verified hosted URL for this two-computer test. Existing deployments should return
+   the same URL to every approved collaborator; never put it in test evidence. If clipboard
+   access is denied, reveal the URL manually in **Live outputs** before the service or
+   **More** during it. Keep the URL concealed until needed; Escape closes More and returns focus.
 8. Before starting capture, select **Show test** and confirm localized synthetic text,
    style, and safe margins in OBS without microphone or transcription-attempt activity.
-   Select **Clear OBS**, refresh the Browser Source, and confirm it remains blank.
+   Select **Clear captions**, refresh the Browser Source, and confirm it remains blank.
 9. Start captions. Open **Mobile translation viewer**, copy its link to the separate
    phone, and confirm the page fits at 390px and 320px with no horizontal scroll. It must
    show only the current moderated target-language caption and status—never source text,
    history, styling data, operator controls, or the OBS URL. Refresh or join late and
-   confirm it recovers at most the current caption.
+   confirm it recovers at most the current caption. Test denied clipboard access: the
+   **Mobile viewer** section must offer a concealed manual-copy link. Test all three **Text size** choices;
+   they must not change OBS. With a non-English caption, English controls must retain
+   their English language semantics. Disconnect the phone and record the time until
+   connection loss appears; feedback depends on the browser detecting socket closure.
+   After retry exhaustion, test **Reconnect**. Replaced or
+   expired links must not offer that retry action.
 10. Record the service start/expiry, usage count, and only whether the OBS and viewer URLs
     remain equal—never their values. While live, draft changes to source/target language,
     terminology, filter, buffer, and custom prompt. Confirm the UI marks them pending and
@@ -92,9 +138,9 @@ cannot be confirmed by the project owner.
     stay unchanged, and reserved transcription attempts stop increasing. Show and clear
     another test while paused, then select **Resume** and confirm the test clears before
     listening restarts. Pause at a natural break because the unfinished buffer is discarded.
-12. Speak short, approved test phrases containing names, numbers, and a reference, for
-   example: “Today we read John chapter three, verse sixteen. The Holy Spirit brings
-   hope.” Do not paste or record licensed Bible text as test evidence.
+12. Speak the approved Indonesian evaluation phrases containing names, numbers, and
+    references. Record sample IDs and separate transcription/translation scores in the
+    review sheet. Do not paste or record licensed Bible text as test evidence.
 13. Confirm the protected source preview and the public translated preview are sensible.
    Verify the glossary mapping and public mask without expecting the source preview to
    be rewritten.
@@ -102,14 +148,16 @@ cannot be confirmed by the project owner.
    confirm the overlay updates without restarting.
 15. Note the channel-wide overlay sequence, skipped count, reserved transcription-attempt
     count, and displayed processing-latency range. Open **AI usage** and confirm separate
-    service-time and 900-attempt meters, successful translation calls, and
+    service-time and 900-attempt meters, acknowledged translation calls, and
     prompt/completion/total tokens. After a translated caption, verify provider headroom
     is either a labelled latest snapshot or explicitly unavailable—never a fabricated
     zero. Pause, reload this operator tab, and verify service totals recover. Compare them
     with the Groq console without expecting an exact account-wide match. The sequence
     includes synthetic tests and survives End,
-    so it is not a per-service caption count. Normal spoken-to-screen delay is the selected
-    6, 9, or 12 seconds plus the processing value.
+    so it is not a per-service caption count. Spoken-to-screen delay includes the selected
+    6-, 9-, or 12-second capture window, queue wait, processing, and audience delivery.
+    The processing value excludes capture, queue wait, and actual audience rendering;
+    measure the complete delay separately.
 16. Open **Viewer link security**, cancel once, then confirm **Replace mobile link**.
     Confirm the old phone disconnects with a replaced-link message, the new link works,
     and OBS is unaffected. Never place either viewer token in the evidence.
@@ -180,7 +228,9 @@ cannot be demonstrated safely.
 | Ownership | A second start is blocked; confirmed takeover replaces the prior controller without mixed captions. |
 | Recovery | Reload recovers the same controller paused; End preserves the URL; Rotate alone invalidates it. |
 | Performance | Processing latency, skipped chunks, and transcription usage stay inside stakeholder-agreed limits. |
-| AI usage | Service time, reserved transcription attempts, successful translation calls/tokens, and latest provider headroom remain separate; reload preserves active-service totals and public outputs receive none of this metadata. |
+| Inference enforcement | Authenticated synthetic fault checks reject missing, duplicate, stale, paused, expired, invalidated, over-ceiling, and aliased requests before provider dispatch; no real provider traffic is needed for the deterministic checks. |
+| Incomplete output | A mocked non-`stop`/empty completion publishes no text; acknowledged usage and skipped count update, while missing/failed usage acknowledgement stops capture. |
+| AI usage | Service time, reserved transcription attempts, acknowledged translation calls/tokens (including incomplete skips), and latest provider headroom remain separate; reload preserves active-service totals and public outputs receive none of this metadata. |
 | Translation refresh | Live and paused drafts apply only after confirmation; unfinished audio/context/output clears; stale captions are rejected; service timer/state, usage, controller, viewer link, and OBS link remain unchanged. |
 | Buffer | 6-, 9-, and 12-second choices match observed cadence, apply after translation refresh, and communicate the latency tradeoff. |
 | Cost | Provider dashboards show no paid usage or unexpected concurrent consumption. |
@@ -188,6 +238,13 @@ cannot be demonstrated safely.
 Any failed safety, access, wrong-input, fabricated-content, or public-filter check is a
 test failure. Accuracy and latency cannot pass until stakeholders define numeric or
 sample-based thresholds for the intended service.
+
+After the short rehearsal, the [readiness record](DEPLOYMENT_REHEARSAL_READINESS.md)
+defines a content-free 90-minute channel test using fixed synthetic captions and no AI
+routes. It measures channel/lifecycle endurance only. A provider/audio duration run needs
+separate verified Groq headroom and synthetic audio; intended hardware, physical viewers,
+meaning, and full audience latency still need their own evidence. Optional QR, terminology,
+and correction work follows the [pilot improvement gates](PILOT_IMPROVEMENTS.md).
 
 ## Known limitations
 
@@ -201,14 +258,16 @@ sample-based thresholds for the intended service.
   concurrent organization consumption and is not a provider billing meter. Free tiers
   have no availability guarantee.
 - Language and theological quality remain unvalidated for the full supported matrix.
+- The first Indonesian→English review is also pending; selecting Operator and preparing
+  samples does not constitute human review or a passing quality result.
 - Device unplug/replug, long network loss, provider quota/outage, Access expiry, and a
   complete 90-minute service still require controlled validation.
 - The reusable OBS URL is a long-lived bearer credential. Rotation is the incident response,
   not a normal per-service action.
 - The mobile viewer URL is a service-scoped bearer credential. It shows one current
   caption, not scrolling history or multiple target languages.
-- Ordinary translation drafts remain in page memory. Only caption style and an explicitly
-  saved custom prompt persist in unencrypted `localStorage`; the applied active snapshot
+- Ordinary translation drafts remain in page memory. Caption style, an explicitly saved
+  custom prompt, and the tutorial-dismissal flag persist in unencrypted `localStorage`; the applied active snapshot
   uses unencrypted tab `sessionStorage` for same-tab recovery and is cleared on End,
   takeover, or idle cleanup. None is a shared church profile; do not enter secrets.
 - The iOS shell has only stale pre-hardening unsigned simulator and generic-device
@@ -224,16 +283,22 @@ Record metadata only; do not record credentials, URLs, audio, or caption content
 ```text
 Date/time and tester:
 Deployed Git revision:
+Final Worker version / isolated environment:
 Client and version/build (browser or TestFlight):
 Browser/device and OS:
 TestFlight group and installation result (if applicable):
 Configured dashboard origin and backend revision (no tokens):
 Audio device:
-OBS version and computer:
+AUX receiving connection: USB audio interface (user-confirmed)
+USB audio interface model / device label / selected-input check:
+Caption computer / OS / browser:
+Separate OBS computer / OS / OBS version:
+Audience phone models / OS / browser:
 Configured transcription / translation models:
 Observed chunk cadence / displayed transcription ceiling:
 Selected speech buffer / refresh result:
 Source -> target:
+Operator reviewer / evaluation sample IDs / human-review status:
 Translation draft / confirmation / stale-output result:
 Service timer/controller/viewer/OBS preservation result (no token values):
 Reviewed-default / custom-prompt result (no prompt content):
@@ -242,8 +307,10 @@ Duration:
 Overlay sequence / skipped count / reserved transcription attempts:
 Processing-latency range:
 OBS style/reload/revocation result:
+OBS-only connection loss/recovery / caption-computer state and timing:
 Mobile viewer late-join/replacement/End/takeover result:
 Groq and Cloudflare Free-plan check:
+Incomplete-output / usage-acknowledgement result (synthetic only):
 Issues and timestamps (no private content):
 Overall pass / fail / blocked:
 ```

@@ -49,6 +49,7 @@ export interface LlmSessionUsage extends LlmTokenUsage {
 
 export interface TranslationResult {
   text: string;
+  incomplete?: true;
   usage?: LlmTokenUsage;
   rateLimit?: LlmProviderRateLimitSnapshot;
 }
