@@ -37,8 +37,12 @@ import {
 } from "@/live/translation-settings";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { keywordHints } from "@/pipeline/glossary";
+import { experienceRequest } from "@/experience/client";
+import { startSerialPolling } from "@/live/serial-polling";
+import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
 
 interface LiveCaptionSettings extends TranslationSessionSettings {
+  saveHistory?: boolean;
   style: CaptionStyle;
 }
 
@@ -111,6 +115,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const [microphoneError, setMicrophoneError] = useState("");
   const [level, setLevel] = useState(0);
   const [liveState, setLiveState] = useState<LiveSessionState>(INITIAL_LIVE_STATE);
+  const remoteResultRef = useRef<{ controller: string; id: string; success: boolean } | null>(null);
   const [controlAction, setControlAction] =
     useState<LiveSessionControlAction | null>(null);
   const [channelAction, setChannelAction] = useState<
@@ -522,7 +527,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         {
           audio,
           sourceLanguage: current.sourceLanguage,
-          keywordHints: keywordHints(glossary),
+          keywordHints: keywordHints(glossary.map((entry) => ({ ...entry, variants: [] }))),
         },
         inferenceContext,
         signal,
@@ -531,7 +536,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
       const finalSegments = segments.filter(({ isFinal, text }) => isFinal && text.trim());
       if (!finalSegments.length) return;
-      const sourceText = finalSegments.map(({ text }) => text.trim()).join(" ");
+      const originalSource = finalSegments.map(({ text }) => text.trim()).join(" ");
+      const sourceText = correctApprovedRecognitionVariants(originalSource, glossary);
       const detectedLanguage =
         current.sourceLanguage === "auto"
           ? finalSegments.find(({ detectedLanguage: locale }) => locale)?.detectedLanguage
@@ -540,6 +546,17 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         throw new Error(
           "The spoken language could not be detected. Select it explicitly and restart.",
         );
+      }
+
+      if (serviceAtStart.saveHistory) {
+        try {
+          await experienceRequest("source", { source: { id: lease.transcriptionRequests,
+            text: originalSource, correction: sourceText !== originalSource ? sourceText : undefined,
+            language: detectedLanguage, translationRevision: lease.translationRevision } }, serviceAtStart.controllerToken);
+        } catch {
+          setLiveState((state) => ({ ...state, historyIncomplete: true, message: "History saving failed. The sermon archive may have gaps." }));
+          void experienceRequest("gap", {}, serviceAtStart.controllerToken).catch(() => {});
+        }
       }
 
       let translation: TranslationResult = { text: sourceText };
@@ -586,6 +603,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         moderationRules: parseModerationInput(current.filterText),
       });
       const event: PublicCaptionRequest = {
+        captionEpoch: lease.captionEpoch ?? 0,
+        transcriptionAttempt: lease.transcriptionRequests,
+        reader: { filterText: current.filterText, keywordText: current.keywordText },
         publicText: forms.publicText,
         targetLanguage: current.targetLanguage,
         style: normalizeCaptionStyle(settingsRef.current.style),
@@ -606,6 +626,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           ? "A filtered caption was hidden from the public overlay."
           : "Caption published to the OBS overlay.",
         sequence: published.sequence,
+        historyIncomplete: state.historyIncomplete || published.historyIncomplete === true,
         latestSourceText: forms.protectedSourceText,
         latestPublicText: forms.publicText,
         latestPublicLanguage: forms.publicText ? current.targetLanguage : null,
@@ -628,6 +649,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           if (!capturingRef.current || chunk.generation !== captureGenerationRef.current) {
             continue;
           }
+          if (error instanceof LiveApiError && error.code === "caption_cleared") continue;
+          if ((error instanceof LiveApiError || error instanceof CloudProviderClientError) && error.code === "service_paused") {
+            stopCapture();
+            setLiveState((state) => ({ ...state, status: "paused", latestPublicText: "", latestSourceText: "", message: "Paused from the remote control." }));
+            break;
+          }
           if (
             error instanceof LiveApiError &&
             error.code === "translation_session_refreshed"
@@ -641,6 +668,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           }
           const message =
             error instanceof Error ? error.message : "Caption processing failed.";
+          if (serviceRef.current?.saveHistory) {
+            setLiveState((state) => ({ ...state, historyIncomplete: true }));
+            void experienceRequest("gap", {}, serviceRef.current.controllerToken).catch(() => {});
+          }
           if (
             isTerminalInferenceControlError(error) ||
             (error instanceof LiveApiError &&
@@ -669,6 +700,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     endService,
     handleTakenOver,
     processChunk,
+    stopCapture,
     reconcileExternalTranslationRevision,
   ]);
 
@@ -683,8 +715,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         return;
       }
       if (queueRef.current.length >= 2) {
+        if (serviceRef.current.saveHistory) {
+          void experienceRequest("gap", {}, serviceRef.current.controllerToken).catch(() => {});
+        }
         setLiveState((state) => ({
           ...state,
+          historyIncomplete: state.historyIncomplete || serviceRef.current?.saveHistory === true,
           droppedChunks: state.droppedChunks + 1,
           message: "Cloud processing is behind; one audio chunk was skipped.",
         }));
@@ -793,6 +829,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           );
           if (!loadIsCurrent()) return;
           const recovered: LiveServiceDetails = {
+            serviceId: channel.serviceId,
+            saveHistory: channel.saveHistory,
             channelId: channel.channelId,
             controllerToken: storedController,
             viewerUrl: storedViewerUrl,
@@ -985,6 +1023,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     }
   }, [channelAction, handleTakenOver, liveState.channel?.configured]);
 
+  const rememberReaderLink = useCallback((readerUrl: string) => {
+    const service = serviceRef.current;
+    if (!service) return;
+    const updated = { ...service, readerUrl };
+    serviceRef.current = updated;
+    setLiveState((current) => ({ ...current, service: updated }));
+  }, []);
+
   const replaceViewerLink = useCallback(async () => {
     const service = serviceRef.current;
     if (
@@ -1044,6 +1090,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         status: "starting",
         message: takeover ? "Taking control of the Main channel…" : "Verifying cloud AI…",
         sequence: 0,
+        historyIncomplete: false,
         droppedChunks: 0,
         transcriptionRequests: 0,
         llmUsage: emptyLlmSessionUsage(),
@@ -1067,6 +1114,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         const service = await liveClientRef.current.startService(
           normalizeCaptionStyle(settingsRef.current.style),
           takeover,
+          settingsRef.current.saveHistory === true,
         );
         const speechBufferMs = translationSettings.speechBufferMs;
         serviceRef.current = service;
@@ -1621,11 +1669,19 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const clearCaption = useCallback(async () => {
     if (!liveState.channel?.configured || endingRef.current) return;
     setControlAction("clear");
+    const wasCapturing = capturingRef.current;
+    stopTranslationCapture();
+    recentContextRef.current = [];
     try {
       await liveClientRef.current.control(
         "clear",
         serviceRef.current?.controllerToken,
       );
+      if (wasCapturing && streamRef.current?.active && serviceRef.current) {
+        capturingRef.current = true;
+        captureAbortRef.current = new AbortController();
+        startRecorder(streamRef.current, captureGenerationRef.current, speechBufferRef.current);
+      }
       setLiveState((current) => ({
         ...current,
         message:
@@ -1636,18 +1692,22 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         latestPublicText: "",
         latestPublicLanguage: null,
       }));
+      return true;
     } catch (error) {
+      stopCapture();
       if (isControllerReplaced(error)) handleTakenOver();
       else {
         setLiveState((current) => ({
           ...current,
+          status: "error",
           message: error instanceof Error ? error.message : "OBS could not be cleared.",
         }));
       }
+      return false;
     } finally {
       setControlAction(null);
     }
-  }, [handleTakenOver, liveState.channel?.configured]);
+  }, [handleTakenOver, liveState.channel?.configured, startRecorder, stopTranslationCapture, stopCapture]);
 
   const showTestCaption = useCallback(async () => {
     if (!liveState.channel?.configured || liveState.status === "live") return;
@@ -1744,6 +1804,33 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     };
   }, [refreshDevices, stopCapture]);
 
+  useEffect(() => {
+    if (!liveState.service?.serviceId) return;
+    let cancelled = false;
+    const controller = liveState.service.controllerToken;
+    const stop = startSerialPolling(async () => {
+      if (cancelled || serviceRef.current?.controllerToken !== controller || endingRef.current) return;
+      try {
+        const state = await experienceRequest<{ status: string; command: { id: string; action: "pause" | "resume" | "clear"; status: string } | null }>("host", { capturing: capturingRef.current }, controller);
+        if (cancelled || serviceRef.current?.controllerToken !== controller) return;
+        const command = state.command;
+        if (command?.status === "pending") {
+          if (remoteResultRef.current?.controller !== controller || remoteResultRef.current.id !== command.id) {
+            let success = true;
+            if (command.action === "pause") { await pauseSession(); success = !capturingRef.current; }
+            else if (command.action === "resume") { await resumeSession(); success = capturingRef.current; }
+            else success = Boolean(await clearCaption());
+            remoteResultRef.current = { controller, id: command.id, success };
+          }
+          if (!cancelled) await experienceRequest("host", { acknowledgement: command.id, success: remoteResultRef.current.success, capturing: capturingRef.current }, controller);
+        } else if (state.status === "paused" && capturingRef.current) {
+          await pauseSession();
+        }
+      } catch { /* The inference boundary still enforces server pause while reconnecting. */ }
+    }, 2000);
+    return () => { cancelled = true; stop(); };
+  }, [liveState.service?.serviceId, liveState.service?.controllerToken, pauseSession, resumeSession, clearCaption]);
+
   return {
     devices,
     selectedDeviceId,
@@ -1773,6 +1860,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     resumeSession,
     refreshTranslationSession,
     clearCaption,
+    rememberReaderLink,
     showTestCaption,
     stopSession: () => endService(),
     reloadChannel: loadChannel,

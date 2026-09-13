@@ -2,9 +2,9 @@
 
 UI, inference safeguards, and remaining runtime limits reviewed 12 September 2026.
 
-This document describes the current Phase 1 cloud prototype. Proposed archive and
-summary components are intentionally separated at the end so they are not mistaken for
-implemented behavior.
+This document describes the cloud prototype and the Plan 1 implementation under review.
+The Plan 1 section and decision record supersede the earlier future-archive proposal.
+Deployment and church-approved semantic evaluation remain separate release gates.
 
 ## System context
 
@@ -27,8 +27,8 @@ primary workstation viewport and a responsive path down to 320px. The dashboard 
 uses a 1600px ceiling to preserve scanning and reading distance on the wider display. The
 internal iPhone/iPad feasibility shell can host the same dashboard in WebKit, but neither
 client runs transcription or translation models. The prototype has no separate
-sermon/archive database, object storage, or summary service; the Durable Object stores
-only constant-size live-channel state.
+object storage or audio archive. Plan 1 adds bounded per-service sermon journals and a
+separate rolling numeric usage ledger; see the implementation section below.
 
 ## Source and deployment path
 
@@ -96,10 +96,11 @@ do not call capture, inference, or service APIs or mutate translation drafts. Au
 opening waits for a settled, inactive channel; manual replay remains available. Section
 shortcuts dismiss the dialog and reuse the dashboard navigation callback, including
 panel-heading focus. The current tutorial step stays in React memory until page reload.
-Audio and protected caption text are not persisted after the active page/service.
+Audio is never persisted. Protected source persists only after explicit pre-service
+opt-in, for seven days after End.
 Service-local AI counters and the latest sanitized provider-limit snapshot live in the
-Durable Object only for the active service, then reset on End, expiry, or takeover. The UI
-has no manual correction, caption history, archive, or summary controls today. Pause stops
+Durable Object only for the active service, then reset on End, expiry, or takeover. The UI also provides private source corrections, archive review, and manual summary
+controls; see the Plan 1 implementation section below. Pause stops
 browser capture, discards queued chunks, and keeps the reusable channel and service expiry.
 The service clock continues while the reserved transcription-attempt count does not.
 
@@ -515,3 +516,39 @@ Before a controlled live pilot, validate with synthetic or approved recordings:
 Native validation is not a current priority or release gate. If the experiment is ever
 reopened, define fresh signed-device, authentication, audio, WebSocket, lifecycle,
 responsive-layout, privacy, and isolated-backend acceptance criteria first.
+
+## Plan 1 implementation
+
+See [ADR: service history and optional inference](decisions/0011-service-history-and-optional-inference.md)
+for the current extension; this supersedes the earlier future-archive proposal above.
+
+`custom-worker.ts` routes `/api/live/experience/*` and `/api/live/reader` before Next.
+`CaptionRoom` owns service identity, immutable history consent, controller attempts,
+Clear epochs, paired remote commands, and retriable journal lifecycle messages.
+`SermonJournal` owns a single service's bounded source/paragraph records and alarm jobs.
+`AiUsageLedger` admits provider calls before dispatch and reconciles numeric outcomes.
+No reader poll or remote command invokes a model.
+
+1. Start creates service and reader credentials, snapshots saving consent, and initializes
+   its journal. A failed initialization releases the undisclosed controller.
+2. Lease reserves an attempt. Existing inference middleware claims it once. Groq routes
+   admit numeric usage before sending transcription/translation requests.
+3. The capture client saves recognized source only when opted in; reviewed whole-word
+   recognition variants are separate corrections. It publishes moderated translation
+   with the current Clear epoch and translation revision.
+4. The Main room broadcasts the fast caption, then appends the public chunk to the journal.
+   Every 30 seconds, a bounded batch can use optional Workers AI phrasing, followed by
+   another moderation pass. Existing translation is the fallback. A saved checkpoint
+   recovers interrupted reader work without dispatching the provider again.
+5. Pause/Clear/refresh invalidate unfinished output while keeping committed paragraphs.
+   End finalizes private history and starts the 30-minute reader grace period. Takeover
+   revokes the old reader and remote. Commands report confirmed only after host ACK.
+6. A manual summary runs bounded source sections and final synthesis. Original source,
+   corrections, exclusions, evidence IDs and immutable TB2 policy govern its input.
+   Context, call and daily neuron limits fail visibly; outputs remain private drafts.
+7. Content expires after seven days, numeric usage after 30. Tombstones and revision checks
+   prevent deleted or superseded work from returning. Archive pagination is independent
+   for source segments and public paragraphs.
+
+The operator, remote, reader and latest-caption viewer share typography, controls, focus,
+spacing and palette. OBS caption appearance remains operator-configurable.

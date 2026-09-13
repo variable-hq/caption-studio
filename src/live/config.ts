@@ -17,12 +17,15 @@ export function parseGlossaryInput(
     .slice(0, 40)
     .map((item, index) => {
       const [canonicalValue, ...translationParts] = item.split("=>");
-      const canonical = canonicalValue.trim().slice(0, 100);
+      const [spelling, ...aliases] = canonicalValue.split("|");
+      const canonical = spelling.trim().slice(0, 100);
+      const variants = aliases.map((value) => value.trim().slice(0, 100)).filter(Boolean).slice(0, 5);
       const translation = translationParts.join("=>").trim().slice(0, 100);
 
       return {
         id: `operator-term-${index}`,
         canonical,
+        ...(variants.length ? { variants } : {}),
         priority: 40 - index,
         preferredTranslations: translation
           ? ({ [targetLanguage]: translation } as Partial<

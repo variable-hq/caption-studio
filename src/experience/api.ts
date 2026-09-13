@@ -1,0 +1,74 @@
+import { authorizeProtectedAiRequest, type LiveWorkerEnvironment } from "@/live/api";
+import { captionTokenHash } from "@/live/caption-room";
+import { InvalidRequestBodyError, RequestBodyTooLargeError, readJsonObject } from "@/http/request-body";
+import { json, rpc } from "./contracts";
+
+const UUID = /^[a-f0-9-]{36}$/u;
+function token() {
+  return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+export async function handleExperienceRequest(request: Request, env: LiveWorkerEnvironment) {
+  const url = new URL(request.url);
+  const publicReader = url.pathname === "/api/live/reader";
+  if (!publicReader && !url.pathname.startsWith("/api/live/experience/")) return null;
+  try {
+    if (publicReader) {
+      if (request.method !== "GET") return json({ error: "Use GET." }, 405);
+      const [id, reader] = (request.headers.get("x-caption-reader") ?? "").split(".");
+      if (!UUID.test(id ?? "") || !/^[A-Za-z0-9_-]{43}$/u.test(reader ?? "")) return json({ error: "Invalid reader link." }, 403);
+      if (!env.SERMON_JOURNALS) return json({ error: "Reader is not configured." }, 503);
+      const journal = env.SERMON_JOURNALS.get(env.SERMON_JOURNALS.idFromName(id));
+      return journal.fetch(new Request(`https://internal/read?after=${Math.max(0, Number(url.searchParams.get("after")) || 0)}`, {
+        headers: { "x-reader-hash": await captionTokenHash(reader) },
+      }));
+    }
+    const denied = await authorizeProtectedAiRequest(request, env);
+    if (denied) return denied;
+    const operation = url.pathname.slice("/api/live/experience/".length);
+    if (operation === "usage" && request.method === "GET") {
+      return env.AI_USAGE ? rpc(env.AI_USAGE, "usage", `/history?after=${encodeURIComponent((url.searchParams.get("after") ?? "").slice(0, 220))}`)
+        : json({ error: "Usage history is not configured." }, 503);
+    }
+    if (operation === "history" && request.method === "GET") return rpc(env.CAPTION_ROOMS, "channel:main", "/internal/history");
+    const parts = operation.split("/");
+    if (parts.length === 3 && parts[0] === "sermons" && UUID.test(parts[1] ?? "") &&
+        ["archive", "summary", "remove", "correct", "delete"].includes(parts[2])) {
+      if (!env.SERMON_JOURNALS) return json({ error: "Sermon archive is not configured." }, 503);
+      if (parts[2] === "archive" && request.method === "GET") return rpc(env.SERMON_JOURNALS, parts[1],
+        `/archive?after=${Math.max(0, Number(url.searchParams.get("after")) || 0)}&paragraphAfter=${Math.max(0, Number(url.searchParams.get("paragraphAfter")) || 0)}`);
+      if (parts[2] === "archive") return json({ error: "Use GET." }, 405);
+      if (request.method !== "POST") return json({ error: "Use POST." }, 405);
+      const body = await readJsonObject(request, 32768) as Record<string, unknown>;
+      if (parts[2] === "delete" && body.confirm !== true) return json({ error: "Confirm sermon deletion." }, 400);
+      if (parts[2] === "remove" && body.confirm !== true) return json({ error: "Confirm passage removal." }, 400);
+      const result = await rpc(env.SERMON_JOURNALS, parts[1], `/${parts[2]}`, body);
+      if (parts[2] === "delete" && (result.ok || result.status === 410)) {
+        return await rpc(env.CAPTION_ROOMS, "channel:main", "/internal/history/delete", { id: parts[1] });
+      }
+      if (result.ok && parts[2] === "remove") {
+        const removed = await result.clone().json() as { sourceIds: number[] };
+        await rpc(env.CAPTION_ROOMS, "channel:main", "/internal/experience/remove-current", { serviceId: parts[1], sourceIds: removed.sourceIds });
+      }
+      return result;
+    }
+    if (!["pair", "host", "remote", "source", "gap", "reader-rotate"].includes(operation) || request.method !== "POST") return json({ error: "Experience route not found." }, 404);
+    const body = await readJsonObject(request, 32768);
+    const controller = request.headers.get("x-caption-controller");
+    const scoped = request.headers.get("x-caption-remote");
+    const issued = ["pair", "reader-rotate"].includes(operation) ? token() : undefined;
+    const payload = { ...body, controllerHash: controller ? await captionTokenHash(controller) : undefined,
+      remoteHash: operation === "pair" ? await captionTokenHash(issued!) : scoped ? await captionTokenHash(scoped) : undefined,
+      readerHash: operation === "reader-rotate" ? await captionTokenHash(issued!) : undefined };
+    const response = await rpc(env.CAPTION_ROOMS, "channel:main", `/internal/experience/${operation}`, payload);
+    if (!response.ok || !issued) return response;
+    const result = await response.json() as { serviceId: string };
+    const link = new URL(operation === "pair" ? "/operator/mobile" : "/read", request.url);
+    link.hash = `${result.serviceId}.${issued}`;
+    return json({ url: link.toString() });
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return json({ error: "Request body is too large." }, 413);
+    if (error instanceof InvalidRequestBodyError) return json({ error: "Invalid JSON request." }, 400);
+    return json({ error: "The service request failed. Check the connection and retry." }, 503);
+  }
+}

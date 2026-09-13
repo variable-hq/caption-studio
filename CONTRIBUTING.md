@@ -50,11 +50,13 @@ request. After merge, Cloudflare's connected Workers build—not GitHub—builds
 decision about duplicated compute, credentials, and cost.
 
 Use `npm run preview` when a change affects the Cloudflare runtime or the self-contained
-OBS/mobile-viewer routes. It verifies the bundle and non-Durable-Object routes, but the current OpenNext
-local preview cannot run this internal Durable Object; test channel creation, WebSockets,
-service expiry, controller takeover, and OBS-link rotation in a protected Cloudflare test
-deployment. After changing bindings, run `npm run cf-typegen` and review the generated
-diff before committing it.
+OBS/mobile-viewer routes. The standard OpenNext preview now requests a remote Workers
+AI proxy and needs Wrangler credentials. An isolated local configuration omitting the AI binding can run the custom
+Worker and Durable Objects without provider calls; see
+[Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md). Production Access, cloud alarms, real-device
+capture, WebSockets, service expiry, and controller takeover still need a protected
+Cloudflare rehearsal. After changing bindings, run `npm run cf-typegen` and review the
+generated diff before committing it.
 
 For visible operator-console changes, test at the primary 1920 × 1080 operator viewport,
 then at a 1200px intermediate width and 390px and 320px mobile widths in a real browser.

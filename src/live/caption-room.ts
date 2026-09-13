@@ -21,8 +21,24 @@ import {
   type PublicCaptionRequest,
 } from "@/live/contracts";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
+import { rpc, type ExperienceEnvironment, type JournalState } from "@/experience/contracts";
+
+interface RemoteCommand {
+  id: string;
+  action: "pause" | "resume" | "clear";
+  status: "pending" | "confirmed" | "failed";
+  at: number;
+}
+interface ArchiveEntry { id: string; startedAt: number; expiresAt: number; saved: boolean }
 
 interface ChannelConfiguration {
+  serviceId?: string;
+  saveHistory?: boolean;
+  readerHash?: string;
+  captionEpoch?: number;
+  remoteHash?: string;
+  heartbeatAt?: number;
+  remoteCommand?: RemoteCommand;
   tokenHash: string;
   encryptedToken: string;
   style: CaptionStyle;
@@ -44,6 +60,8 @@ interface ChannelConfiguration {
 }
 
 interface StartServiceRequest {
+  readerHash?: string;
+  saveHistory?: boolean;
   controllerHash: string;
   viewerTokenHash: string;
   style: CaptionStyle;
@@ -60,6 +78,8 @@ interface RecordTranslationUsageRequest
     Pick<TranslationResult, "usage" | "rateLimit"> {}
 
 type MutationResult<T> =
+  | { kind: "caption-cleared" }
+  | { kind: "paused" }
   | { kind: "ok"; value: T; clear?: boolean; revokeViewers?: boolean }
   | { kind: "channel-not-configured" }
   | { kind: "channel-in-use"; expiresAt?: number }
@@ -105,6 +125,7 @@ function normalizedAttempts(value: unknown): number[] {
 function normalizeConfiguration(configuration: ChannelConfiguration) {
   return {
     ...configuration,
+    captionEpoch: normalizeTranslationRevision(configuration.captionEpoch),
     style: normalizeCaptionStyle(configuration.style ?? {}),
     status: ["idle", "live", "paused"].includes(configuration.status)
       ? configuration.status
@@ -147,6 +168,12 @@ function deactivate(configuration: ChannelConfiguration) {
   delete current.startedAt;
   delete current.expiresAt;
   delete current.lastTranslationRefreshRequestId;
+  delete current.serviceId;
+  delete current.readerHash;
+  delete current.remoteHash;
+  delete current.remoteCommand;
+  delete current.heartbeatAt;
+  delete current.saveHistory;
   return current;
 }
 
@@ -203,6 +230,8 @@ function publicConfiguration(configuration: ChannelConfiguration) {
   const current = normalizeConfiguration(configuration);
   return {
     configured: true,
+    serviceId: current.serviceId,
+    saveHistory: current.saveHistory,
     encryptedToken: current.encryptedToken,
     status: current.status,
     style: current.style,
@@ -225,10 +254,200 @@ function viewerCaption(caption: PublicCaptionEvent) {
 }
 
 export class CaptionRoom {
-  constructor(private readonly state: DurableObjectState) {}
+  constructor(private readonly state: DurableObjectState, private readonly env?: ExperienceEnvironment) {}
 
   async fetch(request: Request) {
+    if (!this.env?.SERMON_JOURNALS) return this.dispatch(request);
+    return this.state.blockConcurrencyWhile(async () => {
+      try { await this.flushJournals(); await this.reconcileJournalState(); }
+      catch { return json({ error: "Service history is reconnecting. Retry shortly." }, 503); }
+      const before = await this.state.storage.get<ChannelConfiguration>("configuration");
+      const response = await this.dispatch(request);
+      const after = await this.state.storage.get<ChannelConfiguration>("configuration");
+      if (before?.serviceId && before.serviceId !== after?.serviceId) await this.queueJournal(before, true, Boolean(after?.serviceId));
+      if (after?.serviceId && (before?.serviceId !== after.serviceId || before.captionEpoch !== after.captionEpoch ||
+          before.status !== after.status || before.readerHash !== after.readerHash)) await this.queueJournal(after);
+      try {
+        await this.flushJournals();
+        await this.state.storage.put("journal-configuration", after ?? null);
+      }
+      catch {
+        if (after?.serviceId && before?.serviceId !== after.serviceId) {
+          // The caller has not received its controller token. Release the failed start.
+          await this.state.storage.put("configuration", deactivate(after));
+          await this.state.storage.delete("latest");
+          await this.queueJournal(after, true, true);
+          this.broadcastPublic({ type: "clear" });
+          this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
+          this.closeViewerSockets(4002, "Live service could not start.");
+        }
+        return json({ error: "Service history is reconnecting. Retry shortly." }, 503);
+      }
+      return response;
+    });
+  }
+
+  private async queueJournal(current: ChannelConfiguration, ended = false, revoked = false) {
+    if (!this.env?.SERMON_JOURNALS || !current.serviceId || !current.readerHash) return;
+    const archived = ended ? await this.state.storage.get<ArchiveEntry>(`archive:${current.serviceId}`) : undefined;
+    const snapshot = {
+      id: current.serviceId, startedAt: current.startedAt!, expiresAt: current.expiresAt!,
+      saved: current.saveHistory === true, readerHash: current.readerHash,
+      epoch: current.captionEpoch ?? 0, status: ended ? "ended" : current.status,
+      ...(ended ? { endedAt: Math.min(Date.now(), current.expiresAt!, archived?.expiresAt ?? Infinity), revoked } : {}),
+    } as JournalState;
+    const pending = await this.state.storage.get<JournalState[]>("journal-sync") ?? [];
+    await this.state.storage.put("journal-sync", [...pending.filter((item) => item.id !== snapshot.id), snapshot]);
+    if (ended) await this.state.storage.put(`archive:${current.serviceId}`, {
+      id: current.serviceId, startedAt: current.startedAt, expiresAt: snapshot.endedAt, saved: current.saveHistory,
+    });
+    await this.state.storage.setAlarm(Date.now() + 10_000);
+  }
+
+  private async flushJournals() {
+    if (!this.env?.SERMON_JOURNALS) return;
+    const pending = await this.state.storage.get<JournalState[]>("journal-sync") ?? [];
+    for (const snapshot of pending) {
+      const response = await rpc(this.env.SERMON_JOURNALS, snapshot.id, "/sync", snapshot);
+      if (!response.ok && response.status !== 410) throw new Error("Sermon state synchronization failed.");
+    }
+    if (pending.length) await this.state.storage.delete("journal-sync");
+  }
+
+  private async reconcileJournalState() {
+    const before = await this.state.storage.get<ChannelConfiguration>("journal-configuration");
+    const after = await this.state.storage.get<ChannelConfiguration>("configuration");
+    if (before?.serviceId && before.serviceId !== after?.serviceId) await this.queueJournal(before, true, Boolean(after?.serviceId));
+    if (after?.serviceId && (before?.serviceId !== after.serviceId || before.captionEpoch !== after.captionEpoch ||
+        before.status !== after.status || before.readerHash !== after.readerHash)) await this.queueJournal(after);
+    await this.flushJournals();
+    await this.state.storage.put("journal-configuration", after ?? null);
+  }
+
+  private async pruneArchives() {
+    let after: string | undefined;
+    let nextExpiry = Infinity;
+    const kept: ArchiveEntry[] = [];
+    do {
+      const entries = await this.state.storage.list<ArchiveEntry>({ prefix: "archive:", limit: 500, startAfter: after });
+      for (const [key, entry] of entries) {
+        const expiry = entry.expiresAt + 7 * 86_400_000;
+        if (expiry <= Date.now()) await this.state.storage.delete(key);
+        else { nextExpiry = Math.min(nextExpiry, expiry); if (entry.saved) kept.push(entry); }
+      }
+      after = entries.size === 500 ? [...entries.keys()].at(-1) : undefined;
+    } while (after);
+    return { services: kept.sort((a, b) => b.startedAt - a.startedAt), nextExpiry };
+  }
+
+  private async experience(request: Request) {
+    const action = new URL(request.url).pathname.split("/").at(-1);
+    const body = await request.json() as { controllerHash?: string; remoteHash?: string; readerHash?: string;
+      serviceId?: string; action?: "pause" | "resume" | "clear"; id?: string;
+      capturing?: boolean; acknowledgement?: string; success?: boolean;
+      transcriptionAttempt?: number; stage?: string; source?: unknown; sourceIds?: number[] };
+    const stored = await this.expireServiceIfNeeded();
+    if (!stored || !isActive(stored) || !stored.serviceId) return json({ error: "Service ended.", code: "service_inactive" }, 410);
+    const current = normalizeConfiguration(stored);
+    if (action === "remove-current") {
+      if (body.serviceId !== current.serviceId) return json({ ignored: true });
+      const latest = await this.state.storage.get<PublicCaptionEvent>("latest");
+      if (latest?.transcriptionAttempt && body.sourceIds?.includes(latest.transcriptionAttempt)) {
+        current.captionEpoch = (current.captionEpoch ?? 0) + 1;
+        await this.state.storage.put("configuration", current);
+        await this.state.storage.delete("latest");
+        this.broadcastPublic({ type: "clear" });
+      }
+      return json({ cleared: true });
+    }
+    if (action === "remote") {
+      if (body.serviceId !== current.serviceId || !body.remoteHash || body.remoteHash !== current.remoteHash) return json({ error: "Remote pairing expired or replaced." }, 403);
+      if (body.action) {
+        if (!["pause", "resume", "clear"].includes(body.action) || !/^[a-zA-Z0-9-]{16,64}$/u.test(body.id ?? "")) return json({ error: "Invalid remote command." }, 400);
+        const previous = await this.state.storage.get<RemoteCommand[]>("remote-history") ?? [];
+        const duplicate = previous.find((command) => command.id === body.id);
+        if (duplicate) return json({ command: duplicate, status: current.status, connected: Date.now() - (current.heartbeatAt ?? 0) < 15_000 });
+        if (previous.length >= 1400) return json({ error: "Remote command limit reached. Pair the phone again." }, 429);
+        if (current.remoteCommand?.status === "pending") return json({ error: "Wait for the pending command or reconnect the capture computer." }, 409);
+        if (body.action === "resume" && Date.now() - (current.heartbeatAt ?? 0) >= 15_000) return json({ error: "Capture computer disconnected. Reconnect it before resuming." }, 409);
+        if (body.action !== "resume") {
+          current.captionEpoch = (current.captionEpoch ?? 0) + 1;
+          if (body.action === "pause") {
+            current.status = "paused";
+            current.inferenceAttemptFloor = current.transcriptionRequests;
+          }
+          await this.state.storage.delete("latest");
+          this.broadcastPublic({ type: "clear" });
+          this.broadcastPublic({ type: "state", status: current.status, expiresAt: new Date(current.expiresAt!).toISOString() });
+        }
+        current.remoteCommand = { id: body.id!, action: body.action, status: "pending", at: Date.now() };
+        await this.state.storage.put("remote-history", [...previous, current.remoteCommand]);
+        await this.state.storage.put("configuration", current);
+      }
+      return json({ command: current.remoteCommand ?? null, status: current.status,
+        connected: Date.now() - (current.heartbeatAt ?? 0) < 15_000 });
+    }
+    if (!controllerMatches(current, body.controllerHash)) return controllerReplaced();
+    if (action === "pair") {
+      if (!/^[a-f0-9]{64}$/u.test(body.remoteHash ?? "")) return json({ error: "Invalid pairing." }, 400);
+      current.remoteHash = body.remoteHash;
+      delete current.remoteCommand;
+      await this.state.storage.delete("remote-history");
+      await this.state.storage.put("configuration", current);
+      return json({ serviceId: current.serviceId });
+    }
+    if (action === "reader-rotate") {
+      if (!/^[a-f0-9]{64}$/u.test(body.readerHash ?? "")) return json({ error: "Invalid reader token." }, 400);
+      current.readerHash = body.readerHash;
+      await this.state.storage.put("configuration", current);
+      return json({ serviceId: current.serviceId });
+    }
+    if (action === "host") {
+      current.heartbeatAt = Date.now();
+      if (body.acknowledgement && current.remoteCommand?.id === body.acknowledgement) {
+        const command = current.remoteCommand;
+        const matched = command.action === "pause" ? current.status === "paused" && body.capturing === false
+          : command.action === "resume" ? current.status === "live" && body.capturing === true : true;
+        command.status = body.success && matched ? "confirmed" : "failed";
+        const history = await this.state.storage.get<RemoteCommand[]>("remote-history") ?? [];
+        await this.state.storage.put("remote-history", history.map((item) => item.id === command.id ? command : item));
+      }
+      await this.state.storage.put("configuration", current);
+      return json({ status: current.status, command: current.remoteCommand ?? null, epoch: current.captionEpoch });
+    }
+    if (action === "context") {
+      const attempt = body.transcriptionAttempt;
+      if (!Number.isSafeInteger(attempt) || !["transcription", "translation"].includes(body.stage ?? "") ||
+          !(body.stage === "transcription" ? current.claimedTranscriptionAttempts : current.claimedTranslationAttempts).includes(attempt!)) return json({ error: "Inference attempt was not claimed." }, 403);
+      if (current.status !== "live") return json({ error: "Service paused.", code: "service_paused" }, 409);
+      return json({ serviceId: current.serviceId });
+    }
+    if (action === "source" && this.env?.SERMON_JOURNALS) {
+      const source = body.source as { id?: number; translationRevision?: number } | undefined;
+      if (!source || !current.claimedTranscriptionAttempts.includes(source.id!) ||
+          source.id! <= current.inferenceAttemptFloor || source.translationRevision !== current.translationRevision) return json({ error: "Source attempt is no longer current." }, 409);
+      return rpc(this.env.SERMON_JOURNALS, current.serviceId!, "/source", source);
+    }
+    if (action === "gap" && this.env?.SERMON_JOURNALS) return rpc(this.env.SERMON_JOURNALS, current.serviceId!, "/gap", {});
+    return json({ error: "Unknown service action." }, 404);
+  }
+
+  private async dispatch(request: Request) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/internal/history" && request.method === "GET") {
+      return json({ services: (await this.pruneArchives()).services });
+    }
+    if (url.pathname === "/internal/history/delete" && request.method === "POST") {
+      const { id } = await request.json() as { id: string };
+      if (!/^[a-f0-9-]{36}$/u.test(id)) return json({ error: "Invalid archive." }, 400);
+      const current = await this.state.storage.get<ChannelConfiguration>("configuration");
+      if (current?.serviceId === id && isActive(current) && !serviceExpired(current)) return json({ error: "End the service first." }, 409);
+      await this.state.storage.delete(`archive:${id}`);
+      return json({ deleted: true });
+    }
+
+    if (url.pathname.startsWith("/internal/experience/") && request.method === "POST") return this.experience(request);
 
     if (url.pathname === "/internal/channel" && request.method === "GET") {
       return this.getChannel();
@@ -488,6 +707,13 @@ export class CaptionRoom {
 
       const startedAt = Date.now();
       configuration.status = "live";
+      configuration.serviceId = crypto.randomUUID();
+      configuration.saveHistory = body.saveHistory === true;
+      configuration.readerHash = body.readerHash;
+      configuration.captionEpoch = 0;
+      delete configuration.remoteHash;
+      delete configuration.remoteCommand;
+      delete configuration.heartbeatAt;
       configuration.controllerHash = body.controllerHash!;
       configuration.viewerTokenHash = body.viewerTokenHash!;
       configuration.startedAt = startedAt;
@@ -502,6 +728,10 @@ export class CaptionRoom {
       configuration.translationRevision += 1;
       delete configuration.lastTranslationRefreshRequestId;
       configuration.style = normalizeCaptionStyle(body.style ?? configuration.style);
+      await transaction.put(`archive:${configuration.serviceId}`, {
+        id: configuration.serviceId, startedAt, expiresAt: configuration.expiresAt,
+        saved: configuration.saveHistory,
+      });
       await Promise.all([
         transaction.put("configuration", configuration),
         transaction.delete("latest"),
@@ -524,6 +754,8 @@ export class CaptionRoom {
     this.broadcastOverlay({ type: "style", style: result.value.style });
     return json({
       status: result.value.status,
+      serviceId: result.value.serviceId,
+      saveHistory: result.value.saveHistory,
       startedAt: new Date(result.value.startedAt!).toISOString(),
       expiresAt: new Date(result.value.expiresAt!).toISOString(),
       translationRevision: result.value.translationRevision,
@@ -648,7 +880,7 @@ export class CaptionRoom {
       if (!controllerMatches(configuration, body.controllerHash)) {
         return { kind: "controller-replaced" };
       }
-      if (configuration.status !== "live") return { kind: "inactive" };
+      if (configuration.status !== "live") return { kind: "paused" };
       if (!validCaptionBody(body)) {
         return { kind: "invalid" };
       }
@@ -658,11 +890,14 @@ export class CaptionRoom {
           translationRevision: configuration.translationRevision,
         };
       }
+      if ((body.captionEpoch ?? 0) !== configuration.captionEpoch) return { kind: "caption-cleared" };
       if (configuration.serviceEventCount >= MAX_CAPTION_EVENTS) {
         return { kind: "invalid" };
       }
 
       const event: PublicCaptionEvent = {
+        captionEpoch: configuration.captionEpoch,
+        transcriptionAttempt: body.transcriptionAttempt,
         sequence: configuration.lastSequence + 1,
         publicText: body.publicText!,
         targetLanguage: body.targetLanguage!,
@@ -682,6 +917,8 @@ export class CaptionRoom {
 
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "controller-replaced") return controllerReplaced();
+    if (result.kind === "caption-cleared") return json({ error: "Caption predates Clear. Discard it.", code: "caption_cleared" }, 409);
+    if (result.kind === "paused") return json({ error: "Service paused.", code: "service_paused" }, 409);
     if (result.kind === "translation-session-refreshed") {
       return translationSessionRefreshed(result.translationRevision);
     }
@@ -701,6 +938,19 @@ export class CaptionRoom {
     }
 
     this.broadcastPublic({ type: "caption", caption: result.value });
+    const current = await this.state.storage.get<ChannelConfiguration>("configuration");
+    if (this.env?.SERMON_JOURNALS && current?.serviceId && body.reader && body.transcriptionAttempt) {
+      try {
+        const recorded = await rpc(this.env.SERMON_JOURNALS, current.serviceId, "/append", {
+          ...body.reader, id: body.transcriptionAttempt, publicText: result.value.publicText,
+          targetLanguage: result.value.targetLanguage, epoch: result.value.captionEpoch,
+          translationRevision: result.value.translationRevision,
+        });
+        if (!recorded.ok) throw new Error("Reader append failed.");
+      } catch {
+        return json({ published: true, sequence: result.value.sequence, historyIncomplete: true });
+      }
+    }
     return json({
       published: true,
       sequence: result.value.sequence,
@@ -716,6 +966,7 @@ export class CaptionRoom {
         expiresAt: string;
         transcriptionRequests: number;
         translationRevision: number;
+        captionEpoch: number;
       }>
     >(async (transaction) => {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
@@ -733,7 +984,7 @@ export class CaptionRoom {
       if (!controllerMatches(configuration, body.controllerHash)) {
         return { kind: "controller-replaced" };
       }
-      if (configuration.status !== "live") return { kind: "inactive" };
+      if (configuration.status !== "live") return { kind: "paused" };
       if (configuration.transcriptionRequests >= MAX_TRANSCRIPTION_REQUESTS) {
         return { kind: "transcription-limit" };
       }
@@ -746,6 +997,7 @@ export class CaptionRoom {
           expiresAt: new Date(configuration.expiresAt!).toISOString(),
           transcriptionRequests: configuration.transcriptionRequests,
           translationRevision: configuration.translationRevision,
+          captionEpoch: configuration.captionEpoch ?? 0,
         },
       };
     });
@@ -769,6 +1021,7 @@ export class CaptionRoom {
         429,
       );
     }
+    if (result.kind === "paused") return json({ error: "Service paused.", code: "service_paused" }, 409);
     if (result.kind !== "ok") {
       return json({ error: "Transcription reservation failed." }, 500);
     }
@@ -795,12 +1048,13 @@ export class CaptionRoom {
           ]);
           return { kind: "inactive", clear: true };
         }
-        if (!isActive(configuration) || configuration.status !== "live") {
+        if (!isActive(configuration)) {
           return { kind: "inactive" };
         }
         if (!controllerMatches(configuration, body.controllerHash)) {
           return { kind: "controller-replaced" };
         }
+        if (configuration.status !== "live") return { kind: "paused" };
         if (transcriptionAttempt > configuration.transcriptionRequests || transcriptionAttempt <= configuration.inferenceAttemptFloor) {
           return { kind: "invalid" };
         }
@@ -835,6 +1089,7 @@ export class CaptionRoom {
         409,
       );
     }
+    if (result.kind === "paused") return json({ error: "Service paused.", code: "service_paused" }, 409);
     if (result.kind === "invalid") {
       return json({ error: "Inference does not match a current reserved attempt.", code: `invalid_${stage}_attempt` }, 400);
     }
@@ -981,6 +1236,7 @@ export class CaptionRoom {
           };
         }
         configuration.translationRevision += 1;
+        configuration.captionEpoch = (configuration.captionEpoch ?? 0) + 1;
         configuration.inferenceAttemptFloor = configuration.transcriptionRequests;
         configuration.lastTranslationRefreshRequestId = body.refreshRequestId;
         await Promise.all([
@@ -1032,7 +1288,7 @@ export class CaptionRoom {
       }
 
       if (action === "pause") {
-        if (configuration.status !== "live") {
+        if (configuration.status !== "live" && configuration.status !== "paused") {
           return expired
             ? { kind: "inactive", clear: true }
             : { kind: "invalid" };
@@ -1040,13 +1296,15 @@ export class CaptionRoom {
         configuration.status = "paused";
         configuration.inferenceAttemptFloor = configuration.transcriptionRequests;
       } else if (action === "resume") {
-        if (configuration.status !== "paused") {
+        if (configuration.status !== "paused" && configuration.status !== "live") {
           return expired
             ? { kind: "inactive", clear: true }
             : { kind: "invalid" };
         }
         configuration.status = "live";
       }
+
+      configuration.captionEpoch = (configuration.captionEpoch ?? 0) + 1;
 
       await Promise.all([
         transaction.put("configuration", configuration),
@@ -1240,10 +1498,26 @@ export class CaptionRoom {
   }
 
   async alarm() {
+    if (this.env?.SERMON_JOURNALS) return this.state.blockConcurrencyWhile(() => this.runAlarm());
+    return this.runAlarm();
+  }
+
+  private async runAlarm() {
+    try { await this.flushJournals(); }
+    catch { await this.state.storage.setAlarm(Date.now() + 10_000); return; }
     const configuration = await this.state.storage.get<ChannelConfiguration>(
       "configuration",
     );
-    if (!configuration || !isActive(configuration)) return;
+    const nextArchiveExpiry = this.env?.SERMON_JOURNALS ? (await this.pruneArchives()).nextExpiry : Infinity;
+    if (!configuration || !isActive(configuration)) {
+      if (Number.isFinite(nextArchiveExpiry)) await this.state.storage.setAlarm(nextArchiveExpiry);
+      else await this.state.storage.deleteAlarm();
+      return;
+    }
+    if (configuration.expiresAt! > Date.now()) {
+      await this.state.storage.setAlarm(Math.min(configuration.expiresAt!, nextArchiveExpiry));
+      return;
+    }
     await Promise.all([
       this.state.storage.put("configuration", deactivate(configuration)),
       this.state.storage.delete("latest"),
@@ -1251,6 +1525,12 @@ export class CaptionRoom {
     this.broadcastPublic({ type: "clear" });
     this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
     this.closeViewerSockets(4002, "Live service ended.");
+    await this.queueJournal(configuration, true);
+    try {
+      await this.flushJournals();
+      await this.state.storage.put("journal-configuration", deactivate(configuration));
+    }
+    catch { await this.state.storage.setAlarm(Date.now() + 10_000); }
   }
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { TB2_SERVICE_VOCABULARY } from "@/pipeline/bible-terms";
 
 import {
   LANGUAGE_OPTIONS,
@@ -65,6 +66,8 @@ export function TranslationSettingsEditor({
         <label>
           Spoken language
           <select
+            name="sourceLanguage"
+            autoComplete="off"
             data-testid="source-language"
             value={sourceLanguage}
             disabled={disabled}
@@ -84,6 +87,8 @@ export function TranslationSettingsEditor({
         <label>
           Translate captions to
           <select
+            name="targetLanguage"
+            autoComplete="off"
             data-testid="target-language"
             value={targetLanguage}
             disabled={disabled}
@@ -101,6 +106,8 @@ export function TranslationSettingsEditor({
         <label className="fullField">
           Speech buffer before translation
           <select
+            name="speechBuffer"
+            autoComplete="off"
             data-testid="speech-buffer"
             value={speechBufferMs}
             aria-describedby={bufferHelpId}
@@ -132,28 +139,38 @@ export function TranslationSettingsEditor({
       <label>
         Biblical names and keyword hints
         <textarea
+          name="terminology"
+          autoComplete="off"
           rows={4}
           value={keywordText}
           maxLength={MAX_TERMINOLOGY_INPUT_CHARS}
           disabled={disabled}
           aria-describedby={glossaryHelpId}
           onChange={(event) => onKeywordTextChange(event.target.value)}
-          placeholder="Jesus Christ => Yesus Kristus, Bethlehem"
+          placeholder="Saul => Saul, Betlehem => Bethlehem…"
         />
       </label>
       <p className="helpText" id={glossaryHelpId}>
         Use <code>source =&gt; approved translation</code> for deterministic terms.
-        Other entries boost transcription recognition.
+        Other entries boost transcription recognition. An approved recognition correction
+        uses <code>Saul|swauf =&gt; Saul</code>. Review variants before adding them;
+        these replace whole words in the source transcript.
       </p>
+      <button className="secondaryButton" type="button" disabled={disabled || targetLanguage !== "en" || !["id", "auto"].includes(sourceLanguage)}
+        onClick={() => onKeywordTextChange([keywordText, TB2_SERVICE_VOCABULARY].filter(Boolean).join(", "))}>
+        Add TB2 names for Indonesian to English
+      </button>
       <label>
         Public caption filter
         <input
+          name="publicFilter"
+          autoComplete="off"
           value={filterText}
           maxLength={MAX_FILTER_INPUT_CHARS}
           disabled={disabled}
           aria-describedby={filterHelpId}
           onChange={(event) => onFilterTextChange(event.target.value)}
-          placeholder="Comma-separated words to mask"
+          placeholder="Words to mask, separated by commas…"
         />
       </label>
       <p className="privacyNote" id={filterHelpId}>

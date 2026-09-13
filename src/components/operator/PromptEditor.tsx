@@ -42,6 +42,8 @@ export function PromptEditor({
       <label>
         Custom translation instructions
         <textarea
+          name="translationGuidance"
+          autoComplete="off"
           className="systemPromptInput"
           rows={14}
           value={value}

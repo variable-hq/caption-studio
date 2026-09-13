@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { meteredGroq } from "@/experience/metering";
 
 import {
   GroqProviderError,
@@ -91,12 +92,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Keyword hints are invalid." }, { status: 400 });
     }
 
-    const segments = await transcribeWithGroq({
+    const segments = await meteredGroq(request, "transcription", (telemetry) => transcribeWithGroq({
       audio,
       sourceLanguage: sourceLanguage as SourceLanguage,
       keywordHints,
       signal: request.signal,
-    });
+      telemetry,
+    }));
     return NextResponse.json({ segments }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return errorResponse(error);

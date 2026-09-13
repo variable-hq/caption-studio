@@ -18,6 +18,7 @@ import {
   type SourceLanguage,
 } from "@/domain/languages";
 import { isCloudAccessConfigured } from "@/auth/cloudflare-access";
+import type { ProviderTelemetry } from "@/experience/metering";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1";
 const DEFAULT_TRANSCRIPTION_MODEL = "whisper-large-v3-turbo";
@@ -25,6 +26,7 @@ const DEFAULT_TRANSLATION_MODEL = "openai/gpt-oss-20b";
 const RETIRED_FREE_TRANSLATION_MODELS = new Set(["llama-3.1-8b-instant"]);
 
 interface GroqTranscriptResponse {
+  duration?: number;
   text?: string;
   language?: string;
   segments?: Array<{
@@ -103,7 +105,10 @@ async function groqFetch(
   path: string,
   init: RequestInit,
   rateLimitModel?: string,
+  telemetry?: ProviderTelemetry,
 ) {
+  const credential = apiKey();
+  if (telemetry) await telemetry.dispatch(rateLimitModel ?? transcriptionModel());
   let response: Response;
   try {
     const timeout = AbortSignal.timeout(path.includes("/audio/") ? 30_000 : 15_000);
@@ -111,7 +116,7 @@ async function groqFetch(
       ...init,
       signal: init.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
       headers: {
-        authorization: `Bearer ${apiKey()}`,
+        authorization: `Bearer ${credential}`,
         ...init.headers,
       },
     });
@@ -180,15 +185,15 @@ function detectedLocale(
   return match?.locale;
 }
 
-export function buildTranscriptionPrompt(keywordHints: readonly string[]) {
-  const terms = keywordHints
-    .map((term) => term.trim())
-    .filter(Boolean)
-    .slice(0, 40)
-    .join(", ");
-  const prefix =
-    "Church service or sermon. Preserve biblical names, Bible books, verse numbers, and church terminology.";
-  return terms ? `${prefix} Expected terms: ${terms}`.slice(0, 900) : prefix;
+export function buildTranscriptionPrompt(keywordHints: readonly string[], language: SourceLanguage = "auto") {
+  let prompt = language === "id" ? "Khotbah gereja. Nama dan ejaan: " : "Church service or sermon. Preserve biblical names: ";
+  for (const term of keywordHints.map((value) => value.trim()).filter(Boolean).slice(0, 40)) {
+    const candidate = prompt + term + ", ";
+    // Conservative byte budget also handles multi-byte source-language spellings.
+    if (new TextEncoder().encode(candidate).length > 224) continue;
+    prompt = candidate;
+  }
+  return prompt.trim().replace(/,$/u, "");
 }
 
 export function buildTranslationMessages(request: TranslationRequest) {
@@ -248,6 +253,7 @@ export function buildTranslationMessages(request: TranslationRequest) {
 }
 
 export async function transcribeWithGroq(input: {
+  telemetry?: ProviderTelemetry;
   audio: Blob;
   sourceLanguage: SourceLanguage;
   keywordHints: string[];
@@ -261,7 +267,7 @@ export async function transcribeWithGroq(input: {
   );
   form.append("response_format", "verbose_json");
   form.append("temperature", "0");
-  form.append("prompt", buildTranscriptionPrompt(input.keywordHints));
+  form.append("prompt", buildTranscriptionPrompt(input.keywordHints, input.sourceLanguage));
 
   if (input.sourceLanguage !== "auto") {
     const speechCode = findLanguage(input.sourceLanguage)?.speechCode;
@@ -272,8 +278,9 @@ export async function transcribeWithGroq(input: {
     method: "POST",
     body: form,
     signal: input.signal,
-  });
+  }, undefined, input.telemetry);
   const payload = (await response.json()) as GroqTranscriptResponse;
+  if (input.telemetry && typeof payload.duration === "number") input.telemetry.audioSeconds = payload.duration;
   const detectedLanguage = detectedLocale(payload.language, input.sourceLanguage);
 
   if (payload.segments?.length) {
@@ -301,6 +308,7 @@ export async function transcribeWithGroq(input: {
 export async function translateWithGroq(
   request: TranslationRequest,
   signal?: AbortSignal,
+  telemetry?: ProviderTelemetry,
 ): Promise<TranslationResult> {
   if (
     !isLanguageLocale(request.sourceLanguage) ||
@@ -323,7 +331,7 @@ export async function translateWithGroq(
       max_completion_tokens: MAX_TRANSLATION_COMPLETION_TOKENS,
     }),
     signal,
-  }, model);
+  }, model, telemetry);
   const payload = (await response.json()) as GroqChatResponse;
   const choice = payload.choices?.[0];
   const text = typeof choice?.message?.content === "string" ? choice.message.content.trim() : "";
@@ -335,6 +343,7 @@ export async function translateWithGroq(
     totalTokens: payload.usage?.total_tokens,
   });
   const rateLimit = providerRateLimitFromHeaders(response.headers, model);
+  if (telemetry && usage) telemetry.tokens = usage;
 
   return {
     text: incomplete ? "" : text,

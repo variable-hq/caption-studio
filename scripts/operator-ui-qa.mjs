@@ -95,7 +95,7 @@ try {
   await page.getByTestId('target-language').selectOption('ja');
   assert.match(await page.locator('.serviceSnapshot').innerText(),/Indonesian/);
   assert.match(await page.locator('.serviceSnapshot').innerText(),/not active/);
-  await page.getByRole('button',{name:'Clear captions',exact:true}).click();
+  await page.getByRole('button',{name:'Clear live caption',exact:true}).click();
   assert.ok(controls.includes('clear'));
   await page.getByRole('button',{name:'End service',exact:true}).click();
   await page.getByRole('dialog').waitFor();

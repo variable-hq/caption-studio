@@ -77,11 +77,12 @@ export class LiveSessionClient {
   async startService(
     style: CaptionStyle,
     takeover = false,
+    saveHistory = false,
   ): Promise<LiveServiceDetails> {
     const response = await fetch("/api/live/channel/service", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ style, takeover }),
+      body: JSON.stringify({ style, takeover, saveHistory }),
       signal: AbortSignal.timeout(10_000),
     });
     await requireSuccess(response, "Could not start the live service.");
@@ -118,7 +119,7 @@ export class LiveSessionClient {
       signal: AbortSignal.timeout(10_000),
     });
     await requireSuccess(response, "Could not publish the OBS caption.");
-    return (await response.json()) as { published: true; sequence: number };
+    return (await response.json()) as { published: true; sequence: number; historyIncomplete?: boolean };
   }
 
   async reserveTranscriptionAttempt(controllerToken: string) {
@@ -133,6 +134,7 @@ export class LiveSessionClient {
       status: "live";
       expiresAt: string;
       transcriptionRequests: number;
+      captionEpoch: number;
       translationRevision: number;
     };
   }
