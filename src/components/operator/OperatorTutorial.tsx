@@ -71,11 +71,11 @@ const STEPS = [
     description: "Begin only after audio, languages, and the OBS test are ready.",
     exampleLabel: "Two audience outputs",
     example: "OBS overlay · Mobile translation viewer",
-    location: "Start captions, then Mobile viewer",
+    location: "Start captions, then Live outputs",
     instructions: [
       "Select Start captions. Resolve any cloud or channel setup message before continuing.",
       "Speak an approved test phrase. Allow for the buffer and processing time, then check the caption in OBS.",
-      "Open Mobile viewer and share its link with intended viewers. Each phone can adjust its own text size.",
+      "Open Live outputs to share the mobile viewer or reader link, and to pair your operator phone. Each viewer can adjust their own text size.",
     ],
     section: "outputs",
     action: "Open audience outputs",

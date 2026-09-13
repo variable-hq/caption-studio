@@ -239,14 +239,24 @@ explicit translation refresh used for language, buffer, and prompt changes.
 
 ### Caption display, OBS, and mobile viewing
 
-- The operator console uses a minimal light monochrome theme; status text and control
+- The operator console uses a light neutral theme with a restrained green action accent; status text and control
   labels do not depend on colour alone.
 - Locally adapted React Bits navigation, spotlight, and pending-state glow components add
   restrained hierarchy and feedback without a runtime package dependency; reduced-motion,
   keyboard, coarse-pointer, and touch behavior remain explicit.
-- Setup opens with Audio input, then Translation, Appearance, Live outputs, AI usage,
-  and optional AI instructions. A preflight strip highlights audio, language, and actual
-  OBS verification; a persistent snapshot separates the active configuration from drafts.
+- Setup opens on Overview. A fixed desktop sidebar groups Overview, Audio input,
+  Translation, Appearance, Live outputs, Sermon history, AI usage and AI instructions.
+  Destinations keep the same order during a service. Below 981px a native modal drawer
+  provides the same links, Escape dismissal and focus return; desktop resizing closes it.
+- Section-only URL fragments support direct links, reload and browser Back/Forward.
+  In-page navigation keeps translation drafts and the before-Start history choice.
+  Reload preserves the destination, not unsaved drafts. Links never include credentials.
+- The overview highlights audio, language and actual OBS verification. A visible service
+  card groups history consent with Start; the output monitor and configuration snapshot
+  separate local samples, live output, active settings and unapplied drafts.
+- Live outputs groups OBS, latest-viewer and reader sharing with phone pairing.
+  Sermon history contains private archives, corrections and summaries. OBS link rotation
+  stays disabled during a service; paused test captions remain under More.
 - Cloud AI configured describes configuration, and Main-channel state describes the
   server room. Neither claims observed OBS connectivity or measured translation quality.
 - A skip link and workspace-heading focus support keyboard navigation. End is a visible
@@ -254,7 +264,7 @@ explicit translation refresh used for language, buffer, and prompt changes.
 - The output monitor tags each displayed caption with its own language, including paused
   synthetic tests. Subsequent draft language edits do not relabel existing text.
 - Failed clipboard actions have hidden-by-default manual-copy recovery: OBS in Live
-  outputs before a service or More during one, and the audience link in Mobile viewer.
+  outputs or More during a service, and the latest audience link in Live outputs.
   More closes with Escape and expands inline on mobile without covering later controls.
 - Form labels remain readable, action targets are at least 44px high, and mobile inputs
   use a zoom-safe text size.

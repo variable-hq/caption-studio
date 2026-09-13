@@ -37,6 +37,7 @@ records to establish release evidence.
 
 | Record | Scope |
 | --- | --- |
+| [Dashboard UI and QA](DASHBOARD_UI_QA.md) | 13 September dashboard navigation, market references and responsive validation |
 | [Cleanup/deployment QA](CLEANUP_DEPLOY_QA.md) | 13 September documentation/file audit and deploy fix |
 | [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md) | 13 September unit/build, mocked UI and real local Durable Object checks |
 | [Earlier validation](VALIDATION_REPORT.md) | July–12 September results for earlier candidates |

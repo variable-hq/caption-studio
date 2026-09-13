@@ -1,3 +1,4 @@
+import { openDashboardSection } from "./dashboard-qa-helpers.mjs";
 // Local synthetic UI checks. No provider calls or external requests.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -18,12 +19,12 @@ try {
   await page.addInitScript(() => localStorage.setItem("church-live-caption:operator-tutorial:v1", "dismissed"));
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const violations=[];
-  let status='idle';let startedAt=null;let expiresAt=null;let transcriptionRequests=0;
+  let status='idle';let startedAt=null;let expiresAt=null;let transcriptionRequests=0;let inferenceCalls=0;
   let style={fontSize:48,textColor:'#ffffff',backgroundColor:'#101827',backgroundTransparency:0,horizontalMarginPercent:4,verticalMarginPercent:6,horizontalAlign:'center',verticalAlign:'bottom',fontFamily:'sans-serif'};
   const health={status:'ready',hosting:'cloudflare',access:{ready:true,provider:'Cloudflare Access'},transcription:{ready:true,model:'whisper-large-v3-turbo'},translation:{ready:true,model:'openai/gpt-oss-20b'}};
   const emptyUsage={promptTokens:0,completionTokens:0,totalTokens:0,translationRequests:0,providerRateLimit:null};
   const controls=[];
-  await page.route('**/*',async route=>{
+  await context.route('**/*',async route=>{
    const url=new URL(route.request().url());
    if(url.origin!=='http://127.0.0.1:3100') return route.abort();
    if(!url.pathname.startsWith('/api/')) return route.continue();
@@ -41,7 +42,7 @@ try {
     controls.push(body.action);if(body.action==='pause')status='paused';if(body.action==='resume')status='live';
     payload={action:body.action,status,translationRevision:0,sequence:1};
    } else if(path==='/api/live/channel/lease')payload={valid:true,status:'live',expiresAt,transcriptionRequests:++transcriptionRequests,translationRevision:0};
-   else if(path==='/api/ai/transcribe')payload={segments:[]};
+   else if(path==='/api/ai/transcribe'){inferenceCalls++;payload={segments:[]};}
    else {errors.push('Unexpected mocked request: '+method+' '+path);return route.fulfill({status:400,json:{error:'Unexpected test request'}})}
    await route.fulfill({status:200,json:payload});
   });
@@ -53,15 +54,15 @@ try {
    const axe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
    violations.push(...axe.violations.map(x=>({section,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
   };
-  await check('audio');
+  await check('overview');
   assert.equal(await page.locator('.serviceSnapshot').getAttribute('open'),null);
   await page.getByText('Starting configuration',{exact:true}).click();
   assert.match(await page.locator('.serviceSnapshot').innerText(),/English/);
   await page.getByText('Starting configuration',{exact:true}).click();
   await page.evaluate(()=>{document.activeElement?.blur();window.scrollTo(0,0)});
   await page.screenshot({path:output+`/operator-setup-${width}.png`,fullPage:true});
-  for(const section of ['Translation','Appearance','Live outputs','AI usage','AI instructions']){
-   await page.getByRole('navigation',{name:'Service setup sections'}).getByRole('button',{name:new RegExp(section)}).click();
+  for(const section of ['Audio input','Translation','Appearance','Live outputs','Sermon history','AI usage','AI instructions']){
+   await openDashboardSection(page, section);
    await page.waitForFunction(()=>document.activeElement?.id==='workspace-panel-heading');
    await check(section);
    if(section==='Appearance'){
@@ -73,6 +74,48 @@ try {
    }
    if(section==='Live outputs')assert.equal(await page.getByLabel('Reusable OBS browser-source URL').isVisible(),false);
   }
+  // Drawer is modal, dismissible, and returns focus. Resizing unlocks the document.
+  if(width < 981) {
+   const menu=page.getByRole('button',{name:'Open navigation',exact:true});
+   await menu.click();
+   await page.getByRole('dialog',{name:'Workspace navigation'}).waitFor();
+   await check('navigation-drawer');
+   await page.screenshot({path:output+`/operator-navigation-${width}.png`});
+   for(let i=0;i<12;i++){
+    await page.keyboard.press(i<6?'Tab':'Shift+Tab');
+    assert.ok(await page.evaluate(()=>Boolean(document.activeElement?.closest('#dashboard-navigation'))||!document.hasFocus()));
+   }
+   await page.keyboard.press('Escape');
+   await page.waitForFunction(()=>document.body.style.overflow!=='hidden');
+   assert.equal(await menu.getAttribute('aria-expanded'),'false');
+   assert.equal(await page.locator(':focus').getAttribute('aria-label'),'Open navigation');
+   await menu.click();
+   await page.setViewportSize({width:1200,height:844});
+   await page.getByRole('dialog',{name:'Workspace navigation'}).waitFor({state:'hidden'});
+   await page.waitForFunction(()=>document.body.style.overflow!=='hidden');
+   assert.equal(await page.locator(':focus').getAttribute('aria-current'),'page');
+   await page.setViewportSize({width,height:844});
+  }
+  await openDashboardSection(page, 'Overview');
+  assert.equal(new URL(page.url()).hash,'#workspace=overview');
+  await openDashboardSection(page, 'Translation');
+  await page.getByTestId('target-language').selectOption('ja');
+  await openDashboardSection(page, 'Appearance');
+  await page.goBack();
+  await page.getByTestId('target-language').waitFor();
+  assert.equal(await page.getByTestId('target-language').inputValue(),'ja');
+  await page.goForward();
+  await page.getByRole('heading',{name:'Caption appearance',exact:true}).waitFor();
+  await page.reload();
+  await page.getByText('Cloud AI configured',{exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Caption appearance',exact:true}).waitFor();
+  assert.equal(inferenceCalls,0,'Dashboard navigation and reload must not invoke inference');
+  await openDashboardSection(page, 'Overview');
+  assert.equal(await page.getByRole('checkbox',{name:'Save transcript history for this service'}).isChecked(),false);
+  await page.getByRole('checkbox',{name:'Save transcript history for this service'}).check();
+  await openDashboardSection(page, 'Audio input');
+  assert.equal(await page.getByRole('checkbox',{name:'Save transcript history for this service'}).isChecked(),true);
+  await page.getByRole('checkbox',{name:'Save transcript history for this service'}).uncheck();
   await page.getByRole('button',{name:'Start captions',exact:true}).click();
   await page.getByRole('button',{name:'Pause',exact:true}).waitFor();
   await page.getByRole('button',{name:'How to use',exact:true}).click();
@@ -81,17 +124,35 @@ try {
   else await page.getByRole('button',{name:'Step 5: Audience',exact:true}).click();
   await page.getByRole('button',{name:'Open audience outputs',exact:true}).click();
   await page.waitForFunction(()=>document.activeElement?.id==='workspace-panel-heading');
-  assert.equal(await page.locator(':focus').innerText(),'Mobile translation viewer');
+  assert.equal(await page.locator(':focus').innerText(),'Live outputs');
   assert.ok(await page.locator('#workspace-panel-heading').evaluate(element=>{
    const rect=element.getBoundingClientRect();
    return document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2)===element;
   }), 'Live controls must not cover the destination heading');
+  if(width===1920){
+   // A modified-click tab must not inherit the controller and pause the host.
+   const controlsBefore=controls.length;
+   const opened=context.waitForEvent('page');
+   await page.getByRole('navigation',{name:'Main navigation',exact:true})
+    .getByRole('link',{name:'AI usage',exact:true}).click({modifiers:[process.platform==='darwin'?'Meta':'Control']});
+   const otherTab=await opened;
+   await otherTab.getByText('Cloud AI configured',{exact:true}).waitFor();
+   assert.equal(await otherTab.evaluate(()=>window.opener===null),true);
+   assert.equal(await otherTab.getByRole('button',{name:'Take over channel',exact:true}).count(),1);
+   assert.equal(controls.length,controlsBefore);
+   await otherTab.close();
+  }
+  await page.getByText('Advanced link security',{exact:true}).click();
+  assert.equal(await page.getByRole('button',{name:'Rotate OBS link',exact:true}).isDisabled(),true);
+  await page.getByText('Advanced link security',{exact:true}).click();
+  assert.equal(await page.getByRole('button',{name:'Show test',exact:true}).count(),0);
+  assert.equal(await page.getByRole('button',{name:'Pair operator phone',exact:true}).isEnabled(),true);
   await page.getByRole('button',{name:'Pause',exact:true}).click();
   await page.getByRole('button',{name:'Resume',exact:true}).waitFor();
   assert.ok(controls.includes('pause'));
   await check('paused');
   await page.screenshot({path:output+`/operator-paused-${width}.png`,fullPage:true});
-  await page.getByRole('navigation',{name:'Live caption sections'}).getByRole('button',{name:/Translation/}).click();
+  await openDashboardSection(page, "Translation");
   await page.getByTestId('target-language').selectOption('ja');
   assert.match(await page.locator('.serviceSnapshot').innerText(),/Indonesian/);
   assert.match(await page.locator('.serviceSnapshot').innerText(),/not active/);
@@ -107,7 +168,7 @@ try {
   await page.getByRole('button',{name:'Confirm End',exact:true}).click();
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(status,'idle');
-  results.push({width,errors,violations,checks:'setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear/end, draft isolation, responsive overflow'});
+  results.push({width,errors,violations,checks:'overview, linked destinations and Back/Forward/reload, navigation without inference, mobile drawer and focus/resize, history consent preservation, sharing/archive separation, setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear/end, draft isolation, responsive overflow'});
   await context.close();
  }
  await fs.writeFile(output+'/operator-results.json',JSON.stringify(results,null,2));

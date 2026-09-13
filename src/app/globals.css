@@ -152,7 +152,6 @@ code {
   border-bottom: 1px solid var(--line);
 }
 
-.brand,
 .headerStatuses,
 .sectionHeading,
 .meterRow,
@@ -163,10 +162,6 @@ code {
 .primaryControls {
   display: flex;
   align-items: center;
-}
-
-.brand {
-  gap: 12px;
 }
 
 .brandMark {
@@ -690,14 +685,6 @@ input[type="color"] {
   margin-bottom: 0;
 }
 
-.viewerSetupNote {
-  display: grid;
-  gap: 5px;
-  border-top: 1px solid var(--line);
-  padding-top: 16px;
-}
-
-.viewerSetupNote p,
 .viewerLinkPanel > p {
   color: var(--muted);
   font-size: 13px;
@@ -944,113 +931,6 @@ input[type="color"] {
   border-color: #111;
   color: #111;
   background: #f0f0ec;
-}
-
-.setupHero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 32px;
-  margin: 32px 0 24px;
-}
-
-.setupHero h2 {
-  max-width: 620px;
-  font-size: clamp(32px, 3.2vw, 46px);
-  line-height: 1.05;
-}
-
-.setupHero > div:first-child > p:last-child {
-  max-width: 680px;
-  margin-top: 12px;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.setupHeroMeta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 7px;
-}
-
-.setupHeroMeta span {
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--card);
-  padding: 6px 10px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.preflightChecklist {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 24px 0;
-}
-
-.preflightItem {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-content: start;
-  gap: 10px 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  background: var(--card);
-  padding: 17px;
-  color: var(--ink);
-  text-align: left;
-}
-
-.preflightItem:hover {
-  background: var(--surface-muted);
-  border-color: var(--ink);
-}
-
-.preflightNumber {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-muted);
-  font: 700 11px var(--font-mono);
-}
-
-.preflightItem > span:nth-child(2) {
-  display: grid;
-  gap: 4px;
-}
-
-.preflightItem strong {
-  font-size: 14px;
-}
-
-.preflightItem > span:nth-child(2) > span {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.preflightAction {
-  grid-column: 2;
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.preflightChecklist > p {
-  grid-column: 1 / -1;
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .confirmationDialog {
@@ -1329,48 +1209,14 @@ html:has(.tutorialDialog[open]) {
   margin-top: 24px;
 }
 
-.workspaceNavigation,
 .workspacePreview {
   position: sticky;
   top: 20px;
   min-width: 0;
 }
 
-.operatorWorkspace.isLive .workspaceNavigation,
 .operatorWorkspace.isLive .workspacePreview {
   top: 176px;
-}
-
-.workspaceNavigation {
-  display: grid;
-  gap: 18px;
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--card) 88%, transparent);
-  padding: 16px;
-  box-shadow: var(--shadow);
-  scrollbar-width: thin;
-}
-
-.operatorWorkspace.isLive .workspaceNavigation {
-  max-height: calc(100vh - 196px);
-}
-
-.workspaceNavigationHeading {
-  display: grid;
-  gap: 6px;
-}
-
-.workspaceNavigationHeading h2 {
-  font-size: 20px;
-}
-
-.workspaceNavigationHeading > p:last-child {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
 }
 
 .serviceSnapshot {
@@ -1780,7 +1626,6 @@ html:has(.tutorialDialog[open]) {
     justify-content: flex-start;
   }
 
-  .operatorWorkspace.isLive .workspaceNavigation,
   .operatorWorkspace.isLive .workspacePreview {
     top: 220px;
   }
@@ -1791,38 +1636,11 @@ html:has(.tutorialDialog[open]) {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .workspaceNavigation,
-  .operatorWorkspace.isLive .workspaceNavigation,
   .workspacePreview {
     position: static;
     grid-column: 1;
     max-height: none;
     overflow: visible;
-  }
-
-  .workspaceNavigation {
-    padding: 14px;
-    gap: 8px;
-  }
-
-  .workspaceNavigationHeading h2,
-  .workspaceNavigationHeading > p:last-child {
-    display: none;
-  }
-
-  .preflightChecklist {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .preflightItem {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    padding: 13px;
-  }
-
-  .preflightAction {
-    grid-column: auto;
   }
 
   .serviceSnapshot {
@@ -1869,36 +1687,9 @@ html:has(.tutorialDialog[open]) {
   }
 
   .statusBanner,
-  .startBar,
-  .setupHero {
+  .startBar {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .setupHero {
-    gap: 12px;
-    margin: 20px 0 16px;
-  }
-
-  .setupHero h2 {
-    font-size: 26px;
-  }
-
-  .setupHeroMeta {
-    justify-content: flex-start;
-  }
-
-  .setupHeroMeta span {
-    min-height: auto;
-    border: 0;
-    border-radius: 0;
-    padding: 0;
-    background: transparent;
-  }
-
-  .setupHeroMeta span + span::before {
-    content: "·";
-    margin-right: 7px;
   }
 
   .fieldGrid,
@@ -2073,14 +1864,6 @@ html:has(.tutorialDialog[open]) {
     box-shadow: none;
   }
 
-  .preflightItem {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .preflightAction {
-    display: none;
-  }
-
   .confirmationDialog {
     padding: 20px;
   }
@@ -2097,14 +1880,6 @@ html:has(.tutorialDialog[open]) {
 
   .moreMenu > summary {
     width: 100%;
-  }
-
-  .workspaceNavigation {
-    padding: 11px;
-  }
-
-  .workspaceNavigationHeading {
-    padding: 2px 2px 0;
   }
 
   .workspacePanelHeader,

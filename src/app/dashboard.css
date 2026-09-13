@@ -1,0 +1,795 @@
+/* Operator dashboard. Audience and remote pages keep their dedicated layouts. */
+
+.dashboardShell {
+  --dashboard-rail: 240px;
+  min-height: 100dvh;
+  background: #f6f7f5;
+}
+
+.dashboardSidebar, .dashboardDrawer {
+  color: var(--ink);
+  background: #fafbf9;
+  padding: max(26px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+
+.dashboardSidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 20;
+  width: var(--dashboard-rail);
+  border-right: 1px solid #dfe3dd;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboardBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: -.02em;
+}
+
+.dashboardBrand .brandMark {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 9px;
+  background: #214f3f;
+  color: white;
+  font-size: 13px;
+}
+
+.dashboardBrand small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 450;
+  letter-spacing: 0;
+}
+
+.dashboardChannel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 26px 0 16px;
+  padding: 12px;
+  border: 1px solid #dfe3dd;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.dashboardChannel > span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  background: #f1f3ef;
+  border-radius: 7px;
+  color: #445047;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.dashboardChannel strong {
+  display: block;
+  font-size: 12px;
+}
+
+.dashboardChannel small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.dashboardNavFooter {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: auto;
+  padding: 30px 12px 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.dashboardNavFooter strong {
+  color: #444d45;
+  font-weight: 600;
+}
+
+.dashboardNavFooter p {
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.dashboardPrivateDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #47745c;
+  flex: 0 0 6px;
+  margin-top: 5px;
+}
+
+main.dashboardMain {
+  width: auto;
+  min-width: 0;
+  margin: 0 0 0 var(--dashboard-rail);
+  padding: 0 0 28px;
+}
+
+.dashboardMain .topbar {
+  min-height: 76px;
+  padding: 14px 32px;
+  background: #fff;
+  border-color: #dfe3dd;
+  gap: 16px;
+}
+
+.dashboardBreadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dashboardBreadcrumb h1 {
+  font-size: 13px;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+
+.dashboardMain .headerStatuses {
+  gap: 8px;
+}
+
+.dashboardMain .statusPill {
+  min-height: 30px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.dashboardMain .statusPill.ready {
+  color: #215840;
+  background: #edf5ef;
+  border-color: #d6e7da;
+}
+
+.dashboardMain .statusPill.ready .statusDot {
+  background: #36714e;
+}
+
+.dashboardContent {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px max(32px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(32px, env(safe-area-inset-left));
+}
+
+.dashboardMain .dashboardQuietStatus {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dashboardQuietStatus > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dashboardQuietStatus strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dashboardQuietStatus p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.dashboardMain .operatorWorkspace {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, .6fr);
+  grid-template-areas: "panel start" "panel preview";
+  grid-template-rows: auto 1fr;
+  gap: 24px;
+  margin-top: 22px;
+}
+
+.dashboardMain .operatorWorkspace.isLive {
+  grid-template-areas: "panel preview";
+  grid-template-rows: auto;
+}
+
+.dashboardMain .workspacePanelGlow {
+  grid-area: panel;
+  border-radius: 12px;
+}
+
+.dashboardMain .workspacePanel {
+  border-color: #dfe3dd;
+  box-shadow: 0 2px 4px #17271903;
+}
+
+.dashboardMain .workspacePanelHeader {
+  padding: 24px;
+  gap: 12px;
+}
+
+.dashboardMain .workspacePanelHeader h2 {
+  font-size: clamp(22px, 2vw, 28px);
+  letter-spacing: -.035em;
+  line-height: 1.2;
+}
+
+.dashboardMain .workspacePanelHeader .eyebrow {
+  color: #496653;
+}
+
+.dashboardMain .workspacePanelHeader .statusChip {
+  font-size: 10px;
+  padding: 6px 8px;
+}
+
+.dashboardMain .workspacePanelBody {
+  padding: 24px;
+}
+
+.dashboardMain .workspacePreview {
+  grid-area: preview;
+  position: static;
+}
+
+.dashboardMain .serviceSnapshot {
+  border: 1px solid #dfe3dd;
+  border-radius: 10px;
+  padding: 4px 17px 10px;
+  background: #fff;
+}
+
+.dashboardMain .serviceSnapshot dl {
+  grid-template-columns: 1fr 1fr;
+  padding-bottom: 8px;
+}
+
+.dashboardMain .serviceSnapshot dt {
+  font-size: 10px;
+  letter-spacing: .04em;
+}
+
+.dashboardMain .outputContextCard {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  padding: 5px 3px;
+}
+
+.dashboardMain .outputContextCard h3 {
+  font-size: 13px;
+}
+
+.dashboardMain .outputContextCard .eyebrow {
+  display: none;
+}
+
+.dashboardMain .primaryButton {
+  background: #214f3f;
+  border-color: #214f3f;
+}
+
+.dashboardMain .primaryButton:hover:not(:disabled) {
+  background: #163f30;
+  border-color: #163f30;
+}
+
+.dashboardOverview {
+  display: grid;
+  gap: 26px;
+}
+
+.overviewWelcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.overviewSymbol {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  color: #35614a;
+  background: #edf3ee;
+  border: 1px solid #dce7de;
+  border-radius: 12px;
+}
+
+.overviewSymbol svg {
+  width: 21px;
+  height: 21px;
+}
+
+.overviewWelcome h3 {
+  font-size: 17px;
+  letter-spacing: -.02em;
+  line-height: 1.4;
+}
+
+.overviewWelcome p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.overviewMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0;
+  padding: 18px 0;
+  border-top: 1px solid #e5e8e2;
+  border-bottom: 1px solid #e5e8e2;
+}
+
+.overviewMetrics dt {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.overviewMetrics dd {
+  margin: 7px 0 0;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.overviewSectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.overviewSectionHeading h3 {
+  font-size: 14px;
+}
+
+.overviewSectionHeading > span {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.overviewTask {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 2px;
+  border: 0;
+  border-bottom: 1px solid #e5e8e2;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  transition: background-color 160ms ease;
+}
+
+.overviewTask:hover {
+  background: #f7f9f5;
+}
+
+.overviewTask > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.overviewTask strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.overviewTask small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.overviewTaskIcon {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e2e6df;
+  border-radius: 8px;
+  background: #fff;
+  color: #4e6153;
+}
+
+.overviewTaskIcon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.overviewChecklist > .helpText {
+  margin-top: 12px;
+  font-size: 11px;
+}
+
+.overviewNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e2e7de;
+  border-radius: 9px;
+  background: #f7f9f5;
+}
+
+.overviewNote > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: #53694e;
+}
+
+.overviewNote strong {
+  display: block;
+  font-size: 12px;
+}
+
+.overviewNote p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.overviewNote .textButton {
+  font-size: 12px;
+  padding: 8px 0 0;
+}
+
+.dashboardMain .startBar {
+  grid-area: start;
+  display: block;
+  position: static;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #d8e0d6;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 6px #14271404;
+}
+
+.dashboardMain .historyConsent {
+  margin: 0;
+  padding: 16px 22px;
+  border: 0;
+  border-radius: 12px;
+  background: #f8faf6;
+}
+
+.dashboardMain .historyConsent .checkLabel {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dashboardMain .historyConsent .helpText {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 5px 0 0 26px;
+}
+
+.dashboardMain .startBarActions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  border-top: 1px solid #e5e9e1;
+}
+
+.dashboardMain .startBarActions strong {
+  font-size: 14px;
+}
+
+.dashboardMain .startBarActions p {
+  max-width: 670px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 5px;
+}
+
+.dashboardMain .startBarActions > button {
+  white-space: nowrap;
+  min-width: 144px;
+}
+
+.dashboardMain .liveConsole {
+  position: static;
+  margin-top: 22px;
+  border-color: #dce4d8;
+  background: #fff;
+}
+
+.dashboardMain .viewerLinkPanel {
+  margin: 26px 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.dashboardMain .viewerLinkPanel > h3 {
+  font-size: 18px;
+}
+
+.dashboardMain .workspaceOutputCard {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.dashboardMain .workspacePanelBody > .experienceStack > .experienceCard {
+  border-color: #dfe3dd;
+  box-shadow: none;
+}
+
+.dashboardMain .experienceCard h3 {
+  font-size: 18px;
+}
+
+.dashboardMain .experienceCard p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.dashboardMain .experienceCard .helpText {
+  font-size: 12px;
+}
+
+.dashboardMenuButton, .dashboardDrawer:not([open]) {
+  display: none;
+}
+
+.dashboardDrawer {
+  margin: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  width: min(310px, calc(100vw - 32px));
+  height: 100dvh;
+  max-height: 100dvh;
+  max-width: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.dashboardDrawer[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboardDrawer::backdrop {
+  background: rgb(15 25 18 / 45%);
+}
+
+.dashboardDrawerClose {
+  align-self: flex-end;
+  margin: -12px -2px 12px 0;
+}
+
+.dashboardDrawerClose svg, .dashboardMenuButton svg {
+  width: 19px;
+  height: 19px;
+}
+
+.dashboardDrawerClose, .dashboardMenuButton {
+  min-width: 44px;
+  padding: 10px;
+}
+
+.dashboardShell .skipLink {
+  z-index: 50;
+}
+
+@media (max-width: 1350px) {
+  .dashboardMain .operatorWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "start" "panel" "preview";
+    grid-template-rows: auto;
+  }
+  .dashboardMain .operatorWorkspace.isLive {
+    grid-template-areas: "panel" "preview";
+  }
+  .dashboardMain .startBarActions {
+    flex-direction: row;
+    align-items: center;
+  }
+  .dashboardMain .workspacePreview {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, .8fr);
+    align-items: start;
+  }
+  .dashboardMain .outputContextCard {
+    grid-column: 2;
+  }
+  .dashboardMain .workspacePreview .previewCard {
+    grid-row: 1 / 3;
+  }
+  .dashboardMain .workspacePanelHeader h2 {
+    font-size: 26px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .dashboardMain .topbar {
+    padding-inline: 24px;
+  }
+  .dashboardContent {
+    padding: 24px max(24px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(24px, env(safe-area-inset-left));
+  }
+  .dashboardBreadcrumb > span {
+    display: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .dashboardShell {
+    --dashboard-rail: 0px;
+  }
+  .dashboardSidebar {
+    display: none;
+  }
+  .dashboardMenuButton {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    z-index: 21;
+    left: 16px;
+    top: 16px;
+  }
+  .dashboardMain .topbar {
+    min-height: 76px;
+    padding: 18px 20px 18px 72px;
+  }
+  .dashboardMain .headerStatuses {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .dashboardMain .workspacePanelHeader h2 {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 680px) {
+  .dashboardMain .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 22px 16px 16px 72px;
+  }
+  .dashboardMain .headerStatuses {
+    gap: 6px;
+  }
+  .dashboardMain .statusPill {
+    min-height: 26px;
+    font-size: 10px;
+    padding: 5px 7px;
+  }
+  .dashboardMain .headerStatuses .tutorialLauncher {
+    min-height: 44px;
+    padding: 5px 9px;
+  }
+  .dashboardContent {
+    padding: 18px max(16px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(16px, env(safe-area-inset-left));
+  }
+  .dashboardMain .operatorWorkspace {
+    margin-top: 18px;
+    gap: 18px;
+  }
+  .dashboardMain .workspacePanelHeader, .dashboardMain .workspacePanelBody {
+    padding: 18px;
+  }
+  .dashboardMain .workspacePanelHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .dashboardMain .workspacePanelHeader h2 {
+    font-size: 23px;
+  }
+  .dashboardMain .workspacePanelHeader > div > p:last-child {
+    font-size: 12px;
+  }
+  .dashboardOverview {
+    gap: 22px;
+  }
+  .overviewWelcome {
+    gap: 10px;
+  }
+  .overviewWelcome h3 {
+    font-size: 16px;
+  }
+  .overviewSymbol {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+    border-radius: 9px;
+  }
+  .overviewMetrics {
+    gap: 10px;
+    padding: 16px 0;
+  }
+  .overviewMetrics dt {
+    font-size: 10px;
+  }
+  .overviewMetrics dd {
+    font-size: 12px;
+  }
+  .overviewNote {
+    padding: 12px;
+  }
+  .overviewTask {
+    gap: 10px;
+  }
+  .dashboardMain .workspacePreview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dashboardMain .workspacePreview .previewCard {
+    grid-row: auto;
+  }
+  .dashboardMain .outputContextCard {
+    grid-column: auto;
+  }
+  .dashboardMain .startBarActions {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+    gap: 14px;
+  }
+  .dashboardMain .historyConsent {
+    padding: 14px 16px;
+  }
+  .dashboardMain .historyConsent .helpText {
+    margin-left: 0;
+  }
+  .dashboardMain .startBarActions > button {
+    width: 100%;
+  }
+  .dashboardMain .startBar .takeoverConfirmation {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .dashboardMain .liveConsole {
+    margin-top: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overviewTask {
+    transition: none;
+  }
+}
