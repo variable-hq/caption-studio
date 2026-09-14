@@ -70,7 +70,7 @@ and its native/signing checklists are not web release gates.
 10. While live and paused, draft language, terms, filters, buffer and prompt changes.
     Cancel refresh once, then confirm it. Old output/context disappears; old results cannot
     reappear. Timer, controller, links, usage and live/paused state remain. Repeat a short
-    sample at 6 and 12 seconds; longer windows do not guarantee complete sentences.
+    sample at 6 and 18 seconds; longer windows do not guarantee complete sentences.
 11. Pause at a natural break: microphone and queued work stop, OBS/latest viewer blank,
     and attempts stop increasing. Show/clear a paused test; Resume clears it before capture.
     Clear alone keeps capture active, so new valid speech can appear afterward.

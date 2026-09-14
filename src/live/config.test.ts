@@ -19,7 +19,7 @@ describe("live caption configuration", () => {
   it("derives the session transcription request cap from the audio cadence", () => {
     expect(DEFAULT_SPEECH_BUFFER_MS).toBe(6_000);
     expect(MIN_SPEECH_BUFFER_MS).toBe(6_000);
-    expect(SPEECH_BUFFER_OPTIONS_MS).toEqual([6_000, 9_000, 12_000]);
+    expect(SPEECH_BUFFER_OPTIONS_MS).toEqual([6_000, 9_000, 12_000, 15_000, 18_000]);
     expect(MAX_TRANSCRIPTION_REQUESTS).toBe(900);
     expect(MAX_TRANSCRIPTION_REQUESTS).toBe(
       MAX_LIVE_SESSION_MS / MIN_SPEECH_BUFFER_MS,
@@ -30,8 +30,10 @@ describe("live caption configuration", () => {
     expect(normalizeSpeechBufferMs(6_000)).toBe(6_000);
     expect(normalizeSpeechBufferMs("9000")).toBe(9_000);
     expect(normalizeSpeechBufferMs(12_000)).toBe(12_000);
+    expect(normalizeSpeechBufferMs(15_000)).toBe(15_000);
+    expect(normalizeSpeechBufferMs("18000")).toBe(18_000);
     expect(normalizeSpeechBufferMs(3_000)).toBe(6_000);
-    expect(normalizeSpeechBufferMs(15_000)).toBe(6_000);
+    expect(normalizeSpeechBufferMs(21_000)).toBe(6_000);
     expect(normalizeSpeechBufferMs("invalid")).toBe(6_000);
   });
 

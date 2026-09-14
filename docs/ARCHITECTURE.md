@@ -9,7 +9,7 @@ physical-device, provider-output or semantic acceptance.
 
 | Component | Responsibility |
 | --- | --- |
-| Capture browser | Audio selection, 6/9/12-second MediaRecorder chunks, two-chunk queue, source preview, terminology, moderation, controls and same-tab recovery |
+| Capture browser | Audio selection, 6/9/12/15/18-second MediaRecorder chunks, two-chunk queue, source preview, terminology, moderation, controls and same-tab recovery |
 | Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
 | `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, remote commands and archive index |
