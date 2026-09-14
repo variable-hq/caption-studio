@@ -131,7 +131,7 @@ describe("Groq cloud provider prompts", () => {
 
     expect(messages[0].content).toContain("bracket your best guess");
     expect(messages[0].content).toContain("[unclear] if none is possible");
-    expect(messages[0].content).toContain("never leave it untranslated, verbatim, or omitted");
+    expect(messages[0].content).toContain("never leave an unclear word untranslated, verbatim, or omitted");
     expect(messages[0].content).toContain("Never reconstruct scripture or lyrics from memory");
     expect(messages[0].content).toContain("keep it verbatim in quotation marks");
   });
@@ -151,7 +151,7 @@ describe("Groq cloud provider prompts", () => {
     expect(messages[0].content).toContain("If a word was said but is unclear or mistranscribed");
   });
 
-  it("requires faithful, unfiltered translation of profanity, deferring public filtering downstream", () => {
+  it("requires leaving out profanity, slurs, or vulgar language rather than translating it", () => {
     const messages = buildTranslationMessages({
       text: "Grace and peace.",
       sourceLanguage: "en",
@@ -160,10 +160,8 @@ describe("Groq cloud provider prompts", () => {
       preferredTerms: {},
     });
 
-    expect(messages[0].content).toContain("Translate profanity, slurs, or vulgar language faithfully at the speaker's actual severity");
-    expect(messages[0].content).toContain("never soften, censor, or leave it out");
-    expect(messages[0].content).toContain("never add or intensify language beyond what was said");
-    expect(messages[0].content).toContain("Public filtering happens separately, after translation");
+    expect(messages[0].content).toContain("If the speech contains profanity, slurs, or vulgar language, leave it out of the translation");
+    expect(messages[0].content).toContain("keeping the rest of the sentence natural and complete");
   });
 
   it("exempts the bracket/quote conventions from the no-labels output contract", () => {
