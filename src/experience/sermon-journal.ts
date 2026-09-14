@@ -1,6 +1,5 @@
-import { applyModeration } from "@/pipeline/moderation";
-import { parseGlossaryInput, parseModerationInput } from "@/live/config";
-import { applyPreferredTerms } from "@/pipeline/glossary";
+import { mergeModerationRules, parseGlossaryInput, parseModerationInput } from "@/live/config";
+import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { isLanguageLocale } from "@/domain/languages";
 import {
   DAY, HISTORY_RETENTION, READER_GRACE, READER_INTERVAL, SUMMARY_MODELS, json,
@@ -223,10 +222,13 @@ export class SermonJournal {
     if (!current || current.epoch !== snapshot.epoch || current.revision !== snapshot.revision) return;
     const first = inputs[0];
     if (!first || !isLanguageLocale(first.targetLanguage)) return;
-    let moderated = text;
-    for (const input of inputs) moderated = applyModeration(moderated, parseModerationInput(input.filterText), first.targetLanguage).publicText;
-    moderated = applyPreferredTerms(moderated, first.targetLanguage, parseGlossaryInput(first.keywordText, first.targetLanguage));
-    for (const input of inputs) moderated = applyModeration(moderated, parseModerationInput(input.filterText), first.targetLanguage).publicText;
+    const moderated = prepareCaptionForms({
+      sourceText: "",
+      translatedText: text,
+      targetLanguage: first.targetLanguage,
+      glossary: parseGlossaryInput(first.keywordText, first.targetLanguage),
+      moderationRules: mergeModerationRules(inputs.map((input) => parseModerationInput(input.filterText))),
+    }).publicText;
     const paragraph: ReaderParagraph = { id: inputs.at(-1)!.id, sourceIds: inputs.map((input) => input.id),
       text: moderated.slice(0, 10_000), language: first.targetLanguage, epoch: snapshot.epoch,
       translationRevision: first.translationRevision, at: Date.now(), fallback };
