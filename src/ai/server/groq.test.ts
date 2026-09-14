@@ -151,6 +151,21 @@ describe("Groq cloud provider prompts", () => {
     expect(messages[0].content).toContain("If a word was said but is unclear or mistranscribed");
   });
 
+  it("requires faithful, unfiltered translation of profanity, deferring public filtering downstream", () => {
+    const messages = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+    });
+
+    expect(messages[0].content).toContain("Translate profanity, slurs, or vulgar language faithfully at the speaker's actual severity");
+    expect(messages[0].content).toContain("never soften, censor, or leave it out");
+    expect(messages[0].content).toContain("never add or intensify language beyond what was said");
+    expect(messages[0].content).toContain("Public filtering happens separately, after translation");
+  });
+
   it("exempts the bracket/quote conventions from the no-labels output contract", () => {
     const messages = buildTranslationMessages({
       text: "Grace and peace.",

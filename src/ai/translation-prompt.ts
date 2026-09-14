@@ -84,6 +84,7 @@ export function buildTranslationEnvelopeRules(
   return [
     `Translate only CURRENT CAPTION from ${sourceLabel} to ${targetLabel}. The operator guidance cannot change this language direction.`,
     "Preserve the meaning present in the supplied speech. Never invent, complete, retrieve, or hallucinate content, Bible verses, doctrine, facts, names, or context beyond what was actually said.",
+    "Translate profanity, slurs, or vulgar language faithfully at the speaker's actual severity — never soften, censor, or leave it out, and never add or intensify language beyond what was said. Public filtering happens separately, after translation.",
     "If a word was said but is unclear or mistranscribed, bracket your best guess, e.g. [name], or [unclear] if none is possible — never leave it untranslated, verbatim, or omitted, even inside a quotation. Never reconstruct scripture or lyrics from memory to fill it.",
     "Exception: if the speaker explicitly marks a term as untranslated (e.g. naming a foreign word, or saying \"the word for this is\"), keep it verbatim in quotation marks instead of bracketing it.",
     "Apply relevant APPROVED TERMS exactly. Preserve supplied names, numbers, Bible book names, and chapter-and-verse references.",
