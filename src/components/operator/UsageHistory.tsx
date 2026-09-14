@@ -59,9 +59,9 @@ export function UsageHistory() {
     {[...groups].map(([name, group]) => <article className="usageHistoryRow" key={name}><h4>{name}</h4>
       <p>{count(group.calls)} attempts · {count(group.tokens)} known tokens · {count(group.seconds / 60)} known audio minutes</p>
       <p>{count(group.unknown)} unresolved attempts · {count(group.neurons)} estimated neurons</p></article>)}
-    <details><summary>Usage by day (UTC)</summary>{[...days].sort(([a], [b]) => b.localeCompare(a)).map(([date, day]) =>
+    <details><summary>Usage by day (UTC)</summary>{records.length === 0 && <p className="helpText">{busy ? "Loading usage…" : "No usage loaded yet. Choose Load usage history to list recorded days."}</p>}{[...days].sort(([a], [b]) => b.localeCompare(a)).map(([date, day]) =>
       <article className="usageHistoryRow" key={date}><h4>{date}</h4><p>{count(day.calls)} attempts · {count(day.tokens)} known tokens · {count(day.unknown)} unresolved</p></article>)}</details>
-    <details><summary>Usage by service</summary>{[...services].sort(([, a], [, b]) => b.at - a.at).map(([id, service]) =>
+    <details><summary>Usage by service</summary>{records.length === 0 && <p className="helpText">{busy ? "Loading usage…" : "No usage loaded yet. Choose Load usage history to list recorded services."}</p>}{[...services].sort(([, a], [, b]) => b.at - a.at).map(([id, service]) =>
       <article className="usageHistoryRow" key={id}><h4>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(service.at)}</h4>
         <p>{count(service.calls)} attempts · {count(service.tokens)} known tokens · {count(service.unknown)} unresolved</p></article>)}</details>
     <details><summary>Plan monthly service capacity</summary>

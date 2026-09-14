@@ -159,8 +159,9 @@ Current behavior:
   pre-service opt-in also stores private source and corrections for seven days after End;
 - only the latest moderated public caption is kept in the Main room's durable storage
   until Clear, Pause, refresh, End, expiry or rotation removes it;
-- caption-style preferences, a custom operator prompt explicitly saved by the operator,
-  and the first-visit tutorial's dismissal flag use unencrypted browser `localStorage`;
+- caption-style preferences, a custom operator prompt and default summary configuration
+  explicitly saved by the operator, and the first-visit tutorial's dismissal flag use
+  unencrypted browser `localStorage`;
   other translation drafts remain in React/page memory and disappear on reload. The
   tutorial stores only `dismissed` under `church-live-caption:operator-tutorial:v1` on
   Skip, Escape, or completion; it makes no audio, inference, service-control, or analytics

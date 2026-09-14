@@ -2,13 +2,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { LiveServiceDetails } from "@/live/contracts";
 import { experienceRequest } from "@/experience/client";
-import { HISTORY_RETENTION, SUMMARY_MODELS, type JournalState, type ReaderParagraph, type SourceRecord, type SummaryJob, type SummaryModel } from "@/experience/contracts";
+import { HISTORY_RETENTION, SUMMARY_MODELS, type JournalState, type ReaderParagraph, type SourceRecord, type SummaryJob, type SummaryModel, type SummaryOptions } from "@/experience/contracts";
+import { DEFAULT_SUMMARY_OPTIONS } from "@/experience/summary-defaults";
 import { LANGUAGE_OPTIONS } from "@/domain/languages";
 
 interface Archive { details: Omit<JournalState, "readerHash">; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
 interface ServiceEntry { id: string; startedAt: number }
 
-export function ServiceExperiencePanel({ view, service, onReaderLink }: { view: "sharing" | "archive"; service: LiveServiceDetails | null; onReaderLink: (url: string) => void }) {
+export function ServiceExperiencePanel({ view, service, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; service: LiveServiceDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
   const [services, setServices] = useState<ServiceEntry[]>([]);
   const [archive, setArchive] = useState<Archive | null>(null);
   const [issuedLink, setIssuedLink] = useState<{ serviceId: string; url: string } | null>(null);
@@ -19,10 +20,17 @@ export function ServiceExperiencePanel({ view, service, onReaderLink }: { view: 
   const summaryRequestRef = useRef<{ serviceId: string; id: string } | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [model, setModel] = useState<SummaryModel>(SUMMARY_MODELS[0]);
-  const [language, setLanguage] = useState("id");
-  const [length, setLength] = useState("short");
-  const [guidance, setGuidance] = useState("");
+  const [model, setModel] = useState<SummaryModel>(summaryDefaults.model);
+  const [language, setLanguage] = useState(summaryDefaults.language);
+  const [length, setLength] = useState<string>(summaryDefaults.length);
+  const [guidance, setGuidance] = useState(summaryDefaults.guidance);
+  const [appliedDefaults, setAppliedDefaults] = useState(summaryDefaults);
+  if (appliedDefaults !== summaryDefaults) {
+    // Derived state: new browser defaults replace the untouched prefill during render.
+    setAppliedDefaults(summaryDefaults);
+    setModel(summaryDefaults.model); setLanguage(summaryDefaults.language);
+    setLength(summaryDefaults.length); setGuidance(summaryDefaults.guidance);
+  }
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [correction, setCorrection] = useState<{ id: number; text: string } | null>(null);
   const [reviewed, setReviewed] = useState(false);
@@ -124,7 +132,7 @@ export function ServiceExperiencePanel({ view, service, onReaderLink }: { view: 
         <label>Summary language<select name="summaryLanguage" value={language} onChange={(event) => setLanguage(event.target.value)}>{LANGUAGE_OPTIONS.map((entry) => <option key={entry.locale} value={entry.locale}>{entry.label}</option>)}</select></label>
         <label>Summary length<select name="summaryLength" value={length} onChange={(event) => setLength(event.target.value)}><option value="short">Short</option><option value="detailed">Detailed</option></select></label></div>
       <label>Summary guidance<textarea name="summaryGuidance" autoComplete="off" rows={4} maxLength={2000} value={guidance} onChange={(event) => setGuidance(event.target.value)} placeholder="Emphasize main points and speaker-stated applications…" /></label>
-      <p className="helpText">Change tone and sections here. Source grounding stays fixed. Generation uses separate AI quota; long sermons can require several calls.</p>
+      <p className="helpText">Prefilled from the AI summary settings; change tone and sections here for this request. Source grounding stays fixed. Generation uses separate AI quota; long sermons can require several calls.</p>
       <button className="primaryButton" disabled={busy || archive.details.status !== "ended" || ["queued", "running"].includes(archive.summary?.status ?? "")}
         onClick={() => void perform(async () => {
           if (summaryRequestRef.current?.serviceId !== archive.details.id) summaryRequestRef.current = { serviceId: archive.details.id, id: crypto.randomUUID() };

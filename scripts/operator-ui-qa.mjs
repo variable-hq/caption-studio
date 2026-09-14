@@ -88,7 +88,7 @@ try {
   await closeServicePanel(page);
   await page.evaluate(()=>{document.activeElement?.blur();window.scrollTo(0,0)});
   await page.screenshot({path:output+`/operator-setup-${width}.png`,fullPage:true});
-  for(const section of ['Audio input','Translation','Appearance','Live outputs','Sermon history','AI usage','AI instructions']){
+  for(const section of ['Audio input','Translation','Appearance','Live outputs','Sermon history','AI usage','AI instructions','AI summary']){
    await openDashboardSection(page, section);
    await page.waitForFunction(()=>document.activeElement?.id==='workspace-panel-heading');
    await check(section);

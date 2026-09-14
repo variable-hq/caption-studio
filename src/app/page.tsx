@@ -10,6 +10,14 @@ import {
 import { AiUsageDashboard } from "@/components/operator/AiUsageDashboard";
 import { OperatorTutorial } from "@/components/operator/OperatorTutorial";
 import { PromptEditor } from "@/components/operator/PromptEditor";
+import { SummarySettingsEditor } from "@/components/operator/SummarySettingsEditor";
+import type { SummaryOptions } from "@/experience/contracts";
+import {
+  DEFAULT_SUMMARY_OPTIONS,
+  SUMMARY_DEFAULTS_PREFERENCE_KEY,
+  normalizeSummaryOptions,
+  summaryOptionsEqual,
+} from "@/experience/summary-defaults";
 import { TranslationSettingsEditor } from "@/components/operator/TranslationSettingsEditor";
 import {
   BorderGlow,
@@ -66,6 +74,7 @@ type WorkspaceSectionId =
   | "translation"
   | "usage"
   | "prompt"
+  | "summary"
   | "appearance"
   | "outputs"
   | "overview";
@@ -79,6 +88,7 @@ const WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
   { id: "history", href: "#workspace=history", label: "Sermon history", group: "Service", icon: <DashboardIcon name="history" /> },
   { id: "usage", href: "#workspace=usage", label: "AI usage", group: "Service", icon: <DashboardIcon name="usage" /> },
   { id: "prompt", href: "#workspace=prompt", label: "AI instructions", group: "Settings", icon: <DashboardIcon name="prompt" /> },
+  { id: "summary", href: "#workspace=summary", label: "AI summary", group: "Settings", icon: <DashboardIcon name="summary" /> },
 ];
 
 const WORKSPACE_SECTION_COPY: Record<
@@ -109,6 +119,12 @@ const WORKSPACE_SECTION_COPY: Record<
     title: "Translation system prompt",
     description:
       "Review the safe default or tailor how the translator handles context, tone and ambiguity.",
+  },
+  summary: {
+    eyebrow: "AI summary",
+    title: "Summary configuration",
+    description:
+      "Set the default model, language, length and guidance that prefill each sermon summary request.",
   },
   appearance: {
     eyebrow: "OBS design",
@@ -436,6 +452,9 @@ export default function OperatorDashboard() {
   );
   const [savedPromptFingerprint, setSavedPromptFingerprint] = useState("");
   const [promptStorageMessage, setPromptStorageMessage] = useState("");
+  const [summaryDefaults, setSummaryDefaults] = useState<SummaryOptions>(DEFAULT_SUMMARY_OPTIONS);
+  const [savedSummaryDefaults, setSavedSummaryDefaults] = useState<SummaryOptions | null>(null);
+  const [summaryStorageMessage, setSummaryStorageMessage] = useState("");
   const [activeWorkspaceSection, setActiveWorkspaceSection] =
     useState<WorkspaceSectionId>("overview");
   const workspaceHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -853,6 +872,58 @@ export default function OperatorDashboard() {
     window.open(viewerUrl, "_blank", "noopener,noreferrer");
   };
 
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(SUMMARY_DEFAULTS_PREFERENCE_KEY);
+      if (!stored) return;
+      const loaded = normalizeSummaryOptions(stored);
+      const timeout = window.setTimeout(() => {
+        setSummaryDefaults(loaded);
+        setSavedSummaryDefaults(loaded);
+        setSummaryStorageMessage("Loaded the saved browser default.");
+      }, 0);
+      return () => window.clearTimeout(timeout);
+    } catch {
+      return;
+    }
+  }, []);
+
+  const saveSummaryBrowserDefault = () => {
+    try {
+      const normalized = normalizeSummaryOptions(summaryDefaults);
+      window.localStorage.setItem(SUMMARY_DEFAULTS_PREFERENCE_KEY, JSON.stringify(normalized));
+      setSummaryDefaults(normalized);
+      setSavedSummaryDefaults(normalized);
+      setSummaryStorageMessage("Saved as this browser's default summary configuration.");
+    } catch {
+      setSummaryStorageMessage("The summary configuration could not be saved in this browser.");
+    }
+  };
+
+  const resetSummaryDefaults = () => {
+    try {
+      window.localStorage.removeItem(SUMMARY_DEFAULTS_PREFERENCE_KEY);
+    } catch {
+      // Storage may be unavailable; the in-page reset still applies.
+    }
+    setSummaryDefaults(DEFAULT_SUMMARY_OPTIONS);
+    setSavedSummaryDefaults(null);
+    setSummaryStorageMessage("Reset to the built-in defaults. No summary configuration is saved in this browser.");
+  };
+
+  const updateSummaryDefaults = (value: SummaryOptions) => {
+    setSummaryDefaults(value);
+    setSummaryStorageMessage("");
+  };
+
+  const summarySavedMessage =
+    summaryStorageMessage ||
+    (savedSummaryDefaults
+      ? summaryOptionsEqual(savedSummaryDefaults, summaryDefaults)
+        ? "Matches the saved browser default."
+        : "Unsaved changes. Save to keep them in this browser."
+      : "Built-in defaults. Save to keep a browser default.");
+
   const savePromptBrowserDefault = () => {
     try {
       const normalized = normalizeTranslationSystemPrompt(
@@ -997,6 +1068,16 @@ export default function OperatorDashboard() {
       onReset={resetPromptToSafeDefault}
       savedMessage={promptSavedMessage}
       disabled={translationEditorDisabled}
+    />
+  );
+
+  const summarySettingsEditor = (
+    <SummarySettingsEditor
+      value={summaryDefaults}
+      onChange={updateSummaryDefaults}
+      onSaveBrowserDefault={saveSummaryBrowserDefault}
+      onReset={resetSummaryDefaults}
+      savedMessage={summarySavedMessage}
     />
   );
 
@@ -1466,9 +1547,10 @@ export default function OperatorDashboard() {
                 </>
               ) : null}
 
-              {currentWorkspaceSection === "history" ? <ServiceExperiencePanel view="archive" service={liveState.service} onReaderLink={rememberReaderLink} /> : null}
+              {currentWorkspaceSection === "history" ? <ServiceExperiencePanel view="archive" service={liveState.service} onReaderLink={rememberReaderLink} summaryDefaults={summaryDefaults} /> : null}
 
               {currentWorkspaceSection === "prompt" ? promptEditor : null}
+              {currentWorkspaceSection === "summary" ? summarySettingsEditor : null}
 
               {currentWorkspaceSection === "appearance" ? (
                 <div className="panelStack">

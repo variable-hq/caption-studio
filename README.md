@@ -20,6 +20,8 @@ Back/Forward; switching sections does not start capture or add AI calls.
 **Service controls** opens a collapsible right panel with Start, history consent, live
 controls, and an optional caption preview. It starts closed; Pause/Resume and Clear remain
 in a compact bar during capture. Appearance keeps its preview beside the editor.
+Settings hold **AI instructions** (translation prompt) and **AI summary** (default
+summary model, language, length and guidance, saved per browser on request).
 See the [service-panel design and QA record](docs/SERVICE_PANEL_UX_QA.md) and the
 [earlier dashboard review](docs/DASHBOARD_UI_QA.md).
 
@@ -71,7 +73,8 @@ Object eviction can lose unreceived paragraphs; durable reload recovery is not p
 After End, an operator can review/correct source, remove passages, export the private
 transcript as JSON, or manually generate a summary. Generation requires optional Workers
 AI to be enabled. Operators choose an allowlisted model, language, length, and up to 2,000
-characters of guidance; server-owned TB2 grounding rules stay fixed. Summary points cite
+characters of guidance, prefilled from the AI summary settings; server-owned TB2
+grounding rules stay fixed. Summary points cite
 source IDs. Review is required before JSON export. Exact TB2 passages are not retrieved
 or reconstructed. Long jobs can stop at context, call, or daily budget limits.
 
