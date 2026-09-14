@@ -120,6 +120,22 @@ describe("Groq cloud provider prompts", () => {
     );
   });
 
+  it("requires a bracketed guess or [unclear] for unclear words, never silent omission", () => {
+    const messages = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+    });
+
+    expect(messages[0].content).toContain("translate your best guess from context in square brackets");
+    expect(messages[0].content).toContain("[unclear] if no reasonable guess is possible");
+    expect(messages[0].content).toContain("never leave it untranslated, copied verbatim, or silently omitted");
+    expect(messages[0].content).toContain("does not permit reconstructing an unclear scripture quotation or lyric from memory");
+    expect(messages[0].content).toContain("keep it exactly as spoken in quotation marks");
+  });
+
   it("requires Traditional Chinese without inventing biblical content", () => {
     const messages = buildTranslationMessages({
       text: "Grace and peace be with you.",
