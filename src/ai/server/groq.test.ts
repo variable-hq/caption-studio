@@ -129,11 +129,11 @@ describe("Groq cloud provider prompts", () => {
       preferredTerms: {},
     });
 
-    expect(messages[0].content).toContain("translate your best guess from context in square brackets");
-    expect(messages[0].content).toContain("[unclear] if no reasonable guess is possible");
-    expect(messages[0].content).toContain("never leave it untranslated, copied verbatim, or silently omitted");
-    expect(messages[0].content).toContain("does not permit reconstructing an unclear scripture quotation or lyric from memory");
-    expect(messages[0].content).toContain("keep it exactly as spoken in quotation marks");
+    expect(messages[0].content).toContain("bracket your best guess");
+    expect(messages[0].content).toContain("[unclear] if none is possible");
+    expect(messages[0].content).toContain("never leave it untranslated, verbatim, or omitted");
+    expect(messages[0].content).toContain("Never reconstruct scripture or lyrics from memory");
+    expect(messages[0].content).toContain("keep it verbatim in quotation marks");
   });
 
   it("requires Traditional Chinese without inventing biblical content", () => {
