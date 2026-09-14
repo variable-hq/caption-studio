@@ -5,14 +5,17 @@ a latest-caption phone viewer, an appending reader, and a paired operator remote
 
 ## Status
 
-Reviewed against merged [PR #26](https://github.com/lukaskawira/church-live-caption/pull/26)
-(`20597d8`), 13 September 2026. Plan 1 is implemented in source. Its Cloudflare
-first deployment failed after compilation. The deploy command was corrected and the
-Cloudflare retry **deployed successfully at 08:05 UTC**. See the
+Reviewed against merged [PR #33](https://github.com/lukaskawira/church-live-caption/pull/33) (`abae57b`), 14 September 2026. Plan 1 is implemented in
+source. Its first Cloudflare deployment of `20597d8` failed after compilation; the deploy
+command was corrected and the retry **deployed successfully on 13 September at 08:05 UTC**.
+The four later merges (#28 docs and deploy guard, #30 dashboard navigation, #32 service
+panel, #33 export hygiene) have no recorded build ID or Worker version yet. See the
 [deployment runbook](docs/DEPLOYMENT.md) for the fix, commands and remaining rehearsal gates.
+A 14 September [export audit](docs/EXPORT_HYGIENE_QA.md) found no orphan file or unused
+dependency and removed the remaining dead exports.
 
 The operator dashboard now opens on a service overview with grouped sidebar navigation.
-On phones, **Open navigation** opens a drawer. Section links support bookmarks and browser
+On phones, the menu button (accessible name **Open navigation**) opens a drawer. Section links support bookmarks and browser
 Back/Forward; switching sections does not start capture or add AI calls.
 **Service controls** opens a collapsible right panel with Start, history consent, live
 controls, and an optional caption preview. It starts closed; Pause/Resume and Clear remain
@@ -74,7 +77,7 @@ or reconstructed. Long jobs can stop at context, call, or daily budget limits.
 
 | Action | OBS and latest viewer | Appending reader | Private history and usage |
 | --- | --- | --- | --- |
-| Clear captions | Blank; capture continues | Keep committed paragraphs, discard pending work | Preserved |
+| Clear live caption | Blank; capture continues | Keep committed paragraphs, discard pending work | Preserved |
 | Pause | Blank; capture stops | Keep committed paragraphs, mark boundary | Preserved |
 | Resume | New capture after acknowledgement | Append new paragraphs | Same service |
 | Refresh translation settings | Clear and reject old results; keep service/links | Preserve earlier text; separate later revisions/languages | Preserved |
@@ -159,8 +162,10 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Keep real values in ignored local files or encrypted Worker secrets. Next dev alone does
-not prove the Cloudflare lifecycle. For local Worker checks without remote AI, follow
+Keep real values in ignored local files or encrypted Worker secrets. `.env.example`
+lists every variable the application reads; `CAPTION_LOCAL_AUTH_BYPASS` is for local
+runs only and must never be deployed. The QA scripts additionally read
+`CAPTION_QA_TOOLS_DIR` and `CAPTION_QA_ORIGIN`. Next dev alone does not prove the Cloudflare lifecycle. For local Worker checks without remote AI, follow
 [isolated runtime QA](docs/LIVE_SESSION_PLAN_1_QA.md#runtime-rehearsal).
 Standard `npm run preview` uses OpenNext's remote AI proxy and needs Cloudflare
 credentials plus Access service authentication when its preview domain is protected.
@@ -172,10 +177,26 @@ npm audit
 ```
 
 Validation runs tests with one worker, strict TypeScript, ESLint, both production builds,
-a non-publishing deployment dry run, and whitespace checks sequentially. For visible
-changes, use the `npm run qa:tutorial`, `qa:operator`, `qa:experience` and `qa:runtime`
-scripts with the isolated Playwright/Axe setup in
-[Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md). Run `npm run cf-typegen` after binding changes.
+a non-publishing deployment dry run, and whitespace checks sequentially. Run
+`npm run cf-typegen` after binding changes.
+
+Browser and runtime QA scripts are separate from validation. The browser scripts load
+Playwright and Axe from an isolated directory so that no test dependency enters the
+product, and they expect a dev server on port 3100 with every API request mocked:
+
+```sh
+npm run dev -- --hostname 127.0.0.1 --port 3100
+# In another terminal; the directory must contain playwright and @axe-core/playwright.
+CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:tutorial
+CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:operator
+CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:experience
+```
+
+`npm run qa:runtime` exercises the real local Durable Objects against an isolated
+Wrangler preview on port 8787 with AI disabled; follow
+[Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md#runtime-rehearsal). Script output under
+`test-results/` is ignored local evidence; commit only the synthetic captures a review
+needs, under `docs/review-assets/`.
 
 Use the [deployment runbook](docs/DEPLOYMENT.md) for commands, exact Access paths, secrets,
 the proxy failure, and post-merge verification. Keep credentials and sermon content out
@@ -191,7 +212,8 @@ pending evaluation, and dated evidence. Start with:
 - [Security](SECURITY.md) and [Contributing](CONTRIBUTING.md).
 - [Plan 1 design](docs/LIVE_SESSION_FEEDBACK_PLAN_1.md) and
   [Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md).
-- [Cleanup and deployment QA](docs/CLEANUP_DEPLOY_QA.md).
+- [Cleanup and deployment QA](docs/CLEANUP_DEPLOY_QA.md) and
+  [export hygiene QA](docs/EXPORT_HYGIENE_QA.md).
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).

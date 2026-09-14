@@ -1,7 +1,8 @@
 # Architecture
 
-Reviewed against merged Plan 1 source, 13 September 2026. Cloudflare deployed `20597d8`
-after the proxy fix; see the [runbook](DEPLOYMENT.md). Deployment success does not establish
+Reviewed against merged PR #33 (`abae57b`), 14 September 2026. Cloudflare deployed
+`20597d8` after the proxy fix; later merges have no recorded deployment yet. See the
+[runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
 
 ## Components and trust boundaries
@@ -65,6 +66,26 @@ Pause/refresh invalidate earlier reservations even after Resume. Legacy reservat
 with unknown dispatch history are invalidated conservatively. A downstream failure
 still consumes its claim; it cannot be replayed to spend again.
 
+### Route inventory
+
+| Route | Access | Purpose |
+| --- | --- | --- |
+| `GET /api/ai/health`, `POST /api/ai/readiness` | Access (readiness) | Configured models; readiness also checks Groq model availability |
+| `POST /api/ai/transcribe`, `POST /api/ai/translate` | Access + controller + attempt claim | Live inference; 3 MB audio + 16 KB fields, 32,000-byte JSON |
+| `GET`/`POST /api/live/channel` | Access | Read or create the Main channel |
+| `POST /api/live/channel/service`, `DELETE …/service` | Access | Start/takeover and End |
+| `POST …/lease`, `POST …/caption` | Access + controller | Reserve an attempt; publish one moderated caption (8,192 bytes) |
+| `POST …/control` | Access + controller | `pause`, `resume`, `clear`, `show-test`, `refresh-translation` |
+| `PUT …/style`, `POST …/rotate`, `POST …/viewer/rotate` | Access | Shared style; OBS rotation; viewer replacement (4,096-byte bodies) |
+| `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol | OBS and latest-viewer WebSockets |
+| `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation |
+| `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index, one sermon's private archive |
+| `POST …/sermons/{id}/summary`, `…/remove`, `…/correct`, `…/delete` | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion |
+| `GET /api/live/reader` | `x-caption-reader` header | Appending reader paragraphs, 50 per poll |
+
+Experience JSON bodies are limited to 32,768 bytes. Groq calls time out after 30 seconds
+for audio and 15 seconds for chat; Durable Object calls after 8 seconds.
+
 ## Credentials and public surfaces
 
 | Surface | Credential and capability |
@@ -76,7 +97,9 @@ still consumes its claim; it cannot be replayed to spend again.
 | `/read` / reader API | Separate service reader token; translated paragraphs only |
 
 Bearer links use fragments, not query strings. OBS/latest-viewer sockets send credentials
-as purpose-specific subprotocols; the reader/remote use their own request headers.
+as purpose-specific subprotocols; the reader sends `x-caption-reader` and the paired
+phone sends `x-caption-remote`, beside the capture computer's `x-caption-controller` and
+`x-caption-transcription-attempt`.
 Wrong-purpose credentials are rejected. Audience clients receive no private source,
 summary, usage, controller or provider secrets.
 
@@ -105,7 +128,10 @@ extending the original 90-minute expiry.
 The capture computer polls paired remote status about every two seconds. Server-side
 remote Pause blocks claims before the host acknowledges physical capture stopping.
 Commands use bounded IDs and cached results; duplicate retries do not repeat actions.
-Resume must be acknowledged by the host. A missing host cannot be reported as confirmed.
+The host counts as connected only while its heartbeat is under 15 seconds old; remote
+Resume is refused while it is disconnected. One command may be pending at a time, and a
+pairing accepts at most 1,400 commands before the phone must pair again. Resume must be
+acknowledged by the host. A missing host cannot be reported as confirmed.
 
 The reader polls about every two seconds, pages saved paragraphs, and follows new content
 only when near the bottom. It keeps earlier paragraphs/revisions/languages rather than
@@ -168,6 +194,28 @@ Optional Workers AI requires `CAPTION_OPTIONAL_AI_ENABLED=true`. Reader uses Lla
 source sections (about 10 KB) and evidence notes (at most 14 KB), then synthesis.
 Immutable TB2 grounding and source-ID membership checks constrain drafts; they do not
 prove meaning. No authorized TB2 passage retrieval or autonomous tool loop is present.
+
+Journal bounds: public chunks at most 2,000 characters, filter text 4,000, keyword text
+8,000, source IDs at most 900 per service with source text and corrections at most
+4,000 characters. Reader and archive pages return 50 records per poll. Reader phrasing
+uses at most 600 output tokens and must return at most 2,000 characters or the joined
+fallback is used; summaries use at most 2,000 output tokens, a 22,000-byte context guard,
+a 45-second timeout, and at most 24 points of 1,200 characters citing up to 100 source
+IDs each.
+
+### Error codes
+
+| Code | Status | Meaning |
+| --- | --- | --- |
+| `channel_not_configured` | 404 | Main channel not created |
+| `channel_in_use` | 409 | Another controller is active; takeover requires confirmation |
+| `controller_replaced`, `service_paused`, `caption_cleared`, `translation_session_refreshed`, `{stage}_attempt_used` | 409 | Stale controller, paused service, superseded caption, stale settings revision, or reused claim |
+| `invalid_{stage}_attempt` | 400 | Malformed or unreserved attempt |
+| `transcription_limit_reached` | 429 | 900 reserved attempts exhausted; usage admission may also return 409/429 |
+| `service_inactive` | 410 | Ended or expired service; reader links return 403/410 |
+| `invalid_overlay_key`, `invalid_viewer_key` | 401 (503 when the OBS credential cannot be decrypted) | Wrong-purpose or revoked token |
+| `translation_incomplete` | 422 | Provider output skipped; usage retained |
+| `*_authorization_unavailable`, `translation_usage_unavailable`, viewer capacity | 503 | Room or ledger unavailable, or 250 viewer sockets reached |
 
 ## Limits and remaining validation
 

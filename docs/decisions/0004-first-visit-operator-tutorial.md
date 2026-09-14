@@ -21,8 +21,8 @@ usable but allows it to reappear on reload. Manual replay is always available.
 Each step can close the guide and open its related dashboard panel. Focus moves to the
 panel heading. This navigation performs no setup or service action. Reopening the guide
 returns to the same topic while the page remains loaded; no progress history is persisted.
-An audience-output shortcut opens Mobile viewer for the service controlled by this tab,
-or Live outputs during setup.
+The audience step's shortcut always opens Live outputs, where the mobile viewer link
+is shared.
 
 ## Tradeoffs and verification
 

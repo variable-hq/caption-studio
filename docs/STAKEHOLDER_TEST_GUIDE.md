@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 13 September 2026 for merged Plan 1. Use a protected, verified deployment,
+Reviewed 14 September 2026 for merged PR #33 (`abae57b`), including the service panel. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 

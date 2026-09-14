@@ -1,6 +1,6 @@
 # Contributing
 
-Last reviewed 13 September 2026.
+Last reviewed 14 September 2026 against merged PR #33 (`abae57b`).
 
 Thank you for helping build Church Live Caption. The repository is private and has no
 open-source license; access to collaborate does not grant permission to redistribute

@@ -1,6 +1,7 @@
 # Product specification
 
-Reviewed against merged Plan 1, 13 September 2026. The corrected Cloudflare deploy
+Reviewed against merged PR #33 (`abae57b`), 14 September 2026, including the dashboard
+navigation and collapsible service panel. The corrected 13 September deploy of `20597d8`
 succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -54,8 +55,8 @@ translation setting, requests no microphone permission, and never starts a servi
 2. The operator chooses a browser-visible microphone or audio interface and confirms its
    input level.
 3. The operator selects a spoken language or automatic detection, one target language,
-   and a 6-, 9-, or 12-second speech buffer. The UI explains that more context adds the
-   same amount of caption delay.
+   and a 6-, 9-, or 12-second speech buffer. The UI notes that longer buffers reduce
+   chopped sentences but make captions appear later.
 4. The operator optionally enters bounded keyword/preferred-translation pairs and public
    mask words, and may edit the reviewed operator translation prompt.
 5. The operator configures font, size, colour, line highlight, transparency, position,
@@ -78,9 +79,10 @@ translation setting, requests no microphone permission, and never starts a servi
    captions, and approved mappings.
 4. Deterministic processing applies preferred translations and script-aware whole-term
    masking in the public form. Incomplete provider output is skipped before publication.
-5. The operator sees source and public previews, status, channel-wide overlay sequence,
-   post-recording processing latency, dropped chunks, elapsed service time, and the
-   server-owned reserved transcription-attempt count for the active service.
+5. The operator sees source and public previews, status, post-recording processing
+   latency, dropped chunks, elapsed service time, and the server-owned reserved
+   transcription-attempt count for the active service. Overlay sequence protection is
+   applied internally and is not displayed.
 6. The latest public caption and style are published to the read-only Main OBS channel.
 7. OBS reconnects after temporary channel loss and receives the latest caption.
 8. The operator can Pause capture and AI without changing the OBS URL or expiry, Clear
@@ -91,8 +93,8 @@ translation setting, requests no microphone permission, and never starts a servi
     moderated target text and service status. Confirmed replacement revokes that link
     without changing OBS.
 11. Source/target language, terminology, public filters, buffer duration, and operator
-    prompt remain editable as drafts. After review, the operator confirms **Refresh
-    translation session** to apply them together. Refresh clears unfinished audio, recent
+    prompt remain editable as drafts. The operator selects **Review refresh**, then
+    **Confirm refresh**, to apply them together; **Undo draft changes** discards them. Refresh clears unfinished audio, recent
     translation context, and current output but does not end or extend the service, change
     live/paused state, replace controller ownership, or rotate the mobile/OBS links.
 
@@ -244,19 +246,27 @@ explicit translation refresh used for language, buffer, and prompt changes.
 - Locally adapted React Bits navigation, spotlight, and pending-state glow components add
   restrained hierarchy and feedback without a runtime package dependency; reduced-motion,
   keyboard, coarse-pointer, and touch behavior remain explicit.
-- Setup opens on Overview. A fixed desktop sidebar groups Overview, Audio input,
-  Translation, Appearance, Live outputs, Sermon history, AI usage and AI instructions.
+- Setup opens on Overview. A fixed desktop sidebar lists Overview, Audio input,
+  Translation, Appearance, Live outputs, Sermon history, AI usage and AI instructions
+  under the headings Workspace, Setup, Service and Settings; Arrow, Home and End keys
+  move between links.
   Destinations keep the same order during a service. Below 981px a native modal drawer
   provides the same links, Escape dismissal and focus return; desktop resizing closes it.
 - Section-only URL fragments support direct links, reload and browser Back/Forward.
   In-page navigation keeps translation drafts and the before-Start history choice.
   Reload preserves the destination, not unsaved drafts. Links never include credentials.
-- The overview highlights audio, language and actual OBS verification. Service controls
+- The overview shows spoken/audience language and the service window or elapsed time,
+  three "Before you go live" checks for audio, language and actual OBS verification, a
+  history-consent reminder, and **Review service setup** / **Open service controls**
+  actions. Service controls
   opens an initially collapsed right panel grouping history consent with Start, live
   actions, configuration details and an expandable caption monitor. It docks from 1280px
   and becomes a modal drawer below that width. Escape returns focus to the trigger;
   crossing the breakpoint closes it and restores scrolling. Toggling it does not affect
-  capture or consent. A deliberately opened desktop panel stays open during navigation.
+  capture or consent. A deliberately opened desktop panel stays open during navigation;
+  **View usage** inside it is the exception, closing the panel and opening AI usage.
+  Its More menu offers Copy OBS URL, Copy mobile viewer link, Show test caption and
+  Reveal OBS URL for manual copy.
 - Only Appearance keeps an inline output preview. Other pages have the optional monitor
   in Service controls. Active settings remain distinct from unapplied drafts; detailed
   translation-refresh controls appear in Translation and AI instructions, with a compact
@@ -264,14 +274,19 @@ explicit translation refresh used for language, buffer, and prompt changes.
 - Live outputs groups OBS, latest-viewer and reader/phone sharing into expandable sections.
   Sermon history contains private archives, corrections and summaries. OBS link rotation
   stays disabled during a service; paused test captions remain under More.
-- Cloud AI configured describes configuration, and Main-channel state describes the
-  server room. Neither claims observed OBS connectivity or measured translation quality.
+- Header pills read Checking cloud AI, Cloud AI configured, Cloud setup needed or
+  Cloud AI unavailable, and Checking Main channel, Channel not created or Main channel ·
+  Idle/Live/Paused. They describe configuration and the server room, not observed OBS
+  connectivity or measured translation quality. Channel errors offer **Retry channel**
+  or, when the OBS credential must be rebuilt, **Rotate and recover**.
 - A skip link and workspace-heading focus support keyboard navigation. When Service
   controls is collapsed, a compact sticky bar keeps Pause/Resume and Clear reachable.
-  End stays inside the service panel with a native confirmation dialog; Clear captions
-  blanks OBS and the latest viewer, while preserving committed reader paragraphs.
-- The output monitor tags each displayed caption with its own language, including paused
-  synthetic tests. Subsequent draft language edits do not relabel existing text.
+  End stays inside the service panel with a native confirmation dialog (**Confirm End**
+  or **Keep service open**); **Clear live caption** blanks OBS and the latest viewer,
+  while preserving committed reader paragraphs.
+- The output monitor carries each displayed caption's own `lang` attribute, including
+  paused synthetic tests, without a visible label. Subsequent draft language edits do not
+  relabel existing text.
 - Failed clipboard actions have hidden-by-default manual-copy recovery: OBS in Live
   outputs or More during a service, and the latest audience link in Live outputs.
   More closes with Escape and expands inline on mobile without covering later controls.
@@ -296,13 +311,18 @@ explicit translation refresh used for language, buffer, and prompt changes.
 - The mobile page offers Standard, Large, and Extra large local text sizes without saving
   content or changing OBS styling. English controls retain their language while translated
   captions carry their own language attribute. Connection loss appears when the browser
-  reports socket closure; exhausted retries offer Reconnect. Physical loss-detection
-  delay remains unmeasured. Invalid or revoked links do not offer that recovery.
+  reports socket closure; after eight failed retries the page offers Reconnect, and the
+  OBS overlay stops after twelve. Physical loss-detection delay remains unmeasured.
+  Invalid, replaced or revoked links do not offer that recovery.
 - The mobile page exposes no source caption, history, broadcast style controls, operator state,
   controller token, OBS token, or inference capability. Pause clears it; End, expiry,
   takeover, and replacement revoke it.
-- The shared style persists in the channel; the browser preference remains a fallback.
-  Neither browser storage contains the OBS token.
+- The shared style persists in the channel; **Save as default** keeps a browser
+  fallback in `localStorage` (`church-live-caption:caption-style:v1`), beside the
+  explicitly saved prompt (`church-live-caption:translation-system-prompt:v1`) and the
+  tutorial flag. Neither storage holds the OBS token. The tab's `sessionStorage` holds
+  the controller token, the current mobile viewer link and the active translation
+  snapshot until End, takeover or cleanup; the reader link lives only in page memory.
 
 Pause stops microphone capture, clears queued audio and public display, and blocks late
 caption writes while keeping the original URL and expiry. Resume clears any synthetic
@@ -432,7 +452,11 @@ Plan 1 is implemented under [ADR 0011](decisions/0011-service-history-and-option
 The `/read` audience link is distinct from `/view`; one shared journal job processes at
 most five moderated translation chunks about every 30 seconds. Polling and additional
 viewers make no AI calls. With optional AI off or failed, existing translations are joined.
-With saving off, reader text lives in memory and may be lost on object eviction.
+With saving off, reader text lives in memory and may be lost on object eviction. The
+reader page offers Comfortable, Large and Extra large local text sizes, a skip link to
+the sermon text, and a **New text · Return to live** control when the reader has
+scrolled away from the newest paragraph; sections are labelled by language and
+translation revision, and unphrased fallbacks are marked as original translated chunks.
 
 Clear, Pause and refresh discard pending work and preserve committed paragraphs. The
 reader follows new text only near the bottom; older revisions/languages remain labelled.
@@ -445,6 +469,10 @@ corrections and source-linked reader paragraphs. Confirmed Remove passage exclud
 source IDs and invalidates summaries without deleting originals. If the current live
 caption uses one of those IDs, removal also requests its clearing; it never rewrites OBS.
 Confirmed Delete requires End, removes content and the archive index, and rejects late jobs.
+
+The paired `/operator/mobile` remote offers **Pause captions**, **Resume captions** and
+**Clear live caption**; Resume stays disabled while the capture computer is disconnected,
+and each action reads as pending until the capture computer acknowledges it.
 
 Manual summaries use opted-in, ended history with a frozen source revision. Operators
 select an allowlisted Workers AI model, output language, short/detailed length and up to
