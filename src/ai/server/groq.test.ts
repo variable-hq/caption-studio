@@ -136,6 +136,21 @@ describe("Groq cloud provider prompts", () => {
     expect(messages[0].content).toContain("keep it verbatim in quotation marks");
   });
 
+  it("distinguishes inventing unspoken content from guessing an unclear spoken word", () => {
+    const messages = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+    });
+
+    // The never-invent rule and the bracket-guess rule both mention "names"/"[name]" —
+    // this pins the explicit "said" boundary between them so the two don't collide.
+    expect(messages[0].content).toContain("hallucinate content, Bible verses, doctrine, facts, names, or context beyond what was actually said");
+    expect(messages[0].content).toContain("If a word was said but is unclear or mistranscribed");
+  });
+
   it("requires Traditional Chinese without inventing biblical content", () => {
     const messages = buildTranslationMessages({
       text: "Grace and peace be with you.",
