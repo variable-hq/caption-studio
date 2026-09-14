@@ -1,6 +1,7 @@
 # Security policy
 
-Reviewed 13 September 2026 against merged Plan 1. The deployment retry succeeded;
+Reviewed 14 September 2026 against merged PR #33 (`abae57b`). The 13 September deployment
+retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
 Church Live Caption is a pre-release prototype. Security fixes are supported only on
@@ -129,7 +130,9 @@ production remediation must account for the existing encrypted OBS credential. S
   End, service expiry, and takeover delete the viewer hash and revoke the old link.
 - The page is `no-store`, `noindex`, non-frameable, uses a no-referrer policy, disables
   sensitive browser permissions, renders text with `textContent`, and retries abnormal
-  disconnects only a bounded number of times.
+  disconnects at most eight times with backoff capped at 30 seconds (the OBS overlay
+  stops after twelve). The `/read` and `/operator/mobile` documents carry equivalent
+  `no-store`, no-referrer, `DENY` and permissions headers through `next.config.ts`.
 
 Treat the mobile link as a short-lived bearer credential. Share it only with intended
 viewers, never place it in logs, analytics, screenshots, or public posts, and replace it
@@ -154,7 +157,8 @@ Current behavior:
   and not stored by this application;
 - protected source and translated text remain in active browser memory; explicit
   pre-service opt-in also stores private source and corrections for seven days after End;
-- only the latest moderated public caption is retained ephemerally in the live room;
+- only the latest moderated public caption is kept in the Main room's durable storage
+  until Clear, Pause, refresh, End, expiry or rotation removes it;
 - caption-style preferences, a custom operator prompt explicitly saved by the operator,
   and the first-visit tutorial's dismissal flag use unencrypted browser `localStorage`;
   other translation drafts remain in React/page memory and disappear on reload. The
@@ -226,7 +230,8 @@ setting.
 - Preserve all three SQLite Durable Object bindings and v1/v2 migrations in
   `wrangler.jsonc`, plus AI and assets. Optional AI remains disabled until configured.
 - Keep logs free of audio, captions, prompts, glossary terms, JWTs, OBS URLs, and mobile
-  viewer links.
+  viewer links. Workers observability logging is enabled in `wrangler.jsonc`, so any
+  `console` output is retained by Cloudflare.
 - Review Cloudflare routes after every domain or Access-application change.
 - Test takeover, controller replacement, End-with-link-retention, explicit rotation,
   service expiry, the server-owned ceilings of 900 reserved transcription attempts and
@@ -259,7 +264,7 @@ setting.
 - Avoid raw exception details in public responses.
 
 On 13 September 2026, `npm audit --omit=dev` and full `npm audit` each reported zero
-known vulnerabilities; see [cleanup QA](docs/CLEANUP_DEPLOY_QA.md). Compatible lockfile updates include Nano ID 3.3.18, JS-YAML 4.3.1,
+known vulnerabilities; see [cleanup QA](docs/CLEANUP_DEPLOY_QA.md). Compatible lockfile updates include Nano ID 3.3.18, JS-YAML 4.3.2,
 Wrangler 4.125.0, Miniflare 5.20260820.0-alpha, and Undici 7.29.0. Continue to assess
 findings before updates and never apply `npm audit fix --force` without a compatibility
 review.

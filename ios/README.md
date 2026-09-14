@@ -7,7 +7,7 @@
 
 This directory contains an internal iPhone/iPad TestFlight feasibility shell for the
 Cloudflare-hosted Church Live Caption operator dashboard. It is not a standalone native
-caption engine: Cloudflare Access, AI routes, the Durable Object, and OBS delivery remain
+caption engine: Cloudflare Access, AI routes, the Durable Objects, and OBS delivery remain
 on the protected web backend.
 
 ## Safety boundary

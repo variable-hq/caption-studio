@@ -1,6 +1,7 @@
 # Roadmap
 
-Reviewed 13 September 2026. Status describes source implementation; deployment and
+Reviewed 14 September 2026 against merged PR #33 (`abae57b`). Status describes source
+implementation; deployment and
 church-approved quality require separate evidence.
 
 ## Implemented baseline
@@ -11,6 +12,10 @@ church-approved quality require separate evidence.
   one-time controller/attempt claims and acknowledged usage.
 - Reusable OBS channel, latest-caption viewer, shared styles, safe margins, explicit
   refresh, Pause/Resume/Clear/End, takeover, recovery and link rotation.
+- Overview-first dashboard with grouped sidebar navigation, hash-addressable sections,
+  a phone drawer, and a collapsible right service panel with a compact live bar.
+- Repository deploy guard (`OPEN_NEXT_DEPLOY=true`), deployment dry run in validation,
+  file- and export-level hygiene audits, and `npm run qa:*` wrappers.
 
 ## Plan 1 — merged and deployed, runtime and semantic acceptance pending
 
@@ -36,8 +41,9 @@ real sermon processing. Exact TB2 text retrieval is not implemented.
 
 ## Next release gates
 
-1. Merge the repository deployment guard and documentation cleanup. The connected build
-   retry succeeded; now verify runtime behavior and narrow reader/static Access bypasses.
+1. Record the build ID and Worker version for the latest merge, verify deployed runtime
+   behavior, and narrow reader/static Access bypasses. The deploy guard and documentation
+   cleanup merged in PR #28.
 2. Verify actual provider plans, limits and data controls. Keep optional AI off until
    its availability/privacy/quality checks pass.
 3. Complete [Indonesian→English review](evaluation/ID_EN_REVIEW.md): all 30 samples are

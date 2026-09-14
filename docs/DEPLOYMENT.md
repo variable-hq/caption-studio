@@ -1,6 +1,7 @@
 # Deployment runbook
 
-Reviewed 13 September 2026. This describes the current repository configuration.
+Reviewed 14 September 2026 against merged PR #33 (`abae57b`). This describes the current
+repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
 ## Connected Cloudflare build
@@ -67,6 +68,9 @@ Preserve `custom-worker.ts` as the entry point and all bindings in `wrangler.jso
 | `AI` | Optional Workers AI inference |
 | `ASSETS` | OpenNext static assets |
 
+`observability.enabled` is also set, so Worker logs are retained by Cloudflare; keep
+captions, tokens and links out of `console` output.
+
 Keep both SQLite migrations: v1 creates CaptionRoom; v2 adds SermonJournal and
 AiUsageLedger. Do not rename/delete established migration tags to repair a build.
 
@@ -115,6 +119,18 @@ The connected deploy setting was corrected and the merged build retried. Build
 13 September, for Git `20597d8840f6ae5a88414ef124c85579118c4774`. Cloudflare's deployments
 API verified Worker version `fd21393f-be16-4a63-a2ff-8933b2641474` serving 100% of traffic.
 The previous version was `8112a330-6986-480c-be82-88bcd5d73477`.
+
+| Merge | Content | Recorded deployment |
+| --- | --- | --- |
+| `20597d8` (#26) | Plan 1 | Build `89991f51…`, Worker `fd21393f…`, verified |
+| `5a7a115` (#28) | Deploy guard and documentation cleanup | Not recorded |
+| `26cc8e1` (#30) | Dashboard navigation | Not recorded |
+| `cf8b8c0` (#32) | Collapsible service panel | Not recorded |
+| `abae57b` (#33) | Export hygiene | Not recorded |
+
+Cloudflare Workers Builds should have built each later merge automatically, but no build
+ID or Worker version has been checked or recorded for them. Complete step 2 above for the
+latest merge before the next rehearsal.
 
 All three Durable Object bindings, AI and assets were present in the successful upload.
 Only the connected deploy command was changed; Access policies and runtime settings were

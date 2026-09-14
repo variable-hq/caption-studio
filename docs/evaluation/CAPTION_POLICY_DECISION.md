@@ -19,7 +19,8 @@ Resume. Legacy state invalidates existing reservations because their dispatch hi
 unknown. Fresh reservations preserve service usage and expiry. This conservative policy
 can discard work that had not reached Groq, but prevents replay from spending outside the
 current service state. These controls pass local checks; deployed enforcement remains
-pending the [rehearsal prerequisites](../DEPLOYMENT_REHEARSAL_READINESS.md).
+pending the [deployment runbook](../DEPLOYMENT.md) checks and the
+[stakeholder rehearsal](../STAKEHOLDER_TEST_GUIDE.md).
 
 ## Public word filtering
 

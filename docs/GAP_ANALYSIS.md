@@ -1,7 +1,7 @@
 # Church Live Caption: gap analysis and improvement plan
 
-Reviewed 13 September 2026 against merged `20597d8`. Plan 1 deployed successfully after
-the Access proxy fix. Deployment identity and commands are in [Deployment](DEPLOYMENT.md).
+Reviewed 14 September 2026 against merged PR #33 (`abae57b`). Plan 1 (`20597d8`) deployed
+successfully after the Access proxy fix; later merges have no recorded deployment. Deployment identity and commands are in [Deployment](DEPLOYMENT.md).
 Local checks pass; this is not a production, semantic-quality or accessibility certificate.
 
 ## Assessment
@@ -111,8 +111,9 @@ backups and participant notice need explicit operational review.
 
 ## Next sequence
 
-1. Preserve the successful deploy command in repository scripts and verify actual route
-   boundaries/configuration without weakening Access.
+1. Record the deployment of the latest merge (the deploy command is preserved in
+   `package.json` since PR #28) and verify actual route boundaries/configuration
+   without weakening Access.
 2. Approve the first language corpus and provider/account settings.
 3. Run a short protected rehearsal with the capture computer, separate OBS computer,
    paired operator phone, latest viewer and appending reader.
