@@ -172,11 +172,13 @@ export function TranslationSettingsEditor({
           disabled={disabled}
           aria-describedby={filterHelpId}
           onChange={(event) => onFilterTextChange(event.target.value)}
-          placeholder="Words to mask, separated by commas…"
+          placeholder="word, word=>replacement, word=>!hide…"
         />
       </label>
       <p className="privacyNote" id={filterHelpId}>
         Filtering changes only the public caption. Source text stays in this operator tab.
+        A plain word masks it; <code>word=&gt;replacement</code> substitutes text;
+        <code>word=&gt;!hide</code> blanks the whole caption.
       </p>
     </div>
   );

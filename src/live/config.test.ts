@@ -54,6 +54,19 @@ describe("live caption configuration", () => {
 
   it("bounds operator-supplied moderation and display values", () => {
     expect(parseModerationInput("badword, another")).toHaveLength(2);
+    expect(parseModerationInput("badword")).toEqual([
+      { id: "operator-filter-0", term: "badword", mode: "mask" },
+    ]);
+    expect(parseModerationInput("badword=>darn")).toEqual([
+      { id: "operator-filter-0", term: "badword", mode: "replace", replacement: "darn" },
+    ]);
+    expect(parseModerationInput("badword=>!hide")).toEqual([
+      { id: "operator-filter-0", term: "badword", mode: "hide-segment" },
+    ]);
+    expect(parseModerationInput("badword=>!HIDE")).toEqual([
+      { id: "operator-filter-0", term: "badword", mode: "hide-segment" },
+    ]);
+    expect(parseModerationInput("=>darn")).toEqual([]);
     expect(
       normalizeCaptionStyle({
         fontSize: 500,

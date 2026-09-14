@@ -40,11 +40,23 @@ export function parseGlossaryInput(
 export function parseModerationInput(value: string): ModerationRule[] {
   return entries(value)
     .slice(0, 40)
-    .map((term, index) => ({
-      id: `operator-filter-${index}`,
-      term: term.slice(0, 100),
-      mode: "mask" as const,
-    }));
+    .map((item, index) => {
+      const [termPart, ...actionParts] = item.split("=>");
+      const term = termPart.trim().slice(0, 100);
+      const action = actionParts.join("=>").trim();
+      const id = `operator-filter-${index}`;
+      if (action.toLowerCase() === "!hide") return { id, term, mode: "hide-segment" as const };
+      if (action) return { id, term, mode: "replace" as const, replacement: action.slice(0, 100) };
+      return { id, term, mode: "mask" as const };
+    })
+    .filter(({ term }) => Boolean(term));
+}
+
+/** Combines rule lists (e.g. one per batched caption, each with its own filter-list snapshot), deduped by term+mode+replacement so an unchanged filter across the batch doesn't produce redundant rules. */
+export function mergeModerationRules(ruleLists: readonly ModerationRule[][]): ModerationRule[] {
+  return [...new Map(
+    ruleLists.flat().map((rule) => [JSON.stringify([rule.term, rule.mode, rule.replacement ?? ""]), rule]),
+  ).values()];
 }
 
 export function preferredTermMap(
