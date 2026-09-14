@@ -151,7 +151,7 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | --- | --- |
 | Raw audio and queued chunks | Browser/request memory only; never archived |
 | Draft translation settings | Page memory; active snapshot in tab sessionStorage for recovery |
-| Explicitly saved prompt, style, tutorial dismissal | Unencrypted browser localStorage until cleared; shared channel style also persists |
+| Explicitly saved prompt, summary defaults, style, tutorial dismissal | Unencrypted browser localStorage until cleared; shared channel style also persists |
 | OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
 | Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
 | Latest public caption | Main live state; cleared by controls and End/expiry |
