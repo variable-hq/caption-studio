@@ -1063,6 +1063,8 @@ export default function OperatorDashboard() {
   const promptEditor = (
     <PromptEditor
       value={translationSystemPrompt}
+      sourceLanguage={sourceLanguage}
+      targetLanguage={targetLanguage}
       onChange={updateTranslationSystemPrompt}
       onSaveBrowserDefault={savePromptBrowserDefault}
       onReset={resetPromptToSafeDefault}
