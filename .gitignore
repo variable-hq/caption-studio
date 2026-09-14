@@ -37,9 +37,6 @@ test-results/
 .open-next/
 .wrangler/
 
-# Supabase local state
-.supabase/
-
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts

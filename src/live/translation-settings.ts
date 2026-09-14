@@ -16,7 +16,7 @@ import {
   type SpeechBufferMs,
 } from "@/live/contracts";
 
-export const TRANSLATION_SETTINGS_STORAGE_VERSION = 2;
+const TRANSLATION_SETTINGS_STORAGE_VERSION = 2;
 export const MAX_TERMINOLOGY_INPUT_CHARS = 8_000;
 export const MAX_FILTER_INPUT_CHARS = 4_000;
 
@@ -29,18 +29,18 @@ export interface TranslationSessionSettings {
   translationSystemPrompt: string;
 }
 
-export interface TranslationSessionIdentity {
+interface TranslationSessionIdentity {
   startedAt: string;
   expiresAt: string;
   translationRevision: number;
 }
 
-export interface StoredTranslationSessionSnapshot
+interface StoredTranslationSessionSnapshot
   extends TranslationSessionIdentity {
   settings: TranslationSessionSettings;
 }
 
-export type TranslationSettingsChange =
+type TranslationSettingsChange =
   | "Spoken language"
   | "Translation language"
   | "Speech buffer"

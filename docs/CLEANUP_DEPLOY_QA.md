@@ -84,7 +84,7 @@ were checked manually before any removal.
 | Runtime and development dependencies | Retained; each supports runtime, build, type checking, lint, tests or deployment; no package added |
 
 This establishes file-level reachability and documented purpose, not proof that every
-export is minimal. Build output, local credentials, ignored QA artifacts and dependencies
+export is minimal; the [14 September export audit](EXPORT_HYGIENE_QA.md) covers that. Build output, local credentials, ignored QA artifacts and dependencies
 are excluded from the tracked-file cleanup.
 
 ## Remaining evidence

@@ -916,13 +916,6 @@ input[type="color"] {
   font-weight: 650;
 }
 
-.moreMenu .dangerText {
-  color: var(--ink);
-  background: var(--surface-strong);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
 .moreMenu .confirmationRow {
   align-items: stretch;
 }
