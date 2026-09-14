@@ -1,3 +1,5 @@
+import { escapeRegularExpression, wordBoundaryExpression } from "./text-matching";
+
 export interface ModerationRule {
   id: string;
   term: string;
@@ -13,15 +15,10 @@ interface ModerationResult {
   hidden: boolean;
 }
 
-function escapeRegularExpression(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function ruleExpression(rule: ModerationRule, segmented: boolean) {
-  const escaped = escapeRegularExpression(rule.term);
   return rule.matchInsideWords || segmented
-    ? new RegExp(escaped, "giu")
-    : new RegExp(`(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`, "giu");
+    ? new RegExp(escapeRegularExpression(rule.term), "giu")
+    : wordBoundaryExpression(rule.term);
 }
 
 export function applyModeration(
