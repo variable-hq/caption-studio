@@ -1,7 +1,7 @@
 import type { LlmSessionUsage } from "@/ai/contracts";
 import type { LanguageLocale } from "@/domain/languages";
 
-export const SPEECH_BUFFER_OPTIONS_MS = [6_000, 9_000, 12_000] as const;
+export const SPEECH_BUFFER_OPTIONS_MS = [6_000, 9_000, 12_000, 15_000, 18_000] as const;
 export type SpeechBufferMs = (typeof SPEECH_BUFFER_OPTIONS_MS)[number];
 export const DEFAULT_SPEECH_BUFFER_MS: SpeechBufferMs = 6_000;
 export const MIN_SPEECH_BUFFER_MS = SPEECH_BUFFER_OPTIONS_MS[0];

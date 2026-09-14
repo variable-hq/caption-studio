@@ -22,6 +22,8 @@ const SPEECH_BUFFER_LABELS: Record<SpeechBufferMs, string> = {
   6000: "6 sec · Fast",
   9000: "9 sec · Balanced",
   12000: "12 sec · More context",
+  15000: "15 sec · Longer phrases",
+  18000: "18 sec · Longest context",
 };
 
 interface TranslationSettingsEditorProps {

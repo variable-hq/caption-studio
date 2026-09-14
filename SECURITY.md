@@ -152,7 +152,7 @@ Treat these as sensitive even when the app does not persist them:
 
 Current behavior:
 
-- raw audio is captured in a selected 6-, 9-, or 12-second browser window, forwarded for
+- raw audio is captured in a selected 6- to 18-second browser window, forwarded for
   active inference,
   and not stored by this application;
 - protected source and translated text remain in active browser memory; explicit

@@ -7,7 +7,7 @@ church-approved quality require separate evidence.
 ## Implemented baseline
 
 - Browser capture, selected audio interface, six-step guide, multilingual Whisper/GPT-OSS
-  pipeline, one target at a time, 6/9/12-second buffers and bounded context.
+  pipeline, one target at a time, 6/9/12/15/18-second buffers and bounded context.
 - Reviewed terminology, script-aware public masking, incomplete-output skipping,
   one-time controller/attempt claims and acknowledged usage.
 - Reusable OBS channel, latest-caption viewer, shared styles, safe margins, explicit

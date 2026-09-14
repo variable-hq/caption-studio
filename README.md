@@ -23,7 +23,7 @@ in a compact bar during capture. Appearance keeps its preview beside the editor.
 See the [service-panel design and QA record](docs/SERVICE_PANEL_UX_QA.md) and the
 [earlier dashboard review](docs/DASHBOARD_UI_QA.md).
 
-Implemented: browser audio selection and meter; six-step setup guide; 6-, 9-, or 12-second
+Implemented: browser audio selection and meter; six-step setup guide; 6- to 18-second
 capture; Groq Whisper transcription and contextual GPT-OSS 20B translation; biblical
 name hints, approved recognition aliases, preferred translations and public masking;
 editable translation settings; OBS styles and safe margins; and the service features below.

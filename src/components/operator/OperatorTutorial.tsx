@@ -44,7 +44,7 @@ const STEPS = [
     location: "Translation",
     instructions: [
       "For this rehearsal, select Indonesian as spoken and English as audience language. Check the selections yourself.",
-      "Choose a 6-, 9-, or 12-second buffer. Longer buffers add delay. Add approved terminology and public filter terms if needed.",
+      "Choose a 6- to 18-second buffer. Longer buffers add delay. Add approved terminology and public filter terms if needed.",
       "During a service, choose Review refresh and Confirm refresh to apply draft changes. Check names, numbers, references, and meaning.",
     ],
     section: "translation",

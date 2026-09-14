@@ -49,7 +49,7 @@ injection cases before enabling optional AI. No exact TB2 passage source is auth
 
 The displayed processing metric starts after dequeue and excludes capture time, queue
 wait and audience rendering. Retain content-free timestamps if adding metrics, then
-measure word-onset-to-display and utterance-end-to-display separately. Fixed 6/9/12-second
+measure word-onset-to-display and utterance-end-to-display separately. Fixed 6- to 18-second
 windows and 30-second reader alarms do not guarantee semantic boundaries or a latency SLA.
 Set approved delay/drop thresholds before the duration test.
 

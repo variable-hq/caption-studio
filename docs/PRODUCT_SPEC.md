@@ -55,7 +55,7 @@ translation setting, requests no microphone permission, and never starts a servi
 2. The operator chooses a browser-visible microphone or audio interface and confirms its
    input level.
 3. The operator selects a spoken language or automatic detection, one target language,
-   and a 6-, 9-, or 12-second speech buffer. The UI notes that longer buffers reduce
+   and a 6-, 9-, 12-, 15-, or 18-second speech buffer. The UI notes that longer buffers reduce
    chopped sentences but make captions appear later.
 4. The operator optionally enters bounded keyword/preferred-translation pairs and public
    mask words, and may edit the reviewed operator translation prompt.
@@ -72,7 +72,7 @@ translation setting, requests no microphone permission, and never starts a servi
 
 ### During the service
 
-1. The browser records the active 6-, 9-, or 12-second window at a time.
+1. The browser records the active 6- to 18-second window at a time.
 2. The protected API transcribes the chunk with bounded church/biblical hints.
 3. If source and target differ, the protected API translates with an immutable server
    safety/output envelope, the active bounded operator prompt, up to four recent source
@@ -161,8 +161,10 @@ work belongs to the current phase.
 
 - Browser permission is explicit and the selected input has a visible level meter.
 - Audio is mono with browser echo cancellation and noise suppression requested.
-- The operator chooses a 6-, 9-, or 12-second window. The 6-second default preserves the
-  existing fast path; longer choices can reduce fragmentation but add equal latency.
+- The operator chooses a 6-, 9-, 12-, 15-, or 18-second window. The 6-second default
+  preserves the existing fast path; longer choices can reduce fragmentation but add equal
+  latency. Every option stays inside Whisper's 30-second window and, at the 64 kbps
+  recorder setting, far below the 3 MB audio limit.
 - The active-setting snapshot for each chunk and maximum two-chunk queue bound memory and
   backlog. Pause or confirmed translation refresh discards an unfinished active window,
   so operators should use either control at a natural break.
@@ -341,7 +343,7 @@ named display profiles.
 ### Usage and cost controls
 
 - Active services stop after at most 90 minutes; paused time still counts.
-- Audio windows are 6, 9, or 12 seconds. The server ceiling remains 900 reserved
+- Audio windows are 6, 9, 12, 15, or 18 seconds. The server ceiling remains 900 reserved
   transcription attempts in a 90-minute service, derived from the fastest option.
   Non-silent captions whose source differs from the target can make one additional
   translation call, so there are no more than 900 translation calls. Access is verified
@@ -375,7 +377,7 @@ the 90-minute limit.
 
 Code-level acceptance:
 
-- An operator can select an input, source, target, and 6-, 9-, or 12-second buffer. During
+- An operator can select an input, source, target, and 6- to 18-second buffer. During
   live or paused operation, language, terminology, filter, buffer, and custom-prompt edits
   stay draft until an explicit confirmed translation refresh.
 - The AI usage section separates service time, reserved transcription attempts,
