@@ -23,6 +23,10 @@
     "typecheck": "tsc --noEmit",
     "typecheck:strict": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
     "test": "vitest run",
+    "qa:tutorial": "node scripts/tutorial-qa.mjs",
+    "qa:operator": "node scripts/operator-ui-qa.mjs",
+    "qa:experience": "node scripts/experience-ui-qa.mjs",
+    "qa:runtime": "node scripts/experience-runtime-qa.mjs",
     "validate": "npm test -- --maxWorkers=1 && npm run typecheck:strict && npm run lint && npm run build && npm run build:cloudflare && npm run deploy:check && git diff --check"
   },
   "dependencies": {

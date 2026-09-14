@@ -217,8 +217,8 @@ setting.
   or changed, use the authenticated rotation recovery path and update OBS.
 - Never expose secrets through `NEXT_PUBLIC_` variables or client bundles.
 - Configure and verify both the Access audience and team domain in production.
-- Fail closed when Access is absent or invalid; local authentication bypass is never a
-  production configuration.
+- Fail closed when Access is absent or invalid; the local `CAPTION_LOCAL_AUTH_BYPASS`
+  setting is never a production configuration.
 - Restrict the Access allow policy to approved operator identities and remove former
   collaborators promptly.
 - Keep the Worker on the intended plan and do not introduce paid fallback without an

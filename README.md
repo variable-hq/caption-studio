@@ -173,7 +173,8 @@ npm audit
 
 Validation runs tests with one worker, strict TypeScript, ESLint, both production builds,
 a non-publishing deployment dry run, and whitespace checks sequentially. For visible
-changes, use the browser scripts and isolated Playwright/Axe setup in
+changes, use the `npm run qa:tutorial`, `qa:operator`, `qa:experience` and `qa:runtime`
+scripts with the isolated Playwright/Axe setup in
 [Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md). Run `npm run cf-typegen` after binding changes.
 
 Use the [deployment runbook](docs/DEPLOYMENT.md) for commands, exact Access paths, secrets,

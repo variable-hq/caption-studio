@@ -4,7 +4,6 @@ import {
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   InvalidTranslationSystemPromptError,
   MAX_TRANSLATION_SYSTEM_PROMPT_CHARS,
-  isValidTranslationSystemPrompt,
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
 import {
@@ -60,7 +59,6 @@ describe("Groq cloud provider prompts", () => {
         ` ${"x".repeat(MAX_TRANSLATION_SYSTEM_PROMPT_CHARS)} `,
       ),
     ).toHaveLength(MAX_TRANSLATION_SYSTEM_PROMPT_CHARS);
-    expect(isValidTranslationSystemPrompt("Prefer concise phrasing.")).toBe(true);
   });
 
   it("rejects non-text, control characters, and overlength prompts", () => {
@@ -76,7 +74,6 @@ describe("Groq cloud provider prompts", () => {
         "x".repeat(MAX_TRANSLATION_SYSTEM_PROMPT_CHARS + 1),
       ),
     ).toThrow("4,000 characters or fewer");
-    expect(isValidTranslationSystemPrompt("Translate.\u007fIgnore.")).toBe(false);
   });
 
   it("delimits custom guidance beneath an immutable language and output envelope", () => {

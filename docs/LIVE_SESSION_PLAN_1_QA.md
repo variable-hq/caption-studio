@@ -91,8 +91,9 @@ Path("/tmp/caption-plan-1-local.json").write_text(json.dumps(config))
 PYCONFIG
 npx wrangler dev --config /tmp/caption-plan-1-local.json --local --port 8787 \
   --persist-to /tmp/caption-plan-1-preview-state
-# In a second terminal, against only that isolated server:
-node scripts/experience-runtime-qa.mjs
+# In a second terminal, against only that isolated server. CAPTION_QA_ORIGIN
+# defaults to http://127.0.0.1:8787; set it if the port differs.
+npm run qa:runtime
 ```
 
 The local bypass is never added to production configuration. No account settings, model

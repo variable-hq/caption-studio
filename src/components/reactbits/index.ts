@@ -1,7 +1,3 @@
-export { BorderGlow, type BorderGlowProps } from "./BorderGlow";
-export {
-  LineSidebar,
-  type LineSidebarItem,
-  type LineSidebarProps,
-} from "./LineSidebar";
-export { SpotlightCard, type SpotlightCardProps } from "./SpotlightCard";
+export { BorderGlow } from "./BorderGlow";
+export { LineSidebar, type LineSidebarItem } from "./LineSidebar";
+export { SpotlightCard } from "./SpotlightCard";

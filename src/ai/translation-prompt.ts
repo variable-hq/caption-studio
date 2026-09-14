@@ -52,12 +52,3 @@ export function normalizeTranslationSystemPrompt(value: unknown): string {
   }
   return normalized;
 }
-
-export function isValidTranslationSystemPrompt(value: unknown): boolean {
-  try {
-    normalizeTranslationSystemPrompt(value);
-    return true;
-  } catch {
-    return false;
-  }
-}

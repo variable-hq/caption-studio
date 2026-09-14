@@ -64,8 +64,9 @@ For visible operator-console changes, test at the primary 1920 × 1080 operator 
 then at a 1200px intermediate width and 390px and 320px mobile widths in a real browser.
 Confirm keyboard focus, reachable controls, no horizontal overflow, and continuous
 preview updates while appearance ranges or colours are being changed. Test `/view` at
-both mobile widths when latest-viewer behavior changes; run `scripts/experience-ui-qa.mjs`
-for reader, remote, archive or usage UI changes. Use only synthetic caption text
+both mobile widths when latest-viewer behavior changes; run `npm run qa:experience`
+for reader, remote, archive or usage UI changes. The `qa:*` scripts need
+`CAPTION_QA_TOOLS_DIR` and a local server as described in [Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md). Use only synthetic caption text
 in screenshots or recordings.
 
 ## Branch and commit workflow
