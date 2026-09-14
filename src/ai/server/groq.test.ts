@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
+  ID_EN_ADDRESS_TERM_GUIDANCE,
   InvalidTranslationSystemPromptError,
   MAX_TRANSLATION_SYSTEM_PROMPT_CHARS,
+  isValidTranslationSystemPrompt,
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
 import {
@@ -49,6 +51,15 @@ describe("Groq cloud provider prompts", () => {
     expect(DEFAULT_TRANSLATION_SYSTEM_PROMPT.length).toBeLessThanOrEqual(
       MAX_TRANSLATION_SYSTEM_PROMPT_CHARS,
     );
+  });
+
+  it("offers appendable address-term guidance that distinguishes literal from vocative use, within budget", () => {
+    expect(ID_EN_ADDRESS_TERM_GUIDANCE).toContain("Saudara");
+    expect(ID_EN_ADDRESS_TERM_GUIDANCE).toContain("brothers and sisters");
+    expect(ID_EN_ADDRESS_TERM_GUIDANCE).toContain("actual sibling or family member");
+    const appended = [DEFAULT_TRANSLATION_SYSTEM_PROMPT, ID_EN_ADDRESS_TERM_GUIDANCE].join("\n\n");
+    expect(appended.length).toBeLessThanOrEqual(MAX_TRANSLATION_SYSTEM_PROMPT_CHARS);
+    expect(isValidTranslationSystemPrompt(appended)).toBe(true);
   });
 
   it("trims a custom operator prompt without changing its internal formatting", () => {
@@ -119,7 +130,7 @@ describe("Groq cloud provider prompts", () => {
     });
 
     expect(messages[0].content).toContain("Traditional Chinese");
-    expect(messages[0].content).toContain("Never add, infer, complete");
+    expect(messages[0].content).toContain("Never invent, complete");
     expect(messages[1].content).toContain('"Grace":"恩典"');
   });
 
@@ -385,6 +396,8 @@ describe("Groq cloud provider prompts", () => {
     [undefined, "Missing completion status"],
     ["stop", "  "],
     ["stop", { unexpected: "non-text content" }],
+    ["stop", "As an AI language model, I cannot translate that."],
+    ["stop", "SERVER TRANSLATION ENVELOPE — BEGIN OPERATOR TRANSLATION GUIDANCE (JSON STRING) leaked."],
   ])("strips incomplete %s output while retaining usage for acknowledgement", async (finishReason, content) => {
     vi.stubEnv("GROQ_API_KEY", "test-key");
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({
