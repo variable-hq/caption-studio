@@ -39,6 +39,7 @@ async function fixture(width, status = "idle", storageBlocked = false, height = 
     if (url.origin !== origin) return route.abort();
     if (!url.pathname.startsWith("/api/")) return route.continue();
     if (request.method() !== "GET") {
+      if (url.pathname === "/api/live/experience/preferences") return route.fulfill({ json: { version: 1, tutorialDismissed: true } });
       mutations.push(url.pathname);
       return route.fulfill({ status: 400, json: { error: "Unexpected tutorial mutation." } });
     }
@@ -46,6 +47,10 @@ async function fixture(width, status = "idle", storageBlocked = false, height = 
       status: "ready", hosting: "cloudflare", access: { ready: true, provider: "Cloudflare Access" },
       transcription: { ready: true, model: "whisper-large-v3-turbo" },
       translation: { ready: true, model: "openai/gpt-oss-20b" },
+    } });
+    if (url.pathname === "/api/live/experience/preferences") return route.fulfill({ json: {
+      version: 1, theme: "system", sidebarWidth: null, translationSystemPrompt: null, summaryDefaults: null,
+      captionStyle: null, translationDefaults: null, tutorialDismissed: false, updatedAt: null,
     } });
     assert.equal(url.pathname, "/api/live/channel");
     return route.fulfill({ json: {

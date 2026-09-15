@@ -335,11 +335,13 @@ explicit translation refresh used for language, buffer, and prompt changes.
 - The mobile page exposes no source caption, history, broadcast style controls, operator state,
   controller token, OBS token, or inference capability. Pause clears it; End, expiry,
   takeover, and replacement revoke it.
-- The shared style persists in the channel; **Save as default** keeps a browser
-  fallback in `localStorage` (`church-live-caption:caption-style:v1`), beside the
-  explicitly saved prompt (`church-live-caption:translation-system-prompt:v1`), the
-  explicitly saved summary defaults (`church-live-caption:summary-defaults:v1`) and the
-  tutorial flag. Neither storage holds the OBS token. The tab's `sessionStorage` holds
+- The shared style persists in the channel; **Save as default** also stores the style
+  with the operator's account and keeps a browser fallback in `localStorage`
+  (`church-live-caption:caption-style:v1`), beside the explicitly saved prompt
+  (`church-live-caption:translation-system-prompt:v1`), the explicitly saved summary
+  defaults (`church-live-caption:summary-defaults:v1`) and the tutorial flag. Account
+  values load first on each visit and win over the browser copy; the browser copy is
+  used only when the account store is unavailable. Neither storage holds the OBS token. The tab's `sessionStorage` holds
   the controller token, the current mobile viewer link and the active translation
   snapshot until End, takeover or cleanup; the reader link lives only in page memory.
 
@@ -495,8 +497,8 @@ and each action reads as pending until the capture computer acknowledges it.
 
 Manual summaries use opted-in, ended history with a frozen source revision. Operators
 select an allowlisted Workers AI model, output language, short/detailed length and up to
-2,000 characters of guidance. The **AI summary** settings page holds browser-local
-defaults for those four fields; **Save as browser default** stores them explicitly, and
+2,000 characters of guidance. The **AI summary** settings page holds account
+defaults for those four fields; **Save to my account** stores them explicitly, and
 each Summary assistant request is prefilled from them but still shows and sends its own
 values. The AI usage history disclosures explain that nothing is listed until usage is
 loaded. Server-owned TB2 grounding rules cannot be edited. Bounded

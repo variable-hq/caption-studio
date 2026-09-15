@@ -21,7 +21,9 @@ Back/Forward; switching sections does not start capture or add AI calls.
 controls, and an optional caption preview. It starts closed; Pause/Resume and Clear remain
 in a compact bar during capture. Appearance keeps its preview beside the editor.
 Settings hold **AI instructions** (translation prompt) and **AI summary** (default
-summary model, language, length and guidance, saved per browser on request).
+summary model, language, length and guidance). **Save to my account** stores each with
+the signed-in operator; Translation offers **Save as my default setup** for languages,
+buffer, terminology and filters.
 See the [service-panel design and QA record](docs/SERVICE_PANEL_UX_QA.md) and the
 [earlier dashboard review](docs/DASHBOARD_UI_QA.md).
 
@@ -66,7 +68,9 @@ and **AI usage** for service counters and rolling usage history.
 change during that service. With saving enabled, the private journal retains recognized
 source, separate corrections/exclusions, reader paragraphs, and summary drafts for seven
 days after End or expiry. Authorized operators share the app's archives; ownership is
-not separated by email. No audio is stored.
+not separated by email. Operator configuration (prompt, summary defaults, caption style,
+default translation setup, theme, tutorial dismissal) is saved per signed-in Access email
+and follows the operator between browsers. No audio is stored.
 
 With saving off, source is not archived and reader text lives in object/browser memory.
 Object eviction can lose unreceived paragraphs; durable reload recovery is not promised.
@@ -139,8 +143,9 @@ flowchart LR
 ```
 
 `custom-worker.ts` dispatches live/experience routes before OpenNext and exports all
-three SQLite Durable Objects. `wrangler.jsonc` declares `CAPTION_ROOMS`,
-`SERMON_JOURNALS`, `AI_USAGE`, `AI`, and `ASSETS` plus v1/v2 migrations.
+four SQLite Durable Objects. `wrangler.jsonc` declares `CAPTION_ROOMS`,
+`SERMON_JOURNALS`, `AI_USAGE`, `OPERATOR_PREFERENCES`, `AI`, and `ASSETS` plus v1/v2/v3
+migrations.
 GitHub provides source review; Cloudflare Workers Builds publishes merges to `main`.
 There is no GitHub Actions workflow. See [Architecture](docs/ARCHITECTURE.md).
 

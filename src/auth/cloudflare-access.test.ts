@@ -26,7 +26,7 @@ describe("Cloudflare Access guard", () => {
     vi.stubEnv("CLOUDFLARE_ACCESS_AUD", "");
     vi.stubEnv("CLOUDFLARE_ACCESS_TEAM_DOMAIN", "");
 
-    await expect(requireCloudAccess(new Request("http://localhost"))).resolves.toBeUndefined();
+    await expect(requireCloudAccess(new Request("http://localhost"))).resolves.toEqual({ email: null });
   });
 
   it("requires a signed Access token when deployment values exist", async () => {

@@ -26,6 +26,10 @@
       {
         "name": "AI_USAGE",
         "class_name": "AiUsageLedger"
+      },
+      {
+        "name": "OPERATOR_PREFERENCES",
+        "class_name": "OperatorPreferences"
       }
     ]
   },
@@ -37,6 +41,10 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["SermonJournal", "AiUsageLedger"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["OperatorPreferences"]
     }
   ]
 }

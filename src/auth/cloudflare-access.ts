@@ -46,15 +46,20 @@ export function isCloudAccessConfigured(configuration?: CloudAccessConfiguration
   return Boolean(audience && teamDomain);
 }
 
+export interface CloudAccessIdentity {
+  /** Lower-cased Access email claim, or null when Access is not configured locally. */
+  email: string | null;
+}
+
 export async function requireCloudAccess(
   request: Request,
   configuration?: CloudAccessConfiguration,
-) {
+): Promise<CloudAccessIdentity> {
   const { audience, teamDomain } = accessConfiguration(configuration);
 
   if (!audience || !teamDomain) {
     if (configuration?.allowUnconfigured ?? process.env.NODE_ENV !== "production") {
-      return;
+      return { email: null };
     }
     throw new CloudAccessError(
       "Cloudflare Access is not configured for this deployment.",
@@ -68,10 +73,12 @@ export async function requireCloudAccess(
   }
 
   try {
-    await jwtVerify(token, accessKeys(teamDomain), {
+    const { payload } = await jwtVerify(token, accessKeys(teamDomain), {
       issuer: teamDomain,
       audience,
     });
+    const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+    return { email: email || null };
   } catch {
     throw new CloudAccessError("The Cloudflare Access session is invalid.", 401);
   }

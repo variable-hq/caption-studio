@@ -65,7 +65,7 @@ export function PromptEditor({
           disabled={disabled}
           onClick={onSaveBrowserDefault}
         >
-          Save as browser default
+          Save to my account
         </button>
         <button
           className="secondaryButton"
@@ -85,7 +85,8 @@ export function PromptEditor({
         </button>
       </div>
       <p className="browserStorageNote">
-        A saved browser default uses unencrypted local storage. During a live
+        Saving stores the prompt with your signed-in operator account and keeps an
+        unencrypted local copy in this browser. During a live
         service, the applied prompt also stays in this tab&apos;s unencrypted session
         storage for recovery until End, expiry, or takeover. Do not put private
         sermon notes, credentials, or personal data here.

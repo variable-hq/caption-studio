@@ -98,14 +98,15 @@ export function SummarySettingsEditor({
       </label>
       <div className="promptActions">
         <button className="secondaryButton" type="button" onClick={onSaveBrowserDefault}>
-          Save as browser default
+          Save to my account
         </button>
         <button className="textButton" type="button" onClick={onReset}>
           Reset to defaults
         </button>
       </div>
       <p className="browserStorageNote">
-        A saved browser default uses unencrypted local storage. Guidance may set
+        Saving stores these defaults with your signed-in operator account and keeps an
+        unencrypted local copy in this browser. Guidance may set
         tone, sections and length only. Do not put private sermon notes,
         credentials, or personal data here.
       </p>

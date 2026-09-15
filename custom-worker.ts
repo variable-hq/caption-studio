@@ -7,6 +7,7 @@ import { handleExperienceRequest } from "./src/experience/api";
 export { CaptionRoom } from "./src/live/caption-room";
 export { SermonJournal } from "./src/experience/sermon-journal";
 export { AiUsageLedger } from "./src/experience/usage-ledger";
+export { OperatorPreferences } from "./src/experience/operator-preferences";
 
 export default {
   async fetch(request: Request, env: CloudflareEnv, context: ExecutionContext) {
