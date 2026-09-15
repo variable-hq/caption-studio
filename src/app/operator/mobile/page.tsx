@@ -25,6 +25,10 @@ export default function OperatorMobilePage() {
     const [serviceId, token] = location.hash.slice(1).split(".");
     credential.current = { serviceId, token };
     let cancelled = false;
+    if (!serviceId || !token) {
+      const explain = window.setTimeout(() => setMessage("Not paired. Open this page from the pairing link under Live outputs on the capture computer."), 0);
+      return () => { cancelled = true; window.clearTimeout(explain); };
+    }
     const stop = startSerialPolling(async () => {
       try { const result = await request(); if (!cancelled) { setState(result); setMessage(""); } }
       catch (error) { if (!cancelled) { setState(null); setMessage(error instanceof Error ? error.message : "Connection lost."); } }
@@ -50,7 +54,9 @@ export default function OperatorMobilePage() {
       <div className="buttonGrid"><button className="primaryButton" disabled={!state || busy || pending || (state.status === "paused" && !state.connected)}
         onClick={() => void send(state?.status === "paused" ? "resume" : "pause")}>{busy ? "Sending…" : state?.status === "paused" ? "Resume captions" : "Pause captions"}</button>
         <button className="secondaryButton" disabled={!state || busy || pending} onClick={() => void send("clear")}>Clear live caption</button></div>
-      {state?.command && <p role="status">{state.command.action}: {state.command.status === "pending" ? "Waiting for capture computer acknowledgement" : state.command.status}</p>}
+      {state?.command && <p role="status">{state.command.action}: {state.command.status === "pending"
+        ? state.connected ? "Waiting for capture computer acknowledgement" : "Held until the capture computer reconnects. Reopen the dashboard on the capture computer; controls unlock after it acknowledges."
+        : state.command.status}</p>}
       <p className="helpText">Pause blocks new inference immediately. Microphone stop is confirmed only after the capture computer acknowledges it.</p>
     </section>
   </main>;

@@ -15,9 +15,17 @@ export const viewport: Viewport = {
   ],
 };
 
+// Runs before first paint so an operator who chose Dark does not see a light flash while
+// React hydrates and the account preference loads. Accepts only the two literal values;
+// storage errors (private mode, blocked storage) leave the OS setting in charge.
+const THEME_BOOT_SCRIPT = `try{var t=localStorage.getItem("church-live-caption:theme:v1");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body>{children}</body>
     </html>
   );

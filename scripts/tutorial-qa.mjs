@@ -1,5 +1,5 @@
 import { openDashboardSection, openTutorial, tutorialFocusReturned } from "./dashboard-qa-helpers.mjs";
-// Start npm run dev on port 3100. Set CAPTION_QA_TOOLS_DIR to an isolated directory
+// Start `npm run dev -- --hostname 127.0.0.1 --port 3100`. Set CAPTION_QA_TOOLS_DIR to an isolated directory
 // containing node_modules/playwright and node_modules/@axe-core/playwright.
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";

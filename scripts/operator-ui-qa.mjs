@@ -56,6 +56,19 @@ try {
    violations.push(...axe.violations.map(x=>({section,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
   };
   await check('overview');
+  const barClear=async section=>{
+   await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+   const geometry=await page.evaluate(()=>{
+    const bar=document.querySelector('.dashboardStatusBar').getBoundingClientRect();
+    const controls=[...document.querySelectorAll('.dashboardContent button, .dashboardContent a, .dashboardContent select')].filter(el=>el.getClientRects().length);
+    const lowest=Math.max(...controls.map(el=>el.getBoundingClientRect().bottom));
+    return {lowest:Math.round(lowest),barTop:Math.round(bar.top),barHeight:Math.round(bar.height)};
+   });
+   assert.ok(geometry.lowest<=geometry.barTop,`${width}/${section}: docked bar (${geometry.barHeight}px) covers the lowest control (${geometry.lowest}px > ${geometry.barTop}px)`);
+   await page.evaluate(()=>window.scrollTo(0,0));
+  };
+  await barClear('overview');
   const serviceToggle=page.getByRole('button',{name:'Service controls',exact:true});
   assert.equal(await serviceToggle.getAttribute('aria-expanded'),'false');
   assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).count(),0);
@@ -198,6 +211,7 @@ try {
   assert.equal(await page.getByRole('button',{name:'Show test',exact:true}).count(),0);
   await page.locator('.outputDestination > summary').filter({hasText:'Reader and operator phone'}).click();
   assert.equal(await page.getByRole('button',{name:'Pair operator phone',exact:true}).isEnabled(),true);
+  await barClear('live-outputs');
   await page.getByRole('button',{name:'Pause',exact:true}).click();
   await page.getByRole('button',{name:'Resume',exact:true}).waitFor();
   assert.ok(controls.includes('pause'));
@@ -237,8 +251,9 @@ try {
  console.log(JSON.stringify(results,null,2));
  assert.ok(results.every(r=>r.errors.length===0&&r.violations.length===0));
 } catch(error) {
+ console.error('operator-ui-qa failed:',error?.message??error);
  for(const context of browser.contexts()) for(const page of context.pages()) {
-  await page.screenshot({path:output+'/failure.png'});
+  await page.screenshot({path:output+'/failure.png',timeout:5000}).catch(()=>{});
   console.log(await page.evaluate(()=>({focus:document.activeElement?.outerHTML.slice(0,200),scrollY,bodyOverflow:document.body.style.overflow,panel:document.querySelector('#service-panel')?.getBoundingClientRect().toJSON(),checkbox:document.querySelector('[name=saveTranscript]')?.getBoundingClientRect().toJSON()})));
  }
  throw error;

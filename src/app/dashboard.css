@@ -233,9 +233,9 @@ main.dashboardMain {
   pointer-events: none;
 }
 
-/* Focus and scroll-into-view keep controls clear of the docked bar. */
+/* Focus and scroll-into-view keep controls clear of the docked bar, whatever its measured height. */
 .dashboardContent :where(button, a, input, select, textarea, summary, [tabindex]) {
-  scroll-margin-bottom: 80px;
+  scroll-margin-bottom: calc(var(--dashboard-status-bar-height, 52px) + var(--space-3));
 }
 
 .dashboardStatusBar .statusPill {
@@ -288,7 +288,7 @@ main.dashboardMain {
 .dashboardContent {
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: var(--space-3) max(32px, env(safe-area-inset-right)) calc(52px + var(--space-3) + env(safe-area-inset-bottom)) max(32px, env(safe-area-inset-left));
+  padding: var(--space-3) max(32px, env(safe-area-inset-right)) calc(var(--dashboard-status-bar-height, 52px) + var(--space-3)) max(32px, env(safe-area-inset-left));
 }
 
 .dashboardMain .operatorWorkspace {
@@ -699,7 +699,7 @@ main.dashboardMain {
     padding-inline: var(--space-3);
   }
   .dashboardContent {
-    padding: var(--space-3) max(24px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(24px, env(safe-area-inset-left));
+    padding: var(--space-3) max(24px, env(safe-area-inset-right)) calc(var(--dashboard-status-bar-height, 52px) + var(--space-3)) max(24px, env(safe-area-inset-left));
   }
   .dashboardBreadcrumb > span {
     display: none;
@@ -756,7 +756,7 @@ main.dashboardMain {
     padding-inline: max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-left));
   }
   .dashboardContent {
-    padding: var(--gap-lg) max(16px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(16px, env(safe-area-inset-left));
+    padding: var(--gap-lg) max(16px, env(safe-area-inset-right)) calc(var(--dashboard-status-bar-height, 52px) + var(--gap-lg)) max(16px, env(safe-area-inset-left));
   }
   .dashboardMain .operatorWorkspace {
     margin-top: 0;

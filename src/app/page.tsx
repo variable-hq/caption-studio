@@ -481,6 +481,7 @@ export default function OperatorDashboard() {
   const [viewerCopied, setViewerCopied] = useState(false);
   const [clipboardMessage, setClipboardMessage] = useState("");
   const endDialogRef = useRef<HTMLDialogElement>(null);
+  const statusBarRef = useRef<HTMLElement>(null);
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [confirmViewerReplace, setConfirmViewerReplace] = useState(false);
   const [confirmTakeover, setConfirmTakeover] = useState(false);
@@ -632,6 +633,23 @@ export default function OperatorDashboard() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [confirmTranslationRefresh]);
+
+  useEffect(() => {
+    // The docked bar is fixed and can wrap onto two rows on narrow phones. Publish its
+    // measured height so the content reserve and scroll margins never leave a control
+    // hidden beneath it.
+    const bar = statusBarRef.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const apply = () => root.style.setProperty("--dashboard-status-bar-height", `${Math.ceil(bar.getBoundingClientRect().height)}px`);
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--dashboard-status-bar-height");
+    };
+  }, []);
 
   useEffect(() => {
     const stored = readStoredTheme();
@@ -2212,7 +2230,7 @@ export default function OperatorDashboard() {
         </div>
       </dialog>
       </div>
-      <footer className="dashboardStatusBar" aria-label="Service status">
+      <footer className="dashboardStatusBar" aria-label="Service status" ref={statusBarRef}>
         <span className={`statusPill ${cloudState}`}>
           <span className="statusDot" aria-hidden="true" />
           {cloudState === "checking"
