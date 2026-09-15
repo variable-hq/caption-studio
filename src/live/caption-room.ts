@@ -8,6 +8,7 @@ import { isLanguageLocale } from "@/domain/languages";
 import {
   MAX_CAPTION_EVENTS,
   MAX_LIVE_SESSION_MS,
+  MAX_MANUAL_CAPTION_CHARS,
   MAX_TRANSCRIPTION_REQUESTS,
   isLiveSessionControlAction,
   isTranslationRefreshRequestId,
@@ -1287,6 +1288,43 @@ export class CaptionRoom {
         };
       }
 
+      if (action === "manual") {
+        if (configuration.status !== "paused") return { kind: "invalid" };
+        if (!body.targetLanguage || !isLanguageLocale(body.targetLanguage)) {
+          return { kind: "invalid" };
+        }
+        const manualText =
+          typeof body.manualText === "string" ? body.manualText.trim() : "";
+        if (!manualText || manualText.length > MAX_MANUAL_CAPTION_CHARS) {
+          return { kind: "invalid" };
+        }
+        const style = normalizeCaptionStyle(body.style ?? configuration.style);
+        const caption: PublicCaptionEvent = {
+          sequence: configuration.lastSequence + 1,
+          publicText: manualText,
+          targetLanguage: body.targetLanguage,
+          style,
+          translationRevision: configuration.translationRevision,
+          publishedAt: new Date().toISOString(),
+        };
+        configuration.lastSequence = caption.sequence;
+        configuration.style = style;
+        await Promise.all([
+          transaction.put("configuration", configuration),
+          transaction.put("latest", caption),
+        ]);
+        return {
+          kind: "ok",
+          value: {
+            action,
+            status: configuration.status,
+            translationRevision: configuration.translationRevision,
+            sequence: caption.sequence,
+            caption,
+          },
+        };
+      }
+
       if (action === "pause") {
         if (configuration.status !== "live" && configuration.status !== "paused") {
           return expired
@@ -1351,6 +1389,22 @@ export class CaptionRoom {
         this.broadcastOverlay({ type: "caption", caption });
       }
     }
+    let historyIncomplete: boolean | undefined;
+    if (action === "manual" && caption && this.env?.SERMON_JOURNALS) {
+      const current = await this.state.storage.get<ChannelConfiguration>("configuration");
+      if (current?.serviceId) {
+        try {
+          const recorded = await rpc(this.env.SERMON_JOURNALS, current.serviceId, "/note", {
+            id: caption.sequence,
+            text: caption.publicText,
+            targetLanguage: caption.targetLanguage,
+          });
+          if (!recorded.ok) throw new Error("Note append failed.");
+        } catch {
+          historyIncomplete = true;
+        }
+      }
+    }
     if (action === "pause" || action === "resume") {
       this.broadcastPublic({
         type: "state",
@@ -1363,7 +1417,7 @@ export class CaptionRoom {
     }
     const { caption: omitted, ...response } = result.value;
     void omitted;
-    return json(response);
+    return json(historyIncomplete ? { ...response, historyIncomplete } : response);
   }
 
   private async updateStyle(request: Request) {

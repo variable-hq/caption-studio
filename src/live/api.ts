@@ -13,6 +13,7 @@ import {
 import { captionTokenHash } from "@/live/caption-room";
 import {
   MAIN_CHANNEL_ID,
+  MAX_MANUAL_CAPTION_CHARS,
   MAX_TRANSCRIPTION_REQUESTS,
   isLiveSessionControlAction,
   isTranslationRefreshRequestId,
@@ -505,6 +506,19 @@ async function controlChannel(request: Request, env: LiveWorkerEnvironment) {
     }
     control.targetLanguage = body.targetLanguage;
     control.style = optionalStyle(body.style);
+  } else if (body.action === "manual") {
+    if (
+      !body.targetLanguage ||
+      !isLanguageLocale(body.targetLanguage) ||
+      typeof body.manualText !== "string" ||
+      !body.manualText.trim() ||
+      body.manualText.length > MAX_MANUAL_CAPTION_CHARS
+    ) {
+      throw new InvalidRequestBodyError();
+    }
+    control.targetLanguage = body.targetLanguage;
+    control.style = optionalStyle(body.style);
+    control.manualText = body.manualText;
   } else if (body.action === "refresh-translation") {
     if (
       !Number.isSafeInteger(body.expectedTranslationRevision) ||

@@ -302,7 +302,8 @@ explicit translation refresh used for language, buffer, and prompt changes.
   connectivity or measured translation quality. Channel errors offer **Retry channel**
   or, when the OBS credential must be rebuilt, **Rotate and recover**.
 - A skip link and workspace-heading focus support keyboard navigation. When Service
-  controls is collapsed, a compact sticky bar keeps Pause/Resume and Clear reachable.
+  controls is collapsed, a compact sticky bar keeps Pause/Resume and Clear reachable;
+  while paused, it also offers a Manual caption field.
   End stays inside the service panel with a native confirmation dialog (**Confirm End**
   or **Keep service open**); **Clear live caption** blanks OBS and the latest viewer,
   while preserving committed reader paragraphs.
@@ -355,6 +356,13 @@ Pause stops microphone capture, clears queued audio and public display, and bloc
 caption writes while keeping the original URL and expiry. Resume clears any synthetic
 test before capture restarts. Clear does not pause capture, so the next valid live
 caption may replace the blank display.
+
+While paused, a Manual caption control can show operator-typed text (up to 240
+characters, no AI translation involved) in the session's current target language to OBS
+and the latest viewer, in place of the hidden translation. Resume or Clear removes
+it the same way a synthetic test is cleared. Unlike a synthetic test, a manual caption is
+also recorded as a separate operator note in the appending reader and archive, since it
+is real service content rather than a connectivity check.
 
 Translation refresh is distinct from Pause, reload, and End. It keeps the original service
 identity, timer, controller, mobile viewer, OBS link, usage count, and live/paused state;
@@ -489,12 +497,17 @@ Clear, Pause and refresh discard pending work and preserve committed paragraphs.
 reader follows new text only near the bottom; older revisions/languages remain labelled.
 End grants 30 minutes of reading grace. Takeover, replacement and archive deletion revoke
 access immediately on the server; disconnected clients reflect it on successful polling.
+Manual captions shown while paused appear as separate operator notes, interleaved by
+timestamp for display but stored independently of paragraphs; they are not batched,
+reprocessed by optional AI phrasing, or reapplied against glossary/filter rules, since
+the operator already typed final text.
 
 History saving is off by default and cannot be enabled after Start. Saved records expire
 seven days after End/expiry. Archive pages expose private original source, separate
-corrections and source-linked reader paragraphs. Confirmed Remove passage excludes its
-source IDs and invalidates summaries without deleting originals. If the current live
-caption uses one of those IDs, removal also requests its clearing; it never rewrites OBS.
+corrections, source-linked reader paragraphs, and any operator notes. Confirmed Remove
+passage excludes its source IDs and invalidates summaries without deleting originals. If
+the current live caption uses one of those IDs, removal also requests its clearing; it
+never rewrites OBS.
 Confirmed Delete requires End, removes content and the archive index, and rejects late jobs.
 
 The paired `/operator/mobile` remote offers **Pause captions**, **Resume captions** and

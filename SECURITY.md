@@ -158,7 +158,9 @@ Current behavior:
 - protected source and translated text remain in active browser memory; explicit
   pre-service opt-in also stores private source and corrections for seven days after End;
 - only the latest moderated public caption is kept in the Main room's durable storage
-  until Clear, Pause, refresh, End, expiry or rotation removes it;
+  until Clear, Pause, refresh, End, expiry or rotation removes it; a paused synthetic test
+  or operator-typed manual caption occupies that same slot instead, unmoderated, since
+  neither is transcribed audience speech;
 - caption-style preferences, a custom operator prompt, default summary configuration, a
   default translation setup, theme and tutorial dismissal explicitly saved by the operator
   are stored with the operator's account in the `OperatorPreferences` Durable Object,

@@ -31,6 +31,9 @@ records to establish release evidence.
 - [ADR 0004](decisions/0004-first-visit-operator-tutorial.md) describes the operator guide.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator instead of the deterministic filter alone.
+- [ADR 0013](decisions/0013-manual-caption-archived-as-operator-notes.md) records why a
+  paused manual caption is archived as a separate operator note instead of a transcript
+  paragraph, and why the synthetic show-test caption is not archived at all.
 - [Caption policy](evaluation/CAPTION_POLICY_DECISION.md) describes completion and filtering.
 - [Indonesian→English review](evaluation/ID_EN_REVIEW.md) and its
   [synthetic fixtures](evaluation/id-en-synthetic.json) remain unscored.

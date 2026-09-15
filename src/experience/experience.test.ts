@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SermonJournal, parseSummary } from "./sermon-journal";
 import { AiUsageLedger } from "./usage-ledger";
-import { DAY, HISTORY_RETENTION, READER_GRACE, SUMMARY_MODELS, type ExperienceEnvironment, type JournalState, type Namespace, type UsageRecord } from "./contracts";
+import { DAY, HISTORY_RETENTION, MAX_JOURNAL_NOTES, READER_GRACE, SUMMARY_MODELS, type ExperienceEnvironment, type JournalState, type Namespace, type UsageRecord } from "./contracts";
 import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
 import { normalizeCaptionStyle } from "@/live/contracts";
 import { handleExperienceRequest } from "./api";
@@ -51,6 +51,7 @@ function snapshot(saved = true): JournalState {
 const input = (id: number, text = "Synthetic translated sermon.", epoch = 0) => ({
   id, publicText: text, targetLanguage: "en", epoch, translationRevision: 1, filterText: "", keywordText: "",
 });
+const note = (id: number, text = "Synthetic operator note.") => ({ id, text, targetLanguage: "en" });
 async function fixture(saved = true, env: ExperienceEnvironment = {}) {
   const storage = new Storage(); const journal = new SermonJournal(state(storage), env);
   const initial = snapshot(saved); await journal.fetch(request("/sync", initial));
@@ -117,6 +118,55 @@ describe("sermon journals", () => {
     await journal.fetch(request("/remove", { id: 1 }));
     const body = await (await journal.fetch(request("/archive"))).json() as { summary: unknown; sources: unknown[] };
     expect(body.summary).toBeNull(); expect(body.sources).toEqual([expect.objectContaining({ text: "Private original", excluded: true })]);
+  });
+  it("archives an operator note separately from batched reader paragraphs", async () => {
+    const { journal, storage } = await fixture();
+    await journal.fetch(request("/append", input(1, "Committed paragraph"))); await journal.alarm();
+    await journal.fetch(request("/note", note(1, "We will resume after the offering.")));
+    const read = await (await journal.fetch(request("/read", undefined, { "x-reader-hash": readerHash }))).json();
+    expect(read).toMatchObject({
+      paragraphs: [{ text: "Committed paragraph" }],
+      notes: [{ text: "We will resume after the offering." }],
+    });
+    const archive = await (await journal.fetch(request("/archive"))).json();
+    expect(archive).toMatchObject({ notes: [{ text: "We will resume after the offering." }] });
+    expect(JSON.stringify([...storage.values])).toContain("We will resume after the offering.");
+  });
+  it("keeps an unsaved note in memory only and exposes just the latest one", async () => {
+    const { journal, storage } = await fixture(false);
+    await journal.fetch(request("/note", note(1, "First note")));
+    await journal.fetch(request("/note", note(2, "Second note")));
+    expect(JSON.stringify([...storage.values])).not.toContain("First note");
+    const read = await (await journal.fetch(request("/read", undefined, { "x-reader-hash": readerHash }))).json();
+    expect(read).toMatchObject({ notes: [{ text: "Second note" }] });
+  });
+  it("rejects invalid or duplicate notes and ignores notes after End", async () => {
+    const { journal, initial } = await fixture();
+    expect((await journal.fetch(request("/note", { id: 1, text: "  ", targetLanguage: "en" }))).status).toBe(400);
+    expect((await journal.fetch(request("/note", { id: 1, text: "x".repeat(2001), targetLanguage: "en" }))).status).toBe(400);
+    expect(await (await journal.fetch(request("/note", note(1, "First")))).json()).toMatchObject({ accepted: true });
+    expect(await (await journal.fetch(request("/note", note(1, "Duplicate")))).json()).toMatchObject({ duplicate: true });
+    await journal.fetch(request("/sync", { ...initial, status: "ended", endedAt: Date.now() }));
+    expect(await (await journal.fetch(request("/note", note(2, "Too late")))).json()).toMatchObject({ ignored: true });
+  });
+  it("caps stored operator notes and keeps rejecting once the limit is reached", async () => {
+    const { journal } = await fixture();
+    for (let id = 1; id <= MAX_JOURNAL_NOTES; id++) {
+      expect(await (await journal.fetch(request("/note", note(id, `Note ${id}`)))).json()).toMatchObject({ accepted: true });
+    }
+    expect((await journal.fetch(request("/note", note(MAX_JOURNAL_NOTES + 1, "One too many")))).status).toBe(409);
+    const read = await (await journal.fetch(request("/read", undefined, { "x-reader-hash": readerHash }))).json() as { notes: unknown[] };
+    expect(read.notes).toHaveLength(MAX_JOURNAL_NOTES);
+  });
+  it("flushes trailing pending speech before a note so timestamps stay in speech order", async () => {
+    const { journal } = await fixture();
+    await journal.fetch(request("/append", input(1, "Trailing words before the pause")));
+    await journal.fetch(request("/note", note(2, "We will resume after the offering.")));
+    const read = await (await journal.fetch(request("/read", undefined, { "x-reader-hash": readerHash }))).json() as {
+      paragraphs: { at: number; text: string }[]; notes: { at: number; text: string }[];
+    };
+    expect(read.paragraphs).toMatchObject([{ text: "Trailing words before the pause" }]);
+    expect(read.paragraphs[0].at).toBeLessThanOrEqual(read.notes[0].at);
   });
   it("revokes reader access after grace while retaining private source for seven days", async () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-13T00:00:00Z"));
@@ -203,8 +253,49 @@ describe("remote control and clear boundaries", () => {
     const started = await room.fetch(request("/internal/service", { controllerHash, viewerTokenHash: "d".repeat(64), readerHash, saveHistory: true, takeover: false }));
     expect(started.status).toBe(200);
     const details = await storage.get<{ serviceId: string }>("configuration");
-    return { room, storage, controllerHash, serviceId: details!.serviceId };
+    return { room, storage, controllerHash, serviceId: details!.serviceId, journals };
   }
+  it("archives a manual caption as an operator note while paused", async () => {
+    const { room, controllerHash, serviceId, journals } = await fixture();
+    await room.fetch(request("/internal/control", { action: "pause", controllerHash }));
+    const response = await room.fetch(request("/internal/control", {
+      action: "manual", controllerHash, targetLanguage: "en", manualText: "We will resume after the offering.",
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.clone().json()).not.toMatchObject({ historyIncomplete: true });
+    const read = await (await journals.get(serviceId)!.fetch(
+      request("/read", undefined, { "x-reader-hash": readerHash }),
+    )).json();
+    expect(read).toMatchObject({ notes: [{ text: "We will resume after the offering." }] });
+  });
+  it("does not archive a show-test caption even while paused", async () => {
+    const { room, controllerHash, serviceId, journals } = await fixture();
+    await room.fetch(request("/internal/control", { action: "pause", controllerHash }));
+    const response = await room.fetch(request("/internal/control", {
+      action: "show-test", controllerHash, targetLanguage: "en", style: {},
+    }));
+    expect(response.status).toBe(200);
+    const read = await (await journals.get(serviceId)!.fetch(
+      request("/read", undefined, { "x-reader-hash": readerHash }),
+    )).json() as { notes: unknown[] };
+    expect(read.notes).toEqual([]);
+  });
+  it("surfaces historyIncomplete when the journal rejects a manual caption's note", async () => {
+    const { room, controllerHash, serviceId, journals } = await fixture();
+    const journal = journals.get(serviceId)!;
+    for (let id = 1; id <= MAX_JOURNAL_NOTES; id++) {
+      await journal.fetch(request("/note", note(id, `Note ${id}`)));
+    }
+    await room.fetch(request("/internal/control", { action: "pause", controllerHash }));
+    for (let i = 0; i < MAX_JOURNAL_NOTES; i++) {
+      await room.fetch(request("/internal/control", { action: "show-test", controllerHash, targetLanguage: "en", style: {} }));
+    }
+    const response = await room.fetch(request("/internal/control", {
+      action: "manual", controllerHash, targetLanguage: "en", manualText: "One too many.",
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ historyIncomplete: true });
+  });
   it("rejects an old caption after Clear and accepts the new lease boundary", async () => {
     const { room, controllerHash } = await fixture();
     await room.fetch(request("/internal/control", { controllerHash, action: "clear" }));

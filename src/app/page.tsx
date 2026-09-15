@@ -8,6 +8,7 @@ import {
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
 import { AiUsageDashboard } from "@/components/operator/AiUsageDashboard";
+import { ManualCaptionControl } from "@/components/operator/ManualCaptionControl";
 import { OperatorTutorial } from "@/components/operator/OperatorTutorial";
 import { PromptEditor } from "@/components/operator/PromptEditor";
 import { QuickBlockControl } from "@/components/operator/QuickBlockControl";
@@ -569,6 +570,7 @@ export default function OperatorDashboard() {
     removeQuickBlock,
     rememberReaderLink,
     showTestCaption,
+    showManualCaption,
     refreshTranslationSession,
     stopSession,
     reloadChannel,
@@ -1363,6 +1365,13 @@ export default function OperatorDashboard() {
         onRemove={removeQuickBlock}
         disabled={isBusy}
       />
+      {isPaused && (
+        <ManualCaptionControl
+          disabled={isBusy || controlAction !== null}
+          busy={controlAction === "manual"}
+          onShow={(text) => void showManualCaption(text)}
+        />
+      )}
     </>
   );
   const captionPreview = (

@@ -13,7 +13,7 @@ physical-device, provider-output or semantic acceptance.
 | Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
 | `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, remote commands and archive index |
-| `SermonJournal` | One service's source/corrections/exclusions, reader paragraphs, lifecycle checkpoints and manual summary jobs |
+| `SermonJournal` | One service's source/corrections/exclusions, reader paragraphs, operator notes, lifecycle checkpoints and manual summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
 | `OperatorPreferences` | One object per hashed Access email: theme, sidebar width, saved prompt, summary defaults, caption style, default translation setup and tutorial dismissal |
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
@@ -76,14 +76,14 @@ still consumes its claim; it cannot be replayed to spend again.
 | `GET`/`POST /api/live/channel` | Access | Read or create the Main channel |
 | `POST /api/live/channel/service`, `DELETE …/service` | Access | Start/takeover and End |
 | `POST …/lease`, `POST …/caption` | Access + controller | Reserve an attempt; publish one moderated caption (8,192 bytes) |
-| `POST …/control` | Access + controller | `pause`, `resume`, `clear`, `show-test`, `refresh-translation` |
+| `POST …/control` | Access + controller | `pause`, `resume`, `clear`, `show-test`, `manual`, `refresh-translation` |
 | `PUT …/style`, `POST …/rotate`, `POST …/viewer/rotate` | Access | Shared style; OBS rotation; viewer replacement (4,096-byte bodies) |
 | `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol | OBS and latest-viewer WebSockets |
 | `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation |
 | `GET`/`POST`/`DELETE …/experience/preferences` | Access | The signed-in operator's saved configuration; POST merges a partial record, `null` clears a field |
 | `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index, one sermon's private archive |
 | `POST …/sermons/{id}/summary`, `…/remove`, `…/correct`, `…/delete` | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion |
-| `GET /api/live/reader` | `x-caption-reader` header | Appending reader paragraphs, 50 per poll |
+| `GET /api/live/reader` | `x-caption-reader` header | Appending reader paragraphs and operator notes, 50 per poll |
 
 Experience JSON bodies are limited to 32,768 bytes. Groq calls time out after 30 seconds
 for audio and 15 seconds for chat; Durable Object calls after 8 seconds.
@@ -125,7 +125,13 @@ The room owns server sequence numbers, translation revisions and Clear epochs. C
 blanks current output without pausing capture, rejects old publication, and drops pending
 reader work. Pause/refresh also create boundaries; committed reader paragraphs remain.
 Refresh adopts reviewed drafts without replacing credentials, resetting usage, or
-extending the original 90-minute expiry.
+extending the original 90-minute expiry. A paused room additionally accepts one `manual`
+control per request, reusing the same latest-caption/broadcast path as `show-test`; a
+successful one is also forwarded to the journal's `/note` endpoint best-effort, so a
+journal outage degrades to `historyIncomplete` rather than blocking the live broadcast.
+The journal caps stored operator notes at 50 per service and flushes any already-spoken,
+not-yet-committed reader text before recording one, so a note cannot appear ahead of
+speech that happened before it.
 
 The capture computer polls paired remote status about every two seconds. Server-side
 remote Pause blocks claims before the host acknowledges physical capture stopping.
