@@ -43,7 +43,11 @@ and its native/signing checklists are not web release gates.
    actual zoom, reduced motion and an assistive-technology user where available. No control,
    dialog or long record should create horizontal page overflow or hide the next action.
    Verify the grouped sidebar and phone navigation drawer, Escape/focus return, section
-   bookmarks and browser Back/Forward. Confirm drafts and the history checkbox survive
+   bookmarks and browser Back/Forward. Switch **Theme** to Dark and back to Light: text,
+   status chips, focus outlines and the caption preview must stay readable, and the OBS
+   overlay must stay transparent. Resize the sidebar with the handle and with arrow keys,
+   reload, and confirm the width and theme return from the account.
+   Confirm drafts and the history checkbox survive
    in-page navigation, and no navigation action starts capture.
    Service controls should start collapsed. Open/close its right panel, test keyboard
    focus and resizing across 1280px, and confirm capture continues when it is closed.

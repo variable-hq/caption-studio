@@ -51,10 +51,12 @@ function persistSidebarWidth(width: number) {
   }
 }
 
-export function DashboardNavigation({ items, activeId, onSelect, onWidthChange }: {
+export function DashboardNavigation({ items, activeId, onSelect, width: accountWidth = null, onWidthChange }: {
   items: readonly LineSidebarItem[];
   activeId: string;
   onSelect: (id: string) => void;
+  /** Width saved with the operator's account; when it changes it replaces the local width. */
+  width?: number | null;
   /** Called whenever the desktop rail width (px) changes, including the cached value on mount. */
   onWidthChange?: (width: number) => void;
 }) {
@@ -65,6 +67,16 @@ export function DashboardNavigation({ items, activeId, onSelect, onWidthChange }
   const [open, setOpen] = useState(false);
   const [width, setWidth] = useState(SIDEBAR_WIDTH_DEFAULT);
   const [resizing, setResizing] = useState(false);
+  const [appliedAccountWidth, setAppliedAccountWidth] = useState(accountWidth);
+  if (appliedAccountWidth !== accountWidth) {
+    // Derived state: a newly loaded account width replaces the cached local width.
+    setAppliedAccountWidth(accountWidth);
+    if (accountWidth !== null) {
+      const clamped = normalizeSidebarWidth(accountWidth);
+      setWidth(clamped);
+      persistSidebarWidth(clamped);
+    }
+  }
 
   useEffect(() => {
     widthChangeRef.current = onWidthChange;

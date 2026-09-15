@@ -60,8 +60,11 @@ capture, WebSockets, service expiry, and controller takeover still need a protec
 Cloudflare rehearsal. After changing bindings, run `npm run cf-typegen` and review the
 generated diff before committing it.
 
-For visible operator-console changes, test at the primary 1920 × 1080 operator viewport,
-then at a 1200px intermediate width and 390px and 320px mobile widths in a real browser.
+For visible operator-console changes, use the tokens and shared control classes in the
+[design system](docs/DESIGN_SYSTEM.md); do not add hard-coded colours or one-off button
+styles. Test in both the light and dark themes at the primary 1920 × 1080 operator
+viewport, then at a 1200px intermediate width and 390px and 320px mobile widths in a
+real browser.
 Confirm keyboard focus, reachable controls, no horizontal overflow, and continuous
 preview updates while appearance ranges or colours are being changed. Test `/view` at
 both mobile widths when latest-viewer behavior changes; run `npm run qa:experience`
