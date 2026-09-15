@@ -360,6 +360,8 @@ code {
 .readerParagraph, .archiveRecords article { margin-block: var(--space-3); content-visibility: auto; contain-intrinsic-size: auto 160px; }
 .readerParagraph small, .summaryDraft small { display: block; font-size: 13px; color: var(--muted); }
 .readerParagraph .eyebrow { font-size: 12px; }
+.readerNote { margin-block: var(--space-3); padding: var(--space-1) var(--space-2); border-left: 3px solid var(--line-strong); background: var(--surface-muted); border-radius: var(--radius-sm); font-style: italic; color: var(--muted); }
+.readerNote strong { font-style: normal; }
 .returnToLive { position: fixed; bottom: max(20px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); box-shadow: var(--shadow-elevated); }
 .emptyState { padding-block: var(--space-3); color: var(--muted); }
 .usageHistoryRow { border-top: 1px solid var(--line); padding-top: var(--space-2); font-variant-numeric: tabular-nums; }

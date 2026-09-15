@@ -1792,8 +1792,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         );
         setLiveState((state) => ({
           ...state,
-          message: "Manual caption shown. Resume clears it before live audio restarts.",
+          message: response.historyIncomplete
+            ? "Manual caption shown, but it could not be saved to the sermon archive."
+            : "Manual caption shown. Resume clears it before live audio restarts.",
           sequence: response.sequence ?? state.sequence,
+          historyIncomplete: state.historyIncomplete || response.historyIncomplete === true,
           latestSourceText: "",
           latestPublicText: manualText,
           latestPublicLanguage: targetLanguage,

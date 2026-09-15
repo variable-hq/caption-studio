@@ -63,6 +63,7 @@ export interface LiveSessionControlResponse {
   status: Exclude<ChannelStatus, "unconfigured">;
   translationRevision: number;
   sequence?: number;
+  historyIncomplete?: boolean;
 }
 
 export interface PublicCaptionRequest {

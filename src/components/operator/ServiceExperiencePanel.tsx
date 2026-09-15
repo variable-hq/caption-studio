@@ -2,11 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { LiveServiceDetails } from "@/live/contracts";
 import { experienceRequest } from "@/experience/client";
-import { HISTORY_RETENTION, SUMMARY_MODELS, type JournalState, type ReaderParagraph, type SourceRecord, type SummaryJob, type SummaryModel, type SummaryOptions } from "@/experience/contracts";
+import { HISTORY_RETENTION, SUMMARY_MODELS, type JournalState, type ReaderNote, type ReaderParagraph, type SourceRecord, type SummaryJob, type SummaryModel, type SummaryOptions } from "@/experience/contracts";
 import { DEFAULT_SUMMARY_OPTIONS } from "@/experience/summary-defaults";
 import { LANGUAGE_OPTIONS } from "@/domain/languages";
 
-interface Archive { details: Omit<JournalState, "readerHash">; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
+interface Archive { details: Omit<JournalState, "readerHash">; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
 interface ServiceEntry { id: string; startedAt: number }
 
 export function ServiceExperiencePanel({ view, service, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; service: LiveServiceDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
@@ -121,6 +121,8 @@ export function ServiceExperiencePanel({ view, service, onReaderLink, summaryDef
         const result = await experienceRequest<Archive>(`sermons/${archive.details.id}/archive?paragraphAfter=${archive.paragraphs.at(-1)?.id ?? 0}`);
         setArchive({ ...archive, paragraphs: [...archive.paragraphs, ...result.paragraphs], moreParagraphs: result.moreParagraphs });
       })}>Load more reader passages</button>}</details>
+      {archive.notes.length > 0 && <details><summary>Operator notes ({archive.notes.length})</summary>{archive.notes.map((note) => <article key={note.id} className="readerNote">
+        <p>{note.text}</p></article>)}</details>}
       {correction && <div className="experienceCard"><label>Reviewed source correction<textarea name="sourceCorrection" autoComplete="off" value={correction.text} maxLength={4000} rows={4} onChange={(event) => setCorrection({ ...correction, text: event.target.value })} /></label>
         <p>Original source stays private. Saving invalidates derived summaries; committed reader text needs a separate removal.</p>
         <div className="buttonGrid"><button className="secondaryButton" onClick={() => setCorrection(null)}>Cancel correction</button>

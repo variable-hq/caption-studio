@@ -5,6 +5,7 @@ export const HISTORY_RETENTION = 7 * DAY;
 export const USAGE_RETENTION = 30 * DAY;
 export const READER_GRACE = 30 * 60_000;
 export const READER_INTERVAL = 30_000;
+export const MAX_JOURNAL_NOTES = 50;
 export const SUMMARY_MODELS = [
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   "@cf/meta/llama-3.1-8b-instruct-fp8",
@@ -80,6 +81,13 @@ export interface ReaderParagraph {
   at: number;
   fallback: boolean;
   removed?: boolean;
+}
+/** An operator's manual caption, archived separately from the batched translation paragraphs. */
+export interface ReaderNote {
+  id: number;
+  text: string;
+  language: string;
+  at: number;
 }
 export interface SummaryOptions {
   model: SummaryModel;

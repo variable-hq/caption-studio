@@ -1389,6 +1389,22 @@ export class CaptionRoom {
         this.broadcastOverlay({ type: "caption", caption });
       }
     }
+    let historyIncomplete: boolean | undefined;
+    if (action === "manual" && caption && this.env?.SERMON_JOURNALS) {
+      const current = await this.state.storage.get<ChannelConfiguration>("configuration");
+      if (current?.serviceId) {
+        try {
+          const recorded = await rpc(this.env.SERMON_JOURNALS, current.serviceId, "/note", {
+            id: caption.sequence,
+            text: caption.publicText,
+            targetLanguage: caption.targetLanguage,
+          });
+          if (!recorded.ok) throw new Error("Note append failed.");
+        } catch {
+          historyIncomplete = true;
+        }
+      }
+    }
     if (action === "pause" || action === "resume") {
       this.broadcastPublic({
         type: "state",
@@ -1401,7 +1417,7 @@ export class CaptionRoom {
     }
     const { caption: omitted, ...response } = result.value;
     void omitted;
-    return json(response);
+    return json(historyIncomplete ? { ...response, historyIncomplete } : response);
   }
 
   private async updateStyle(request: Request) {

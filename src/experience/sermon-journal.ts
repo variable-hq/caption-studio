@@ -2,8 +2,8 @@ import { mergeModerationRules, parseGlossaryInput, parseModerationInput } from "
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { isLanguageLocale } from "@/domain/languages";
 import {
-  DAY, HISTORY_RETENTION, READER_GRACE, READER_INTERVAL, SUMMARY_MODELS, json,
-  type ExperienceEnvironment, type JournalState, type ReaderInput, type ReaderParagraph,
+  DAY, HISTORY_RETENTION, MAX_JOURNAL_NOTES, READER_GRACE, READER_INTERVAL, SUMMARY_MODELS, json,
+  type ExperienceEnvironment, type JournalState, type ReaderInput, type ReaderNote, type ReaderParagraph,
   type SourceRecord, type SummaryJob, type SummaryOptions, type SummaryPoint,
 } from "./contracts";
 import { optionalInference } from "./provider";
@@ -30,6 +30,7 @@ export function parseSummary(text: string, allowedIds: Set<number>): SummaryPoin
 export class SermonJournal {
   private pending: ReaderInput[] = [];
   private latest: ReaderParagraph | null = null;
+  private latestNote: ReaderNote | null = null;
   private running = false;
   constructor(private readonly state: DurableObjectState, private readonly env: ExperienceEnvironment) {}
 
@@ -53,6 +54,7 @@ export class SermonJournal {
   private async erase() {
     this.pending = [];
     this.latest = null;
+    this.latestNote = null;
     await this.state.storage.deleteAll();
     // Tombstone prevents a delayed lifecycle message from recreating content.
     await this.state.storage.put("deleted", true);
@@ -135,6 +137,31 @@ export class SermonJournal {
       if (current.saved) await this.state.storage.put("pending", this.pending);
       return json({ accepted: true });
     }
+    if (path === "/note" && request.method === "POST") {
+      const input = await request.json() as { id: number; text: string; targetLanguage: string };
+      if (!Number.isSafeInteger(input.id) || input.id < 1 ||
+          typeof input.text !== "string" || !input.text.trim() || input.text.length > 2000 ||
+          !isLanguageLocale(input.targetLanguage)) return json({ error: "Invalid operator note." }, 400);
+      if (current.endedAt) return json({ ignored: true });
+      const high = await this.state.storage.get<number>("acceptedNote") ?? 0;
+      if (input.id <= high) return json({ duplicate: true });
+      if (current.saved && (await this.state.storage.list({ prefix: "note:", limit: MAX_JOURNAL_NOTES })).size >= MAX_JOURNAL_NOTES) {
+        return json({ error: "Operator note limit reached for this service." }, 409);
+      }
+      // Flush any already-spoken, not-yet-committed text first so its paragraph gets an
+      // earlier timestamp than this note, keeping the reader's timestamp-sorted order correct.
+      if (current.saved) this.pending = await this.state.storage.get<ReaderInput[]>("pending") ?? [];
+      if (this.pending.length) {
+        await this.commitFallback(current, this.pending);
+        this.pending = [];
+        if (current.saved) await this.state.storage.put("pending", this.pending);
+      }
+      await this.state.storage.put("acceptedNote", input.id);
+      const note: ReaderNote = { id: input.id, text: input.text.trim(), language: input.targetLanguage, at: Date.now() };
+      this.latestNote = note;
+      if (current.saved) await this.state.storage.put(key("note", note.id), note);
+      return json({ accepted: true });
+    }
     if (path === "/read") {
       if (request.headers.get("x-reader-hash") !== current.readerHash || current.revoked ||
           (current.endedAt && Date.now() >= current.endedAt + READER_GRACE)) return json({ error: "Reader link expired or replaced." }, 403);
@@ -143,7 +170,7 @@ export class SermonJournal {
         startAfter: key("paragraph", after), limit: 50 })).values()] : this.latest && this.latest.id > after ? [this.latest] : [];
       const removed = await this.state.storage.get<number[]>("removed") ?? [];
       return json({ status: current.status, saved: current.saved, paragraphs: entries,
-        removed, revision: current.revision, more: entries.length === 50,
+        removed, notes: await this.notes(current), revision: current.revision, more: entries.length === 50,
         delaySeconds: READER_INTERVAL / 1000 });
     }
     if (path === "/archive") {
@@ -152,7 +179,7 @@ export class SermonJournal {
       const sources = current.saved ? [...(await this.state.storage.list<SourceRecord>({ prefix: "source:", startAfter: key("source", after), limit: 50 })).values()] : [];
       const paragraphs = current.saved ? [...(await this.state.storage.list<ReaderParagraph>({ prefix: "paragraph:", startAfter: key("paragraph", paragraphAfter), limit: 50 })).values()] : this.latest ? [this.latest] : [];
       const details = { ...current, readerHash: undefined };
-      return json({ details, sources, paragraphs, summary: await this.state.storage.get("summary") ?? null,
+      return json({ details, sources, paragraphs, notes: await this.notes(current), summary: await this.state.storage.get("summary") ?? null,
         more: sources.length === 50, moreParagraphs: paragraphs.length === 50 });
     }
     if (path === "/remove" && request.method === "POST") {
@@ -198,6 +225,12 @@ export class SermonJournal {
       return json(job, 202);
     }
     return json({ error: "Journal route not found." }, 404);
+  }
+
+  private async notes(current: JournalState): Promise<ReaderNote[]> {
+    return current.saved
+      ? [...(await this.state.storage.list<ReaderNote>({ prefix: "note:", limit: MAX_JOURNAL_NOTES })).values()]
+      : this.latestNote ? [this.latestNote] : [];
   }
 
   private async invalidate(current: JournalState) {
