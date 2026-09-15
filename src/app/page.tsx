@@ -48,6 +48,7 @@ import {
 } from "@/live/contracts";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { startSerialPolling } from "@/live/serial-polling";
+import { THEME_PREFERENCE_KEY, applyTheme, normalizeTheme, readStoredTheme, type ThemePreference } from "@/live/theme";
 import {
   normalizeTranslationSessionSettings,
   translationSettingsChanges,
@@ -448,6 +449,7 @@ export default function OperatorDashboard() {
   const [filterText, setFilterText] = useState("");
   const [saveHistory, setSaveHistory] = useState(false);
   const [servicePanelOpen, setServicePanelOpen] = useState(false);
+  const [theme, setTheme] = useState<ThemePreference>("system");
   const servicePanelTriggerRef = useRef<HTMLButtonElement>(null);
   const [speechBufferMs, setSpeechBufferMs] = useState<SpeechBufferMs>(
     DEFAULT_SPEECH_BUFFER_MS,
@@ -621,6 +623,28 @@ export default function OperatorDashboard() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [confirmTranslationRefresh]);
+
+  useEffect(() => {
+    const stored = readStoredTheme();
+    if (stored === "system") return;
+    const timeout = window.setTimeout(() => setTheme(stored), 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  function chooseTheme(next: string) {
+    const normalized = normalizeTheme(next);
+    setTheme(normalized);
+    try {
+      if (normalized === "system") window.localStorage.removeItem(THEME_PREFERENCE_KEY);
+      else window.localStorage.setItem(THEME_PREFERENCE_KEY, normalized);
+    } catch {
+      // Storage may be blocked; the choice still applies for this visit.
+    }
+  }
 
   useEffect(() => {
     try {
@@ -1357,6 +1381,16 @@ export default function OperatorDashboard() {
             dismissedForAccount={accountPreferences?.tutorialDismissed ?? false}
             onDismiss={() => void syncAccountPreferences({ tutorialDismissed: true })}
           />
+          <select
+            className="themeSelect"
+            aria-label="Theme"
+            value={theme}
+            onChange={(event) => chooseTheme(event.target.value)}
+          >
+            <option value="system">System theme</option>
+            <option value="light">Light theme</option>
+            <option value="dark">Dark theme</option>
+          </select>
         </div>
           <button
             ref={servicePanelTriggerRef}

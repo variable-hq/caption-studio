@@ -8,7 +8,12 @@ export const metadata: Metadata = {
   title: "Church Live Caption",
   description: "Cloud-hosted multilingual church captions for OBS",
 };
-export const viewport: Viewport = { themeColor: "#f7f7f5" };
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f7f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#121212" },
+  ],
+};
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

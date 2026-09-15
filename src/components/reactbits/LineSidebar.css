@@ -16,16 +16,16 @@
 }
 
 .rb-line-sidebar__group {
-  margin: 24px 12px 8px;
+  margin: var(--space-3) var(--gap-md) var(--space-1);
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 650;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   letter-spacing: .08em;
   text-transform: uppercase;
 }
 
 .rb-line-sidebar__item:first-child .rb-line-sidebar__group {
-  margin-top: 8px;
+  margin-top: var(--space-1);
 }
 
 .rb-line-sidebar__button {
@@ -33,10 +33,10 @@
   min-height: 44px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--gap-md);
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: var(--space-1) var(--gap-md);
   color: var(--muted);
   background: transparent;
   text-align: left;
@@ -46,17 +46,17 @@
 
 .rb-line-sidebar__button:hover:not(:disabled) {
   color: var(--ink);
-  background: #eeeee9;
+  background: var(--surface-strong);
 }
 
 .rb-line-sidebar__button[data-active="true"] {
-  color: #164c3c;
-  background: #e4eee8;
-  border-color: #d3e2d9;
+  color: var(--ok-ink);
+  background: var(--ok-bg);
+  border-color: var(--ok-line);
 }
 
 .rb-line-sidebar__button:focus-visible {
-  outline: 3px solid var(--ink);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -72,7 +72,7 @@
 }
 
 .rb-line-sidebar__index {
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -83,15 +83,15 @@
 }
 
 .rb-line-sidebar__label {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
 .rb-line-sidebar__description {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 @media (prefers-reduced-motion: reduce) {
