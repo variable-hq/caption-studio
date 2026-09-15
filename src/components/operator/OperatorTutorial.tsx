@@ -103,6 +103,9 @@ export function OperatorTutorial({
   onOpenSection,
   dismissedForAccount = false,
   onDismiss,
+  showLauncher = true,
+  openRequest = 0,
+  onClosed,
 }: {
   autoOpenAllowed: boolean;
   serviceActive: boolean;
@@ -111,6 +114,12 @@ export function OperatorTutorial({
   dismissedForAccount?: boolean;
   /** Called once per dismissal so the page can record it with the operator's account. */
   onDismiss?: () => void;
+  /** Render the inline launcher; pages that launch the guide from navigation pass false. */
+  showLauncher?: boolean;
+  /** Increment to open the guide from elsewhere, such as the navigation rail. */
+  openRequest?: number;
+  /** Called after dismissal when no inline launcher exists to receive focus. */
+  onClosed?: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -140,6 +149,15 @@ export function OperatorTutorial({
     if (dialogRef.current?.open) headingRef.current?.focus();
   }, [step]);
 
+  const handledOpenRequest = useRef(0);
+  useEffect(() => {
+    if (!openRequest || openRequest === handledOpenRequest.current) return;
+    handledOpenRequest.current = openRequest;
+    autoOpenChecked.current = true;
+    dialogRef.current?.showModal();
+    headingRef.current?.focus();
+  }, [openRequest]);
+
   function openTutorial() {
     autoOpenChecked.current = true;
     dialogRef.current?.showModal();
@@ -155,14 +173,17 @@ export function OperatorTutorial({
     }
     onDismiss?.();
     dialogRef.current?.close();
-    launcherRef.current?.focus();
+    if (launcherRef.current) launcherRef.current.focus();
+    else onClosed?.();
   }
 
   return (
     <>
-      <button ref={launcherRef} className="secondaryButton tutorialLauncher" type="button" onClick={openTutorial}>
-        How to use
-      </button>
+      {showLauncher ? (
+        <button ref={launcherRef} className="secondaryButton tutorialLauncher" type="button" onClick={openTutorial}>
+          How to use
+        </button>
+      ) : null}
       <dialog
         ref={dialogRef}
         className="tutorialDialog"

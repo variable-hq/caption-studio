@@ -1,4 +1,4 @@
-import { openDashboardSection, openServicePanel, closeServicePanel } from "./dashboard-qa-helpers.mjs";
+import { openDashboardSection, openServicePanel, closeServicePanel, openTutorial } from "./dashboard-qa-helpers.mjs";
 // Local synthetic UI checks. No provider calls or external requests.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -167,7 +167,7 @@ try {
   await closeServicePanel(page);
   assert.equal(controls.length,controlsBeforeToggle,'Opening and closing service controls must not pause or clear capture');
   assert.equal(status,'live');
-  await page.getByRole('button',{name:'How to use',exact:true}).click();
+  await openTutorial(page);
   const picker=page.getByRole('combobox',{name:'Tutorial step',exact:true});
   if(await picker.isVisible()) await picker.selectOption('4');
   else await page.getByRole('button',{name:'Step 5: Audience',exact:true}).click();

@@ -27,7 +27,7 @@ The light palette is the default. A dark palette is declared twice: under
 `color-scheme` follows the palette. Dark body text measures about 17:1 against the page
 and muted text at least 6.9:1 against cards.
 
-The operator header holds a **Theme** select (System, Light, Dark). The choice is
+The navigation rail and phone drawer hold a **Theme** select (System, Light, Dark) under the links. The choice is
 applied to `<html data-theme>`, cached in `localStorage` under
 `church-live-caption:theme:v1`, and saved with the operator's account through the
 preferences record, so it follows the operator between browsers. The paired operator

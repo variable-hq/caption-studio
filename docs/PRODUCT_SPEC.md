@@ -44,7 +44,8 @@ the sole active client. See [`ios/README.md`](../ios/README.md).
 
 On a browser's first visit, a six-step modal guide explains the setup, USB audio
 interface, languages, separate OBS computer, audience link, and live controls. Users
-can move between steps, skip with a button or Escape, and reopen it with **How to use**.
+can move between steps, skip with a button or Escape, and reopen it with **How to use**
+in the navigation rail or phone drawer; the header holds only **Service controls**.
 A step shortcut opens its related panel and focuses the panel heading. Reopening returns
 to the same step until page reload. Phones use a compact, labelled step selector.
 It opens automatically only after channel loading settles and no service is active.
@@ -260,7 +261,7 @@ explicit translation refresh used for language, buffer, and prompt changes.
 ### Caption display, OBS, and mobile viewing
 
 - The operator console uses neutral light and dark palettes built from shared design
-  tokens (see [Design system](DESIGN_SYSTEM.md)); the header **Theme** select offers
+  tokens (see [Design system](DESIGN_SYSTEM.md)); the navigation **Theme** select offers
   System, Light and Dark, and the choice is saved with the operator's account. Status
   text and control labels do not depend on colour alone.
 - Locally adapted React Bits navigation, spotlight, and pending-state glow components add
@@ -296,7 +297,8 @@ explicit translation refresh used for language, buffer, and prompt changes.
 - Live outputs groups OBS, latest-viewer and reader/phone sharing into expandable sections.
   Sermon history contains private archives, corrections and summaries. OBS link rotation
   stays disabled during a service; paused test captions remain under More.
-- Header pills read Checking cloud AI, Cloud AI configured, Cloud setup needed or
+- A status bar docked at the bottom of the workspace (beside the sidebar on desktop,
+  full width on phones) holds two pills. They read Checking cloud AI, Cloud AI configured, Cloud setup needed or
   Cloud AI unavailable, and Checking Main channel, Channel not created or Main channel ·
   Idle/Live/Paused. They describe configuration and the server room, not observed OBS
   connectivity or measured translation quality. Channel errors offer **Retry channel**

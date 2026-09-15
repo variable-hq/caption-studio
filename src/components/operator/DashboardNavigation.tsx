@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { LineSidebar, type LineSidebarItem } from "@/components/reactbits";
 import {
   SIDEBAR_WIDTH_DEFAULT,
@@ -51,10 +51,12 @@ function persistSidebarWidth(width: number) {
   }
 }
 
-export function DashboardNavigation({ items, activeId, onSelect, width: accountWidth = null, onWidthChange }: {
+export function DashboardNavigation({ items, activeId, onSelect, tools, width: accountWidth = null, onWidthChange }: {
   items: readonly LineSidebarItem[];
   activeId: string;
   onSelect: (id: string) => void;
+  /** Controls shown under the links in both the desktop rail and the phone drawer. */
+  tools?: ReactNode;
   /** Width saved with the operator's account; when it changes it replaces the local width. */
   width?: number | null;
   /** Called whenever the desktop rail width (px) changes, including the cached value on mount. */
@@ -174,6 +176,17 @@ export function DashboardNavigation({ items, activeId, onSelect, width: accountW
           onSelect(id);
         }}
       />
+      {tools ? (
+        <div
+          className="dashboardNavTools"
+          onClick={(event) => {
+            // A button chosen from the drawer (for example How to use) closes the drawer first.
+            if ((event.target as HTMLElement).closest("button")) dialogRef.current?.close();
+          }}
+        >
+          {tools}
+        </div>
+      ) : null}
       <div className="dashboardNavFooter">
         <span className="dashboardPrivateDot" aria-hidden="true" />
         <div><strong>Private workspace</strong><p>Share audience links from Live outputs.</p></div>

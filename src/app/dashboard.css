@@ -197,16 +197,7 @@ main.dashboardMain {
   line-height: var(--leading-normal);
 }
 
-.dashboardMain .headerStatuses {
-  align-items: center;
-  gap: var(--gap-sm);
-}
-
-/* Header toolbar: pills, the guide launcher, the theme select and the panel toggle share
-   one height, border, radius, padding and type size so the row reads as one control set. */
-.dashboardMain .headerStatuses .statusPill,
-.dashboardMain .headerStatuses .tutorialLauncher,
-.dashboardMain .headerStatuses .themeSelect,
+/* The header keeps only the breadcrumb and the service-panel toggle. */
 .dashboardMain .servicePanelToggle {
   min-height: var(--control-height);
   padding-block: 0;
@@ -219,12 +210,69 @@ main.dashboardMain {
   box-shadow: none;
 }
 
-.dashboardMain .headerStatuses .themeSelect {
-  padding-inline-end: calc(var(--gap-md) + 18px);
-}
-
 .dashboardMain .servicePanelToggle > span:last-child {
   font-size: var(--text-md);
+}
+
+/* Docked status bar: cloud configuration and Main-channel state sit at the bottom edge. */
+.dashboardStatusBar {
+  position: fixed;
+  left: var(--sidebar-width);
+  right: 0;
+  bottom: 0;
+  z-index: 19;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-sm);
+  min-height: 52px;
+  padding: var(--space-1) max(var(--space-4), env(safe-area-inset-right)) max(var(--space-1), env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left));
+  border-top: 1px solid var(--line);
+  background: var(--card);
+  /* Informational only: clicks pass through to content that has scrolled beneath it. */
+  pointer-events: none;
+}
+
+/* Focus and scroll-into-view keep controls clear of the docked bar. */
+.dashboardContent :where(button, a, input, select, textarea, summary, [tabindex]) {
+  scroll-margin-bottom: 80px;
+}
+
+.dashboardStatusBar .statusPill {
+  min-height: var(--control-height-sm);
+  padding-inline: var(--gap-md);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+/* Navigation tools: the guide launcher and theme choice live with the links. */
+.dashboardNavTools {
+  display: grid;
+  gap: var(--gap-sm);
+  padding: var(--space-2) var(--gap-md) 0;
+}
+
+.dashboardNavTools .tutorialLauncher {
+  width: 100%;
+}
+
+.dashboardNavTools .themeField {
+  display: grid;
+  gap: var(--space-0);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.dashboardNavTools .themeSelect {
+  width: 100%;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .dashboardMain .statusPill.ready {
@@ -240,7 +288,7 @@ main.dashboardMain {
 .dashboardContent {
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: var(--space-3) max(32px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(32px, env(safe-area-inset-left));
+  padding: var(--space-3) max(32px, env(safe-area-inset-right)) calc(52px + var(--space-3) + env(safe-area-inset-bottom)) max(32px, env(safe-area-inset-left));
 }
 
 .dashboardMain .operatorWorkspace {
@@ -666,6 +714,9 @@ main.dashboardMain {
   .dashboardResizeHandle {
     display: none;
   }
+  .dashboardStatusBar {
+    left: 0;
+  }
   .dashboardMenuButton {
     display: grid;
     place-items: center;
@@ -697,15 +748,12 @@ main.dashboardMain {
   .dashboardMain .headerStatuses {
     gap: var(--gap-sm);
   }
-  .dashboardMain .headerStatuses .statusPill,
-  .dashboardMain .headerStatuses .tutorialLauncher,
-  .dashboardMain .headerStatuses .themeSelect,
   .dashboardMain .servicePanelToggle {
     min-height: var(--control-height-sm);
     padding-inline: var(--gap-sm);
   }
-  .dashboardMain .headerStatuses .themeSelect {
-    padding-inline-end: calc(var(--gap-sm) + 18px);
+  .dashboardStatusBar {
+    padding-inline: max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-left));
   }
   .dashboardContent {
     padding: var(--gap-lg) max(16px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(16px, env(safe-area-inset-left));
@@ -793,10 +841,4 @@ main.dashboardMain {
   .overviewTask {
     transition: none;
   }
-}
-
-.headerStatuses .themeSelect {
-  width: auto;
-  min-width: 0;
-  flex: 0 0 auto;
 }
