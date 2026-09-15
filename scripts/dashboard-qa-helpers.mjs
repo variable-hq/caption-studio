@@ -11,6 +11,21 @@ export async function openDashboardSection(page, name) {
   await page.waitForFunction(() => document.activeElement?.id === "workspace-panel-heading");
 }
 
+// The guide launcher lives in the navigation: the rail on desktop, the drawer on phones.
+export async function openTutorial(page) {
+  const menu = page.getByRole("button", { name: "Open navigation", exact: true });
+  if (await menu.isVisible()) await menu.click();
+  await page.getByRole("button", { name: "How to use", exact: true }).click();
+}
+
+// After dismissal focus returns to the rail launcher, or to the menu button on phones.
+export async function tutorialFocusReturned(page) {
+  return page.evaluate(() => {
+    const active = document.activeElement;
+    return active?.textContent?.trim() === "How to use" || active?.getAttribute("aria-label") === "Open navigation";
+  });
+}
+
 export async function openServicePanel(page) {
   const toggle = page.getByRole("button", { name: "Service controls", exact: true });
   if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();

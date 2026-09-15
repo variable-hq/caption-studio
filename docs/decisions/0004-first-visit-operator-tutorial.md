@@ -7,7 +7,8 @@ is in [Deployment](../DEPLOYMENT.md); the original local UI results remain dated
 
 Use a six-step native modal dialog to explain audio input, translation, separate-computer
 OBS setup, audience sharing, and live controls. Provide Skip, Escape, Back/Next, direct
-step selection, and an always-available **How to use** launcher. Phones use a labelled
+step selection, and an always-available **How to use** launcher in the navigation rail
+and phone drawer. Phones use a labelled
 native step selector; desktop uses a step list. Automatically open only
 after channel loading settles and no active service is known. The tutorial teaches the
 workflow without changing settings, requesting microphone access, or calling service APIs.

@@ -1,4 +1,4 @@
-import { openDashboardSection } from "./dashboard-qa-helpers.mjs";
+import { openDashboardSection, openTutorial, tutorialFocusReturned } from "./dashboard-qa-helpers.mjs";
 // Start npm run dev on port 3100. Set CAPTION_QA_TOOLS_DIR to an isolated directory
 // containing node_modules/playwright and node_modules/@axe-core/playwright.
 import assert from "node:assert/strict";
@@ -117,7 +117,7 @@ try {
     }
     await page.getByRole("button", { name: "Go to dashboard", exact: true }).click();
     await dialog.waitFor({ state: "hidden" });
-    assert.equal(await page.locator(":focus").innerText(), "How to use");
+    assert.ok(await tutorialFocusReturned(page), "Focus returns to the guide launcher or the navigation menu.");
     assert.equal(await page.evaluate((key) => localStorage.getItem(key), preference), "dismissed");
     await page.reload();
     await page.getByText("Main channel · Idle", { exact: true }).waitFor();
@@ -127,7 +127,7 @@ try {
     assert.equal(await page.getByTestId("target-language").inputValue(), "id");
     await page.getByTestId("source-language").selectOption("id");
     await page.getByTestId("target-language").selectOption("en");
-    await page.getByRole("button", { name: "How to use", exact: true }).click();
+    await openTutorial(page);
     await page.getByRole("heading", { name: "Your first live translation" }).waitFor();
     // A guide shortcut only opens a panel. Replay returns to the same topic.
     const shortcuts = [
@@ -143,17 +143,17 @@ try {
       await dialog.waitFor({ state: "hidden" });
       await page.waitForFunction(() => document.activeElement?.id === "workspace-panel-heading");
       assert.equal(await page.locator(":focus").innerText(), heading);
-      await page.getByRole("button", { name: "How to use", exact: true }).click();
+      await openTutorial(page);
       assert.match(await dialog.locator('[aria-current="step"]').getAttribute("aria-label"), new RegExp(`^Step ${step}:`));
     }
     await page.getByRole("button", { name: "Skip tutorial", exact: true }).click();
-    await page.getByRole("button", { name: "How to use", exact: true }).click();
+    await openTutorial(page);
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "How to use", exact: true }).click();
+    await openTutorial(page);
     assert.equal(await dialog.isVisible(), true);
     assert.equal(await page.locator(":focus").getAttribute("id"), "tutorial-heading");
     await page.keyboard.press("Escape");
-    assert.equal(await page.locator(":focus").innerText(), "How to use");
+    assert.ok(await tutorialFocusReturned(page), "Focus returns to the guide launcher or the navigation menu.");
     await openDashboardSection(page, "Translation");
     assert.equal(await page.getByTestId("source-language").inputValue(), "id");
     assert.equal(await page.getByTestId("target-language").inputValue(), "en");
@@ -168,7 +168,7 @@ try {
     const { context, page, errors, mutations } = await fixture(1200, status);
     await page.getByText(`Main channel · ${status === "live" ? "Live" : "Paused"}`, { exact: true }).waitFor();
     assert.equal(await page.locator(".tutorialDialog").isVisible(), false);
-    await page.getByRole("button", { name: "How to use", exact: true }).click();
+    await openTutorial(page);
     await page.locator(".tutorialServiceNote").waitFor();
     await page.keyboard.press("Escape");
     assert.deepEqual(errors, []);

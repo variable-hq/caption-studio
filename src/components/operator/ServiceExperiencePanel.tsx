@@ -121,7 +121,7 @@ export function ServiceExperiencePanel({ view, service, onReaderLink, summaryDef
         const result = await experienceRequest<Archive>(`sermons/${archive.details.id}/archive?paragraphAfter=${archive.paragraphs.at(-1)?.id ?? 0}`);
         setArchive({ ...archive, paragraphs: [...archive.paragraphs, ...result.paragraphs], moreParagraphs: result.moreParagraphs });
       })}>Load more reader passages</button>}</details>
-      {archive.notes.length > 0 && <details><summary>Operator notes ({archive.notes.length})</summary>{archive.notes.map((note) => <article key={note.id} className="readerNote">
+      {(archive.notes?.length ?? 0) > 0 && <details><summary>Operator notes ({archive.notes.length})</summary>{archive.notes.map((note) => <article key={note.id} className="readerNote">
         <p>{note.text}</p></article>)}</details>}
       {correction && <div className="experienceCard"><label>Reviewed source correction<textarea name="sourceCorrection" autoComplete="off" value={correction.text} maxLength={4000} rows={4} onChange={(event) => setCorrection({ ...correction, text: event.target.value })} /></label>
         <p>Original source stays private. Saving invalidates derived summaries; committed reader text needs a separate removal.</p>

@@ -259,6 +259,9 @@
   .servicePanelOpen .dashboardMain {
     margin-right: 380px;
   }
+  .servicePanelOpen .dashboardStatusBar {
+    right: 380px;
+  }
   .servicePanelOpen .operatorWorkspace.withPreview {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "panel" "preview";

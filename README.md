@@ -20,8 +20,10 @@ Back/Forward; switching sections does not start capture or add AI calls.
 **Service controls** opens a collapsible right panel with Start, history consent, live
 controls, and an optional caption preview. It starts closed; Pause/Resume and Clear remain
 in a compact bar during capture. Appearance keeps its preview beside the editor.
-The header **Theme** select switches between System, Light and Dark palettes, and the
-desktop sidebar is resizable; both follow the operator's account. Styles use shared
+The navigation rail (and the phone drawer) holds **How to use** and the **Theme** choice
+(System, Light, Dark); the header keeps only **Service controls**, and the cloud and
+Main-channel status pills sit in a bar docked at the bottom of the workspace. The
+desktop sidebar is resizable; theme and width follow the operator's account. Styles use shared
 design tokens and one control system; see the [design system](docs/DESIGN_SYSTEM.md).
 Settings hold **AI instructions** (translation prompt) and **AI summary** (default
 summary model, language, length and guidance). **Save to my account** stores each with

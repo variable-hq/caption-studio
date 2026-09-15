@@ -463,6 +463,7 @@ export default function OperatorDashboard() {
   const [promptStorageMessage, setPromptStorageMessage] = useState("");
   const [accountPreferences, setAccountPreferences] = useState<OperatorPreferences | null>(null);
   const [accountSidebarWidth, setAccountSidebarWidth] = useState<number | null>(null);
+  const [tutorialOpenRequest, setTutorialOpenRequest] = useState(0);
   const sidebarSyncRef = useRef<{ timeout: number; width: number } | null>(null);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [translationDefaultsMessage, setTranslationDefaultsMessage] = useState("");
@@ -1400,42 +1401,53 @@ export default function OperatorDashboard() {
   return (
     <div className={`dashboardShell ${servicePanelOpen ? "servicePanelOpen" : ""}`}>
       <a className="skipLink" href="#workspace-panel-heading">Skip to workspace controls</a>
-      <DashboardNavigation items={WORKSPACE_ITEMS} activeId={currentWorkspaceSection} onSelect={(id) => openWorkspaceSection(id as WorkspaceSectionId)} width={accountSidebarWidth} onWidthChange={rememberSidebarWidth} />
+      <DashboardNavigation
+        items={WORKSPACE_ITEMS}
+        activeId={currentWorkspaceSection}
+        onSelect={(id) => openWorkspaceSection(id as WorkspaceSectionId)}
+        width={accountSidebarWidth}
+        onWidthChange={rememberSidebarWidth}
+        tools={
+          <>
+            <button
+              type="button"
+              className="secondaryButton tutorialLauncher"
+              onClick={() => setTutorialOpenRequest((count) => count + 1)}
+            >
+              How to use
+            </button>
+            <label className="themeField">
+              Theme
+              <select
+                className="themeSelect"
+                value={theme}
+                onChange={(event) => chooseTheme(event.target.value)}
+              >
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+          </>
+        }
+      />
       <main className="dashboardMain">
       <header className="topbar">
         <div className="dashboardBreadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><h1>Main channel</h1></div>
-        <div className="headerStatuses">
-          <span className={`statusPill ${cloudState}`}>
-            <span className="statusDot" aria-hidden="true" />
-            {cloudState === "checking"
-              ? "Checking cloud AI"
-              : cloudState === "ready"
-                ? "Cloud AI configured"
-                : cloudState === "not-configured"
-                  ? "Cloud setup needed"
-                  : "Cloud AI unavailable"}
-          </span>
-          <span className={`statusPill channel-${channelStatus}`}>
-            {channelStatusLabel}
-          </span>
-          <OperatorTutorial
-            autoOpenAllowed={preferencesLoaded && !isBusy && !hasService && !anotherOperatorActive}
-            serviceActive={hasService || anotherOperatorActive}
-            onOpenSection={openWorkspaceSection}
-            dismissedForAccount={accountPreferences?.tutorialDismissed ?? false}
-            onDismiss={() => void syncAccountPreferences({ tutorialDismissed: true })}
-          />
-          <select
-            className="themeSelect"
-            aria-label="Theme"
-            value={theme}
-            onChange={(event) => chooseTheme(event.target.value)}
-          >
-            <option value="system">System theme</option>
-            <option value="light">Light theme</option>
-            <option value="dark">Dark theme</option>
-          </select>
-        </div>
+        <OperatorTutorial
+          autoOpenAllowed={preferencesLoaded && !isBusy && !hasService && !anotherOperatorActive}
+          serviceActive={hasService || anotherOperatorActive}
+          onOpenSection={openWorkspaceSection}
+          dismissedForAccount={accountPreferences?.tutorialDismissed ?? false}
+          onDismiss={() => void syncAccountPreferences({ tutorialDismissed: true })}
+          showLauncher={false}
+          openRequest={tutorialOpenRequest}
+          onClosed={() => {
+            const launcher = document.querySelector<HTMLElement>(".dashboardSidebar .tutorialLauncher");
+            const target = launcher?.offsetParent ? launcher : document.querySelector<HTMLElement>(".dashboardMenuButton");
+            (target ?? workspaceHeadingRef.current)?.focus();
+          }}
+        />
           <button
             ref={servicePanelTriggerRef}
             type="button"
@@ -2200,6 +2212,21 @@ export default function OperatorDashboard() {
         </div>
       </dialog>
       </div>
+      <footer className="dashboardStatusBar" aria-label="Service status">
+        <span className={`statusPill ${cloudState}`}>
+          <span className="statusDot" aria-hidden="true" />
+          {cloudState === "checking"
+            ? "Checking cloud AI"
+            : cloudState === "ready"
+              ? "Cloud AI configured"
+              : cloudState === "not-configured"
+                ? "Cloud setup needed"
+                : "Cloud AI unavailable"}
+        </span>
+        <span className={`statusPill channel-${channelStatus}`}>
+          {channelStatusLabel}
+        </span>
+      </footer>
     </main>
     </div>
   );
