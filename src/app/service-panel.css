@@ -9,13 +9,13 @@
 }
 
 .dashboardContent {
-  max-width: 1160px;
+  max-width: var(--content-max);
 }
 
 .servicePanelToggle {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--gap-sm);
   white-space: nowrap;
 }
 
@@ -25,9 +25,9 @@
 }
 
 .servicePanelToggle[aria-expanded="true"] {
-  color: #214f3f;
-  border-color: #a4bfad;
-  background: #edf5ef;
+  color: var(--ok-ink);
+  border-color: var(--ok-line);
+  background: var(--ok-bg);
 }
 
 .servicePanel {
@@ -41,10 +41,10 @@
   margin: 0;
   padding: 0;
   border: 0;
-  border-left: 1px solid #dfe3dd;
+  border-left: 1px solid var(--line);
   color: var(--ink);
-  background: #fafbf9;
-  box-shadow: -8px 0 32px #132b1710;
+  background: var(--card);
+  box-shadow: var(--shadow-elevated);
   overscroll-behavior: contain;
 }
 
@@ -58,38 +58,38 @@
 }
 
 .servicePanel::backdrop {
-  background: rgb(15 25 18 / 45%);
+  background: var(--backdrop);
 }
 
 .servicePanelHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 20px;
-  border-bottom: 1px solid #dfe3dd;
-  background: #fff;
+  gap: var(--gap-md);
+  padding: max(var(--space-3), env(safe-area-inset-top)) max(var(--space-3), env(safe-area-inset-right)) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
 }
 
 .servicePanelHeader h2 {
-  font-size: 19px;
+  font-size: var(--text-lg);
 }
 
 .servicePanelHeader button {
   display: grid;
   place-items: center;
   flex: 0 0 44px;
-  padding: 10px;
+  padding: var(--space-1);
 }
 
 .servicePanelBody {
   display: grid;
   align-content: start;
-  gap: 18px;
+  gap: var(--gap-lg);
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 20px max(18px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) 18px;
+  padding: var(--space-3) max(var(--gap-lg), env(safe-area-inset-right)) max(var(--space-3), env(safe-area-inset-bottom)) var(--gap-lg);
 }
 
 .servicePanel .startBarActions, .servicePanel .liveConsole {
@@ -99,7 +99,7 @@
 }
 
 .servicePanel .startBarActions, .servicePanel .historyConsent {
-  padding: 16px;
+  padding: var(--space-2);
 }
 
 .servicePanel .historyConsent .helpText {
@@ -109,8 +109,8 @@
 .servicePanel .liveConsole {
   position: static;
   margin: 0;
-  padding: 16px;
-  gap: 16px;
+  padding: var(--space-2);
+  gap: var(--gap-lg);
   box-shadow: none;
 }
 
@@ -135,7 +135,7 @@
 .servicePanel .moreMenu > div {
   position: static;
   width: 100%;
-  margin-top: 8px;
+  margin-top: var(--space-1);
   box-shadow: none;
 }
 
@@ -145,20 +145,20 @@
 
 .serviceMonitor {
   min-width: 0;
-  border: 1px solid #dfe3dd;
-  border-radius: 10px;
-  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--card);
 }
 
 .serviceMonitor > summary {
-  padding: 14px 16px;
+  padding: var(--gap-md) var(--space-2);
   min-height: 48px;
-  font-size: 13px;
-  font-weight: 650;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
 }
 
 .serviceMonitor .previewCard {
-  padding: 12px;
+  padding: var(--gap-md);
   border: 0;
   box-shadow: none;
 }
@@ -166,15 +166,15 @@
 .serviceMonitor .sectionHeading {
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--gap-sm);
 }
 
 .serviceMonitor h2 {
-  font-size: 17px;
+  font-size: var(--text-lg);
 }
 
 .serviceMonitor > .helpText {
-  padding: 0 14px 14px;
+  padding: 0 var(--gap-md) var(--gap-md);
 }
 
 .serviceQuickControls {
@@ -185,16 +185,16 @@
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 10px;
-  padding: 10px 24px;
-  border-bottom: 1px solid #dfe3dd;
-  background: #fff;
+  gap: var(--gap-sm);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
 }
 
 .quickServiceState {
   margin-right: auto;
-  font-size: 12px;
-  font-weight: 650;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
 }
 
 .serviceQuickControls button {
@@ -206,49 +206,47 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 20px;
-  padding: 8px 16px;
-  border: 1px solid #d9d0a8;
-  border-radius: 9px;
-  color: #594a22;
-  background: #fbf8ef;
-  font-size: 13px;
+  gap: var(--gap-sm);
+  margin-bottom: var(--gap-lg);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--warn-line);
+  border-radius: var(--radius-md);
+  color: var(--warn-ink);
+  background: var(--warn-bg);
+  font-size: var(--text-sm);
 }
 
 .pendingSettingsBar button {
   padding-inline: 0;
   color: inherit;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .outputDestination {
   min-width: 0;
-  border: 1px solid #dfe3dd;
-  border-radius: 10px;
-  margin-bottom: 14px;
-  background: #fff;
+  margin-bottom: var(--gap-md);
+  padding: 0;
 }
 
 .outputDestination > summary {
   min-height: 60px;
-  padding: 16px;
-  font-weight: 650;
-  font-size: 14px;
+  padding: var(--space-2);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-base);
 }
 
 .outputDestination > summary span {
   display: block;
-  margin: 5px 0 0 16px;
+  margin: var(--space-0) 0 0 var(--space-2);
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
 }
 
 .dashboardMain .outputDestination > .workspaceOutputCard, .dashboardMain .outputDestination > .viewerLinkPanel, .dashboardMain .outputDestination > .experienceStack {
   margin: 0;
-  padding: 18px;
-  border-top: 1px solid #dfe3dd;
+  padding: var(--space-2);
+  border-top: 1px solid var(--line);
 }
 
 .dashboardMain .outputDestination .experienceCard {
@@ -272,16 +270,16 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 10px;
+    gap: var(--gap-sm);
   }
   .dashboardMain .headerStatuses {
     order: 3;
     flex: 1 0 100%;
   }
   .servicePanelToggle {
-    padding: 10px;
-    gap: 6px;
-    font-size: 12px;
+    padding: var(--space-1);
+    gap: var(--gap-sm);
+    font-size: var(--text-sm);
   }
   .servicePanelToggle > span {
     display: none;
@@ -292,7 +290,7 @@
   }
   .serviceQuickControls {
     justify-content: flex-start;
-    padding: 10px 16px;
+    padding: var(--space-1) var(--space-2);
   }
   .quickServiceState {
     flex: 1 0 100%;

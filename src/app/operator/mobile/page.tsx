@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { startSerialPolling } from "@/live/serial-polling";
+import { applyTheme, readStoredTheme } from "@/live/theme";
 interface RemoteState { status: string; connected: boolean; command: { action: string; status: string } | null }
 
 export default function OperatorMobilePage() {
@@ -17,6 +18,9 @@ export default function OperatorMobilePage() {
     if (!response.ok) throw new Error(result.error || "Remote control unavailable. Pair this phone again.");
     return result;
   }
+  useEffect(() => {
+    applyTheme(readStoredTheme());
+  }, []);
   useEffect(() => {
     const [serviceId, token] = location.hash.slice(1).split(".");
     credential.current = { serviceId, token };

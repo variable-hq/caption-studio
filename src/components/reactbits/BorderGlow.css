@@ -5,8 +5,8 @@
  */
 
 .rb-border-glow {
-  --rb-border-glow-color: rgba(17, 17, 17, 0.78);
-  --rb-border-glow-color-secondary: rgba(95, 95, 91, 0.34);
+  --rb-border-glow-color: color-mix(in srgb, var(--ink) 78%, transparent);
+  --rb-border-glow-color-secondary: color-mix(in srgb, var(--muted) 34%, transparent);
 
   position: relative;
   isolation: isolate;

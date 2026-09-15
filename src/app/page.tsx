@@ -49,6 +49,7 @@ import {
 } from "@/live/contracts";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { startSerialPolling } from "@/live/serial-polling";
+import { THEME_PREFERENCE_KEY, applyTheme, normalizeTheme, readStoredTheme, type ThemePreference } from "@/live/theme";
 import {
   normalizeTranslationSessionSettings,
   translationSettingsChanges,
@@ -449,6 +450,7 @@ export default function OperatorDashboard() {
   const [filterText, setFilterText] = useState("");
   const [saveHistory, setSaveHistory] = useState(false);
   const [servicePanelOpen, setServicePanelOpen] = useState(false);
+  const [theme, setTheme] = useState<ThemePreference>("system");
   const servicePanelTriggerRef = useRef<HTMLButtonElement>(null);
   const [speechBufferMs, setSpeechBufferMs] = useState<SpeechBufferMs>(
     DEFAULT_SPEECH_BUFFER_MS,
@@ -459,6 +461,8 @@ export default function OperatorDashboard() {
   const [savedPromptFingerprint, setSavedPromptFingerprint] = useState("");
   const [promptStorageMessage, setPromptStorageMessage] = useState("");
   const [accountPreferences, setAccountPreferences] = useState<OperatorPreferences | null>(null);
+  const [accountSidebarWidth, setAccountSidebarWidth] = useState<number | null>(null);
+  const sidebarSyncRef = useRef<{ timeout: number; width: number } | null>(null);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [translationDefaultsMessage, setTranslationDefaultsMessage] = useState("");
   const [summaryDefaults, setSummaryDefaults] = useState<SummaryOptions>(DEFAULT_SUMMARY_OPTIONS);
@@ -625,6 +629,29 @@ export default function OperatorDashboard() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [confirmTranslationRefresh]);
+
+  useEffect(() => {
+    const stored = readStoredTheme();
+    if (stored === "system") return;
+    const timeout = window.setTimeout(() => setTheme(stored), 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  function chooseTheme(next: string) {
+    const normalized = normalizeTheme(next);
+    setTheme(normalized);
+    void syncAccountPreferences({ theme: normalized });
+    try {
+      if (normalized === "system") window.localStorage.removeItem(THEME_PREFERENCE_KEY);
+      else window.localStorage.setItem(THEME_PREFERENCE_KEY, normalized);
+    } catch {
+      // Storage may be blocked; the choice still applies for this visit.
+    }
+  }
 
   useEffect(() => {
     try {
@@ -918,6 +945,14 @@ export default function OperatorDashboard() {
           setFontFamily(saved.fontFamily);
           setSavedStyleFingerprint(JSON.stringify(saved));
         }
+        setTheme(loaded.theme);
+        try {
+          if (loaded.theme === "system") window.localStorage.removeItem(THEME_PREFERENCE_KEY);
+          else window.localStorage.setItem(THEME_PREFERENCE_KEY, loaded.theme);
+        } catch {
+          // Storage may be blocked; the account value still applies for this visit.
+        }
+        if (loaded.sidebarWidth !== null) setAccountSidebarWidth(loaded.sidebarWidth);
         if (loaded.translationDefaults && !hasServiceRef.current) {
           const defaults = loaded.translationDefaults;
           setSourceLanguage(defaults.sourceLanguage);
@@ -949,6 +984,18 @@ export default function OperatorDashboard() {
     } catch {
       return false;
     }
+  };
+
+  const rememberSidebarWidth = (width: number) => {
+    if (!preferencesLoaded || accountPreferences?.sidebarWidth === width) return;
+    if (sidebarSyncRef.current) window.clearTimeout(sidebarSyncRef.current.timeout);
+    sidebarSyncRef.current = {
+      width,
+      timeout: window.setTimeout(() => {
+        sidebarSyncRef.current = null;
+        void syncAccountPreferences({ sidebarWidth: width });
+      }, 800),
+    };
   };
 
   const saveTranslationDefaults = () => {
@@ -1344,7 +1391,7 @@ export default function OperatorDashboard() {
   return (
     <div className={`dashboardShell ${servicePanelOpen ? "servicePanelOpen" : ""}`}>
       <a className="skipLink" href="#workspace-panel-heading">Skip to workspace controls</a>
-      <DashboardNavigation items={WORKSPACE_ITEMS} activeId={currentWorkspaceSection} onSelect={(id) => openWorkspaceSection(id as WorkspaceSectionId)} />
+      <DashboardNavigation items={WORKSPACE_ITEMS} activeId={currentWorkspaceSection} onSelect={(id) => openWorkspaceSection(id as WorkspaceSectionId)} width={accountSidebarWidth} onWidthChange={rememberSidebarWidth} />
       <main className="dashboardMain">
       <header className="topbar">
         <div className="dashboardBreadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><h1>Main channel</h1></div>
@@ -1369,6 +1416,16 @@ export default function OperatorDashboard() {
             dismissedForAccount={accountPreferences?.tutorialDismissed ?? false}
             onDismiss={() => void syncAccountPreferences({ tutorialDismissed: true })}
           />
+          <select
+            className="themeSelect"
+            aria-label="Theme"
+            value={theme}
+            onChange={(event) => chooseTheme(event.target.value)}
+          >
+            <option value="system">System theme</option>
+            <option value="light">Light theme</option>
+            <option value="dark">Dark theme</option>
+          </select>
         </div>
           <button
             ref={servicePanelTriggerRef}
