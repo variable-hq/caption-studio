@@ -32,6 +32,7 @@ try {
    let body={};try{body=request.postDataJSON()??{}}catch{}
    let payload={};
    if(path==='/api/ai/health'||path==='/api/ai/readiness')payload=health;
+   else if(path==='/api/live/experience/preferences')payload=method==='GET'?{version:1,theme:'system',sidebarWidth:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,tutorialDismissed:false,updatedAt:null}:{...body,version:1,updatedAt:Date.now()};
    else if(path==='/api/live/channel')payload={channelId:'main',configured:true,status,overlayUrl:'http://127.0.0.1:3100/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
    else if(path==='/api/live/channel/style'){style=body.style;payload={ok:true}}
    else if(path==='/api/live/channel/service'&&method==='POST'){

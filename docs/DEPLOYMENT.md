@@ -65,14 +65,16 @@ Preserve `custom-worker.ts` as the entry point and all bindings in `wrangler.jso
 | `CAPTION_ROOMS` / `CaptionRoom` | Main channel, controller, inference claims and remote commands |
 | `SERMON_JOURNALS` / `SermonJournal` | Per-service reader, opted-in history and summary jobs |
 | `AI_USAGE` / `AiUsageLedger` | Numeric provider admissions and rolling usage |
+| `OPERATOR_PREFERENCES` / `OperatorPreferences` | Per-operator saved configuration keyed by hashed Access email |
 | `AI` | Optional Workers AI inference |
 | `ASSETS` | OpenNext static assets |
 
 `observability.enabled` is also set, so Worker logs are retained by Cloudflare; keep
 captions, tokens and links out of `console` output.
 
-Keep both SQLite migrations: v1 creates CaptionRoom; v2 adds SermonJournal and
-AiUsageLedger. Do not rename/delete established migration tags to repair a build.
+Keep all three SQLite migrations: v1 creates CaptionRoom; v2 adds SermonJournal and
+AiUsageLedger; v3 adds OperatorPreferences. Do not rename/delete established migration
+tags to repair a build.
 
 Encrypted Worker secrets: `GROQ_API_KEY` and `OBS_CHANNEL_ENCRYPTION_KEY`.
 Generate the latter with at least 32 random characters; changing it requires controlled

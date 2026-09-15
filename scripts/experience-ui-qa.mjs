@@ -51,6 +51,7 @@ try {
    else if (url.pathname.endsWith('/remove')) { assert.equal(body.confirm, true); excluded = true; summary = null; payload = { removed: true }; }
    else if (url.pathname.endsWith('/correct')) { assert.ok(body.text); summary = null; payload = { corrected: true }; }
    else if (url.pathname.endsWith('/delete')) { assert.equal(body.confirm, true); payload = { deleted: true }; }
+   else if (url.pathname.endsWith('/experience/preferences')) payload = { version: 1, theme: 'system', sidebarWidth: null, translationSystemPrompt: null, summaryDefaults: null, captionStyle: null, translationDefaults: null, tutorialDismissed: false, updatedAt: null };
    else if (url.pathname.endsWith('/experience/usage')) payload = { records: [{ id: 'synthetic-attempt', serviceId: id, at: Date.now(), stage: 'translation', provider: 'groq', model: 'openai/gpt-oss-20b', status: 'completed', tokens: { promptTokens: 150, completionTokens: 50, totalTokens: 200 }, audioSeconds: null, estimatedNeurons: 0 }], next: null };
    else { errors.push('Unexpected API: ' + url.pathname); return route.fulfill({ status: 400, json: { error: 'Unexpected request' } }); }
    return route.fulfill({ status: 200, json: payload });
