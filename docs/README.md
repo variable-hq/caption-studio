@@ -28,8 +28,8 @@ records to establish release evidence.
 - [ADR 0003](decisions/0003-defer-apple-distribution.md) retains the
   [iOS experiment](../ios/README.md) as deferred research.
 - [ADR 0004](decisions/0004-first-visit-operator-tutorial.md) describes the operator guide.
-- [ADR 0012](decisions/0012-operator-preferences-by-access-identity.md) binds saved
-  operator configuration to the Access email.
+- [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
+  handling was delegated to the translator instead of the deterministic filter alone.
 - [Caption policy](evaluation/CAPTION_POLICY_DECISION.md) describes completion and filtering.
 - [Indonesian→English review](evaluation/ID_EN_REVIEW.md) and its
   [synthetic fixtures](evaluation/id-en-synthetic.json) remain unscored.

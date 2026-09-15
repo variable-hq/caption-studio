@@ -206,6 +206,14 @@ one-caption output contract. This reduces accidental prompt-policy changes but i
 hard enforcement boundary, does not make model output authoritative, and does not eliminate
 prompt-injection or translation-quality risk; church-approved review remains required.
 
+The same envelope pattern also structures the optional reader-join and summary prompts,
+which have no operator-editable text of their own. Independently of that input-side
+envelope, an output-side check screens each AI response for distinctive refusal-style
+phrasing (for example "as an AI") and for the envelope's own boilerplate text leaking back
+into the response, before the response is trusted. It is a heuristic safety net, not a
+guarantee: only its construction has been tested, not its effectiveness against a live
+model, and a sufficiently subtle prompt-injection attempt could still pass both checks.
+
 The native shell stores only the operator's acknowledgement of the processing notice in
 app-local preferences. Web content loaded inside it retains the same browser-memory,
 `localStorage`, `sessionStorage`, backend, and provider boundaries described above.

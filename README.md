@@ -29,7 +29,8 @@ See the [service-panel design and QA record](docs/SERVICE_PANEL_UX_QA.md) and th
 
 Implemented: browser audio selection and meter; six-step setup guide; 6- to 18-second
 capture; Groq Whisper transcription and contextual GPT-OSS 20B translation; biblical
-name hints, approved recognition aliases, preferred translations and public masking;
+name hints, approved recognition aliases, preferred translations and configurable public
+filtering (mask, replace, or hide); an instant quick-block for unanticipated words;
 editable translation settings; OBS styles and safe margins; and the service features below.
 
 AI runs in the cloud; the browser captures audio. No application audio storage,
@@ -85,6 +86,7 @@ or reconstructed. Long jobs can stop at context, call, or daily budget limits.
 | Action | OBS and latest viewer | Appending reader | Private history and usage |
 | --- | --- | --- | --- |
 | Clear live caption | Blank; capture continues | Keep committed paragraphs, discard pending work | Preserved |
+| Quick block a word | Hides any caption containing it immediately, without a settings refresh | Same caption hidden in the reader/archive too | Preserved |
 | Pause | Blank; capture stops | Keep committed paragraphs, mark boundary | Preserved |
 | Resume | New capture after acknowledgement | Append new paragraphs | Same service |
 | Refresh translation settings | Clear and reject old results; keep service/links | Preserve earlier text; separate later revisions/languages | Preserved |

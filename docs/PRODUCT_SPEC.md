@@ -188,13 +188,22 @@ implemented.
   preserving evident tone, formality, slang, and intentional rhetorical repetition. It is
   editable up to 4,000 characters; blank restores the reviewed default, while non-text,
   overlength, or unsupported-control-character values fail validation without truncation.
+- An optional, appendable guidance block corrects a specific Indonesian congregational
+  address-term ambiguity (for example "Saudara-saudara") for Indonesian-to-English
+  services. It is prompt guidance, not a glossary substitution, since correct rendering
+  depends on how the term is used in context, not on the word alone.
 - A separate immutable server envelope fixes language direction, Chinese script,
-  untrusted-data handling, non-invention, and exactly-one-caption output. The operator
-  cannot edit that envelope, and the model is instructed to prioritize it over conflicting
-  custom text; this prompt ordering is risk reduction, not guaranteed enforcement. The
-  request is one bounded model call rather than an agent.
+  untrusted-data handling, non-invention, unclear-word bracketing, profanity omission,
+  and exactly-one-caption output. The operator cannot edit that envelope, and the model
+  is instructed to prioritize it over conflicting custom text; this prompt ordering is
+  risk reduction, not guaranteed enforcement. The request is one bounded model call
+  rather than an agent.
 - The model is instructed not to invent or complete Bible verses, songs, quotations,
-  doctrine, facts, missing words, or unsaid meaning.
+  doctrine, facts, missing words, or unsaid meaning. A word that was said but is unclear
+  or mistranscribed is rendered as a bracketed best guess, or `[unclear]` if none is
+  possible, rather than left untranslated; profanity, slurs, or vulgar language are left
+  out of the translation rather than rendered or invented. Neither behavior has been
+  confirmed against live model responses, only against constructed-prompt tests.
 - Current caption, approved terms, and recent context are structured as untrusted data.
   Context may resolve ambiguity but must not be translated, repeated, or summarized.
 - Publishable model output must be nonempty text with provider finish reason `stop`.
@@ -226,17 +235,24 @@ The prototype accepts up to 40 glossary rows and 40 filter terms. A glossary row
 provide a canonical source term and a preferred target translation. Keyword terms are
 also sent as bounded transcription hints.
 
-Public filtering masks configured whole terms after translation. Terms containing Han,
-Hiragana, or Katakana use native target-language word boundaries; other terms retain
-Unicode whole-word matching. Missing native segmentation prevents affected publication
-with a browser-update error. Protected source remains unchanged. Terms need review in
-the intended browser; the policy is not exhaustive multilingual safety. See the
+Public filtering masks, replaces, or hides configured whole terms after translation,
+using `word`, `word=>replacement`, or `word=>!hide` syntax in the same field. Terms
+containing Han, Hiragana, or Katakana use native target-language word boundaries; other
+terms retain Unicode whole-word matching. Missing native segmentation prevents affected
+publication with a browser-update error. Protected source remains unchanged. Terms need
+review in the intended browser; the policy is not exhaustive multilingual safety. See the
 [filtering and completion decision](evaluation/CAPTION_POLICY_DECISION.md).
 Approved whole-word recognition aliases are implemented, for example an explicitly reviewed
 `Saul|swauf => Saul`. The TB2 vocabulary action is scoped to Indonesian/automatic source
 and English target. It supplies canonical names only; incorrect aliases are not boosted
 in transcription hints. This is not model training or fuzzy identity resolution.
-Replace/hide controls, rule scopes/priorities and persistent workspace packs remain deferred.
+Rule scopes/priorities and persistent workspace packs remain deferred.
+
+A separate **quick block** control lets an operator instantly hide any caption
+containing a chosen word for the remainder of the service, without the translation
+refresh other filter edits require. It always hides rather than masks or replaces, is
+session-only, and does not persist between services; a term meant to persist still
+belongs in the filter field above.
 
 Terminology and filter edits made during an active service are drafts until the same
 explicit translation refresh used for language, buffer, and prompt changes.

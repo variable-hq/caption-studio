@@ -1,13 +1,14 @@
-import { applyModeration } from "@/pipeline/moderation";
-import { parseGlossaryInput, parseModerationInput } from "@/live/config";
-import { applyPreferredTerms } from "@/pipeline/glossary";
+import { mergeModerationRules, parseGlossaryInput, parseModerationInput } from "@/live/config";
+import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { isLanguageLocale } from "@/domain/languages";
 import {
   DAY, HISTORY_RETENTION, READER_GRACE, READER_INTERVAL, SUMMARY_MODELS, json,
   type ExperienceEnvironment, type JournalState, type ReaderInput, type ReaderParagraph,
   type SourceRecord, type SummaryJob, type SummaryOptions, type SummaryPoint,
 } from "./contracts";
-import { optionalInference, READER_POLICY, SUMMARY_POLICY } from "./provider";
+import { optionalInference } from "./provider";
+import { buildReaderPrompt, buildSummaryPrompt } from "./prompt";
+import { outputLooksUnsafe } from "@/ai/output-guard";
 
 const key = (prefix: string, id: number) => `${prefix}:${String(id).padStart(6, "0")}`;
 const byteLength = (text: string) => new TextEncoder().encode(text).length;
@@ -221,10 +222,13 @@ export class SermonJournal {
     if (!current || current.epoch !== snapshot.epoch || current.revision !== snapshot.revision) return;
     const first = inputs[0];
     if (!first || !isLanguageLocale(first.targetLanguage)) return;
-    let moderated = text;
-    for (const input of inputs) moderated = applyModeration(moderated, parseModerationInput(input.filterText), first.targetLanguage).publicText;
-    moderated = applyPreferredTerms(moderated, first.targetLanguage, parseGlossaryInput(first.keywordText, first.targetLanguage));
-    for (const input of inputs) moderated = applyModeration(moderated, parseModerationInput(input.filterText), first.targetLanguage).publicText;
+    const moderated = prepareCaptionForms({
+      sourceText: "",
+      translatedText: text,
+      targetLanguage: first.targetLanguage,
+      glossary: parseGlossaryInput(first.keywordText, first.targetLanguage),
+      moderationRules: mergeModerationRules(inputs.map((input) => parseModerationInput(input.filterText))),
+    }).publicText;
     const paragraph: ReaderParagraph = { id: inputs.at(-1)!.id, sourceIds: inputs.map((input) => input.id),
       text: moderated.slice(0, 10_000), language: first.targetLanguage, epoch: snapshot.epoch,
       translationRevision: first.translationRevision, at: Date.now(), fallback };
@@ -270,9 +274,9 @@ export class SermonJournal {
         let fallback = true;
         if (work.allowReader) {
           try {
-            const result = await optionalInference(this.env, current.id, "reader", SUMMARY_MODELS[1], READER_POLICY,
-              { language: pending[0].targetLanguage, chunks: pending.map((input) => input.publicText) });
-            if (result.length <= 2000) { text = result; fallback = false; }
+            const result = await optionalInference(this.env, current.id, "reader", SUMMARY_MODELS[1],
+              buildReaderPrompt(pending.map((input) => input.publicText), pending[0].targetLanguage));
+            if (result.length <= 2000 && !outputLooksUnsafe(result)) { text = result; fallback = false; }
           } catch { /* Publish existing moderated translations when optional inference fails. */ }
         }
         const snapshot = current;
@@ -338,15 +342,18 @@ export class SermonJournal {
         await this.state.storage.put("summary-flight", { id: job.id, at: Date.now() });
         const data = synthesis ? {
           task: "Combine these grounded notes into a sermon summary. Include theme, outline, main points, mentioned references, speaker applications and uncertainty when supported.",
-          settings: job.options, incomplete: current.incomplete, notes: job.notes,
+          language: job.options.language, length: job.options.length, incomplete: current.incomplete, notes: job.notes,
         } : {
-          task: "Summarize this sermon section, preserving evidence IDs.", settings: job.options,
+          task: "Summarize this sermon section, preserving evidence IDs.",
+          language: job.options.language, length: job.options.length,
           incomplete: current.incomplete, segments: selected.map((record) => ({ id: record.id, at: record.at, text: record.correction ?? record.text })),
         };
         return { data, synthesis, allowed: new Set(synthesis ? job.notes.flatMap((point) => point.sourceIds) : selected.map((record) => record.id)) };
       });
       if (!work) return;
-      const text = await optionalInference(this.env, snapshot.id, "summary", job.options.model, SUMMARY_POLICY, work.data);
+      const text = await optionalInference(this.env, snapshot.id, "summary", job.options.model,
+        buildSummaryPrompt({ ...work.data, guidance: job.options.guidance }));
+      if (outputLooksUnsafe(text)) throw new Error("Summary output failed a safety check. Generate again to retry.");
       const points = parseSummary(text, work.allowed);
       if (work.synthesis) { job.status = "completed"; job.result = points; }
       else {

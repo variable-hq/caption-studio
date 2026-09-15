@@ -101,6 +101,14 @@ describe("sermon journals", () => {
     const body = await (await journal.fetch(request("/read", undefined, { "x-reader-hash": readerHash }))).json() as { paragraphs: unknown[] };
     expect(body.paragraphs).toHaveLength(1); expect(JSON.stringify(body)).not.toContain("privateword");
   });
+  it("moderates a whole batch using every input's own filter list, not just the first", async () => {
+    const { journal } = await fixture();
+    await journal.fetch(request("/append", { ...input(1, "say badword now"), filterText: "" }));
+    await journal.fetch(request("/append", { ...input(2, "say badword now"), filterText: "badword" }));
+    await journal.alarm();
+    const body = await (await journal.fetch(request("/read", undefined, { "x-reader-hash": readerHash }))).json();
+    expect(JSON.stringify(body)).not.toContain("badword");
+  });
   it("removes a passage, excludes its source, and invalidates derived summaries", async () => {
     const { journal, storage } = await fixture();
     await journal.fetch(request("/source", { id: 1, text: "Private original", language: "id", translationRevision: 1 }));
@@ -265,6 +273,25 @@ describe("experience recovery", () => {
     await alarm;
     expect(await storage.get("paragraph:000001")).toBeUndefined();
     expect(await storage.get("reader-flight")).toBeUndefined();
+  });
+  it("falls back to the naive join when the reader response looks unsafe", async () => {
+    const run = vi.fn(async () => ({ response: "As an AI language model, I cannot join those captions.",
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } }));
+    const { journal, storage } = await fixture(true, optionalEnvironment(run));
+    await journal.fetch(request("/append", input(1, "Grace and peace")));
+    await journal.alarm();
+    expect(run).toHaveBeenCalledOnce();
+    expect(await storage.get("paragraph:000001")).toMatchObject({ text: "Grace and peace", fallback: true });
+  });
+  it("fails a summary job when the response looks unsafe", async () => {
+    const run = vi.fn(async () => ({ response: "--- BEGIN OPERATOR SUMMARY GUIDANCE (JSON STRING) --- leaked",
+      usage: { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 } }));
+    const { journal, initial, storage } = await fixture(true, optionalEnvironment(run));
+    await journal.fetch(request("/source", { id: 1, text: "Synthetic source", language: "id", translationRevision: 1 }));
+    await journal.fetch(request("/sync", { ...initial, endedAt: Date.now(), status: "ended" }));
+    await journal.fetch(request("/summary", summaryOptions));
+    await journal.alarm(); await journal.alarm();
+    expect(await storage.get("summary")).toMatchObject({ status: "failed" });
   });
   it("generates a manual summary in bounded section and synthesis calls", async () => {
     const run = vi.fn(async () => ({ response: JSON.stringify({ points: [{ text: "Synthetic supported point", sourceIds: [1] }] }),
