@@ -51,6 +51,8 @@ The reader batches up to five moderated translation chunks about every 30 second
 With optional AI disabled or unavailable, it joins existing translations. With AI enabled,
 it can improve punctuation and phrasing, then reapplies glossary/filter rules. More phones
 do not create more model calls. Reading delay is additional to the fast caption delay.
+Manual captions shown while paused appear on the reader too, as separate operator notes
+alongside — not merged into — the translated paragraphs.
 
 The remote reports microphone actions as confirmed only after the capture computer
 acknowledges them. Server-side Pause blocks new inference claims immediately. Resume
@@ -84,6 +86,7 @@ or reconstructed. Long jobs can stop at context, call, or daily budget limits.
 | Clear live caption | Blank; capture continues | Keep committed paragraphs, discard pending work | Preserved |
 | Quick block a word | Hides any caption containing it immediately, without a settings refresh | Same caption hidden in the reader/archive too | Preserved |
 | Pause | Blank; capture stops | Keep committed paragraphs, mark boundary | Preserved |
+| Manual caption (while paused) | Show operator-typed text (240 characters max) in place of the hidden translation | Not appended to paragraphs; recorded as a separate operator note | Note saved if history saving is on |
 | Resume | New capture after acknowledgement | Append new paragraphs | Same service |
 | Refresh translation settings | Clear and reject old results; keep service/links | Preserve earlier text; separate later revisions/languages | Preserved |
 | End or 90-minute expiry | Blank; latest-viewer link revoked; OBS URL retained | Bounded finalization, then 30-minute reading grace | Saved content expires seven days later; usage keeps its own expiry |

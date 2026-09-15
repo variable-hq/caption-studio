@@ -11,7 +11,8 @@ church-approved quality require separate evidence.
 - Reviewed terminology, script-aware public masking, incomplete-output skipping,
   one-time controller/attempt claims and acknowledged usage.
 - Reusable OBS channel, latest-caption viewer, shared styles, safe margins, explicit
-  refresh, Pause/Resume/Clear/End, takeover, recovery and link rotation.
+  refresh, Pause/Resume/Clear/End, a paused manual-caption override archived as a
+  separate reader/archive note, takeover, recovery and link rotation.
 - Overview-first dashboard with grouped sidebar navigation, hash-addressable sections,
   a phone drawer, and a collapsible right service panel with a compact live bar.
 - Repository deploy guard (`OPEN_NEXT_DEPLOY=true`), deployment dry run in validation,
