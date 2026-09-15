@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CloudProviderClient } from "@/ai/cloud-provider-client";
 import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
-import { MAX_TRANSCRIPTION_REQUESTS, normalizeCaptionStyle } from "@/live/contracts";
+import {
+  MAX_MANUAL_CAPTION_CHARS,
+  MAX_TRANSCRIPTION_REQUESTS,
+  normalizeCaptionStyle,
+} from "@/live/contracts";
 import { handleLiveApiRequest, type LiveWorkerEnvironment } from "@/live/api";
 import { handleInferenceRequest } from "@/live/inference-request";
 import { LiveSessionClient } from "@/live/session-client";
@@ -549,6 +553,99 @@ describe("reusable caption channel", () => {
         )
       ).status,
     ).toBe(409);
+  });
+
+  it("shows an operator-typed manual caption to viewers only while paused", async () => {
+    const { room, viewerSocket } = roomFixture();
+    await createChannel(room);
+
+    expect(
+      (
+        await room.fetch(
+          request("/internal/control", {
+            action: "manual",
+            targetLanguage: "en",
+            manualText: "We will resume shortly.",
+          }),
+        )
+      ).status,
+    ).toBe(409);
+
+    await startService(room);
+    expect(
+      (
+        await room.fetch(
+          request("/internal/control", {
+            action: "manual",
+            controllerHash: CONTROLLER_A,
+            targetLanguage: "en",
+            manualText: "We will resume shortly.",
+          }),
+        )
+      ).status,
+    ).toBe(409);
+
+    await room.fetch(
+      request("/internal/control", {
+        action: "pause",
+        controllerHash: CONTROLLER_A,
+      }),
+    );
+    viewerSocket.messages.length = 0;
+    const response = await room.fetch(
+      request("/internal/control", {
+        action: "manual",
+        controllerHash: CONTROLLER_A,
+        targetLanguage: "en",
+        manualText: "  We will resume shortly.  ",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(viewerSocket.messages.map((message) => JSON.parse(message))).toEqual([
+      expect.objectContaining({
+        type: "caption",
+        caption: expect.objectContaining({ publicText: "We will resume shortly." }),
+      }),
+    ]);
+  });
+
+  it("rejects a blank or over-length manual caption", async () => {
+    const { room } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(
+      request("/internal/control", { action: "pause", controllerHash: CONTROLLER_A }),
+    );
+
+    for (const manualText of ["   ", "x".repeat(MAX_MANUAL_CAPTION_CHARS + 1)]) {
+      const response = await room.fetch(
+        request("/internal/control", {
+          action: "manual",
+          controllerHash: CONTROLLER_A,
+          targetLanguage: "en",
+          manualText,
+        }),
+      );
+      expect(response.status).toBe(409);
+    }
+  });
+
+  it("accepts a manual caption at exactly the character limit", async () => {
+    const { room } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(
+      request("/internal/control", { action: "pause", controllerHash: CONTROLLER_A }),
+    );
+    const response = await room.fetch(
+      request("/internal/control", {
+        action: "manual",
+        controllerHash: CONTROLLER_A,
+        targetLanguage: "en",
+        manualText: "x".repeat(MAX_MANUAL_CAPTION_CHARS),
+      }),
+    );
+    expect(response.status).toBe(200);
   });
 
   it("requires the current controller for active captions, controls, and styles", async () => {

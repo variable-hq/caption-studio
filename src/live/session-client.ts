@@ -171,6 +171,7 @@ export class LiveSessionClient {
       style?: CaptionStyle;
       expectedTranslationRevision?: number;
       refreshRequestId?: string;
+      manualText?: string;
     },
   ) {
     const response = await fetch("/api/live/channel/control", {

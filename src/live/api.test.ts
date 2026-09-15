@@ -456,6 +456,53 @@ describe("reusable OBS channel worker API", () => {
     });
   });
 
+  it("validates and forwards a paused manual caption", async () => {
+    const { env, fetch } = environment(async () =>
+      Response.json({ action: "manual", status: "paused", sequence: 5 }),
+    );
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/control", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "manual",
+          targetLanguage: "id",
+          manualText: "We will resume after the offering.",
+        }),
+      }),
+      env,
+    );
+    const forwarded = fetch.mock.calls[0][0] as Request;
+    const body = (await forwarded.json()) as {
+      action: string;
+      targetLanguage: string;
+      manualText: string;
+    };
+
+    expect(response?.status).toBe(200);
+    expect(body).toMatchObject({
+      action: "manual",
+      targetLanguage: "id",
+      manualText: "We will resume after the offering.",
+    });
+  });
+
+  it("rejects a manual control with blank or over-length text before it reaches the room", async () => {
+    const { env, fetch } = environment();
+    for (const manualText of ["   ", "x".repeat(241)]) {
+      const response = await handleLiveApiRequest(
+        new Request("https://caption.example/api/live/channel/control", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "manual", targetLanguage: "id", manualText }),
+        }),
+        env,
+      );
+      expect(response?.status).toBe(400);
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("forwards a controller-authorized translation refresh with its CAS revision", async () => {
     const { env, fetch } = environment(async () =>
       Response.json({

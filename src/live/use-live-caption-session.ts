@@ -1770,6 +1770,52 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     }
   }, [handleTakenOver, liveState.channel?.configured, liveState.status]);
 
+  const showManualCaption = useCallback(
+    async (text: string) => {
+      const manualText = text.trim();
+      if (!liveState.channel?.configured || liveState.status !== "paused" || !manualText) {
+        return;
+      }
+      setControlAction("manual");
+      try {
+        const current = settingsRef.current;
+        const targetLanguage =
+          activeTranslationSettingsRef.current?.targetLanguage ?? current.targetLanguage;
+        const response = await liveClientRef.current.control(
+          "manual",
+          serviceRef.current?.controllerToken,
+          {
+            targetLanguage,
+            style: normalizeCaptionStyle(current.style),
+            manualText,
+          },
+        );
+        setLiveState((state) => ({
+          ...state,
+          message: "Manual caption shown. Resume clears it before live audio restarts.",
+          sequence: response.sequence ?? state.sequence,
+          latestSourceText: "",
+          latestPublicText: manualText,
+          latestPublicLanguage: targetLanguage,
+          channel: state.channel
+            ? { ...state.channel, style: normalizeCaptionStyle(current.style) }
+            : state.channel,
+        }));
+      } catch (error) {
+        if (isControllerReplaced(error)) handleTakenOver();
+        else {
+          setLiveState((current) => ({
+            ...current,
+            message: error instanceof Error ? error.message : "Manual caption failed.",
+          }));
+        }
+      } finally {
+        setControlAction(null);
+      }
+    },
+    [handleTakenOver, liveState.channel?.configured, liveState.status],
+  );
+
   useEffect(() => {
     const pauseForLifecycle = () => {
       if (lifecyclePauseRef.current) return;
@@ -1886,6 +1932,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     removeQuickBlock,
     rememberReaderLink,
     showTestCaption,
+    showManualCaption,
     stopSession: () => endService(),
     reloadChannel: loadChannel,
   };

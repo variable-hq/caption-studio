@@ -10,6 +10,7 @@ export const MAX_TRANSCRIPTION_REQUESTS = Math.floor(
   MAX_LIVE_SESSION_MS / MIN_SPEECH_BUFFER_MS,
 );
 export const MAX_CAPTION_EVENTS = 1_400;
+export const MAX_MANUAL_CAPTION_CHARS = 240;
 export const MAIN_CHANNEL_ID = "main" as const;
 const TRANSLATION_REFRESH_REQUEST_ID = /^[A-Za-z0-9_-]{16,64}$/;
 
@@ -30,6 +31,7 @@ const LIVE_SESSION_CONTROL_ACTIONS = [
   "resume",
   "clear",
   "show-test",
+  "manual",
   "refresh-translation",
 ] as const;
 
@@ -53,6 +55,7 @@ export interface LiveSessionControlRequest {
   style?: CaptionStyle;
   expectedTranslationRevision?: number;
   refreshRequestId?: string;
+  manualText?: string;
 }
 
 export interface LiveSessionControlResponse {
