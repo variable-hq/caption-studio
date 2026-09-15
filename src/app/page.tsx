@@ -10,6 +10,7 @@ import {
 import { AiUsageDashboard } from "@/components/operator/AiUsageDashboard";
 import { OperatorTutorial } from "@/components/operator/OperatorTutorial";
 import { PromptEditor } from "@/components/operator/PromptEditor";
+import { QuickBlockControl } from "@/components/operator/QuickBlockControl";
 import { SummarySettingsEditor } from "@/components/operator/SummarySettingsEditor";
 import type { SummaryOptions } from "@/experience/contracts";
 import {
@@ -551,6 +552,9 @@ export default function OperatorDashboard() {
     pauseSession,
     resumeSession,
     clearCaption,
+    quickBlockEntries,
+    addQuickBlock,
+    removeQuickBlock,
     rememberReaderLink,
     showTestCaption,
     refreshTranslationSession,
@@ -1063,6 +1067,8 @@ export default function OperatorDashboard() {
   const promptEditor = (
     <PromptEditor
       value={translationSystemPrompt}
+      sourceLanguage={sourceLanguage}
+      targetLanguage={targetLanguage}
       onChange={updateTranslationSystemPrompt}
       onSaveBrowserDefault={savePromptBrowserDefault}
       onReset={resetPromptToSafeDefault}
@@ -1205,6 +1211,12 @@ export default function OperatorDashboard() {
       >
         {controlAction === "clear" ? "Clearing…" : "Clear live caption"}
       </button>
+      <QuickBlockControl
+        entries={quickBlockEntries}
+        onAdd={addQuickBlock}
+        onRemove={removeQuickBlock}
+        disabled={isBusy}
+      />
     </>
   );
   const captionPreview = (

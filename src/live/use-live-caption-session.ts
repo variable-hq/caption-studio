@@ -15,6 +15,7 @@ import {
 } from "@/ai/usage";
 import { chooseAudioInputDevice } from "@/live/audio-devices";
 import { parseGlossaryInput, parseModerationInput, preferredTermMap } from "@/live/config";
+import { addQuickBlockEntry, combineFilterText, removeQuickBlockEntry, type QuickBlockEntry } from "@/live/quick-block";
 import {
   DEFAULT_SPEECH_BUFFER_MS,
   MAX_LIVE_SESSION_MS,
@@ -29,6 +30,7 @@ import {
 import { LiveApiError, LiveSessionClient } from "@/live/session-client";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import {
+  MAX_FILTER_INPUT_CHARS,
   normalizeTranslationSessionSettings,
   parseStoredTranslationSessionSettings,
   serializeTranslationSessionSettings,
@@ -129,6 +131,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     useState<TranslationSessionSettings | null>(null);
   const [translationRefreshRequired, setTranslationRefreshRequired] =
     useState(false);
+  const [quickBlockEntries, setQuickBlockEntries] = useState<QuickBlockEntry[]>([]);
 
   const settingsRef = useRef(settings);
   const endRetryRequiredRef = useRef(false);
@@ -137,6 +140,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const translationRefreshRequiredRef = useRef(false);
   const refreshShouldResumeRef = useRef(false);
   const translationRefreshRequestIdRef = useRef<string | null>(null);
+  const quickBlockEntriesRef = useRef<QuickBlockEntry[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -160,6 +164,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    quickBlockEntriesRef.current = quickBlockEntries;
+  }, [quickBlockEntries]);
+
+  const addQuickBlock = useCallback((term: string) => {
+    setQuickBlockEntries((current) => addQuickBlockEntry(current, term));
+  }, []);
+
+  const removeQuickBlock = useCallback((id: string) => {
+    setQuickBlockEntries((current) => removeQuickBlockEntry(current, id));
+  }, []);
 
   const requireTranslationRefresh = useCallback((required: boolean) => {
     translationRefreshRequiredRef.current = required;
@@ -595,17 +611,22 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       }
       if (!isCurrentCapture()) return;
 
+      const effectiveFilterText = combineFilterText(
+        quickBlockEntriesRef.current,
+        current.filterText,
+        MAX_FILTER_INPUT_CHARS,
+      );
       const forms = prepareCaptionForms({
         sourceText,
         translatedText: translation.text,
         targetLanguage: current.targetLanguage,
         glossary,
-        moderationRules: parseModerationInput(current.filterText),
+        moderationRules: parseModerationInput(effectiveFilterText),
       });
       const event: PublicCaptionRequest = {
         captionEpoch: lease.captionEpoch ?? 0,
         transcriptionAttempt: lease.transcriptionRequests,
-        reader: { filterText: current.filterText, keywordText: current.keywordText },
+        reader: { filterText: effectiveFilterText, keywordText: current.keywordText },
         publicText: forms.publicText,
         targetLanguage: current.targetLanguage,
         style: normalizeCaptionStyle(settingsRef.current.style),
@@ -1860,6 +1881,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     resumeSession,
     refreshTranslationSession,
     clearCaption,
+    quickBlockEntries,
+    addQuickBlock,
+    removeQuickBlock,
     rememberReaderLink,
     showTestCaption,
     stopSession: () => endService(),

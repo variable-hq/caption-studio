@@ -2,10 +2,12 @@
 
 import { useId } from "react";
 
-import { MAX_TRANSLATION_SYSTEM_PROMPT_CHARS } from "@/ai/translation-prompt";
+import { ID_EN_ADDRESS_TERM_GUIDANCE, MAX_TRANSLATION_SYSTEM_PROMPT_CHARS } from "@/ai/translation-prompt";
 
 interface PromptEditorProps {
   value: string;
+  sourceLanguage: string;
+  targetLanguage: string;
   onChange: (value: string) => void;
   onSaveBrowserDefault: () => void;
   onReset: () => void;
@@ -15,6 +17,8 @@ interface PromptEditorProps {
 
 export function PromptEditor({
   value,
+  sourceLanguage,
+  targetLanguage,
   onChange,
   onSaveBrowserDefault,
   onReset,
@@ -62,6 +66,14 @@ export function PromptEditor({
           onClick={onSaveBrowserDefault}
         >
           Save as browser default
+        </button>
+        <button
+          className="secondaryButton"
+          type="button"
+          disabled={disabled || targetLanguage !== "en" || !["id", "auto"].includes(sourceLanguage)}
+          onClick={() => onChange([value, ID_EN_ADDRESS_TERM_GUIDANCE].filter(Boolean).join("\n\n"))}
+        >
+          Add Indonesian address-term guidance
         </button>
         <button
           className="textButton"
