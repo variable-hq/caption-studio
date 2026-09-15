@@ -157,14 +157,17 @@ Current behavior:
   and not stored by this application;
 - protected source and translated text remain in active browser memory; explicit
   pre-service opt-in also stores private source and corrections for seven days after End;
-- only the latest moderated public caption is kept in the Main room's durable
-storage
+- only the latest moderated public caption is kept in the Main room's durable storage
   until Clear, Pause, refresh, End, expiry or rotation removes it; a paused synthetic test
   or operator-typed manual caption occupies that same slot instead, unmoderated, since
   neither is transcribed audience speech;
-- caption-style preferences, a custom operator prompt and default summary configuration
-  explicitly saved by the operator, and the first-visit tutorial's dismissal flag use
-  unencrypted browser `localStorage`;
+- caption-style preferences, a custom operator prompt, default summary configuration, a
+  default translation setup, theme and tutorial dismissal explicitly saved by the operator
+  are stored with the operator's account in the `OperatorPreferences` Durable Object,
+  addressed by the SHA-256 of the lower-cased Access email (the email itself is not
+  stored) and retained until the operator resets or deletes them; the same values keep an
+  unencrypted browser `localStorage` copy as a fallback when the account store is
+  unavailable;
   other translation drafts remain in React/page memory and disappear on reload. The
   tutorial stores only `dismissed` under `church-live-caption:operator-tutorial:v1` on
   Skip, Escape, or completion; it makes no audio, inference, service-control, or analytics
@@ -239,7 +242,7 @@ setting.
   collaborators promptly.
 - Keep the Worker on the intended plan and do not introduce paid fallback without an
   explicit owner decision.
-- Preserve all three SQLite Durable Object bindings and v1/v2 migrations in
+- Preserve all four SQLite Durable Object bindings and v1/v2/v3 migrations in
   `wrangler.jsonc`, plus AI and assets. Optional AI remains disabled until configured.
 - Keep logs free of audio, captions, prompts, glossary terms, JWTs, OBS URLs, and mobile
   viewer links. Workers observability logging is enabled in `wrangler.jsonc`, so any

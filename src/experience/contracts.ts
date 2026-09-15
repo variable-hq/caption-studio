@@ -19,6 +19,7 @@ export interface Namespace {
 export interface ExperienceEnvironment {
   SERMON_JOURNALS?: Namespace;
   AI_USAGE?: Namespace;
+  OPERATOR_PREFERENCES?: Namespace;
   AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
   // Explicit deployment switch: only enable after verifying account Free plan and logging.
   CAPTION_OPTIONAL_AI_ENABLED?: string;

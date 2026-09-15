@@ -101,10 +101,16 @@ export function OperatorTutorial({
   autoOpenAllowed,
   serviceActive,
   onOpenSection,
+  dismissedForAccount = false,
+  onDismiss,
 }: {
   autoOpenAllowed: boolean;
   serviceActive: boolean;
   onOpenSection: (section: typeof STEPS[number]["section"]) => void;
+  /** True when the signed-in operator's saved preferences already record a dismissal. */
+  dismissedForAccount?: boolean;
+  /** Called once per dismissal so the page can record it with the operator's account. */
+  onDismiss?: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -118,6 +124,7 @@ export function OperatorTutorial({
     const frame = requestAnimationFrame(() => {
       if (autoOpenChecked.current) return;
       autoOpenChecked.current = true;
+      if (dismissedForAccount) return;
       try {
         if (localStorage.getItem(DISMISSED_KEY) === "dismissed") return;
       } catch {
@@ -127,7 +134,7 @@ export function OperatorTutorial({
       headingRef.current?.focus();
     });
     return () => cancelAnimationFrame(frame);
-  }, [autoOpenAllowed]);
+  }, [autoOpenAllowed, dismissedForAccount]);
 
   useEffect(() => {
     if (dialogRef.current?.open) headingRef.current?.focus();
@@ -146,6 +153,7 @@ export function OperatorTutorial({
     } catch {
       // Only a dismissal flag is lost; the guide may reappear on the next visit.
     }
+    onDismiss?.();
     dialogRef.current?.close();
     launcherRef.current?.focus();
   }

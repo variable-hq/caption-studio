@@ -17,6 +17,7 @@ records to establish release evidence.
 | [Contributing](../CONTRIBUTING.md) | Branch/PR workflow and required QA |
 | [Stakeholder test guide](STAKEHOLDER_TEST_GUIDE.md) | Protected rehearsal and content-free evidence |
 | [Roadmap](ROADMAP.md) / [Gap analysis](GAP_ANALYSIS.md) | Outstanding work and release gates |
+| [Design system](DESIGN_SYSTEM.md) | Tokens, light/dark themes, shared controls and the resizable navigation |
 
 ## Decisions and evaluation
 

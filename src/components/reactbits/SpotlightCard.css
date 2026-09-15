@@ -7,15 +7,15 @@
 .rb-spotlight-card {
   --rb-spotlight-x: 50%;
   --rb-spotlight-y: 50%;
-  --rb-spotlight-color: rgba(17, 17, 17, 0.08);
+  --rb-spotlight-color: color-mix(in srgb, var(--ink) 8%, transparent);
   --rb-spotlight-size: 360px;
 
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid var(--line, #d7d7d1);
-  border-radius: var(--radius-lg, 14px);
-  background: var(--card, #ffffff);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
 }
 
 .rb-spotlight-card::before {

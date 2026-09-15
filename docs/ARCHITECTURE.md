@@ -15,6 +15,7 @@ physical-device, provider-output or semantic acceptance.
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, remote commands and archive index |
 | `SermonJournal` | One service's source/corrections/exclusions, reader paragraphs, operator notes, lifecycle checkpoints and manual summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
+| `OperatorPreferences` | One object per hashed Access email: theme, sidebar width, saved prompt, summary defaults, caption style, default translation setup and tutorial dismissal |
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
 | Workers AI | Optional shared reader phrasing and bounded manual summaries |
 
@@ -79,6 +80,7 @@ still consumes its claim; it cannot be replayed to spend again.
 | `PUT …/style`, `POST …/rotate`, `POST …/viewer/rotate` | Access | Shared style; OBS rotation; viewer replacement (4,096-byte bodies) |
 | `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol | OBS and latest-viewer WebSockets |
 | `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation |
+| `GET`/`POST`/`DELETE …/experience/preferences` | Access | The signed-in operator's saved configuration; POST merges a partial record, `null` clears a field |
 | `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index, one sermon's private archive |
 | `POST …/sermons/{id}/summary`, `…/remove`, `…/correct`, `…/delete` | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion |
 | `GET /api/live/reader` | `x-caption-reader` header | Appending reader paragraphs and operator notes, 50 per poll |
@@ -157,7 +159,7 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | --- | --- |
 | Raw audio and queued chunks | Browser/request memory only; never archived |
 | Draft translation settings | Page memory; active snapshot in tab sessionStorage for recovery |
-| Explicitly saved prompt, summary defaults, style, tutorial dismissal | Unencrypted browser localStorage until cleared; shared channel style also persists |
+| Explicitly saved prompt, summary defaults, style, default translation setup, theme, sidebar width, tutorial dismissal | `OperatorPreferences` object keyed by the SHA-256 of the lower-cased Access email, kept until the operator clears it; a browser copy remains in unencrypted localStorage as a fallback, and the shared channel style also persists |
 | OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
 | Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
 | Latest public caption | Main live state; cleared by controls and End/expiry |

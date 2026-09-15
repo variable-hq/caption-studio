@@ -91,11 +91,32 @@ function channelRoom(env: LiveWorkerEnvironment) {
 }
 
 async function requireOperator(request: Request, env: LiveWorkerEnvironment) {
-  await requireCloudAccess(request, {
+  return requireCloudAccess(request, {
     audience: env.CLOUDFLARE_ACCESS_AUD,
     teamDomain: env.CLOUDFLARE_ACCESS_TEAM_DOMAIN,
     allowUnconfigured: env.CAPTION_LOCAL_AUTH_BYPASS === "true",
   });
+}
+
+/**
+ * Authorizes an operator and returns the identity used for per-operator preferences.
+ * Without a configured Access application (local development only) every request
+ * shares the "local" identity.
+ */
+export async function authorizeOperatorIdentity(
+  request: Request,
+  env: LiveWorkerEnvironment,
+): Promise<{ denied: Response; identity?: undefined } | { denied?: undefined; identity: string }> {
+  try {
+    const { email } = await requireOperator(request, env);
+    return { identity: email ?? "local" };
+  } catch (error) {
+    return {
+      denied: error instanceof CloudAccessError
+        ? json({ error: error.message }, error.status)
+        : json({ error: "Cloud AI authorization failed." }, 500),
+    };
+  }
 }
 
 export async function authorizeProtectedAiRequest(

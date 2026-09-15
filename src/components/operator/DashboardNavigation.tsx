@@ -1,7 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { LineSidebar, type LineSidebarItem } from "@/components/reactbits";
+import {
+  SIDEBAR_WIDTH_DEFAULT,
+  SIDEBAR_WIDTH_KEY,
+  SIDEBAR_WIDTH_MAX,
+  SIDEBAR_WIDTH_MIN,
+  SIDEBAR_WIDTH_STEP,
+  normalizeSidebarWidth,
+  readStoredSidebarWidth,
+} from "@/live/theme";
 
 const ICON_PATHS = {
   overview: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
@@ -27,14 +36,64 @@ export function DashboardIcon({ name }: { name: keyof typeof ICON_PATHS }) {
   );
 }
 
-export function DashboardNavigation({ items, activeId, onSelect }: {
+const KEYBOARD_WIDTHS: Record<string, (width: number) => number> = {
+  ArrowLeft: (width) => width - SIDEBAR_WIDTH_STEP,
+  ArrowRight: (width) => width + SIDEBAR_WIDTH_STEP,
+  Home: () => SIDEBAR_WIDTH_MIN,
+  End: () => SIDEBAR_WIDTH_MAX,
+};
+
+function persistSidebarWidth(width: number) {
+  try {
+    window.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width));
+  } catch {
+    // Private mode or blocked storage: the width still applies for this visit.
+  }
+}
+
+export function DashboardNavigation({ items, activeId, onSelect, width: accountWidth = null, onWidthChange }: {
   items: readonly LineSidebarItem[];
   activeId: string;
   onSelect: (id: string) => void;
+  /** Width saved with the operator's account; when it changes it replaces the local width. */
+  width?: number | null;
+  /** Called whenever the desktop rail width (px) changes, including the cached value on mount. */
+  onWidthChange?: (width: number) => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
+  const drag = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
+  const widthChangeRef = useRef(onWidthChange);
   const [open, setOpen] = useState(false);
+  const [width, setWidth] = useState(SIDEBAR_WIDTH_DEFAULT);
+  const [resizing, setResizing] = useState(false);
+  const [appliedAccountWidth, setAppliedAccountWidth] = useState(accountWidth);
+  if (appliedAccountWidth !== accountWidth) {
+    // Derived state: a newly loaded account width replaces the cached local width.
+    setAppliedAccountWidth(accountWidth);
+    if (accountWidth !== null) {
+      const clamped = normalizeSidebarWidth(accountWidth);
+      setWidth(clamped);
+      persistSidebarWidth(clamped);
+    }
+  }
+
+  useEffect(() => {
+    widthChangeRef.current = onWidthChange;
+  }, [onWidthChange]);
+
+  useEffect(() => {
+    const stored = readStoredSidebarWidth();
+    if (stored === SIDEBAR_WIDTH_DEFAULT) return;
+    const timeout = window.setTimeout(() => setWidth(stored), 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    const shell = sidebarRef.current?.closest<HTMLElement>(".dashboardShell");
+    shell?.style.setProperty("--sidebar-width", `${width}px`);
+    widthChangeRef.current?.(width);
+  }, [width]);
 
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 981px)");
@@ -55,6 +114,46 @@ export function DashboardNavigation({ items, activeId, onSelect }: {
       document.body.style.overflow = previous;
     };
   }, [open]);
+
+  const commitWidth = (next: number) => {
+    const clamped = normalizeSidebarWidth(next);
+    setWidth(clamped);
+    persistSidebarWidth(clamped);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const compute = KEYBOARD_WIDTHS[event.key];
+    if (!compute) return;
+    event.preventDefault();
+    commitWidth(compute(width));
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: width };
+    setResizing(true);
+  };
+
+  const dragWidth = (event: PointerEvent<HTMLDivElement>) =>
+    drag.current ? normalizeSidebarWidth(drag.current.startWidth + event.clientX - drag.current.startX) : width;
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (drag.current?.pointerId !== event.pointerId) return;
+    setWidth(dragWidth(event));
+  };
+
+  const handlePointerEnd = (event: PointerEvent<HTMLDivElement>) => {
+    if (drag.current?.pointerId !== event.pointerId) return;
+    const final = dragWidth(event);
+    drag.current = null;
+    setResizing(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    commitWidth(final);
+  };
 
   const contents = (
     <>
@@ -85,6 +184,23 @@ export function DashboardNavigation({ items, activeId, onSelect }: {
   return (
     <>
       <aside ref={sidebarRef} className="dashboardSidebar" aria-label="Workspace">{contents}</aside>
+      <div
+        className="dashboardResizeHandle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize navigation"
+        aria-valuemin={SIDEBAR_WIDTH_MIN}
+        aria-valuemax={SIDEBAR_WIDTH_MAX}
+        aria-valuenow={width}
+        tabIndex={0}
+        data-resizing={resizing ? "true" : undefined}
+        onKeyDown={handleKeyDown}
+        onDoubleClick={() => commitWidth(SIDEBAR_WIDTH_DEFAULT)}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
+      />
       <button
         className="dashboardMenuButton secondaryButton"
         type="button"

@@ -15,6 +15,11 @@ import { QuickBlockControl } from "@/components/operator/QuickBlockControl";
 import { SummarySettingsEditor } from "@/components/operator/SummarySettingsEditor";
 import type { SummaryOptions } from "@/experience/contracts";
 import {
+  loadOperatorPreferences,
+  saveOperatorPreferences,
+} from "@/experience/preferences-client";
+import type { OperatorPreferences } from "@/experience/preferences";
+import {
   DEFAULT_SUMMARY_OPTIONS,
   SUMMARY_DEFAULTS_PREFERENCE_KEY,
   normalizeSummaryOptions,
@@ -45,6 +50,7 @@ import {
 } from "@/live/contracts";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { startSerialPolling } from "@/live/serial-polling";
+import { THEME_PREFERENCE_KEY, applyTheme, normalizeTheme, readStoredTheme, type ThemePreference } from "@/live/theme";
 import {
   normalizeTranslationSessionSettings,
   translationSettingsChanges,
@@ -445,6 +451,7 @@ export default function OperatorDashboard() {
   const [filterText, setFilterText] = useState("");
   const [saveHistory, setSaveHistory] = useState(false);
   const [servicePanelOpen, setServicePanelOpen] = useState(false);
+  const [theme, setTheme] = useState<ThemePreference>("system");
   const servicePanelTriggerRef = useRef<HTMLButtonElement>(null);
   const [speechBufferMs, setSpeechBufferMs] = useState<SpeechBufferMs>(
     DEFAULT_SPEECH_BUFFER_MS,
@@ -454,6 +461,11 @@ export default function OperatorDashboard() {
   );
   const [savedPromptFingerprint, setSavedPromptFingerprint] = useState("");
   const [promptStorageMessage, setPromptStorageMessage] = useState("");
+  const [accountPreferences, setAccountPreferences] = useState<OperatorPreferences | null>(null);
+  const [accountSidebarWidth, setAccountSidebarWidth] = useState<number | null>(null);
+  const sidebarSyncRef = useRef<{ timeout: number; width: number } | null>(null);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [translationDefaultsMessage, setTranslationDefaultsMessage] = useState("");
   const [summaryDefaults, setSummaryDefaults] = useState<SummaryOptions>(DEFAULT_SUMMARY_OPTIONS);
   const [savedSummaryDefaults, setSavedSummaryDefaults] = useState<SummaryOptions | null>(null);
   const [summaryStorageMessage, setSummaryStorageMessage] = useState("");
@@ -619,6 +631,29 @@ export default function OperatorDashboard() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [confirmTranslationRefresh]);
+
+  useEffect(() => {
+    const stored = readStoredTheme();
+    if (stored === "system") return;
+    const timeout = window.setTimeout(() => setTheme(stored), 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  function chooseTheme(next: string) {
+    const normalized = normalizeTheme(next);
+    setTheme(normalized);
+    void syncAccountPreferences({ theme: normalized });
+    try {
+      if (normalized === "system") window.localStorage.removeItem(THEME_PREFERENCE_KEY);
+      else window.localStorage.setItem(THEME_PREFERENCE_KEY, normalized);
+    } catch {
+      // Storage may be blocked; the choice still applies for this visit.
+    }
+  }
 
   useEffect(() => {
     try {
@@ -878,6 +913,106 @@ export default function OperatorDashboard() {
     window.open(viewerUrl, "_blank", "noopener,noreferrer");
   };
 
+  const hasServiceRef = useRef(false);
+  useEffect(() => {
+    hasServiceRef.current = Boolean(liveState.service);
+  }, [liveState.service]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadOperatorPreferences()
+      .then((loaded) => {
+        if (cancelled) return;
+        setAccountPreferences(loaded);
+        if (loaded.translationSystemPrompt !== null) {
+          setTranslationSystemPrompt(loaded.translationSystemPrompt);
+          setSavedPromptFingerprint(loaded.translationSystemPrompt);
+          setPromptStorageMessage("Loaded from your account.");
+        }
+        if (loaded.summaryDefaults) {
+          setSummaryDefaults(loaded.summaryDefaults);
+          setSavedSummaryDefaults(loaded.summaryDefaults);
+          setSummaryStorageMessage("Loaded from your account.");
+        }
+        if (loaded.captionStyle) {
+          const saved = loaded.captionStyle;
+          setFontSize(saved.fontSize);
+          setTextColor(saved.textColor);
+          setBackgroundColor(saved.backgroundColor);
+          setBackgroundTransparency(saved.backgroundTransparency);
+          setHorizontalMarginPercent(saved.horizontalMarginPercent);
+          setVerticalMarginPercent(saved.verticalMarginPercent);
+          setHorizontalAlign(saved.horizontalAlign);
+          setVerticalAlign(saved.verticalAlign);
+          setFontFamily(saved.fontFamily);
+          setSavedStyleFingerprint(JSON.stringify(saved));
+        }
+        setTheme(loaded.theme);
+        try {
+          if (loaded.theme === "system") window.localStorage.removeItem(THEME_PREFERENCE_KEY);
+          else window.localStorage.setItem(THEME_PREFERENCE_KEY, loaded.theme);
+        } catch {
+          // Storage may be blocked; the account value still applies for this visit.
+        }
+        if (loaded.sidebarWidth !== null) setAccountSidebarWidth(loaded.sidebarWidth);
+        if (loaded.translationDefaults && !hasServiceRef.current) {
+          const defaults = loaded.translationDefaults;
+          setSourceLanguage(defaults.sourceLanguage);
+          setTargetLanguage(defaults.targetLanguage);
+          setKeywordText(defaults.keywordText);
+          setFilterText(defaults.filterText);
+          setSpeechBufferMs(defaults.speechBufferMs);
+          setTranslationDefaultsMessage("Loaded your saved default setup.");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAccountPreferences(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPreferencesLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Runs once; the setters are stable and the live-service guard uses a ref.
+  }, []);
+
+  /** Best-effort account sync; callers report the browser-only fallback themselves. */
+  const syncAccountPreferences = async (patch: Partial<OperatorPreferences>) => {
+    try {
+      const stored = await saveOperatorPreferences(patch);
+      setAccountPreferences(stored);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const rememberSidebarWidth = (width: number) => {
+    if (!preferencesLoaded || accountPreferences?.sidebarWidth === width) return;
+    if (sidebarSyncRef.current) window.clearTimeout(sidebarSyncRef.current.timeout);
+    sidebarSyncRef.current = {
+      width,
+      timeout: window.setTimeout(() => {
+        sidebarSyncRef.current = null;
+        void syncAccountPreferences({ sidebarWidth: width });
+      }, 800),
+    };
+  };
+
+  const saveTranslationDefaults = () => {
+    setTranslationDefaultsMessage("Saving your default setup…");
+    void syncAccountPreferences({
+      translationDefaults: { sourceLanguage, targetLanguage, keywordText, filterText, speechBufferMs },
+    }).then((ok) =>
+      setTranslationDefaultsMessage(
+        ok
+          ? "Saved as your default setup. New services start from these languages, buffer and terms."
+          : "Account sync is unavailable; the default setup was not saved.",
+      ),
+    );
+  };
+
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(SUMMARY_DEFAULTS_PREFERENCE_KEY);
@@ -900,7 +1035,10 @@ export default function OperatorDashboard() {
       window.localStorage.setItem(SUMMARY_DEFAULTS_PREFERENCE_KEY, JSON.stringify(normalized));
       setSummaryDefaults(normalized);
       setSavedSummaryDefaults(normalized);
-      setSummaryStorageMessage("Saved as this browser's default summary configuration.");
+      setSummaryStorageMessage("Saved in this browser. Syncing to your account…");
+      void syncAccountPreferences({ summaryDefaults: normalized }).then((ok) =>
+        setSummaryStorageMessage(ok ? "Saved to your account and this browser." : "Saved in this browser only; account sync is unavailable."),
+      );
     } catch {
       setSummaryStorageMessage("The summary configuration could not be saved in this browser.");
     }
@@ -914,7 +1052,8 @@ export default function OperatorDashboard() {
     }
     setSummaryDefaults(DEFAULT_SUMMARY_OPTIONS);
     setSavedSummaryDefaults(null);
-    setSummaryStorageMessage("Reset to the built-in defaults. No summary configuration is saved in this browser.");
+    setSummaryStorageMessage("Reset to the built-in defaults.");
+    void syncAccountPreferences({ summaryDefaults: null });
   };
 
   const updateSummaryDefaults = (value: SummaryOptions) => {
@@ -941,7 +1080,10 @@ export default function OperatorDashboard() {
       );
       setTranslationSystemPrompt(normalized);
       setSavedPromptFingerprint(normalized);
-      setPromptStorageMessage("Saved as this browser's default prompt.");
+      setPromptStorageMessage("Saved in this browser. Syncing to your account…");
+      void syncAccountPreferences({ translationSystemPrompt: normalized }).then((ok) =>
+        setPromptStorageMessage(ok ? "Saved to your account and this browser." : "Saved in this browser only; account sync is unavailable."),
+      );
     } catch {
       setPromptStorageMessage("The prompt could not be saved in this browser.");
     }
@@ -950,6 +1092,7 @@ export default function OperatorDashboard() {
   const resetPromptToSafeDefault = () => {
     try {
       window.localStorage.removeItem(TRANSLATION_PROMPT_PREFERENCE_KEY);
+      void syncAccountPreferences({ translationSystemPrompt: null });
       setTranslationSystemPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT);
       setSavedPromptFingerprint("");
       setPromptStorageMessage(
@@ -1002,6 +1145,9 @@ export default function OperatorDashboard() {
       window.localStorage.setItem(CAPTION_PREFERENCE_KEY, serialized);
       setSavedStyleFingerprint(serialized);
       setPreferenceError("");
+      void syncAccountPreferences({ captionStyle: style }).then((ok) => {
+        if (!ok) setPreferenceError("Saved in this browser only; account sync is unavailable.");
+      });
       if (liveState.channel?.configured) void saveChannelStyle();
     } catch {
       setPreferenceError("Caption preferences could not be saved in this browser.");
@@ -1254,7 +1400,7 @@ export default function OperatorDashboard() {
   return (
     <div className={`dashboardShell ${servicePanelOpen ? "servicePanelOpen" : ""}`}>
       <a className="skipLink" href="#workspace-panel-heading">Skip to workspace controls</a>
-      <DashboardNavigation items={WORKSPACE_ITEMS} activeId={currentWorkspaceSection} onSelect={(id) => openWorkspaceSection(id as WorkspaceSectionId)} />
+      <DashboardNavigation items={WORKSPACE_ITEMS} activeId={currentWorkspaceSection} onSelect={(id) => openWorkspaceSection(id as WorkspaceSectionId)} width={accountSidebarWidth} onWidthChange={rememberSidebarWidth} />
       <main className="dashboardMain">
       <header className="topbar">
         <div className="dashboardBreadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><h1>Main channel</h1></div>
@@ -1273,10 +1419,22 @@ export default function OperatorDashboard() {
             {channelStatusLabel}
           </span>
           <OperatorTutorial
-            autoOpenAllowed={!isBusy && !hasService && !anotherOperatorActive}
+            autoOpenAllowed={preferencesLoaded && !isBusy && !hasService && !anotherOperatorActive}
             serviceActive={hasService || anotherOperatorActive}
             onOpenSection={openWorkspaceSection}
+            dismissedForAccount={accountPreferences?.tutorialDismissed ?? false}
+            onDismiss={() => void syncAccountPreferences({ tutorialDismissed: true })}
           />
+          <select
+            className="themeSelect"
+            aria-label="Theme"
+            value={theme}
+            onChange={(event) => chooseTheme(event.target.value)}
+          >
+            <option value="system">System theme</option>
+            <option value="light">Light theme</option>
+            <option value="dark">Dark theme</option>
+          </select>
         </div>
           <button
             ref={servicePanelTriggerRef}
@@ -1529,6 +1687,22 @@ export default function OperatorDashboard() {
               {currentWorkspaceSection === "translation" ? (
                 <div className="panelStack">
                   {translationSettingsEditor}
+                  <div className="saveRow">
+                    <button
+                      className="secondaryButton"
+                      type="button"
+                      onClick={saveTranslationDefaults}
+                      disabled={translationEditorDisabled}
+                    >
+                      Save as my default setup
+                    </button>
+                    <p role="status" aria-live="polite" aria-atomic="true">
+                      {translationDefaultsMessage ||
+                        (accountPreferences?.translationDefaults
+                          ? "Your account has a saved default setup for new services."
+                          : "Saves languages, buffer, terminology and filters to your account for new services.")}
+                    </p>
+                  </div>
                   <details className="modelSummary serviceDetailStrip advancedActions">
                     <summary>Service details</summary>
                     <p>
