@@ -4,12 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { viewerDocumentResponse } from "@/live/viewer-document";
 
-async function viewer(hash = `#main.${"t".repeat(43)}`) {
+async function viewer(hash = `#main.${"t".repeat(43)}`, globals: Record<string, unknown> = {}) {
   const elements = new Map<string, ReturnType<typeof element>>();
   function element() {
     return {
       textContent: "", className: "", lang: "", hidden: true,
-      dataset: {} as Record<string, string>, value: "standard",
+      dataset: {} as Record<string, string>, value: "standard", style: {} as Record<string, string>,
+      getBoundingClientRect: () => ({ top: 0, height: 0 }),
       classList: { add: vi.fn(), toggle: vi.fn() },
       removeAttribute(name: string) { if (name === "lang") this.lang = ""; },
       onchange: () => {}, onclick: () => {},
@@ -37,6 +38,7 @@ async function viewer(hash = `#main.${"t".repeat(43)}`) {
   runInNewContext(script, {
     document, location, WebSocket: Socket,
     setTimeout: (callback: () => void) => timers.push(callback),
+    ...globals,
   });
   return { document, location, sockets, timers, get: document.querySelector };
 }
@@ -59,6 +61,23 @@ describe("audience viewer controls and recovery", () => {
     page.sockets[0].onmessage({ data: JSON.stringify({ type: "clear" }) });
     expect(page.get(".caption").lang).toBe("");
     expect(page.get(".caption").textContent).toContain("Waiting");
+  });
+
+  it("shrinks a long caption until the card fits the viewport and restores the chosen size when it fits", async () => {
+    const page = await viewer(undefined, { innerHeight: 600, getComputedStyle: () => ({ fontSize: "52px" }) });
+    const caption = page.get(".caption");
+    // Card height follows the caption font: 20 lines of text at the current size, below a 100px header.
+    page.get(".captionCard").getBoundingClientRect = () => ({ top: 100, height: parseFloat(caption.style.fontSize || "52") * 20 });
+    page.sockets[0].onmessage({ data: JSON.stringify({ type: "ready", status: "live", caption: { sequence: 1, publicText: "x".repeat(400), targetLanguage: "en" } }) });
+    const shrunk = parseFloat(caption.style.fontSize);
+    expect(shrunk).toBeLessThan(52);
+    expect(shrunk * 20).toBeLessThanOrEqual(600 - 100 - 16);
+    expect(shrunk).toBeGreaterThanOrEqual(18);
+    page.get(".captionCard").getBoundingClientRect = () => ({ top: 100, height: 120 });
+    page.sockets[0].onmessage({ data: JSON.stringify({ type: "caption", caption: { sequence: 2, publicText: "Short", targetLanguage: "en" } }) });
+    expect(caption.style.fontSize).toBe("");
+    page.sockets[0].onmessage({ data: JSON.stringify({ type: "clear" }) });
+    expect(caption.style.fontSize).toBe("");
   });
 
   it("shows connection loss immediately and bounds retries even after socket opens", async () => {

@@ -30,6 +30,8 @@ interface RemoteCommand {
   status: "pending" | "confirmed" | "failed";
   at: number;
 }
+/** A remote command the capture computer has not acknowledged by then is reported unconfirmed so the phone unlocks. */
+const REMOTE_COMMAND_TIMEOUT_MS = 45_000;
 interface ArchiveEntry { id: string; startedAt: number; expiresAt: number; saved: boolean }
 
 interface ChannelConfiguration {
@@ -363,6 +365,14 @@ export class CaptionRoom {
     }
     if (action === "remote") {
       if (body.serviceId !== current.serviceId || !body.remoteHash || body.remoteHash !== current.remoteHash) return json({ error: "Remote pairing expired or replaced." }, 403);
+      if (current.remoteCommand?.status === "pending" && Date.now() - current.remoteCommand.at > REMOTE_COMMAND_TIMEOUT_MS) {
+        // Server-side effects (a pause, a clear) already applied; only the microphone acknowledgement is missing.
+        const expired: RemoteCommand = { ...current.remoteCommand, status: "failed" };
+        current.remoteCommand = expired;
+        const history = await this.state.storage.get<RemoteCommand[]>("remote-history") ?? [];
+        await this.state.storage.put("remote-history", history.map((item) => item.id === expired.id ? expired : item));
+        await this.state.storage.put("configuration", current);
+      }
       if (body.action) {
         if (!["pause", "resume", "clear"].includes(body.action) || !/^[a-zA-Z0-9-]{16,64}$/u.test(body.id ?? "")) return json({ error: "Invalid remote command." }, 400);
         const previous = await this.state.storage.get<RemoteCommand[]>("remote-history") ?? [];

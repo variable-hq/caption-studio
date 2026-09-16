@@ -129,6 +129,8 @@ export interface LiveSessionState {
   llmUsage: LlmSessionUsage;
   latestSourceText: string;
   latestPublicText: string;
+  /** When the current public caption was published; null once the canvas is clear. */
+  latestPublicAt?: number | null;
   latestPublicLanguage: LanguageLocale | null;
   lastLatencyMs: number | null;
   channel: ObsChannelDetails | null;

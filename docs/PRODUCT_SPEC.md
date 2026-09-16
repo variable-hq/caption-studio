@@ -91,7 +91,8 @@ translation setting, requests no microphone permission, and never starts a servi
 9. A second operator is blocked unless they explicitly confirm takeover. Takeover clears
    OBS, replaces controller ownership, and causes stale operations to stop the old mic.
 10. The operator can copy a separate mobile link. A viewer receives only current
-    moderated target text and service status. Confirmed replacement revokes that link
+    moderated target text and service status. A long caption shrinks on the phone
+    from the chosen text size down to 18 px so it fits one screen. Confirmed replacement revokes that link
     without changing OBS.
 11. Source/target language, terminology, public filters, buffer duration, and operator
     prompt remain editable as drafts. The operator selects **Review refresh**, then

@@ -318,6 +318,20 @@ describe("remote control and clear boundaries", () => {
     await room.fetch(request("/internal/experience/host", { controllerHash, acknowledgement: command.id, capturing: false, success: true }));
     expect(await (await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash }))).json()).toMatchObject({ command: { status: "confirmed" } });
   });
+  it("reports an unacknowledged command as unconfirmed after 45 seconds and unlocks the remote", async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-13T00:00:00Z"));
+    try {
+      const { room, controllerHash, serviceId } = await fixture(); const remoteHash = "e".repeat(64);
+      await room.fetch(request("/internal/experience/pair", { controllerHash, remoteHash }));
+      expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash, id: "remote-command-0002", action: "pause" }))).status).toBe(200);
+      expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash, id: "remote-command-0003", action: "clear" }))).status).toBe(409);
+      vi.setSystemTime(new Date("2026-09-13T00:00:44Z"));
+      expect(await (await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash }))).json()).toMatchObject({ command: { status: "pending" } });
+      vi.setSystemTime(new Date("2026-09-13T00:00:46Z"));
+      expect(await (await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash }))).json()).toMatchObject({ command: { id: "remote-command-0002", status: "failed" }, status: "paused" });
+      expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash, id: "remote-command-0003", action: "clear" }))).status).toBe(200);
+    } finally { vi.useRealTimers(); }
+  });
   it("rejects disconnected Resume and old pairing after takeover", async () => {
     const { room, controllerHash, serviceId } = await fixture(); const remoteHash = "e".repeat(64);
     await room.fetch(request("/internal/experience/pair", { controllerHash, remoteHash }));

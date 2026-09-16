@@ -51,10 +51,12 @@ function persistSidebarWidth(width: number) {
   }
 }
 
-export function DashboardNavigation({ items, activeId, onSelect, tools, width: accountWidth = null, onWidthChange }: {
+export function DashboardNavigation({ items, activeId, onSelect, tools, channelStatus, width: accountWidth = null, onWidthChange }: {
   items: readonly LineSidebarItem[];
   activeId: string;
   onSelect: (id: string) => void;
+  /** Current state of the single reusable channel, shown on the card that opens Overview. */
+  channelStatus?: string;
   /** Controls shown under the links in both the desktop rail and the phone drawer. */
   tools?: ReactNode;
   /** Width saved with the operator's account; when it changes it replaces the local width. */
@@ -163,10 +165,19 @@ export function DashboardNavigation({ items, activeId, onSelect, tools, width: a
         <span className="brandMark" aria-hidden="true">CC</span>
         <span>Church Live Caption<small>Operator workspace</small></span>
       </div>
-      <div className="dashboardChannel">
+      <a
+        className="dashboardChannel"
+        href="#workspace=overview"
+        aria-current={activeId === "overview" ? "page" : undefined}
+        onClick={(event) => {
+          event.preventDefault();
+          dialogRef.current?.close();
+          onSelect("overview");
+        }}
+      >
         <span aria-hidden="true">M</span>
-        <div><strong>Main channel</strong><small>Church workspace</small></div>
-      </div>
+        <div><strong>Main channel</strong><small>{channelStatus ?? "Reusable OBS channel"}</small></div>
+      </a>
       <LineSidebar
         items={items}
         activeId={activeId}
