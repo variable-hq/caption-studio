@@ -211,7 +211,12 @@ main.dashboardMain {
 }
 
 .dashboardMain .servicePanelToggle > span:last-child {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 1em;
+  block-size: 1em;
   font-size: var(--text-md);
+  line-height: 1;
 }
 
 /* Docked status bar: cloud configuration and Main-channel state sit at the bottom edge. */
