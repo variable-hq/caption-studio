@@ -17,6 +17,13 @@ export default function ReaderPage() {
     let stopped = false;
     let after = 0;
     const credential = location.hash.slice(1);
+    if (!credential) {
+      const explain = window.setTimeout(() => {
+        setStatus("No reader link");
+        setNotice("Open this page from the reader link the operator shares under Live outputs.");
+      }, 0);
+      return () => { cancelled = true; window.clearTimeout(explain); };
+    }
     const onScroll = () => { following.current = document.documentElement.scrollHeight - innerHeight - scrollY < 150; };
     addEventListener("scroll", onScroll, { passive: true });
     const stop = startSerialPolling(async () => {

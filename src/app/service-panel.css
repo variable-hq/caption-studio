@@ -128,6 +128,12 @@
   min-width: 0;
 }
 
+/* Each emergency control keeps its input, button and note together on one full-width row. */
+.servicePanel .primaryControls .quickBlockControl,
+.servicePanel .primaryControls .manualCaptionControl {
+  grid-column: 1 / -1;
+}
+
 .servicePanel .moreMenu[open] {
   grid-column: 1 / -1;
 }
@@ -181,6 +187,9 @@
   position: sticky;
   top: 0;
   z-index: 15;
+  /* Enlarged text can make the sticky bar tall; keep at least three fifths of the viewport for content. */
+  max-height: 40dvh;
+  overflow-y: auto;
   display: flex;
   align-items: center;
   justify-content: flex-end;
