@@ -176,6 +176,14 @@ interface PreviewProps {
   sourceLanguage?: SourceLanguage;
 }
 
+const OBS_CANVAS_WIDTH = 1920;
+const OBS_CANVAS_HEIGHT = 1080;
+
+/**
+ * Renders the caption on a real 1920 × 1080 stage and scales the stage to the card, so
+ * line breaks, sizes and margins match the OBS Browser Source (src/live/overlay-document.ts)
+ * instead of approximating them with responsive typography.
+ */
 function CaptionPreview({
   caption,
   style,
@@ -186,6 +194,23 @@ function CaptionPreview({
   sourceLanguage,
 }: PreviewProps) {
   const headingId = useId();
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.25);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = entry?.contentRect.width ?? frame.clientWidth;
+      if (width > 0) setScale(width / OBS_CANVAS_WIDTH);
+    });
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
+
+  // The overlay pads its stage in vh/vw of a 1080 × 1920 canvas; the same distances in px.
+  const marginY = `${Math.round((style.verticalMarginPercent / 100) * OBS_CANVAS_HEIGHT)}px`;
+  const marginX = `${Math.round((style.horizontalMarginPercent / 100) * OBS_CANVAS_WIDTH)}px`;
 
   return (
     <SpotlightCard className="previewCard" aria-labelledby={headingId}>
@@ -196,11 +221,12 @@ function CaptionPreview({
         </div>
         <span className={`statusChip ${live ? "live" : ""}`}>{badge}</span>
       </div>
-      <div className="videoFrame">
+      <div className="videoFrame" ref={frameRef}>
         <div
-          className="previewSafeArea"
+          className="previewStage"
           style={{
-            inset: `${style.verticalMarginPercent}% ${style.horizontalMarginPercent}%`,
+            transform: `scale(${scale})`,
+            padding: `${marginY} ${marginX}`,
             alignItems:
               style.verticalAlign === "top"
                 ? "flex-start"
@@ -209,6 +235,7 @@ function CaptionPreview({
                   : "flex-end",
           }}
         >
+          <div className="previewSafeArea" aria-hidden="true" style={{ inset: `${marginY} ${marginX}` }} />
           <div
             className="captionPreview"
             data-testid="caption-preview"
@@ -216,8 +243,7 @@ function CaptionPreview({
             style={{
               color: style.textColor,
               fontFamily: CAPTION_FONT_STACKS[style.fontFamily],
-              // Scale the 1920px OBS typography into this responsive dashboard preview.
-              fontSize: `clamp(12px, ${style.fontSize / 19.2}cqw, ${style.fontSize}px)`,
+              fontSize: `${style.fontSize}px`,
               textAlign: style.horizontalAlign,
             }}
           >
@@ -243,7 +269,7 @@ function CaptionPreview({
           </p>
         ) : null}
       </div>
-      <p className="previewHelp">Local preview. Verify the actual Browser Source in OBS.</p>
+      <p className="previewHelp">Scaled copy of the OBS canvas. Verify the actual Browser Source in OBS.</p>
       {sourceText ? (
         <div className="sourceTranscript">
           <strong>Source · Operator only</strong>
@@ -1393,24 +1419,37 @@ export default function OperatorDashboard() {
       )}
     </>
   );
-  const captionPreview = (
+  const outputBadge = hasService
+    ? liveNeedsAttention
+      ? "Output needs attention"
+      : isRefreshing
+        ? "Refreshing settings"
+        : isPaused
+          ? "Paused output"
+          : "Public caption"
+    : liveState.latestPublicText
+      ? "Test caption shown"
+      : "Canvas clear";
+  // What OBS and the latest viewer show right now: the public caption, a shown test, or nothing.
+  // Uses the channel's saved style, not unsaved Appearance edits, for the same reason.
+  const outputMonitor = (
     <CaptionPreview
-      caption={hasService ? liveState.latestPublicText : SAMPLE_CAPTIONS[targetLanguage]}
+      caption={liveState.latestPublicText}
       sourceText={hasService ? liveState.latestSourceText : undefined}
-      targetLanguage={hasService ? liveState.latestPublicLanguage ?? undefined : targetLanguage}
+      targetLanguage={liveState.latestPublicLanguage ?? targetLanguage}
       sourceLanguage={displayedTranslationSettings?.sourceLanguage}
+      style={liveState.channel?.style ?? style}
+      badge={outputBadge}
+      live={hasService && isLive}
+    />
+  );
+  // The Appearance editor needs text to style even while the canvas is clear.
+  const stylePreview = (
+    <CaptionPreview
+      caption={liveState.latestPublicText || SAMPLE_CAPTIONS[targetLanguage]}
+      targetLanguage={liveState.latestPublicText ? liveState.latestPublicLanguage ?? targetLanguage : targetLanguage}
       style={style}
-      badge={
-        hasService
-          ? liveNeedsAttention
-            ? "Output needs attention"
-            : isRefreshing
-              ? "Refreshing settings"
-              : isPaused
-                ? "Paused output"
-                : "Public caption"
-          : "Local sample"
-      }
+      badge={liveState.latestPublicText ? outputBadge : "Local sample"}
       live={hasService && isLive}
     />
   );
@@ -1785,6 +1824,11 @@ export default function OperatorDashboard() {
               ) : null}
 
               {currentWorkspaceSection === "outputs" ? (
+                <>
+                <section className="outputMonitorSection" aria-label="Output monitor">
+                  {outputMonitor}
+                  <p className="helpText">OBS and the latest viewer mirror this caption without extra AI calls. The reader appends shared paragraphs about 30 seconds later.</p>
+                </section>
                 <details className="outputDestination" open>
                   <summary>OBS overlay <span>Reusable browser source</span></summary>
                 <div className="obsSetupCard workspaceOutputCard">
@@ -1894,6 +1938,7 @@ export default function OperatorDashboard() {
                   )}
                 </div>
                 </details>
+                </>
               ) : null}
 
               {currentWorkspaceSection === "outputs" ? (
@@ -2005,7 +2050,7 @@ export default function OperatorDashboard() {
 
         {currentWorkspaceSection === "appearance" ? (
           <aside className="workspacePreview" aria-label="Caption output preview">
-            {captionPreview}
+            {stylePreview}
           </aside>
         ) : null}
       </div>
@@ -2202,13 +2247,13 @@ export default function OperatorDashboard() {
             </dl>
             {hasPendingTranslationChanges ? <p className="helpText">Draft changes are not active until you confirm a refresh.</p> : null}
           </details>
-        {currentWorkspaceSection !== "appearance" ? (
-          <details className="serviceMonitor">
-            <summary>Preview captions</summary>
-            {captionPreview}
-            <p className="helpText">OBS and the latest viewer mirror the caption without extra AI calls. The reader appends shared paragraphs.</p>
-          </details>
-        ) : <p className="helpText">The output monitor is beside the Appearance editor.</p>}
+        <p className="helpText">
+          {currentWorkspaceSection === "appearance"
+            ? "The output monitor is beside the Appearance editor."
+            : currentWorkspaceSection === "outputs"
+              ? "The output monitor is at the top of Live outputs."
+              : <>The output monitor is under <button className="textButton" type="button" onClick={() => { setServicePanelOpen(false); openWorkspaceSection("outputs"); }}>Live outputs</button>.</>}
+        </p>
       </ServicePanel>
       <dialog
         ref={endDialogRef}

@@ -809,17 +809,36 @@ input[type="color"] {
   letter-spacing: 0.08em;
 }
 
+/* A real 1920 × 1080 canvas scaled into the card; these rules mirror src/live/overlay-document.ts. */
+.previewStage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: top left;
+}
+
 .previewSafeArea {
   position: absolute;
-  display: flex;
-  border: 1px dashed rgba(255, 255, 255, 0.46);
+  border: 2px dashed rgba(255, 255, 255, 0.46);
+  pointer-events: none;
 }
 
 .captionPreview {
-  width: 100%;
+  width: min(1500px, 100%);
+  padding: 10px 18px 14px;
   font-weight: 750;
   line-height: 1.18;
+  text-wrap: balance;
   text-shadow: 0 2px 5px rgba(0, 0, 0, 0.68);
+}
+
+.outputMonitorSection {
+  display: grid;
+  gap: var(--gap-sm);
 }
 
 .captionPreviewText {

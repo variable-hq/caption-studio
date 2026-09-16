@@ -52,6 +52,7 @@ async function fixture(width, status = "idle", storageBlocked = false, height = 
       version: 1, theme: "system", sidebarWidth: null, translationSystemPrompt: null, summaryDefaults: null,
       captionStyle: null, translationDefaults: null, tutorialDismissed: false, updatedAt: null,
     } });
+    if (url.pathname === "/api/live/experience/usage") return route.fulfill({ json: { records: [], next: null } });
     assert.equal(url.pathname, "/api/live/channel");
     return route.fulfill({ json: {
       channelId: "main", configured: status !== "idle", status, overlayUrl: null, style: null,
