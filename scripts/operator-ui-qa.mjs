@@ -44,6 +44,7 @@ try {
     payload={action:body.action,status,translationRevision:0,sequence:1};
    } else if(path==='/api/live/channel/lease')payload={valid:true,status:'live',expiresAt,transcriptionRequests:++transcriptionRequests,translationRevision:0};
    else if(path==='/api/ai/transcribe'){inferenceCalls++;payload={segments:[]};}
+   else if(path==='/api/live/experience/usage')payload={records:[],next:null};
    else {errors.push('Unexpected mocked request: '+method+' '+path);return route.fulfill({status:400,json:{error:'Unexpected test request'}})}
    await route.fulfill({status:200,json:payload});
   });
@@ -163,10 +164,13 @@ try {
   await openServicePanel(page);
   assert.equal(await page.getByRole('checkbox',{name:'Save transcript history for this service'}).isChecked(),true);
   await page.getByRole('checkbox',{name:'Save transcript history for this service'}).uncheck();
-  await page.getByText('Preview captions',{exact:true}).click();
+  assert.equal(await page.getByTestId('caption-preview').count(),0,'The service panel no longer carries the preview');
+  await openDashboardSection(page, 'Live outputs');
   assert.equal(await page.getByTestId('caption-preview').isVisible(),true);
-  assert.equal(inferenceCalls,0,'Opening the preview must not invoke inference');
-  await page.getByText('Preview captions',{exact:true}).click();
+  assert.match(await page.locator('.previewStage').getAttribute('style'),/scale\(/);
+  assert.equal(inferenceCalls,0,'Opening the output monitor must not invoke inference');
+  await openDashboardSection(page, 'Overview');
+  await openServicePanel(page);
   await page.getByRole('button',{name:'Start captions',exact:true}).click();
   await page.getByRole('button',{name:'Pause',exact:true}).waitFor();
   await closeServicePanel(page);

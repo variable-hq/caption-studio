@@ -434,7 +434,8 @@ Code-level acceptance:
 - Style changes reach a connected overlay without restarting the service.
 - Appearance controls update the dashboard design preview continuously before Save.
 - Setup separates navigation and the selected settings page from collapsible service
-  controls; only Appearance keeps its output monitor inline.
+  controls. The output monitor renders the real 1920 × 1080 canvas scaled to the card and
+  shows the published caption under Live outputs; Appearance keeps a sample beside its editor.
 - The primary operator viewport is 1920 × 1080, with dashboard content capped at a
   readable 1160px rather than stretched across the full display.
 - The Setup layout reflows without horizontal scrolling from 320px through desktop

@@ -113,7 +113,7 @@ try {
   await page.waitForTimeout(250);
   await page.screenshot({ path: `${output}/usage-before-${width}.png`, fullPage: true });
   await fs.writeFile(`${output}/usage-before-${width}.txt`, await page.locator('body').innerText());
-  await page.getByRole('button', { name: 'Load usage history', exact: true }).click();
+  await page.getByRole('button', { name: 'Refresh usage history', exact: true }).click();
   await page.getByText('Plan monthly service capacity', { exact: true }).click(); await check('usage');
   assert.deepEqual(errors, []); await context.close();
  }
