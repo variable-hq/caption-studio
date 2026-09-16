@@ -58,15 +58,20 @@ try {
   };
   await check('overview');
   const barClear=async section=>{
-   await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+   await page.evaluate(()=>{
+    const controls=[...document.querySelectorAll('.dashboardContent button, .dashboardContent a, .dashboardContent select')].filter(el=>el.getClientRects().length&&!el.closest('details:not([open]) > :not(summary)'));
+    const lowest=controls.reduce((a,b)=>b.getBoundingClientRect().bottom>a.getBoundingClientRect().bottom?b:a,controls[0]);
+    lowest.scrollIntoView({block:'end'});
+   });
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
    const geometry=await page.evaluate(()=>{
     const bar=document.querySelector('.dashboardStatusBar').getBoundingClientRect();
-    const controls=[...document.querySelectorAll('.dashboardContent button, .dashboardContent a, .dashboardContent select')].filter(el=>el.getClientRects().length);
-    const lowest=Math.max(...controls.map(el=>el.getBoundingClientRect().bottom));
-    return {lowest:Math.round(lowest),barTop:Math.round(bar.top),barHeight:Math.round(bar.height)};
+    const controls=[...document.querySelectorAll('.dashboardContent button, .dashboardContent a, .dashboardContent select')].filter(el=>el.getClientRects().length&&!el.closest('details:not([open]) > :not(summary)'));
+    const lowestEl=controls.reduce((a,b)=>b.getBoundingClientRect().bottom>a.getBoundingClientRect().bottom?b:a,controls[0]);
+    const lowest=lowestEl.getBoundingClientRect().bottom;
+    return {lowest:Math.round(lowest),barTop:Math.round(bar.top),barHeight:Math.round(bar.height),what:lowestEl.textContent.trim().slice(0,40),within:lowestEl.closest('[id],[aria-label]')?.id||lowestEl.closest('[id],[aria-label]')?.getAttribute('aria-label'),scrollY:Math.round(scrollY),mainScroll:Math.round(document.querySelector('.dashboardMain')?.scrollTop??-1)};
    });
-   assert.ok(geometry.lowest<=geometry.barTop,`${width}/${section}: docked bar (${geometry.barHeight}px) covers the lowest control (${geometry.lowest}px > ${geometry.barTop}px)`);
+   assert.ok(geometry.lowest<=geometry.barTop,`${width}/${section}: docked bar (${geometry.barHeight}px) covers the lowest control (${geometry.lowest}px > ${geometry.barTop}px) ${JSON.stringify(geometry)}`);
    await page.evaluate(()=>window.scrollTo(0,0));
   };
   await barClear('overview');

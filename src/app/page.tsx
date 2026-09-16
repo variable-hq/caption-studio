@@ -1443,6 +1443,13 @@ export default function OperatorDashboard() {
       live={hasService && isLive}
     />
   );
+  // OBS is set up once; audience links are shared every service, so they lead during one.
+  const readerAndPhoneOutputs = (
+    <details className="outputDestination">
+      <summary>Reader and operator phone <span>Shared paragraphs and remote controls</span></summary>
+      <ServiceExperiencePanel view="sharing" service={liveState.service} onReaderLink={rememberReaderLink} />
+    </details>
+  );
   // The Appearance editor needs text to style even while the canvas is clear.
   const stylePreview = (
     <CaptionPreview
@@ -1462,6 +1469,7 @@ export default function OperatorDashboard() {
         items={WORKSPACE_ITEMS}
         activeId={currentWorkspaceSection}
         onSelect={(id) => openWorkspaceSection(id as WorkspaceSectionId)}
+        channelStatus={channelStatusLabel.replace(/^Main channel · /u, "")}
         width={accountSidebarWidth}
         onWidthChange={rememberSidebarWidth}
         tools={
@@ -1720,6 +1728,12 @@ export default function OperatorDashboard() {
                     <div><dt>Spoken language</dt><dd>{displayedSourceLabel ?? "Refresh required"}</dd></div>
                     <div><dt>Audience language</dt><dd>{displayedTargetLabel ?? "Refresh required"}</dd></div>
                     <div><dt>{hasService ? "Elapsed / 90 min" : "Service window"}</dt><dd>{hasService ? `${elapsedMinutes}m ${elapsedSeconds.toString().padStart(2, "0")}s` : "90 minutes"}</dd></div>
+                    {hasService ? (
+                      <>
+                        <div><dt>Last caption</dt><dd>{liveState.latestPublicAt ? `${Math.max(0, Math.floor((usageClock - liveState.latestPublicAt) / 1_000))}s ago` : "None yet"}</dd></div>
+                        <div><dt>Skipped chunks</dt><dd>{liveState.droppedChunks}</dd></div>
+                      </>
+                    ) : null}
                   </dl>
                   <section className="overviewChecklist" aria-labelledby="overview-checklist-heading">
                     <div className="overviewSectionHeading"><h3 id="overview-checklist-heading">{hasService ? "Manage your service" : "Before you go live"}</h3><span>{hasService ? "Live workspace" : "3 checks"}</span></div>
@@ -1829,6 +1843,7 @@ export default function OperatorDashboard() {
                   {outputMonitor}
                   <p className="helpText">OBS and the latest viewer mirror this caption without extra AI calls. The reader appends shared paragraphs about 30 seconds later.</p>
                 </section>
+                {hasService ? readerAndPhoneOutputs : null}
                 <details className="outputDestination" open>
                   <summary>OBS overlay <span>Reusable browser source</span></summary>
                 <div className="obsSetupCard workspaceOutputCard">
@@ -2038,12 +2053,7 @@ export default function OperatorDashboard() {
                 </div>
                 </details>
               ) : null}
-              {currentWorkspaceSection === "outputs" ? (
-                <details className="outputDestination">
-                  <summary>Reader and operator phone <span>Shared paragraphs and remote controls</span></summary>
-                  <ServiceExperiencePanel view="sharing" service={liveState.service} onReaderLink={rememberReaderLink} />
-                </details>
-              ) : null}
+              {currentWorkspaceSection === "outputs" && !hasService ? readerAndPhoneOutputs : null}
             </div>
           </SpotlightCard>
         </BorderGlow>
@@ -2247,13 +2257,6 @@ export default function OperatorDashboard() {
             </dl>
             {hasPendingTranslationChanges ? <p className="helpText">Draft changes are not active until you confirm a refresh.</p> : null}
           </details>
-        <p className="helpText">
-          {currentWorkspaceSection === "appearance"
-            ? "The output monitor is beside the Appearance editor."
-            : currentWorkspaceSection === "outputs"
-              ? "The output monitor is at the top of Live outputs."
-              : <>The output monitor is under <button className="textButton" type="button" onClick={() => { setServicePanelOpen(false); openWorkspaceSection("outputs"); }}>Live outputs</button>.</>}
-        </p>
       </ServicePanel>
       <dialog
         ref={endDialogRef}

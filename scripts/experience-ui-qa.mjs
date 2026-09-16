@@ -79,11 +79,11 @@ try {
   await page.goto(origin + '/operator/mobile#' + id + '.' + 'p'.repeat(43));
   await page.getByText('Capture computer connected · live', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Pause captions', exact: true }).click();
-  await page.getByText('pause: confirmed', { exact: true }).waitFor();
+  await page.getByText('pause: confirmed by the capture computer', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Resume captions', exact: true }).click();
-  await page.getByText('resume: confirmed', { exact: true }).waitFor();
+  await page.getByText('resume: confirmed by the capture computer', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Clear live caption', exact: true }).click();
-  await page.getByText('clear: confirmed', { exact: true }).waitFor(); await check('remote');
+  await page.getByText('clear: confirmed by the capture computer', { exact: true }).waitFor(); await check('remote');
   assert.ok(requests.every((url) => url === '/api/live/experience/remote'));
   await page.goto(origin); await page.getByText('Cloud AI configured', { exact: true }).waitFor();
   await openDashboardSection(page, "Sermon history");

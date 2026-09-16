@@ -102,7 +102,7 @@ touches nothing else. The `<html>` element carries `suppressHydrationWarning` be
 attribute legitimately exists before React hydrates. The React effect still applies the
 account preference when it differs.
 
-### D3 — P2 — latest-caption viewer has no length policy (documented, not changed)
+### D3 — P2 — latest-caption viewer has no length policy (fit-to-screen implemented in the follow-up branch)
 
 One 18-second chunk of about 330 characters renders 18 lines at 390 px on the Standard
 size (caption card 730 px tall, page 1279 px) and 1460 px on Extra large. The audience
@@ -110,7 +110,10 @@ scrolls to read "the latest caption" and the `aria-live` region re-announces the
 block. The overlay is unaffected because OBS is 1920 wide. This extends
 [G07](GAP_ANALYSIS.md#g07--p1-output-readability-and-completeness) and needs an owner
 decision between sentence-level publication, a fit-to-viewport font, or a clamp that keeps
-the tail visible. Each changes what viewers see, so none is applied here.
+the tail visible. The follow-up branch `feat/output-monitor` applies the fit-to-viewport
+font: the viewer shrinks a caption from the chosen size down to 18 px until the card fits
+the screen, and restores the chosen size for the next short caption. Sentence-level
+publication remains a separate pipeline decision.
 
 ### D4 — P2 — 200 % text size during a live service leaves little room (mitigated)
 

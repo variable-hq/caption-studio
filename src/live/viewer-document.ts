@@ -41,6 +41,7 @@ const VIEWER_DOCUMENT = `<!doctype html>
         <button type="button" id="reconnect" hidden>Reconnect</button>
       </div>
       <p>Automatic translation may contain errors.</p>
+      <p>Long captions shrink to fit your screen.</p>
       <p>This view mirrors the latest public translation without extra AI calls.</p>
     </footer>
   </main>
@@ -51,7 +52,7 @@ const VIEWER_DOCUMENT = `<!doctype html>
       const language=document.querySelector(".language");
       const textSize=document.querySelector("#caption-size");
       const reconnect=document.querySelector("#reconnect");
-      textSize.onchange=()=>{caption.dataset.size=textSize.value};
+      textSize.onchange=()=>{caption.dataset.size=textSize.value;fit()};
       reconnect.onclick=()=>location.reload();
       const labels={en:"English",id:"Indonesian",ja:"Japanese","ko-KR":"Korean","tl-PH":"Tagalog","zh-Hans":"Chinese (Simplified)","zh-Hant":"Chinese (Traditional)",vi:"Vietnamese"};
       const value=location.hash.slice(1);
@@ -62,14 +63,28 @@ const VIEWER_DOCUMENT = `<!doctype html>
       let stopped=false;
       let lastSequence=0;
       const setStatus=(text,state)=>{status.textContent=text;status.className="status"+(state?" "+state:"")};
-      const clear=(text="Waiting for the live translation…")=>{caption.textContent=text;caption.classList.add("placeholder");caption.removeAttribute("lang");language.textContent=""};
+      const card=document.querySelector(".captionCard");
+      let empty=true;
+      // A long chunk must still fit one phone screen: shrink from the chosen size down to 18px.
+      const fit=()=>{
+        if(!caption.style)return;
+        caption.style.fontSize="";
+        if(empty||typeof getComputedStyle!=="function"||typeof innerHeight!=="number"||!card.getBoundingClientRect)return;
+        const limit=innerHeight-card.getBoundingClientRect().top-16;
+        let size=parseFloat(getComputedStyle(caption).fontSize)||0;
+        for(let step=0;step<24&&size>18&&card.getBoundingClientRect().height>limit;step++){size=Math.max(18,size*.92);caption.style.fontSize=size+"px"}
+      };
+      if(typeof addEventListener==="function")addEventListener("resize",fit);
+      const clear=(text="Waiting for the live translation…")=>{caption.textContent=text;caption.classList.add("placeholder");caption.removeAttribute("lang");language.textContent="";empty=true;fit()};
       const show=event=>{
         if(!event||!Number.isSafeInteger(event.sequence)||event.sequence<=lastSequence)return;
         lastSequence=event.sequence;
         caption.textContent=typeof event.publicText==="string"?event.publicText:"";
-        caption.classList.toggle("placeholder",!caption.textContent);
+        empty=!caption.textContent;
+        caption.classList.toggle("placeholder",empty);
         language.textContent=labels[event.targetLanguage]||"Live translation";
         if(typeof event.targetLanguage==="string")caption.lang=event.targetLanguage;
+        fit();
       };
       const state=payload=>{
         if(payload.status==="live"){setStatus("Live","live");return}
