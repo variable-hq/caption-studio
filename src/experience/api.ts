@@ -1,4 +1,4 @@
-import { authorizeOperatorIdentity, authorizeProtectedAiRequest, type LiveWorkerEnvironment } from "@/live/api";
+import { authorizeOperatorIdentity, type LiveWorkerEnvironment } from "@/live/api";
 import { MAX_PREFERENCES_BYTES, operatorIdentityKey } from "./preferences";
 import { captionTokenHash } from "@/live/caption-room";
 import { InvalidRequestBodyError, RequestBodyTooLargeError, readJsonObject } from "@/http/request-body";
@@ -39,8 +39,8 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       }));
     }
-    const denied = await authorizeProtectedAiRequest(request, env);
-    if (denied) return denied;
+    const operator = await authorizeOperatorIdentity(request, env);
+    if (operator.denied) return operator.denied;
     if (operation === "usage" && request.method === "GET") {
       return env.AI_USAGE ? rpc(env.AI_USAGE, "usage", `/history?after=${encodeURIComponent((url.searchParams.get("after") ?? "").slice(0, 220))}`)
         : json({ error: "Usage history is not configured." }, 503);
@@ -73,6 +73,8 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
     const scoped = request.headers.get("x-caption-remote");
     const issued = ["pair", "reader-rotate"].includes(operation) ? token() : undefined;
     const payload = { ...body, controllerHash: controller ? await captionTokenHash(controller) : undefined,
+      // Pairing is per signed-in operator, so four phones can control one service.
+      identityKey: operation === "pair" ? await operatorIdentityKey(operator.identity) : undefined,
       remoteHash: operation === "pair" ? await captionTokenHash(issued!) : scoped ? await captionTokenHash(scoped) : undefined,
       readerHash: operation === "reader-rotate" ? await captionTokenHash(issued!) : undefined };
     const response = await rpc(env.CAPTION_ROOMS, "channel:main", `/internal/experience/${operation}`, payload);

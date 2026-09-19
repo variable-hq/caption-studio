@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { LiveServiceDetails } from "@/live/contracts";
+import type { LiveObserverDetails, LiveServiceDetails } from "@/live/contracts";
 import { experienceRequest } from "@/experience/client";
 import { HISTORY_RETENTION, SUMMARY_MODELS, type JournalState, type ReaderNote, type ReaderParagraph, type SourceRecord, type SummaryJob, type SummaryModel, type SummaryOptions } from "@/experience/contracts";
 import { DEFAULT_SUMMARY_OPTIONS } from "@/experience/summary-defaults";
@@ -9,12 +9,15 @@ import { LANGUAGE_OPTIONS } from "@/domain/languages";
 interface Archive { details: Omit<JournalState, "readerHash">; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
 interface ServiceEntry { id: string; startedAt: number }
 
-export function ServiceExperiencePanel({ view, service, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; service: LiveServiceDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
+export function ServiceExperiencePanel({ view, service, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; service: LiveServiceDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
   const [services, setServices] = useState<ServiceEntry[]>([]);
   const [archive, setArchive] = useState<Archive | null>(null);
   const [issuedLink, setIssuedLink] = useState<{ serviceId: string; url: string } | null>(null);
   const [readerLink, setReaderLink] = useState<{ serviceId: string; url: string } | null>(null);
-  const link = issuedLink?.serviceId === service?.serviceId ? issuedLink?.url : "";
+  // Pairing works for every workspace operator, so the running service may be
+  // one this browser only watches.
+  const pairedServiceId = service?.serviceId ?? observer?.serviceId ?? null;
+  const link = issuedLink?.serviceId === pairedServiceId ? issuedLink?.url : "";
   const dialogRef = useRef<HTMLDialogElement>(null);
   const transcriptRef = useRef<HTMLDetailsElement>(null);
   const summaryRequestRef = useRef<{ serviceId: string; id: string } | null>(null);
@@ -80,10 +83,11 @@ export function ServiceExperiencePanel({ view, service, onReaderLink, summaryDef
   return <div className="experienceStack">
     {view === "sharing" && <section className="experienceCard"><h3>Reader and remote control</h3>
       <p>The reader appends shared translated paragraphs. The operator phone controls the capture computer.</p>
-      {!service && <p className="privacyNote">Start captions to share the reader and pair your phone. Keep the capture computer open during the service.</p>}
+      {!pairedServiceId && <p className="privacyNote">Start captions to share the reader and pair your phone. Keep the capture computer open during the service.</p>}
+      {!service && observer && <p className="privacyNote">Another operator runs this service. Your phone can still pause, resume and clear it; the reader link stays with the operator who started it.</p>}
       <div className="buttonGrid">
-        <button className="secondaryButton" disabled={!service || busy} onClick={() => void perform(async () => {
-          const result = await experienceRequest<{ url: string }>("pair", {}, service!.controllerToken); setIssuedLink({ serviceId: service!.serviceId!, url: result.url }); setMessage("Remote pairing created. Earlier pairing is revoked.");
+        <button className="secondaryButton" disabled={!pairedServiceId || busy} onClick={() => void perform(async () => {
+          const result = await experienceRequest<{ url: string }>("pair", {}, service?.controllerToken); setIssuedLink({ serviceId: pairedServiceId!, url: result.url }); setMessage("Remote pairing created. Your earlier pairing is replaced.");
         })}>Pair operator phone</button>
         <button className="secondaryButton" disabled={!service || busy} onClick={() => {
           const current = readerLink && readerLink.serviceId === service?.serviceId ? readerLink.url : service?.readerUrl;

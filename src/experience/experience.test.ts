@@ -43,6 +43,7 @@ function request(path: string, body?: unknown, headers?: HeadersInit) {
 }
 const id = "12345678-1234-1234-1234-123456789012";
 const readerHash = "a".repeat(64);
+const identityKey = `operator:${"b".repeat(64)}`;
 function snapshot(saved = true): JournalState {
   return { id, startedAt: Date.now(), expiresAt: Date.now() + 90 * 60_000,
     saved, readerHash, status: "live", epoch: 0, revision: 0, incomplete: false,
@@ -307,7 +308,7 @@ describe("remote control and clear boundaries", () => {
   it("pauses server inference immediately, deduplicates a remote command, and checks microphone acknowledgement", async () => {
     const { room, controllerHash, serviceId } = await fixture();
     const remoteHash = "e".repeat(64);
-    await room.fetch(request("/internal/experience/pair", { controllerHash, remoteHash }));
+    await room.fetch(request("/internal/experience/pair", { controllerHash, identityKey, remoteHash }));
     const command = { serviceId, remoteHash, id: "remote-command-0001", action: "pause" };
     expect((await room.fetch(request("/internal/experience/remote", command))).status).toBe(200);
     expect(await (await room.fetch(request("/internal/lease", { controllerHash }))).json()).toMatchObject({ code: "service_paused" });
@@ -322,7 +323,7 @@ describe("remote control and clear boundaries", () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-13T00:00:00Z"));
     try {
       const { room, controllerHash, serviceId } = await fixture(); const remoteHash = "e".repeat(64);
-      await room.fetch(request("/internal/experience/pair", { controllerHash, remoteHash }));
+      await room.fetch(request("/internal/experience/pair", { controllerHash, identityKey, remoteHash }));
       expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash, id: "remote-command-0002", action: "pause" }))).status).toBe(200);
       expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash, id: "remote-command-0003", action: "clear" }))).status).toBe(409);
       vi.setSystemTime(new Date("2026-09-13T00:00:44Z"));
@@ -332,9 +333,58 @@ describe("remote control and clear boundaries", () => {
       expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash, id: "remote-command-0003", action: "clear" }))).status).toBe(200);
     } finally { vi.useRealTimers(); }
   });
+  it("keeps one remote per operator identity so a second phone controls the same service", async () => {
+    const { room, controllerHash, serviceId } = await fixture();
+    const first = "e".repeat(64);
+    const second = "f".repeat(64);
+    await room.fetch(request("/internal/experience/pair", { controllerHash, identityKey, remoteHash: first }));
+    await room.fetch(request("/internal/experience/pair", {
+      identityKey: `operator:${"c".repeat(64)}`, remoteHash: second,
+    }));
+
+    expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash: first }))).status).toBe(200);
+    expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash: second, id: "remote-command-0010", action: "pause" }))).status).toBe(200);
+    expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash: "9".repeat(64) }))).status).toBe(403);
+  });
+
+  it("replaces only the re-pairing operator's own remote", async () => {
+    const { room, controllerHash, serviceId } = await fixture();
+    const other = `operator:${"c".repeat(64)}`;
+    await room.fetch(request("/internal/experience/pair", { controllerHash, identityKey, remoteHash: "e".repeat(64) }));
+    await room.fetch(request("/internal/experience/pair", { identityKey: other, remoteHash: "f".repeat(64) }));
+    await room.fetch(request("/internal/experience/pair", { identityKey: other, remoteHash: "d".repeat(64) }));
+
+    expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash: "e".repeat(64) }))).status).toBe(200);
+    expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash: "d".repeat(64) }))).status).toBe(200);
+    expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash: "f".repeat(64) }))).status).toBe(403);
+  });
+
+  it("scopes remote command history to one service", async () => {
+    const { room, controllerHash, serviceId } = await fixture();
+    const remoteHash = "e".repeat(64);
+    await room.fetch(request("/internal/experience/pair", { controllerHash, identityKey, remoteHash }));
+    const command = { id: "remote-command-0020", action: "clear" };
+    expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash, ...command }))).status).toBe(200);
+
+    const restarted = await (await room.fetch(request("/internal/service", {
+      controllerHash, viewerTokenHash: "d".repeat(64), readerHash, takeover: true,
+    }))).json() as { serviceId: string };
+    await room.fetch(request("/internal/experience/pair", { controllerHash, identityKey, remoteHash }));
+    const replayed = await (await room.fetch(request("/internal/experience/remote", {
+      serviceId: restarted.serviceId, remoteHash, ...command,
+    }))).json() as { command: { status: string } };
+    expect(replayed.command).toMatchObject({ id: command.id, status: "pending" });
+  });
+
+  it("refuses pairing without a hashed operator identity", async () => {
+    const { room, controllerHash } = await fixture();
+    const response = await room.fetch(request("/internal/experience/pair", { controllerHash, remoteHash: "e".repeat(64) }));
+    expect(response.status).toBe(400);
+  });
+
   it("rejects disconnected Resume and old pairing after takeover", async () => {
     const { room, controllerHash, serviceId } = await fixture(); const remoteHash = "e".repeat(64);
-    await room.fetch(request("/internal/experience/pair", { controllerHash, remoteHash }));
+    await room.fetch(request("/internal/experience/pair", { controllerHash, identityKey, remoteHash }));
     expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash, id: "remote-resume-0001", action: "resume" }))).status).toBe(409);
     await room.fetch(request("/internal/service", { controllerHash: "f".repeat(64), viewerTokenHash: "d".repeat(64), readerHash, takeover: true }));
     expect((await room.fetch(request("/internal/experience/remote", { serviceId, remoteHash }))).status).toBe(403);

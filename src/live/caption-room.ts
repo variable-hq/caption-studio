@@ -9,6 +9,7 @@ import {
   MAX_CAPTION_EVENTS,
   MAX_LIVE_SESSION_MS,
   MAX_MANUAL_CAPTION_CHARS,
+  MAX_SERVICE_OBSERVERS,
   MAX_TRANSCRIPTION_REQUESTS,
   isLiveSessionControlAction,
   isTranslationRefreshRequestId,
@@ -40,6 +41,10 @@ interface ChannelConfiguration {
   readerHash?: string;
   captionEpoch?: number;
   remoteHash?: string;
+  /** Paired operator phones for this service, keyed by hashed Access identity. */
+  remoteHashes?: Record<string, string>;
+  /** Read-only workspace watchers for this service, keyed by hashed Access identity. */
+  observers?: Record<string, string>;
   heartbeatAt?: number;
   remoteCommand?: RemoteCommand;
   tokenHash: string;
@@ -57,6 +62,8 @@ interface ChannelConfiguration {
   translationRevision: number;
   lastTranslationRefreshRequestId?: string;
   controllerHash?: string;
+  /** Access email of the operator who started the service, for the workspace rail. */
+  controllerLabel?: string;
   viewerTokenHash?: string;
   startedAt?: number;
   expiresAt?: number;
@@ -66,6 +73,7 @@ interface StartServiceRequest {
   readerHash?: string;
   saveHistory?: boolean;
   controllerHash: string;
+  controllerLabel?: string;
   viewerTokenHash: string;
   style: CaptionStyle;
   takeover: boolean;
@@ -106,7 +114,10 @@ const OVERLAY_PROTOCOL = "church-caption-v1";
 const VIEWER_PROTOCOL = "church-caption-viewer-v1";
 const OVERLAY_SOCKET_TAG = "overlay";
 const VIEWER_SOCKET_TAG = "viewer";
+const OBSERVER_SOCKET_TAG = "observer";
 const MAX_VIEWER_CONNECTIONS = 250;
+const MAX_OBSERVER_CONNECTIONS = 32;
+const IDENTITY_KEY = /^operator:[a-f0-9]{64}$/u;
 const CAPABILITY_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 
 function json(payload: unknown, status = 200) {
@@ -125,9 +136,49 @@ function normalizedAttempts(value: unknown): number[] {
     : [];
 }
 
+/**
+ * Keeps at most `MAX_SERVICE_OBSERVERS` credentials, one per hashed Access
+ * identity. Insertion order is preserved, so the oldest identity is dropped
+ * first when a ninth operator joins.
+ */
+function normalizedCredentialMap(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([key, hash]) =>
+      IDENTITY_KEY.test(key) && typeof hash === "string" && /^[a-f0-9]{64}$/u.test(hash))
+    .slice(-MAX_SERVICE_OBSERVERS) as [string, string][];
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
+function withCredential(
+  existing: Record<string, string> | undefined,
+  identityKey: string,
+  hash: string,
+) {
+  const next = { ...(existing ?? {}) };
+  // Re-registering moves the identity to the end, so it is never evicted first.
+  delete next[identityKey];
+  next[identityKey] = hash;
+  const keys = Object.keys(next);
+  for (const stale of keys.slice(0, Math.max(0, keys.length - MAX_SERVICE_OBSERVERS))) {
+    delete next[stale];
+  }
+  return next;
+}
+
+function credentialMatches(map: Record<string, string> | undefined, hash: unknown) {
+  return (
+    typeof hash === "string" &&
+    hash.length === 64 &&
+    Object.values(map ?? {}).includes(hash)
+  );
+}
+
 function normalizeConfiguration(configuration: ChannelConfiguration) {
   return {
     ...configuration,
+    observers: normalizedCredentialMap(configuration.observers),
+    remoteHashes: normalizedCredentialMap(configuration.remoteHashes),
     captionEpoch: normalizeTranslationRevision(configuration.captionEpoch),
     style: normalizeCaptionStyle(configuration.style ?? {}),
     status: ["idle", "live", "paused"].includes(configuration.status)
@@ -167,6 +218,7 @@ function deactivate(configuration: ChannelConfiguration) {
   current.claimedTranslationAttempts = [];
   current.recordedTranslationAttempts = [];
   delete current.controllerHash;
+  delete current.controllerLabel;
   delete current.viewerTokenHash;
   delete current.startedAt;
   delete current.expiresAt;
@@ -174,6 +226,8 @@ function deactivate(configuration: ChannelConfiguration) {
   delete current.serviceId;
   delete current.readerHash;
   delete current.remoteHash;
+  delete current.remoteHashes;
+  delete current.observers;
   delete current.remoteCommand;
   delete current.heartbeatAt;
   delete current.saveHistory;
@@ -235,6 +289,7 @@ function publicConfiguration(configuration: ChannelConfiguration) {
     configured: true,
     serviceId: current.serviceId,
     saveHistory: current.saveHistory,
+    controllerLabel: current.controllerLabel,
     encryptedToken: current.encryptedToken,
     status: current.status,
     style: current.style,
@@ -346,6 +401,7 @@ export class CaptionRoom {
   private async experience(request: Request) {
     const action = new URL(request.url).pathname.split("/").at(-1);
     const body = await request.json() as { controllerHash?: string; remoteHash?: string; readerHash?: string;
+      identityKey?: string; observerHash?: string;
       serviceId?: string; action?: "pause" | "resume" | "clear"; id?: string;
       capturing?: boolean; acknowledgement?: string; success?: boolean;
       transcriptionAttempt?: number; stage?: string; source?: unknown; sourceIds?: number[] };
@@ -364,7 +420,9 @@ export class CaptionRoom {
       return json({ cleared: true });
     }
     if (action === "remote") {
-      if (body.serviceId !== current.serviceId || !body.remoteHash || body.remoteHash !== current.remoteHash) return json({ error: "Remote pairing expired or replaced." }, 403);
+      const paired = body.remoteHash === current.remoteHash ||
+        credentialMatches(current.remoteHashes, body.remoteHash);
+      if (body.serviceId !== current.serviceId || !body.remoteHash || !paired) return json({ error: "Remote pairing expired or replaced." }, 403);
       if (current.remoteCommand?.status === "pending" && Date.now() - current.remoteCommand.at > REMOTE_COMMAND_TIMEOUT_MS) {
         // Server-side effects (a pause, a clear) already applied; only the microphone acknowledgement is missing.
         const expired: RemoteCommand = { ...current.remoteCommand, status: "failed" };
@@ -398,15 +456,34 @@ export class CaptionRoom {
       return json({ command: current.remoteCommand ?? null, status: current.status,
         connected: Date.now() - (current.heartbeatAt ?? 0) < 15_000 });
     }
-    if (!controllerMatches(current, body.controllerHash)) return controllerReplaced();
+    if (action === "observer") {
+      if (!IDENTITY_KEY.test(body.identityKey ?? "") || !/^[a-f0-9]{64}$/u.test(body.observerHash ?? "")) {
+        return json({ error: "Invalid watcher registration." }, 400);
+      }
+      current.observers = withCredential(current.observers, body.identityKey!, body.observerHash!);
+      await this.state.storage.put("configuration", current);
+      return json({
+        serviceId: current.serviceId,
+        saveHistory: current.saveHistory === true,
+        controllerLabel: current.controllerLabel,
+        status: current.status,
+        startedAt: new Date(current.startedAt!).toISOString(),
+        expiresAt: new Date(current.expiresAt!).toISOString(),
+        translationRevision: current.translationRevision,
+      });
+    }
     if (action === "pair") {
-      if (!/^[a-f0-9]{64}$/u.test(body.remoteHash ?? "")) return json({ error: "Invalid pairing." }, 400);
-      current.remoteHash = body.remoteHash;
-      delete current.remoteCommand;
-      await this.state.storage.delete("remote-history");
+      // Any workspace operator may pair a phone; each identity keeps its own remote.
+      if (!IDENTITY_KEY.test(body.identityKey ?? "") || !/^[a-f0-9]{64}$/u.test(body.remoteHash ?? "")) {
+        return json({ error: "Invalid pairing." }, 400);
+      }
+      current.remoteHashes = withCredential(current.remoteHashes, body.identityKey!, body.remoteHash!);
+      // The single-remote credential from before per-identity pairing is retired here.
+      delete current.remoteHash;
       await this.state.storage.put("configuration", current);
       return json({ serviceId: current.serviceId });
     }
+    if (!controllerMatches(current, body.controllerHash)) return controllerReplaced();
     if (action === "reader-rotate") {
       if (!/^[a-f0-9]{64}$/u.test(body.readerHash ?? "")) return json({ error: "Invalid reader token." }, 400);
       current.readerHash = body.readerHash;
@@ -651,12 +728,19 @@ export class CaptionRoom {
     }
     const token = websocketToken(request, VIEWER_PROTOCOL);
     const configuration = await this.expireServiceIfNeeded();
+    const hash = token ? await captionTokenHash(token) : null;
+    const observer = Boolean(
+      hash &&
+        configuration &&
+        isActive(configuration) &&
+        credentialMatches(configuration.observers, hash),
+    );
     if (
-      !token ||
+      !hash ||
       !configuration ||
       !isActive(configuration) ||
-      !configuration.viewerTokenHash ||
-      (await captionTokenHash(token)) !== configuration.viewerTokenHash
+      (!observer &&
+        (!configuration.viewerTokenHash || hash !== configuration.viewerTokenHash))
     ) {
       return json(
         {
@@ -666,17 +750,21 @@ export class CaptionRoom {
         401,
       );
     }
+    const tag = observer ? OBSERVER_SOCKET_TAG : VIEWER_SOCKET_TAG;
     if (
-      this.state.getWebSockets(VIEWER_SOCKET_TAG).length >=
-      MAX_VIEWER_CONNECTIONS
+      this.state.getWebSockets(tag).length >=
+      (observer ? MAX_OBSERVER_CONNECTIONS : MAX_VIEWER_CONNECTIONS)
     ) {
-      return json({ error: "The mobile viewer is at capacity." }, 503);
+      return json(
+        { error: observer ? "The workspace watchers are at capacity." : "The mobile viewer is at capacity." },
+        503,
+      );
     }
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
-    this.state.acceptWebSocket(server, [VIEWER_SOCKET_TAG]);
-    server.serializeAttachment({ role: VIEWER_SOCKET_TAG });
+    this.state.acceptWebSocket(server, [tag]);
+    server.serializeAttachment({ role: tag });
     const latest = await this.state.storage.get<PublicCaptionEvent>("latest");
     server.send(
       JSON.stringify({
@@ -723,9 +811,14 @@ export class CaptionRoom {
       configuration.readerHash = body.readerHash;
       configuration.captionEpoch = 0;
       delete configuration.remoteHash;
+      delete configuration.remoteHashes;
+      delete configuration.observers;
       delete configuration.remoteCommand;
       delete configuration.heartbeatAt;
       configuration.controllerHash = body.controllerHash!;
+      if (typeof body.controllerLabel === "string" && body.controllerLabel.trim()) {
+        configuration.controllerLabel = body.controllerLabel.trim().slice(0, 120);
+      } else delete configuration.controllerLabel;
       configuration.viewerTokenHash = body.viewerTokenHash!;
       configuration.startedAt = startedAt;
       configuration.expiresAt = startedAt + MAX_LIVE_SESSION_MS;
@@ -746,6 +839,8 @@ export class CaptionRoom {
       await Promise.all([
         transaction.put("configuration", configuration),
         transaction.delete("latest"),
+        // Remote command IDs and their 1,400 ceiling are scoped to one service.
+        transaction.delete("remote-history"),
       ]);
       return { kind: "ok", value: configuration, clear: true };
     });
@@ -755,6 +850,7 @@ export class CaptionRoom {
     if (result.kind !== "ok") return json({ error: "Live service could not start." }, 500);
 
     await this.state.storage.setAlarm(result.value.expiresAt!);
+    // A new service invalidates every earlier audience link and watcher credential.
     this.closeViewerSockets(4003, "Mobile viewer link replaced.");
     this.broadcastPublic({ type: "clear" });
     this.broadcastPublic({
@@ -828,7 +924,7 @@ export class CaptionRoom {
       return json({ error: "The mobile viewer link could not be replaced." }, 500);
     }
 
-    this.closeViewerSockets(4003, "Mobile viewer link replaced.");
+    this.closeViewerSockets(4003, "Mobile viewer link replaced.", false);
     return json({ replaced: true, expiresAt: result.value.expiresAt });
   }
 
@@ -1529,7 +1625,11 @@ export class CaptionRoom {
         ? { type: "caption", caption: viewerCaption(payload.caption) }
         : payload;
     const message = JSON.stringify(viewerPayload);
-    for (const socket of this.state.getWebSockets(VIEWER_SOCKET_TAG)) {
+    const sockets = [
+      ...this.state.getWebSockets(VIEWER_SOCKET_TAG),
+      ...this.state.getWebSockets(OBSERVER_SOCKET_TAG),
+    ];
+    for (const socket of sockets) {
       try {
         socket.send(message);
       } catch {
@@ -1543,10 +1643,16 @@ export class CaptionRoom {
     this.broadcastViewer(payload);
   }
 
-  private closeViewerSockets(code: number, reason: string) {
-    for (const socket of this.state.getWebSockets(VIEWER_SOCKET_TAG)) {
-      socket.close(code, reason);
-    }
+  /**
+   * Replacing the audience link must not disconnect workspace watchers, so
+   * only service-ending reasons close the observer sockets too.
+   */
+  private closeViewerSockets(code: number, reason: string, includeObservers = true) {
+    const sockets = [
+      ...this.state.getWebSockets(VIEWER_SOCKET_TAG),
+      ...(includeObservers ? this.state.getWebSockets(OBSERVER_SOCKET_TAG) : []),
+    ];
+    for (const socket of sockets) socket.close(code, reason);
   }
 
   webSocketMessage(socket: WebSocket) {
@@ -1557,7 +1663,9 @@ export class CaptionRoom {
       1008,
       attachment?.role === VIEWER_SOCKET_TAG
         ? "The mobile viewer is read-only."
-        : "The OBS overlay is read-only.",
+        : attachment?.role === OBSERVER_SOCKET_TAG
+          ? "The workspace watcher is read-only."
+          : "The OBS overlay is read-only.",
     );
   }
 

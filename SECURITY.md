@@ -34,6 +34,7 @@ The deployment separates operator authentication from scoped audience credential
 | `/api/live/overlay*` | Reusable channel token and read-only WebSocket | Current public caption stream |
 | `/view*` | Public network path; no operator capability | Self-contained mobile viewer page |
 | `/api/live/viewer*` | Per-service viewer token and read-only WebSocket | Current moderated translation and service status |
+| `/api/live/channel/observer` | Cloudflare Access JWT | One read-only caption-stream credential for the signed-in workspace operator |
 | `/operator/mobile`, remote experience APIs | Access plus explicitly paired remote credential | Pause/Resume/Clear and acknowledgement status |
 | `/api/live/experience/*` | Access; controller required for active-service operations | Private history, summaries and numeric usage |
 | `/read`, `/_next/static/*` | Public document/static assets | Reader UI, no embedded credentials |
@@ -128,6 +129,16 @@ production remediation must account for the existing encrypted OBS credential. S
   token, inference access, or mutation capability.
 - Confirmed replacement revokes connected viewers immediately without changing OBS.
   End, service expiry, and takeover delete the viewer hash and revoke the old link.
+- Service start records the starting operator's Access email on the channel. It is
+  returned only by Access-protected operator surfaces, is dropped at End, expiry and
+  takeover, and never reaches the overlay, mobile viewer or reader.
+- A workspace operator who does not hold the controller may register one watcher token
+  for the running service. It is minted per signed-in Access identity, stored only as a
+  SHA-256 hash, capped at 8 identities per service, and carries exactly the mobile
+  viewer's read-only capability on the same WebSocket. Start, End, expiry and takeover
+  delete every watcher hash; replacing the audience link does not, because the watcher
+  credential is separate from it. Source text still reaches a watcher only through the
+  Access-protected archive of a service that opted into saved history.
 - The page is `no-store`, `noindex`, non-frameable, uses a no-referrer policy, disables
   sensitive browser permissions, renders text with `textContent`, and retries abnormal
   disconnects at most eight times with backoff capped at 30 seconds (the OBS overlay
@@ -157,6 +168,9 @@ Current behavior:
   and not stored by this application;
 - protected source and translated text remain in active browser memory; explicit
   pre-service opt-in also stores private source and corrections for seven days after End;
+- the Access email of the operator who started the running service is kept on the Main
+  channel so the rest of the workspace can see who holds the microphone, and is deleted
+  at End, expiry and takeover;
 - only the latest moderated public caption is kept in the Main room's durable storage
   until Clear, Pause, refresh, End, expiry or rotation removes it; a paused synthetic test
   or operator-typed manual caption occupies that same slot instead, unmoderated, since
@@ -317,8 +331,10 @@ admission fails closed if accounting is unavailable, and uncertain calls are not
 
 `/api/live/reader` accepts only a separate service reader token. It never initiates AI.
 `/api/live/experience/*` requires Access; scoped remote credentials additionally authorize
-only Pause, Resume, Clear and command status. Pairing never grants inference or source
-access. Keep protected paths out of broad Access bypass policies.
+only Pause, Resume, Clear and command status. Pairing needs Access but not the
+controller, so each of the workspace's operators can hold one phone credential for the
+same service, capped at 8 identities and bound to that service. Pairing never grants
+inference or source access. Keep protected paths out of broad Access bypass policies.
 
 Optional Workers AI generation is disabled until explicitly configured. Reader output is
 moderated again; summaries use a fixed grounding policy and validate evidence IDs. These

@@ -1,6 +1,7 @@
 import type {
   CaptionStyle,
   LiveApiErrorCode,
+  LiveObserverDetails,
   LiveServiceDetails,
   LiveSessionControlAction,
   LiveSessionControlResponse,
@@ -96,6 +97,16 @@ export class LiveSessionClient {
       signal: AbortSignal.timeout(5_000),
     });
     await requireSuccess(response, "Could not end the live service.");
+  }
+
+  /** Read-only watcher credential for the service another operator controls. */
+  async observeService(): Promise<LiveObserverDetails> {
+    const response = await fetch("/api/live/channel/observer", {
+      method: "POST",
+      signal: AbortSignal.timeout(8_000),
+    });
+    await requireSuccess(response, "Could not watch the running service.");
+    return (await response.json()) as LiveObserverDetails;
   }
 
   async replaceViewerLink(controllerToken: string) {

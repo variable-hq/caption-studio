@@ -720,6 +720,80 @@ describe("reusable OBS channel worker API", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("issues a per-operator watcher credential without disturbing the controller", async () => {
+    const seen: Array<{ path: string; body: unknown }> = [];
+    const { env } = environment(async (request) => {
+      const url = new URL(request.url);
+      seen.push({ path: url.pathname, body: await request.clone().json() });
+      return Response.json({
+        serviceId: "12345678-1234-1234-1234-123456789012",
+        saveHistory: true,
+        controllerLabel: "first@example.test",
+        status: "live",
+        startedAt: "2026-09-20T09:00:00.000Z",
+        expiresAt: "2026-09-20T10:30:00.000Z",
+        translationRevision: 3,
+      });
+    });
+
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/observer", { method: "POST" }),
+      env,
+    );
+
+    expect(response?.status).toBe(200);
+    const details = (await response!.json()) as { observerToken: string; viewerUrl: string };
+    expect(details).toMatchObject({
+      channelId: "main",
+      serviceId: "12345678-1234-1234-1234-123456789012",
+      saveHistory: true,
+      controllerLabel: "first@example.test",
+      status: "live",
+      translationRevision: 3,
+    });
+    expect(details.observerToken).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+    expect(details.viewerUrl).toBe(
+      `https://caption.example/view#main.${details.observerToken}`,
+    );
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.path).toBe("/internal/experience/observer");
+    expect(seen[0]!.body).toMatchObject({ identityKey: expect.stringMatching(/^operator:[a-f0-9]{64}$/u) });
+    expect(seen[0]!.body).not.toHaveProperty("controllerHash");
+  });
+
+  it("passes an inactive service through to the watcher caller", async () => {
+    const { env } = environment(() =>
+      Response.json({ error: "Service ended.", code: "service_inactive" }, { status: 410 }),
+    );
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/observer", { method: "POST" }),
+      env,
+    );
+    expect(response?.status).toBe(410);
+  });
+
+  it("fails closed for watcher registration without Access configuration", async () => {
+    const { env, fetch } = environment();
+    delete env.CAPTION_LOCAL_AUTH_BYPASS;
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/observer", { method: "POST" }),
+      env,
+    );
+
+    expect(response?.status).toBe(503);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-POST watcher registration", async () => {
+    const { env, fetch } = environment();
+    const response = await handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/observer"),
+      env,
+    );
+    expect(response?.status).toBe(405);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("serves a self-contained persistent overlay without protected assets", async () => {
     const { env } = environment();
     const response = await handleLiveApiRequest(

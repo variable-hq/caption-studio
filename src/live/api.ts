@@ -21,6 +21,7 @@ import {
   normalizeTranslationRevision,
   type CaptionStyle,
   type ChannelStatus,
+  type LiveObserverDetails,
   type LiveSessionControlRequest,
   type ObsChannelDetails,
 } from "@/live/contracts";
@@ -31,6 +32,7 @@ import {
   readJsonObject,
 } from "@/http/request-body";
 import { viewerDocumentResponse } from "@/live/viewer-document";
+import { operatorIdentityKey } from "@/experience/preferences";
 import type { ExperienceEnvironment } from "@/experience/contracts";
 
 interface DurableObjectStubLike {
@@ -53,6 +55,7 @@ export interface LiveWorkerEnvironment extends ExperienceEnvironment {
 interface InternalChannelDetails {
   serviceId?: string;
   saveHistory?: boolean;
+  controllerLabel?: string;
   configured: boolean;
   encryptedToken?: string;
   status: ChannelStatus;
@@ -193,6 +196,7 @@ async function publicChannelDetails(
     configured: true,
     serviceId: internal.serviceId,
     saveHistory: internal.saveHistory,
+    controllerLabel: internal.controllerLabel,
     status: internal.status,
     overlayUrl: overlayUrl(request, token),
     style: normalizeCaptionStyle(internal.style ?? {}),
@@ -361,7 +365,7 @@ async function rotateChannel(request: Request, env: LiveWorkerEnvironment) {
 }
 
 async function startService(request: Request, env: LiveWorkerEnvironment) {
-  await requireOperator(request, env);
+  const { email } = await requireOperator(request, env);
   const body = (await readJsonObject(request, 4_096)) as {
     style?: unknown;
     takeover?: unknown;
@@ -382,6 +386,8 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         controllerHash: await captionTokenHash(controllerToken),
+        // Named so the rest of the workspace can see who holds the microphone.
+        controllerLabel: email ?? undefined,
         viewerTokenHash: await captionTokenHash(viewerToken),
         readerHash: await captionTokenHash(readerToken),
         saveHistory: body.saveHistory === true,
@@ -412,6 +418,49 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
       details.translationRevision,
     ),
   });
+}
+
+/**
+ * Registers the signed-in workspace operator as a read-only watcher of the
+ * running service and returns its own public-caption credential. It never
+ * touches the controller or the audience links, so the four operators of one
+ * Access workspace can follow the same service without a takeover.
+ */
+async function observeService(request: Request, env: LiveWorkerEnvironment) {
+  const { email } = await requireOperator(request, env);
+  const observerToken = randomToken();
+  const response = await channelRoom(env).fetch(
+    new Request("https://caption-room/internal/experience/observer", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        identityKey: await operatorIdentityKey(email ?? "local"),
+        observerHash: await captionTokenHash(observerToken),
+      }),
+    }),
+  );
+  if (!response.ok) return response;
+  const details = await internalJson<{
+    serviceId: string;
+    saveHistory: boolean;
+    controllerLabel?: string;
+    status: "live" | "paused";
+    startedAt: string;
+    expiresAt: string;
+    translationRevision: number;
+  }>(response);
+  return json({
+    channelId: MAIN_CHANNEL_ID,
+    serviceId: details.serviceId,
+    saveHistory: details.saveHistory,
+    controllerLabel: details.controllerLabel,
+    status: details.status,
+    observerToken,
+    viewerUrl: viewerUrl(request, observerToken),
+    startedAt: details.startedAt,
+    expiresAt: details.expiresAt,
+    translationRevision: normalizeTranslationRevision(details.translationRevision),
+  } satisfies LiveObserverDetails);
 }
 
 async function replaceViewerLink(
@@ -619,6 +668,11 @@ export async function handleLiveApiRequest(
       if (request.method === "DELETE") return await endService(request, env);
       return json({ error: "Unsupported live-service operation." }, 405);
     }
+    if (url.pathname === "/api/live/channel/observer") {
+      return request.method === "POST"
+        ? await observeService(request, env)
+        : json({ error: "Unsupported live-watcher operation." }, 405);
+    }
     if (url.pathname === "/api/live/channel/viewer/rotate") {
       return request.method === "POST"
         ? await replaceViewerLink(request, env)
@@ -648,7 +702,9 @@ export async function handleLiveApiRequest(
       return json({ error: "Live route not found." }, 404);
     }
   } catch (error) {
-    const label = url.pathname.includes("viewer")
+    const label = url.pathname.includes("observer")
+      ? "Live watcher"
+      : url.pathname.includes("viewer")
       ? "Mobile viewer link"
       : url.pathname.includes("caption")
       ? "Caption event"

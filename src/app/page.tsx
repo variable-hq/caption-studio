@@ -58,6 +58,7 @@ import {
   type TranslationSessionSettings,
 } from "@/live/translation-settings";
 import { useLiveCaptionSession } from "@/live/use-live-caption-session";
+import { useObservedSession } from "@/live/use-observed-session";
 import { ServiceExperiencePanel } from "@/components/operator/ServiceExperiencePanel";
 import { UsageHistory } from "@/components/operator/UsageHistory";
 import { DashboardIcon, DashboardNavigation } from "@/components/operator/DashboardNavigation";
@@ -802,6 +803,13 @@ export default function OperatorDashboard() {
   const anotherOperatorActive =
     !hasService &&
     (liveState.channel?.status === "live" || liveState.channel?.status === "paused");
+  // Read-only mirror of the service a different workspace operator controls.
+  const observed = useObservedSession(anotherOperatorActive);
+  const watchingOther = anotherOperatorActive && observed.status === "watching";
+  // Who holds the microphone right now, for the other operators of this workspace.
+  const runningOperator = anotherOperatorActive
+    ? observed.observer?.controllerLabel ?? liveState.channel?.controllerLabel ?? null
+    : null;
   const usageServiceStartedAt = liveState.service?.startedAt ??
     (anotherOperatorActive ? liveState.channel?.startedAt : null);
   const serviceStartedMs = usageServiceStartedAt
@@ -835,7 +843,9 @@ export default function OperatorDashboard() {
     isBusy ||
     channelAction !== null;
   const startHeading = anotherOperatorActive
-    ? "Main channel already live"
+    ? runningOperator
+      ? `${runningOperator} is running this service`
+      : "Main channel already live"
     : liveState.status === "error"
       ? "Setup needs attention"
       : cloudState === "checking"
@@ -848,7 +858,7 @@ export default function OperatorDashboard() {
               ? "Create the OBS channel to continue"
               : "Start the caption service";
   const startDescription = anotherOperatorActive
-    ? "Takeover stops the other operator and clears OBS before this microphone starts."
+    ? `${observed.message || "Connecting to the running service…"} Takeover stops the other operator and clears OBS before this microphone starts.`
     : liveState.status === "error"
       ? "Resolve the setup issue above before starting the service."
       : cloudState !== "ready"
@@ -1419,6 +1429,20 @@ export default function OperatorDashboard() {
       )}
     </>
   );
+  // Watchers mirror the same public output, so the monitor shows one source of truth.
+  const monitorCaption = anotherOperatorActive
+    ? observed.latestPublicText
+    : liveState.latestPublicText;
+  const monitorSourceText = hasService
+    ? liveState.latestSourceText
+    : anotherOperatorActive
+      ? observed.latestSourceText
+      : undefined;
+  const monitorLanguage =
+    (anotherOperatorActive ? observed.latestPublicLanguage : liveState.latestPublicLanguage) ??
+    targetLanguage;
+  const monitorLive =
+    (hasService && isLive) || (watchingOther && liveState.channel?.status === "live");
   const outputBadge = hasService
     ? liveNeedsAttention
       ? "Output needs attention"
@@ -1427,37 +1451,45 @@ export default function OperatorDashboard() {
         : isPaused
           ? "Paused output"
           : "Public caption"
-    : liveState.latestPublicText
-      ? "Test caption shown"
-      : "Canvas clear";
+    : anotherOperatorActive
+      ? watchingOther
+        ? liveState.channel?.status === "paused"
+          ? "Paused by another operator"
+          : "Live from another operator"
+        : observed.status === "unavailable"
+          ? "Live output unavailable"
+          : "Connecting to live output"
+      : liveState.latestPublicText
+        ? "Test caption shown"
+        : "Canvas clear";
   // What OBS and the latest viewer show right now: the public caption, a shown test, or nothing.
   // Uses the channel's saved style, not unsaved Appearance edits, for the same reason.
   const outputMonitor = (
     <CaptionPreview
-      caption={liveState.latestPublicText}
-      sourceText={hasService ? liveState.latestSourceText : undefined}
-      targetLanguage={liveState.latestPublicLanguage ?? targetLanguage}
+      caption={monitorCaption}
+      sourceText={monitorSourceText}
+      targetLanguage={monitorLanguage}
       sourceLanguage={displayedTranslationSettings?.sourceLanguage}
       style={liveState.channel?.style ?? style}
       badge={outputBadge}
-      live={hasService && isLive}
+      live={monitorLive}
     />
   );
   // OBS is set up once; audience links are shared every service, so they lead during one.
   const readerAndPhoneOutputs = (
     <details className="outputDestination">
       <summary>Reader and operator phone <span>Shared paragraphs and remote controls</span></summary>
-      <ServiceExperiencePanel view="sharing" service={liveState.service} onReaderLink={rememberReaderLink} />
+      <ServiceExperiencePanel view="sharing" service={liveState.service} observer={observed.observer} onReaderLink={rememberReaderLink} />
     </details>
   );
   // The Appearance editor needs text to style even while the canvas is clear.
   const stylePreview = (
     <CaptionPreview
-      caption={liveState.latestPublicText || SAMPLE_CAPTIONS[targetLanguage]}
-      targetLanguage={liveState.latestPublicText ? liveState.latestPublicLanguage ?? targetLanguage : targetLanguage}
+      caption={monitorCaption || SAMPLE_CAPTIONS[targetLanguage]}
+      targetLanguage={monitorCaption ? monitorLanguage : targetLanguage}
       style={style}
-      badge={liveState.latestPublicText ? outputBadge : "Local sample"}
-      live={hasService && isLive}
+      badge={monitorCaption ? outputBadge : "Local sample"}
+      live={monitorLive}
     />
   );
   const translationSection = currentWorkspaceSection === "translation" || currentWorkspaceSection === "prompt";
@@ -1842,6 +1874,15 @@ export default function OperatorDashboard() {
                 <section className="outputMonitorSection" aria-label="Output monitor">
                   {outputMonitor}
                   <p className="helpText">OBS and the latest viewer mirror this caption without extra AI calls. The reader appends shared paragraphs about 30 seconds later.</p>
+                  {anotherOperatorActive ? (
+                    <p className="privacyNote" role="status">
+                      {runningOperator ? `${runningOperator} is running this service. ` : ""}
+                      {observed.message || "Connecting to the running service…"}
+                      {observed.observer && !observed.observer.saveHistory
+                        ? " This service does not save history, so the recognized source stays on the capture computer."
+                        : ""}
+                    </p>
+                  ) : null}
                 </section>
                 {hasService ? readerAndPhoneOutputs : null}
                 <details className="outputDestination" open>
