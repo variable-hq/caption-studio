@@ -10,6 +10,8 @@ export const MAX_TRANSCRIPTION_REQUESTS = Math.floor(
   MAX_LIVE_SESSION_MS / MIN_SPEECH_BUFFER_MS,
 );
 export const MAX_CAPTION_EVENTS = 1_400;
+/** Workspace operators who may watch one service without holding the controller. */
+export const MAX_SERVICE_OBSERVERS = 8;
 export const MAX_MANUAL_CAPTION_CHARS = 240;
 export const MAIN_CHANNEL_ID = "main" as const;
 const TRANSLATION_REFRESH_REQUEST_ID = /^[A-Za-z0-9_-]{16,64}$/;
@@ -84,6 +86,8 @@ export interface PublicCaptionEvent extends PublicCaptionRequest {
 export interface ObsChannelDetails {
   serviceId?: string;
   saveHistory?: boolean;
+  /** Access email of the operator running the service; Access-protected surfaces only. */
+  controllerLabel?: string;
   channelId: typeof MAIN_CHANNEL_ID;
   configured: boolean;
   status: ChannelStatus;
@@ -106,6 +110,35 @@ export interface LiveServiceDetails {
   startedAt: string;
   expiresAt: string;
   translationRevision: number;
+}
+
+/**
+ * What a workspace operator who does not hold the controller receives: a
+ * read-only credential for the public caption stream plus the identifiers
+ * needed to read the Access-protected archive of the same service.
+ */
+export interface LiveObserverDetails {
+  channelId: typeof MAIN_CHANNEL_ID;
+  serviceId: string;
+  saveHistory: boolean;
+  controllerLabel?: string;
+  status: "live" | "paused";
+  observerToken: string;
+  viewerUrl: string;
+  startedAt: string;
+  expiresAt: string;
+  translationRevision: number;
+}
+
+export interface ObservedSessionState {
+  status: "idle" | "connecting" | "watching" | "reconnecting" | "unavailable";
+  message: string;
+  latestPublicText: string;
+  latestPublicLanguage: LanguageLocale | null;
+  latestPublicAt: number | null;
+  latestSourceText: string;
+  sequence: number;
+  observer: LiveObserverDetails | null;
 }
 
 export interface LiveSessionState {

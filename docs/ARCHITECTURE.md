@@ -12,7 +12,7 @@ physical-device, provider-output or semantic acceptance.
 | Capture browser | Audio selection, 6/9/12/15/18-second MediaRecorder chunks, two-chunk queue, source preview, terminology, moderation, controls and same-tab recovery |
 | Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
 | `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
-| `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, remote commands and archive index |
+| `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
 | `SermonJournal` | One service's source/corrections/exclusions, reader paragraphs, operator notes, lifecycle checkpoints and manual summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
 | `OperatorPreferences` | One object per hashed Access email: theme, sidebar width, saved prompt, summary defaults, caption style, default translation setup and tutorial dismissal |
@@ -78,8 +78,9 @@ still consumes its claim; it cannot be replayed to spend again.
 | `POST …/lease`, `POST …/caption` | Access + controller | Reserve an attempt; publish one moderated caption (8,192 bytes) |
 | `POST …/control` | Access + controller | `pause`, `resume`, `clear`, `show-test`, `manual`, `refresh-translation` |
 | `PUT …/style`, `POST …/rotate`, `POST …/viewer/rotate` | Access | Shared style; OBS rotation; viewer replacement (4,096-byte bodies) |
+| `POST /api/live/channel/observer` | Access | Registers the signed-in operator as a read-only watcher of the running service and returns that operator's own caption-stream credential |
 | `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol | OBS and latest-viewer WebSockets |
-| `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation |
+| `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation. `…/pair` needs Access only, so any workspace operator can pair a phone; the other operations still need the controller |
 | `GET`/`POST`/`DELETE …/experience/preferences` | Access | The signed-in operator's saved configuration; POST merges a partial record, `null` clears a field |
 | `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index, one sermon's private archive |
 | `POST …/sermons/{id}/summary`, `…/remove`, `…/correct`, `…/delete` | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion |
@@ -96,6 +97,7 @@ for audio and 15 seconds for chat; Durable Object calls after 8 seconds.
 | `/operator/mobile` | Access plus a paired service remote token; Pause/Resume/Clear and command status only |
 | `/overlay` / overlay WebSocket | Reusable 256-bit OBS token; latest public caption/style only |
 | `/view` / viewer WebSocket | Separate 256-bit per-service token; latest moderated target text/status only |
+| Workspace watcher | Separate 256-bit per-service, per-operator token on the same viewer WebSocket; latest moderated target text/status only |
 | `/read` / reader API | Separate service reader token; translated paragraphs only |
 
 Bearer links use fragments, not query strings. OBS/latest-viewer sockets send credentials
@@ -110,7 +112,19 @@ server-only `OBS_CHANNEL_ENCRYPTION_KEY`. Other raw live credentials stay in the
 operator tab's sessionStorage; server state retains hashes. End/expiry preserves the
 OBS URL and style. Only explicit idle rotation changes that reusable credential.
 
-The latest viewer is revoked at End, expiry, takeover or replacement. The reader keeps
+One Access workspace shares one operation. Every signed-in operator already reads the
+same channel status, usage, archive and OBS URL; the channel also names the Access email
+of the operator who started the running service, and a watcher credential adds the live
+public caption stream to that, and the Access-protected archive supplies source text
+when the running service saves history. Watching never reserves attempts, sends audio or
+displaces the controller, so only takeover moves microphone capture. The room keeps at
+most 8 watcher and 8 paired-phone credentials per service, one of each per hashed Access
+identity, and the ninth identity evicts the oldest. Every paired phone drives the same
+single-command queue: one command may be pending at a time, whoever sent it.
+
+The latest viewer is revoked at End, expiry, takeover or replacement. Watcher and phone
+credentials live and die with one service: Start, End, expiry and takeover clear them all,
+while replacing the audience link leaves watchers connected. The reader keeps
 30 minutes of access after End/expiry; replacement, takeover and archive deletion revoke
 it immediately on the server. A disconnected phone reflects revocation only after it
 successfully reconnects/polls. Remote pairing ends with the service/controller.
@@ -137,8 +151,9 @@ The capture computer polls paired remote status about every two seconds. Server-
 remote Pause blocks claims before the host acknowledges physical capture stopping.
 Commands use bounded IDs and cached results; duplicate retries do not repeat actions.
 The host counts as connected only while its heartbeat is under 15 seconds old; remote
-Resume is refused while it is disconnected. One command may be pending at a time, and a
-pairing accepts at most 1,400 commands before the phone must pair again. Resume must be
+Resume is refused while it is disconnected. One command may be pending at a time across
+every paired phone, and one service accepts at most 1,400 commands in total; Start clears
+that history, so command IDs and the ceiling never carry into the next service. Resume must be
 acknowledged by the host. A missing host cannot be reported as confirmed.
 
 The reader polls about every two seconds, pages saved paragraphs, and follows new content

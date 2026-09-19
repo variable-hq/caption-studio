@@ -86,7 +86,7 @@ class FakeSocket {
   }
 }
 
-function roomFixture(viewerConnectionCount = 1) {
+function roomFixture(viewerConnectionCount = 1, observerConnectionCount = 0) {
   const storage = new FakeStorage();
   const socket = new FakeSocket();
   socket.serializeAttachment({ role: "overlay" });
@@ -99,13 +99,19 @@ function roomFixture(viewerConnectionCount = 1) {
       () => new FakeSocket(),
     ),
   ];
+  const observerSockets = Array.from({ length: observerConnectionCount }, () => {
+    const observer = new FakeSocket();
+    observer.serializeAttachment({ role: "observer" });
+    return observer;
+  });
+  const accepted: string[][] = [];
   const state = {
     storage,
     getWebSockets: (tag?: string) =>
-      tag === "viewer" ? viewerSockets : [socket],
-    acceptWebSocket: () => undefined,
+      tag === "viewer" ? viewerSockets : tag === "observer" ? observerSockets : [socket],
+    acceptWebSocket: (_socket: unknown, tags: string[]) => accepted.push(tags),
   } as unknown as DurableObjectState;
-  return { room: new CaptionRoom(state), socket, storage, viewerSocket };
+  return { room: new CaptionRoom(state), socket, storage, viewerSocket, observerSockets, accepted };
 }
 
 function request(
@@ -135,10 +141,12 @@ async function startService(
   controllerHash = CONTROLLER_A,
   takeover = false,
   viewerTokenHash = controllerHash === CONTROLLER_A ? VIEWER_A : VIEWER_B,
+  controllerLabel = controllerHash === CONTROLLER_A ? "first@example.test" : "second@example.test",
 ) {
   return room.fetch(
     request("/internal/service", {
       controllerHash,
+      controllerLabel,
       viewerTokenHash,
       takeover,
       style: { fontSize: 60 },
@@ -1538,5 +1546,156 @@ describe("transcription dispatch enforcement", () => {
     await room.fetch(request("/internal/lease", { controllerHash: hash }));
     expect((await handleInferenceRequest(transcribeRequest(2), env, provider)).status).toBe(200);
     expect(provider).toHaveBeenCalledOnce();
+  });
+});
+
+describe("workspace watchers", () => {
+  const identity = (suffix: string) => `operator:${suffix.repeat(64)}`;
+  const observerToken = "o".repeat(43);
+
+  function observe(identityKey: string, observerHash: string) {
+    return request("/internal/experience/observer", { identityKey, observerHash });
+  }
+
+  function viewerConnect(token: string) {
+    return new Request("https://caption-room/internal/viewer/connect", {
+      headers: {
+        upgrade: "websocket",
+        "sec-websocket-protocol": `church-caption-viewer-v1, ${token}`,
+      },
+    });
+  }
+
+  it("registers one read-only credential per operator identity without touching the controller", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+
+    const response = await room.fetch(observe(identity("1"), "a".repeat(64)));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      saveHistory: false,
+      controllerLabel: "first@example.test",
+      status: "live",
+      translationRevision: 1,
+    });
+
+    await room.fetch(observe(identity("2"), "b".repeat(64)));
+    const configuration = await storage.get<{
+      controllerHash: string;
+      viewerTokenHash: string;
+      observers: Record<string, string>;
+    }>("configuration");
+    expect(configuration?.controllerHash).toBe(CONTROLLER_A);
+    expect(configuration?.viewerTokenHash).toBe(VIEWER_A);
+    expect(Object.values(configuration!.observers)).toEqual(["a".repeat(64), "b".repeat(64)]);
+  });
+
+  it("keeps the newest eight identities and refuses malformed registrations", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+
+    for (let index = 0; index < 9; index += 1) {
+      const suffix = index.toString(16);
+      expect((await room.fetch(observe(identity(suffix), suffix.repeat(64)))).status).toBe(200);
+    }
+    const configuration = await storage.get<{ observers: Record<string, string> }>("configuration");
+    expect(Object.keys(configuration!.observers)).toHaveLength(8);
+    expect(configuration!.observers[identity("0")]).toBeUndefined();
+    expect(configuration!.observers[identity("8")]).toBe("8".repeat(64));
+
+    expect((await room.fetch(observe("operator:short", "c".repeat(64)))).status).toBe(400);
+    expect((await room.fetch(observe(identity("1"), "not-a-hash"))).status).toBe(400);
+  });
+
+  it("names the operator who started the service and forgets the name when it ends", async () => {
+    const { room } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await expect((await room.fetch(request("/internal/channel", undefined, "GET"))).json())
+      .resolves.toMatchObject({ controllerLabel: "first@example.test", status: "live" });
+
+    await startService(room, CONTROLLER_B, true);
+    await expect((await room.fetch(request("/internal/channel", undefined, "GET"))).json())
+      .resolves.toMatchObject({ controllerLabel: "second@example.test" });
+
+    await room.fetch(request("/internal/service", { controllerHash: CONTROLLER_B }, "DELETE"));
+    const idle = await (await room.fetch(request("/internal/channel", undefined, "GET"))).json() as {
+      controllerLabel?: string;
+      status: string;
+    };
+    expect(idle.status).toBe("idle");
+    expect(idle.controllerLabel).toBeUndefined();
+  });
+
+  it("refuses to register a watcher when no service is running", async () => {
+    const { room } = roomFixture();
+    await createChannel(room);
+    const response = await room.fetch(observe(identity("1"), "a".repeat(64)));
+    expect(response.status).toBe(410);
+    await expect(response.json()).resolves.toMatchObject({ code: "service_inactive" });
+  });
+
+  it("accepts a registered watcher on the public caption socket and rejects an unregistered one", async () => {
+    const { room, accepted } = roomFixture();
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(observe(identity("1"), await captionTokenHash(observerToken)));
+
+    expect((await room.fetch(viewerConnect("z".repeat(43)))).status).toBe(401);
+    expect(accepted).toEqual([]);
+
+    class FakePair {
+      readonly 0 = new FakeSocket();
+      readonly 1 = new FakeSocket();
+    }
+    vi.stubGlobal("WebSocketPair", FakePair);
+    try {
+      // The Workers-only 101 response cannot be constructed under Node; the
+      // accepted tag proves the credential passed and the socket is a watcher.
+      await room.fetch(viewerConnect(observerToken)).catch(() => null);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(accepted).toEqual([["observer"]]);
+  });
+
+  it("broadcasts public captions to watchers and keeps them through a viewer-link replacement", async () => {
+    const { room, observerSockets } = roomFixture(1, 1);
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(request("/internal/caption", caption()));
+
+    expect(observerSockets[0]!.messages.map((message) => JSON.parse(message)).at(-1)).toEqual({
+      type: "caption",
+      caption: expect.objectContaining({ publicText: "Grace and peace" }),
+    });
+
+    // Start already invalidated pre-service sockets; a later link swap must not.
+    const closesBeforeRotation = observerSockets[0]!.closes.length;
+    await room.fetch(
+      request("/internal/viewer/rotate", {
+        controllerHash: CONTROLLER_A,
+        viewerTokenHash: VIEWER_B,
+      }),
+    );
+    expect(observerSockets[0]!.closes).toHaveLength(closesBeforeRotation);
+  });
+
+  it("disconnects watchers and clears their credentials when the service ends", async () => {
+    const { room, observerSockets, storage } = roomFixture(1, 1);
+    await createChannel(room);
+    await startService(room);
+    await room.fetch(observe(identity("1"), "a".repeat(64)));
+
+    await room.fetch(request("/internal/service", { controllerHash: CONTROLLER_A }, "DELETE"));
+
+    expect(observerSockets[0]!.closes.at(-1)).toEqual({
+      code: 4002,
+      reason: "Live service ended.",
+    });
+    const configuration = await storage.get<{ observers?: unknown }>("configuration");
+    expect(configuration?.observers).toBeUndefined();
   });
 });
