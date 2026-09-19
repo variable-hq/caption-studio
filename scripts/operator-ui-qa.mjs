@@ -42,6 +42,12 @@ try {
    else if(path==='/api/live/channel/control'){
     controls.push(body.action);if(body.action==='pause')status='paused';if(body.action==='resume')status='live';
     payload={action:body.action,status,translationRevision:0,sequence:1};
+   } else if(path==='/api/live/channel/observer'&&method==='POST'){
+    // A second tab of the same workspace watches the running service read-only.
+    payload={channelId:'main',serviceId:'11111111-1111-1111-1111-111111111111',saveHistory:false,
+     controllerLabel:'operator@example.test',status:status==='paused'?'paused':'live',
+     observerToken:'w'.repeat(43),viewerUrl:'http://127.0.0.1:3100/view#main.'+'w'.repeat(43),
+     startedAt,expiresAt,translationRevision:0};
    } else if(path==='/api/live/channel/lease')payload={valid:true,status:'live',expiresAt,transcriptionRequests:++transcriptionRequests,translationRevision:0};
    else if(path==='/api/ai/transcribe'){inferenceCalls++;payload={segments:[]};}
    else if(path==='/api/live/experience/usage')payload={records:[],next:null};
@@ -211,6 +217,9 @@ try {
    assert.equal(await otherTab.evaluate(()=>window.opener===null),true);
    await openServicePanel(otherTab);
    assert.equal(await otherTab.getByRole('button',{name:'Take over channel',exact:true}).count(),1);
+   assert.equal(await otherTab.getByRole('button',{name:'Start captions',exact:true}).count(),0);
+   // The watcher names the operator running the service and never reserves an attempt.
+   await otherTab.getByText('operator@example.test is running this service',{exact:false}).first().waitFor();
    assert.equal(controls.length,controlsBefore);
    await otherTab.close();
   }

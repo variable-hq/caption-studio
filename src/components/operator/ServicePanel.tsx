@@ -61,7 +61,6 @@ export function ServicePanel({ open, onOpenChange, triggerRef, children }: {
     >
       <header className="servicePanelHeader">
         <div>
-          <p className="eyebrow">Main channel</p>
           <h2 id="service-panel-heading" ref={headingRef} tabIndex={-1}>Service controls</h2>
         </div>
         <button type="button" className="secondaryButton" aria-label="Collapse service panel"
