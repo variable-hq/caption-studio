@@ -15,8 +15,10 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
   const [issuedLink, setIssuedLink] = useState<{ serviceId: string; url: string } | null>(null);
   const [readerLink, setReaderLink] = useState<{ serviceId: string; url: string } | null>(null);
   // Pairing works for every workspace operator, so the running service may be
-  // one this browser only watches.
-  const pairedServiceId = service?.serviceId ?? observer?.serviceId ?? null;
+  // one this browser only watches. A controller can pair whether or not its start
+  // response carried the service id.
+  const canPair = Boolean(service || observer?.serviceId);
+  const pairedServiceId = service?.serviceId ?? observer?.serviceId ?? "";
   const link = issuedLink?.serviceId === pairedServiceId ? issuedLink?.url : "";
   const dialogRef = useRef<HTMLDialogElement>(null);
   const transcriptRef = useRef<HTMLDetailsElement>(null);
@@ -83,11 +85,11 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
   return <div className="experienceStack">
     {view === "sharing" && <section className="experienceCard"><h3>Reader and remote control</h3>
       <p>The reader appends shared translated paragraphs. The operator phone controls the capture computer.</p>
-      {!pairedServiceId && <p className="privacyNote">Start captions to share the reader and pair your phone. Keep the capture computer open during the service.</p>}
+      {!canPair && <p className="privacyNote">Start captions to share the reader and pair your phone. Keep the capture computer open during the service.</p>}
       {!service && observer && <p className="privacyNote">Another operator runs this service. Your phone can still pause, resume and clear it; the reader link stays with the operator who started it.</p>}
       <div className="buttonGrid">
-        <button className="secondaryButton" disabled={!pairedServiceId || busy} onClick={() => void perform(async () => {
-          const result = await experienceRequest<{ url: string }>("pair", {}, service?.controllerToken); setIssuedLink({ serviceId: pairedServiceId!, url: result.url }); setMessage("Remote pairing created. Your earlier pairing is replaced.");
+        <button className="secondaryButton" disabled={!canPair || busy} onClick={() => void perform(async () => {
+          const result = await experienceRequest<{ url: string }>("pair", {}, service?.controllerToken); setIssuedLink({ serviceId: pairedServiceId, url: result.url }); setMessage("Remote pairing created. Your earlier pairing is replaced.");
         })}>Pair operator phone</button>
         <button className="secondaryButton" disabled={!service || busy} onClick={() => {
           const current = readerLink && readerLink.serviceId === service?.serviceId ? readerLink.url : service?.readerUrl;

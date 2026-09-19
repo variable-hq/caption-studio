@@ -23,6 +23,7 @@ const ICON_PATHS = {
   prompt: "M8 4H4v4 M16 4h4v4 M4 16v4h4 M20 16v4h-4 M8 12h8 M12 8v8",
   summary: "M5 4h14v16H5z M8 8h8 M8 12h8 M8 16h5 M17 3l1.5 1.5L17 6",
   menu: "M4 6h16 M4 12h16 M4 18h16",
+  chevronRight: "m9 5 7 7-7 7",
   panel: "M3 4h18v16H3z M15 4v16 M18 8v8",
   close: "M6 6l12 12 M18 6 6 18",
 } as const;

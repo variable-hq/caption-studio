@@ -135,7 +135,6 @@ export function AiUsageDashboard({
       <section className="usageSection" aria-labelledby="service-usage-heading">
         <div className="usageSectionHeading">
           <div>
-            <p className="eyebrow">Service-local counters</p>
             <h3 id="service-usage-heading">Current live service</h3>
           </div>
           <span className={`statusChip ${active ? "live" : ""}`}>
@@ -188,7 +187,6 @@ export function AiUsageDashboard({
       <section className="usageSection" aria-labelledby="provider-usage-heading">
         <div className="usageSectionHeading">
           <div>
-            <p className="eyebrow">Latest provider response</p>
             <h3 id="provider-usage-heading">Groq quota headroom</h3>
           </div>
           <code>{provider?.model ?? translationModel}</code>
@@ -227,7 +225,6 @@ export function AiUsageDashboard({
 
       <section className="usageSection usageGuardrails" aria-labelledby="guardrail-heading">
         <div>
-          <p className="eyebrow">Application guardrails</p>
           <h3 id="guardrail-heading">How the free path fails safely</h3>
         </div>
         <dl>

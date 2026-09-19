@@ -40,6 +40,9 @@ async function fixture(width, status = "idle", storageBlocked = false, height = 
     if (!url.pathname.startsWith("/api/")) return route.continue();
     if (request.method() !== "GET") {
       if (url.pathname === "/api/live/experience/preferences") return route.fulfill({ json: { version: 1, tutorialDismissed: true } });
+      // Registering as a watcher of somebody else's service changes nothing an
+      // operator can observe: no controller, no capture, no audience link.
+      if (url.pathname === "/api/live/channel/observer") return route.fulfill({ status: 410, json: { error: "Service ended.", code: "service_inactive" } });
       mutations.push(url.pathname);
       return route.fulfill({ status: 400, json: { error: "Unexpected tutorial mutation." } });
     }

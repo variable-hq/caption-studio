@@ -242,11 +242,14 @@
   padding: var(--space-2);
   font-weight: var(--weight-bold);
   font-size: var(--text-base);
+  /* The chevron holds the first row; the sub-label wraps under the title. */
+  flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .outputDestination > summary span {
-  display: block;
-  margin: var(--space-0) 0 0 var(--space-2);
+  flex: 1 0 100%;
+  margin: var(--space-0) 0 0 calc(16px + var(--gap-sm));
   color: var(--muted);
   font-size: var(--text-sm);
   font-weight: var(--weight-regular);

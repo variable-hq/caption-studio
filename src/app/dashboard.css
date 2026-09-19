@@ -340,10 +340,6 @@ main.dashboardMain {
   line-height: var(--leading-tight);
 }
 
-.dashboardMain .workspacePanelHeader .eyebrow {
-  color: var(--ok-ink);
-}
-
 .dashboardMain .workspacePanelHeader .statusChip {
   font-size: var(--text-xs);
   padding: var(--space-1);
@@ -419,8 +415,9 @@ main.dashboardMain {
 
 .overviewMetrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: var(--gap-lg);
+  /* Three 100px columns squeeze the labels on a phone; two columns read. */
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--gap-md) var(--gap-lg);
   margin: 0;
   padding: var(--space-2) 0;
   border-top: 1px solid var(--line);
@@ -477,6 +474,19 @@ main.dashboardMain {
 
 .overviewTask:hover {
   background: var(--surface-muted);
+}
+
+.overviewTask > svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: var(--muted);
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+.overviewTask:hover > svg {
+  transform: translateX(2px);
+  color: var(--ink);
 }
 
 .overviewTask > span:nth-child(2) {
@@ -550,8 +560,21 @@ main.dashboardMain {
 }
 
 .overviewNote .textButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0);
   font-size: var(--text-sm);
   padding: var(--space-1) 0 0;
+}
+
+.overviewNote .textButton svg {
+  width: 15px;
+  height: 15px;
+  transition: transform 160ms ease;
+}
+
+.overviewNote .textButton:hover svg {
+  transform: translateX(2px);
 }
 
 .dashboardMain .startBar {
@@ -765,7 +788,8 @@ main.dashboardMain {
     gap: var(--gap-sm);
   }
   .dashboardMain .servicePanelToggle {
-    min-height: var(--control-height-sm);
+    /* The phone's only way into the live controls keeps the full 44px target. */
+    min-height: var(--control-height);
     padding-inline: var(--gap-sm);
   }
   .dashboardStatusBar {

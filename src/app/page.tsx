@@ -102,46 +102,39 @@ const WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
 
 const WORKSPACE_SECTION_COPY: Record<
   WorkspaceSectionId,
-  { eyebrow: string; title: string; description: string }
+  { title: string; description: string }
 > = {
-  overview: { eyebrow: "Main channel", title: "Service overview", description: "Your service, from the first sound check to the final caption." },
-  history: { eyebrow: "Service", title: "Sermon history", description: "Review saved transcripts, correct passages, and prepare a sermon summary." },
+  overview: { title: "Service overview", description: "Your service, from the first sound check to the final caption." },
+  history: { title: "Sermon history", description: "Review saved transcripts, correct passages, and prepare a sermon summary." },
   audio: {
-    eyebrow: "Input",
     title: "Audio input",
     description: "Choose the browser microphone or audio interface and confirm its level.",
   },
   translation: {
-    eyebrow: "Translation session",
     title: "Languages, timing and terminology",
     description:
       "Edit the working translation configuration before or during a live service.",
   },
   usage: {
-    eyebrow: "AI guardrails",
     title: "Consumption and limits",
     description:
       "Monitor this service and the latest quota headroom reported by the translation provider.",
   },
   prompt: {
-    eyebrow: "AI instructions",
     title: "Translation system prompt",
     description:
       "Review the safe default or tailor how the translator handles context, tone and ambiguity.",
   },
   summary: {
-    eyebrow: "AI summary",
     title: "Summary configuration",
     description:
       "Set the default model, language, length and guidance that prefill each sermon summary request.",
   },
   appearance: {
-    eyebrow: "OBS design",
     title: "Caption appearance",
     description: "Tune readable captions against the 1920 × 1080 OBS safe area.",
   },
   outputs: {
-    eyebrow: "Delivery",
     title: "Live outputs",
     description: "Connect OBS, share audience captions, and pair your operator phone.",
   },
@@ -217,7 +210,6 @@ function CaptionPreview({
     <SpotlightCard className="previewCard" aria-labelledby={headingId}>
       <div className="sectionHeading">
         <div>
-          <p className="eyebrow">OBS canvas · 1920 × 1080</p>
           <h2 id={headingId}>Output monitor</h2>
         </div>
         <span className={`statusChip ${live ? "live" : ""}`}>{badge}</span>
@@ -270,7 +262,7 @@ function CaptionPreview({
           </p>
         ) : null}
       </div>
-      <p className="previewHelp">Scaled copy of the OBS canvas. Verify the actual Browser Source in OBS.</p>
+      <p className="previewHelp">Scaled copy of the 1920 × 1080 OBS canvas. Verify the actual Browser Source in OBS.</p>
       {sourceText ? (
         <div className="sourceTranscript">
           <strong>Source · Operator only</strong>
@@ -1633,7 +1625,6 @@ export default function OperatorDashboard() {
           >
             <header className="workspacePanelHeader">
               <div>
-                <p className="eyebrow">{currentSectionCopy.eyebrow}</p>
                 <h2 id="workspace-panel-heading" ref={workspaceHeadingRef} tabIndex={-1}>{currentSectionCopy.title}</h2>
                 <p>{currentSectionCopy.description}</p>
               </div>
@@ -1665,7 +1656,6 @@ export default function OperatorDashboard() {
                   aria-live="polite"
                   aria-atomic="true"
                 >
-                  <p className="eyebrow">Refresh required</p>
                   <h3 id="translation-refresh-heading">
                     Translation changes are ready to apply
                   </h3>
@@ -1771,19 +1761,19 @@ export default function OperatorDashboard() {
                     <div className="overviewSectionHeading"><h3 id="overview-checklist-heading">{hasService ? "Manage your service" : "Before you go live"}</h3><span>{hasService ? "Live workspace" : "3 checks"}</span></div>
                     <button type="button" className="overviewTask" onClick={() => openWorkspaceSection("audio")}>
                       <span className="overviewTaskIcon"><DashboardIcon name="audio" /></span>
-                      <span><strong>Check your audio input</strong><small>{microphoneState === "active" ? "Microphone connected · Check the input meter" : microphoneState === "error" ? "Microphone needs attention" : "Choose a microphone and test the level"}</small></span><span aria-hidden="true">→</span>
+                      <span><strong>Check your audio input</strong><small>{microphoneState === "active" ? "Microphone connected · Check the input meter" : microphoneState === "error" ? "Microphone needs attention" : "Choose a microphone and test the level"}</small></span><DashboardIcon name="chevronRight" />
                     </button>
                     <button type="button" className="overviewTask" onClick={() => openWorkspaceSection("translation")}>
                       <span className="overviewTaskIcon"><DashboardIcon name="translation" /></span>
-                      <span><strong>Confirm translation settings</strong><small>{displayedSourceLabel ?? "Unknown"} → {displayedTargetLabel ?? "Unknown"} · {(hasService ? activeSpeechBufferMs : speechBufferMs) / 1_000}s buffer</small></span><span aria-hidden="true">→</span>
+                      <span><strong>Confirm translation settings</strong><small>{displayedSourceLabel ?? "Unknown"} → {displayedTargetLabel ?? "Unknown"} · {(hasService ? activeSpeechBufferMs : speechBufferMs) / 1_000}s buffer</small></span><DashboardIcon name="chevronRight" />
                     </button>
                     <button type="button" className="overviewTask" onClick={() => openWorkspaceSection("outputs")}>
                       <span className="overviewTaskIcon"><DashboardIcon name="outputs" /></span>
-                      <span><strong>{hasService ? "Connect your audience" : "Test the OBS source"}</strong><small>{hasService ? "OBS, mobile captions, reader, and remote control" : channelConfigured ? "Channel created · Verify the test in OBS" : "Create your reusable OBS channel"}</small></span><span aria-hidden="true">→</span>
+                      <span><strong>{hasService ? "Connect your audience" : "Test the OBS source"}</strong><small>{hasService ? "OBS, mobile captions, reader, and remote control" : channelConfigured ? "Channel created · Verify the test in OBS" : "Create your reusable OBS channel"}</small></span><DashboardIcon name="chevronRight" />
                     </button>
                     {!hasService && <p className="helpText">Cloud status confirms configuration. Start checks model access; verify sound and the OBS source yourself.</p>}
                   </section>
-                  {!hasService ? <div className="overviewNote"><DashboardIcon name="history" /><div><strong>Keep the message after the service</strong><p>Enable transcript saving before Start to review the sermon and generate a summary later. Private history expires 7 days after End.</p><button type="button" className="textButton" onClick={() => setServicePanelOpen(true)}>Review service setup <span aria-hidden="true">→</span></button></div></div> : <button type="button" className="secondaryButton" onClick={() => setServicePanelOpen(true)}>Open service controls</button>}
+                  {!hasService ? <div className="overviewNote"><DashboardIcon name="history" /><div><strong>Keep the message after the service</strong><p>Enable transcript saving before Start to review the sermon and generate a summary later. Private history expires 7 days after End.</p><button type="button" className="textButton" onClick={() => setServicePanelOpen(true)}>Review service setup <DashboardIcon name="chevronRight" /></button></div></div> : <button type="button" className="secondaryButton" onClick={() => setServicePanelOpen(true)}>Open service controls</button>}
                 </div>
               ) : null}
               {currentWorkspaceSection === "audio" ? (
@@ -1890,7 +1880,6 @@ export default function OperatorDashboard() {
                 <div className="obsSetupCard workspaceOutputCard">
                   <div className="sectionHeading">
                     <div>
-                      <p className="eyebrow">Reusable output</p>
                       <h3>OBS Main channel</h3>
                     </div>
                     <span
@@ -2305,7 +2294,6 @@ export default function OperatorDashboard() {
         aria-labelledby="end-dialog-heading"
         aria-describedby="end-dialog-description"
       >
-        <p className="eyebrow">End live service</p>
         <h2 id="end-dialog-heading">End captions for everyone?</h2>
         <p id="end-dialog-description">This stops microphone capture, clears OBS and the mobile viewer, and expires the mobile link. The reusable OBS URL stays available for the next service.</p>
         <div className="confirmationRow">

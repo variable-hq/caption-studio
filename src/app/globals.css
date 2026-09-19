@@ -28,6 +28,9 @@
   --danger-bg: #fbeaea;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 20px rgba(0, 0, 0, 0.035);
   --shadow-elevated: 0 12px 32px rgba(0, 0, 0, 0.11);
+  /* Drawn as a mask, so it is painted in the row's own colour in both themes. */
+  --chevron-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 5 7 7-7 7'/%3E%3C/svg%3E");
+  --shield: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6z'/%3E%3Cpath d='M12 11v3'/%3E%3Cpath d='M12 8.5h.01'/%3E%3C/svg%3E");
 
   /* Type */
   --text-xs: 11px;
@@ -155,7 +158,104 @@ summary {
   touch-action: manipulation;
 }
 
+/*
+ * Disclosure rows carry a drawn chevron instead of the browser's ▶ glyph, so the
+ * whole dashboard speaks one icon language. The mask paints the stroke in
+ * currentColor, which keeps the marker on the row's own colour in both themes.
+ */
+.outputDestination > summary,
+.advancedActions > summary,
+.credentialDisclosure > summary,
+.serviceSnapshot > summary,
+.experienceCard > details > summary,
+.transcriptDisclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-sm);
+  list-style: none;
+}
+
+.outputDestination > summary::-webkit-details-marker,
+.advancedActions > summary::-webkit-details-marker,
+.credentialDisclosure > summary::-webkit-details-marker,
+.serviceSnapshot > summary::-webkit-details-marker,
+.experienceCard > details > summary::-webkit-details-marker,
+.transcriptDisclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.outputDestination > summary::before,
+.advancedActions > summary::before,
+.credentialDisclosure > summary::before,
+.serviceSnapshot > summary::before,
+.experienceCard > details > summary::before,
+.transcriptDisclosure > summary::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  background-color: currentColor;
+  -webkit-mask: var(--chevron-right) center / 16px 16px no-repeat;
+  mask: var(--chevron-right) center / 16px 16px no-repeat;
+  transition: transform 160ms ease;
+}
+
+.outputDestination[open] > summary::before,
+.advancedActions[open] > summary::before,
+.credentialDisclosure[open] > summary::before,
+.serviceSnapshot[open] > summary::before,
+.experienceCard > details[open] > summary::before,
+.transcriptDisclosure[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .outputDestination > summary::before,
+  .advancedActions > summary::before,
+  .credentialDisclosure > summary::before,
+  .serviceSnapshot > summary::before,
+  .experienceCard > details > summary::before,
+  .transcriptDisclosure > summary::before {
+    transition: none;
+  }
+}
+
 a, input, select, textarea { touch-action: manipulation; }
+
+::selection {
+  color: var(--on-accent);
+  background: var(--accent);
+}
+
+input, textarea, [contenteditable] {
+  caret-color: var(--accent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--line-strong);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+  background-clip: content-box;
+}
 button, a { -webkit-tap-highlight-color: color-mix(in srgb, var(--ink) 12%, transparent); }
 h1, h2, h3, h4 { scroll-margin-top: 180px; text-wrap: balance; }
 
@@ -525,7 +625,7 @@ code {
 .readerParagraph, .archiveRecords article { margin-block: var(--space-3); content-visibility: auto; contain-intrinsic-size: auto 160px; }
 .readerParagraph small, .summaryDraft small { display: block; font-size: var(--text-sm); color: var(--muted); }
 .readerParagraph .eyebrow { font-size: var(--text-sm); }
-.readerNote { margin-block: var(--space-3); padding: var(--space-1) var(--space-2); border-left: 3px solid var(--line-strong); background: var(--surface-muted); border-radius: var(--radius-sm); font-style: italic; color: var(--muted); }
+.readerNote { margin-block: var(--space-3); padding: var(--space-2); background: var(--surface-muted); border-radius: var(--radius-md); font-style: italic; color: var(--muted); }
 .readerNote strong { font-style: normal; }
 .returnToLive { position: fixed; bottom: max(20px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); box-shadow: var(--shadow-elevated); }
 .emptyState { padding-block: var(--space-3); color: var(--muted); }
@@ -732,8 +832,23 @@ input[type="color"] {
 }
 
 .privacyNote {
-  border-left: 3px solid var(--accent);
-  padding: var(--space-1) 0 var(--space-1) var(--gap-md);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-sm);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-1);
+  color: var(--muted);
+}
+
+.privacyNote::before {
+  content: "";
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  margin-top: 0.1em;
+  background-color: currentColor;
+  -webkit-mask: var(--shield) center / 15px 15px no-repeat;
+  mask: var(--shield) center / 15px 15px no-repeat;
 }
 
 .errorText {
@@ -850,7 +965,7 @@ input[type="color"] {
 
 .sourceTranscript {
   margin-top: var(--space-2);
-  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
   padding: var(--gap-md);
   background: var(--surface-muted);
 }
@@ -875,8 +990,8 @@ input[type="color"] {
 
 .actionFeedback {
   margin: var(--gap-md) 0;
-  border-left: 3px solid var(--ink);
-  padding: var(--space-1) var(--gap-md);
+  border-top: 1px solid var(--line-strong);
+  padding-top: var(--space-1);
   font-size: var(--text-sm);
 }
 
@@ -1682,8 +1797,8 @@ html:has(.tutorialDialog[open]) {
 }
 
 .usageScopeNote {
-  border-left: 3px solid var(--line-strong);
-  padding-left: var(--space-1);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-1);
 }
 
 .providerSnapshotEmpty {
