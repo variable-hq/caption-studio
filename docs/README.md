@@ -18,6 +18,7 @@ records to establish release evidence.
 | [Stakeholder test guide](STAKEHOLDER_TEST_GUIDE.md) | Protected rehearsal and content-free evidence |
 | [Roadmap](ROADMAP.md) / [Gap analysis](GAP_ANALYSIS.md) | Outstanding work and release gates |
 | [Design system](DESIGN_SYSTEM.md) | Tokens, light/dark themes, shared controls and the resizable navigation |
+| [Agent instructions](../AGENTS.md) | Machine-oriented routing index for AI agents; points here rather than duplicating it |
 
 ## Decisions and evaluation
 
