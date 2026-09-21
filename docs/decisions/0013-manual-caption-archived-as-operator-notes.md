@@ -1,6 +1,7 @@
-# Archive manual captions as separate operator notes, not transcript paragraphs
+# ADR 0013: archive manual captions as separate operator notes, not transcript paragraphs
 
-Date: 15 September 2026. Status: implemented on a feature branch; not yet merged or deployed. Only prompt-free unit/integration coverage is verified; see Tradeoffs below.
+Date: 15 September 2026. Status: implemented, merged. Only prompt-free unit/integration
+coverage is verified; see Tradeoffs below.
 
 ## Decision
 

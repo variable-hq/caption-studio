@@ -1,8 +1,9 @@
-# Service history, reader phrasing, and optional inference
+# ADR 0011: service history, reader phrasing, and optional inference
 
-Accepted implementation design, merged in PR #26 and deployed 13 September 2026.
-[Deployment](../DEPLOYMENT.md) records the corrected build. Real-sermon acceptance remains
-subject to protected runtime rehearsal and church-approved Indonesian evaluation.
+Date: 13 September 2026. Status: accepted implementation design, merged in PR #26 and
+deployed. [Deployment](../DEPLOYMENT.md) records the corrected build. Real-sermon
+acceptance remains subject to protected runtime rehearsal and church-approved Indonesian
+evaluation.
 
 ## Decision
 

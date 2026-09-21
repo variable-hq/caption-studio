@@ -40,9 +40,13 @@ don't read the full `docs/` tree unless the task is genuinely repo-wide.
    present — don't assume from memory. (Two unrelated, independently-merged
    PRs once both claimed `0012`; nothing caught it until someone checked by
    hand.)
-2. Shape going forward (existing ADRs vary): `# ADR NNNN: <title>`, a
-   one-line date+status sentence, `## Decision`, `## Tradeoffs and
-   verification`.
+2. Shape: `# ADR NNNN: <title>`, then a one-line `Date: ... Status: ...`
+   sentence — every existing ADR now follows this. Body sections: use
+   `## Decision` + `## Tradeoffs and verification` for a single, simple
+   decision (the common case). A decision with genuinely distinct sub-topics
+   or a history of amendments (see `0002`, `0011`) may use `## Context` plus
+   additional headings instead — that's an accepted alternative shape for
+   that kind of decision, not drift to fix.
 3. Add it to `docs/README.md`'s "Decisions and evaluation" list — an ADR
    missing from that index was the second bug found alongside the numbering
    collision.

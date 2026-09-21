@@ -1,7 +1,6 @@
 # ADR 0003: defer Apple distribution
 
-- Status: accepted for the current phase
-- Date: 2026-08-10
+Date: 10 August 2026. Status: accepted for the current phase.
 
 ## Context
 

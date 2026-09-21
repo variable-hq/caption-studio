@@ -1,8 +1,7 @@
 # ADR 0001: free/local-first AI providers
 
-- Status: superseded by ADR 0002
-- Date: 2026-07-19
-- Reviewed: 2026-08-04; remains superseded
+Date: 19 July 2026. Status: superseded by [ADR 0002](0002-free-cloud-first-ai.md).
+Reviewed 4 August 2026; remains superseded.
 
 This file is retained as historical decision context. It does not describe the current
 runtime, operator console, deployment path, or provider configuration.
