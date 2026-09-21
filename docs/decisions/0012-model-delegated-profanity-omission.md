@@ -1,7 +1,7 @@
-# Delegate profanity/slur handling to the translator, not a blocklist
+# ADR 0012: delegate profanity/slur handling to the translator, not a blocklist
 
-Date: 14 September 2026. Status: implemented on a feature branch; not yet merged or
-deployed. Only prompt-construction is verified; see Tradeoffs below.
+Date: 14 September 2026. Status: implemented, merged. Only prompt-construction is
+verified; see Tradeoffs below.
 
 ## Decision
 

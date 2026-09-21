@@ -1,4 +1,4 @@
-# First-visit operator tutorial
+# ADR 0004: first-visit operator tutorial
 
 Date: 12 September 2026. Status: implemented and merged. Current deployment evidence
 is in [Deployment](../DEPLOYMENT.md); the original local UI results remain dated evidence.

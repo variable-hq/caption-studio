@@ -1,9 +1,8 @@
 # ADR 0002: free cloud-first AI providers
 
-- Status: accepted for Phase 1 prototype
-- Date: 2026-07-19
-- Reviewed: 2026-09-13; live pipeline retained, history/optional AI extended by ADR 0011
-- Supersedes: ADR 0001
+Date: 19 July 2026. Status: accepted for Phase 1 prototype; supersedes
+[ADR 0001](0001-free-local-first-ai.md). Reviewed 13 September 2026: live pipeline
+retained, history/optional AI extended by [ADR 0011](0011-service-history-and-optional-inference.md).
 
 The amendments below are dated decision history. [ADR 0011](0011-service-history-and-optional-inference.md)
 extends the implementation with opt-in journals, appending readers, a remote, rolling
