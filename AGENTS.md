@@ -39,7 +39,8 @@ don't read the full `docs/` tree unless the task is genuinely repo-wide.
 1. `ls docs/decisions/` and use the next integer after the **highest** number
    present — don't assume from memory. (Two unrelated, independently-merged
    PRs once both claimed `0012`; nothing caught it until someone checked by
-   hand.)
+   hand.) `npm run check:adrs` fails the build if two files ever collide
+   again.
 2. Shape: `# ADR NNNN: <title>`, then a one-line `Date: ... Status: ...`
    sentence — every existing ADR now follows this. Body sections: use
    `## Decision` + `## Tradeoffs and verification` for a single, simple
@@ -54,8 +55,9 @@ don't read the full `docs/` tree unless the task is genuinely repo-wide.
 ## Validation
 
 `npm run typecheck` (`:strict` adds unused-symbol checks) · `npm run lint` ·
-`npm test` · `npm run build` · `npm run build:cloudflare` · `npm run
-deploy:check` (dry run) · `npm run validate` runs the full chain.
+`npm run check:adrs` (fails on duplicate ADR numbers) · `npm test` · `npm run
+build` · `npm run build:cloudflare` · `npm run deploy:check` (dry run) ·
+`npm run validate` runs the full chain.
 
 `deploy:check` needs Node ≥22.12 (Wrangler's requirement, from `package.json`
 `engines`). If it fails only on that, report it — don't change the
