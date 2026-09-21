@@ -34,6 +34,9 @@ records to establish release evidence.
 - [ADR 0013](decisions/0013-manual-caption-archived-as-operator-notes.md) records why a
   paused manual caption is archived as a separate operator note instead of a transcript
   paragraph, and why the synthetic show-test caption is not archived at all.
+- [ADR 0014](decisions/0014-operator-preferences-by-access-identity.md) records why
+  operator configuration is bound to the Cloudflare Access identity in an
+  `OperatorPreferences` Durable Object, with `localStorage` kept only as a fallback.
 - [Caption policy](evaluation/CAPTION_POLICY_DECISION.md) describes completion and filtering.
 - [Indonesian→English review](evaluation/ID_EN_REVIEW.md) and its
   [synthetic fixtures](evaluation/id-en-synthetic.json) remain unscored.

@@ -1,4 +1,4 @@
-# ADR 0012: operator preferences bound to the Access identity
+# ADR 0014: operator preferences bound to the Access identity
 
 15 September 2026. Status: accepted, implemented in source.
 
