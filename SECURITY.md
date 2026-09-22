@@ -134,7 +134,7 @@ production remediation must account for the existing encrypted OBS credential. S
   takeover, and never reaches the overlay, mobile viewer or reader.
 - A workspace operator who does not hold the controller may register one watcher token
   for the running service. It is minted per signed-in Access identity, stored only as a
-  SHA-256 hash, capped at 8 identities per service, and carries exactly the mobile
+  SHA-256 hash, capped at 32 identities per service, and carries exactly the mobile
   viewer's read-only capability on the same WebSocket. Start, End, expiry and takeover
   delete every watcher hash; replacing the audience link does not, because the watcher
   credential is separate from it. Source text still reaches a watcher only through the
@@ -205,8 +205,11 @@ Current behavior:
   context, and current public output without rotating the controller, viewer, or OBS
   credentials or extending the original service expiry; and
 - opted-in sermon journals store original source, reviewed corrections, exclusions,
-  reader paragraphs, and private summary drafts. Numeric usage has independent 30-day
-  retention. No audio bucket or third-party analytics store is introduced.
+  reader paragraphs, and summary drafts. These are workspace-wide, not per-operator: one
+  Access tenant is one workspace, and every signed-in operator may read, correct, export
+  and delete any saved transcript or sermon in it. They stay unreachable from the
+  overlay, mobile viewer and reader. Numeric usage has independent 30-day retention. No
+  audio bucket or third-party analytics store is introduced.
 
 Anyone with access to the same unlocked browser profile, or any same-origin script that
 runs in that profile, may be able to read `localStorage` and active-tab `sessionStorage`.
@@ -333,7 +336,7 @@ admission fails closed if accounting is unavailable, and uncertain calls are not
 `/api/live/experience/*` requires Access; scoped remote credentials additionally authorize
 only Pause, Resume, Clear and command status. Pairing needs Access but not the
 controller, so each of the workspace's operators can hold one phone credential for the
-same service, capped at 8 identities and bound to that service. Pairing never grants
+same service, capped at 32 identities and bound to that service. Pairing never grants
 inference or source access. Keep protected paths out of broad Access bypass policies.
 
 Optional Workers AI generation is disabled until explicitly configured. Reader output is

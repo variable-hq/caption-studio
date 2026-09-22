@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { LineSidebar, type LineSidebarItem } from "@/components/reactbits";
+import { WORKSPACE_NAME } from "@/domain/workspace";
 import {
   SIDEBAR_WIDTH_DEFAULT,
   SIDEBAR_WIDTH_KEY,
@@ -164,7 +165,7 @@ export function DashboardNavigation({ items, activeId, onSelect, tools, channelS
     <>
       <div className="dashboardBrand" translate="no">
         <span className="brandMark" aria-hidden="true">CC</span>
-        <span>Church Live Caption<small>Operator workspace</small></span>
+        <span>Church Live Caption<small>{WORKSPACE_NAME}</small></span>
       </div>
       <a
         className="dashboardChannel"
@@ -201,14 +202,14 @@ export function DashboardNavigation({ items, activeId, onSelect, tools, channelS
       ) : null}
       <div className="dashboardNavFooter">
         <span className="dashboardPrivateDot" aria-hidden="true" />
-        <div><strong>Private workspace</strong><p>Share audience links from Live outputs.</p></div>
+        <div><strong>{WORKSPACE_NAME}</strong><p>Operators only. Share audience links from Live outputs.</p></div>
       </div>
     </>
   );
 
   return (
     <>
-      <aside ref={sidebarRef} className="dashboardSidebar" aria-label="Workspace">{contents}</aside>
+      <aside ref={sidebarRef} className="dashboardSidebar" aria-label={WORKSPACE_NAME}>{contents}</aside>
       <div
         className="dashboardResizeHandle"
         role="separator"

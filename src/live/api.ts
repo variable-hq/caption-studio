@@ -423,8 +423,9 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
 /**
  * Registers the signed-in workspace operator as a read-only watcher of the
  * running service and returns its own public-caption credential. It never
- * touches the controller or the audience links, so the four operators of one
- * Access workspace can follow the same service without a takeover.
+ * touches the controller or the audience links, so up to
+ * `MAX_SERVICE_OBSERVERS` operators of one Access workspace can follow the same
+ * service without a takeover.
  */
 async function observeService(request: Request, env: LiveWorkerEnvironment) {
   const { email } = await requireOperator(request, env);

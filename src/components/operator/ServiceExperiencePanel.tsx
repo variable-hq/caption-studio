@@ -5,6 +5,7 @@ import { experienceRequest } from "@/experience/client";
 import { HISTORY_RETENTION, SUMMARY_MODELS, type JournalState, type ReaderNote, type ReaderParagraph, type SourceRecord, type SummaryJob, type SummaryModel, type SummaryOptions } from "@/experience/contracts";
 import { DEFAULT_SUMMARY_OPTIONS } from "@/experience/summary-defaults";
 import { LANGUAGE_OPTIONS } from "@/domain/languages";
+import { WORKSPACE_NAME } from "@/domain/workspace";
 
 interface Archive { details: Omit<JournalState, "readerHash">; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
 interface ServiceEntry { id: string; startedAt: number }
@@ -101,7 +102,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
       {link && <label>Private link for intended recipients<input name="experienceLink" autoComplete="off" spellCheck={false} readOnly value={link} />
         <button className="secondaryButton" onClick={() => void perform(async () => { await navigator.clipboard.writeText(link); setMessage("Link copied."); })}>Copy link</button></label>}
     </section>}
-    {view === "archive" && <section className="experienceCard"><h3>Saved sermons</h3><p>Private transcripts expire seven days after End. Saving must be enabled before Start.</p>
+    {view === "archive" && <section className="experienceCard"><h3>Saved sermons</h3><p>Every saved transcript and sermon in {WORKSPACE_NAME} is open to every signed-in operator here, never to the audience. They expire seven days after End. Saving must be enabled before Start.</p>
       <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => {
         const result = await experienceRequest<{ services: ServiceEntry[] }>("history"); setServices(result.services);
         if (!result.services.length) setMessage("No saved sermons in the retention window.");

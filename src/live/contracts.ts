@@ -10,8 +10,12 @@ export const MAX_TRANSCRIPTION_REQUESTS = Math.floor(
   MAX_LIVE_SESSION_MS / MIN_SPEECH_BUFFER_MS,
 );
 export const MAX_CAPTION_EVENTS = 1_400;
-/** Workspace operators who may watch one service without holding the controller. */
-export const MAX_SERVICE_OBSERVERS = 8;
+/**
+ * Workspace operators who may watch one service without holding the controller.
+ * Matched to the 32 observer sockets the room accepts, so a workspace runs out
+ * of connections before it runs out of identities.
+ */
+export const MAX_SERVICE_OBSERVERS = 32;
 export const MAX_MANUAL_CAPTION_CHARS = 240;
 export const MAIN_CHANNEL_ID = "main" as const;
 const TRANSLATION_REFRESH_REQUEST_ID = /^[A-Za-z0-9_-]{16,64}$/;
