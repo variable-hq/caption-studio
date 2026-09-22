@@ -38,6 +38,7 @@ import {
   type LanguageLocale,
   type SourceLanguage,
 } from "@/domain/languages";
+import { WORKSPACE_NAME } from "@/domain/workspace";
 import { parseGlossaryInput } from "@/live/config";
 import {
   DEFAULT_SPEECH_BUFFER_MS,
@@ -105,7 +106,7 @@ const WORKSPACE_SECTION_COPY: Record<
   { title: string; description: string }
 > = {
   overview: { title: "Service overview", description: "Your service, from the first sound check to the final caption." },
-  history: { title: "Sermon history", description: "Review saved transcripts, correct passages, and prepare a sermon summary." },
+  history: { title: "Sermon history", description: `Review saved transcripts, correct passages, and prepare a sermon summary. Every operator in ${WORKSPACE_NAME} sees the same saved sermons.` },
   audio: {
     title: "Audio input",
     description: "Choose the browser microphone or audio interface and confirm its level.",
@@ -1364,7 +1365,7 @@ export default function OperatorDashboard() {
       <p className="helpText">
         {hasService
           ? liveState.service?.saveHistory
-            ? "Saving privately during this service. Tell participants that transcript history is enabled."
+            ? `Saving to ${WORKSPACE_NAME} during this service, where every signed-in operator can review it. Tell participants that transcript history is enabled.`
             : "History saving is off for this service."
           : "Choose before Start and tell participants when saving is enabled. History deletes 7 days after End; numeric AI usage is retained separately for 30 days."}
       </p>
@@ -1522,7 +1523,7 @@ export default function OperatorDashboard() {
       />
       <main className="dashboardMain">
       <header className="topbar">
-        <div className="dashboardBreadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><h1>Main channel</h1></div>
+        <div className="dashboardBreadcrumb"><span>{WORKSPACE_NAME}</span><span aria-hidden="true">/</span><h1>Main channel</h1></div>
         <OperatorTutorial
           autoOpenAllowed={preferencesLoaded && !isBusy && !hasService && !anotherOperatorActive}
           serviceActive={hasService || anotherOperatorActive}
@@ -1773,7 +1774,7 @@ export default function OperatorDashboard() {
                     </button>
                     {!hasService && <p className="helpText">Cloud status confirms configuration. Start checks model access; verify sound and the OBS source yourself.</p>}
                   </section>
-                  {!hasService ? <div className="overviewNote"><DashboardIcon name="history" /><div><strong>Keep the message after the service</strong><p>Enable transcript saving before Start to review the sermon and generate a summary later. Private history expires 7 days after End.</p><button type="button" className="textButton" onClick={() => setServicePanelOpen(true)}>Review service setup <DashboardIcon name="chevronRight" /></button></div></div> : <button type="button" className="secondaryButton" onClick={() => setServicePanelOpen(true)}>Open service controls</button>}
+                  {!hasService ? <div className="overviewNote"><DashboardIcon name="history" /><div><strong>Keep the message after the service</strong><p>Enable transcript saving before Start to review the sermon and generate a summary later. Saved history is shared with every operator in {WORKSPACE_NAME} and expires 7 days after End.</p><button type="button" className="textButton" onClick={() => setServicePanelOpen(true)}>Review service setup <DashboardIcon name="chevronRight" /></button></div></div> : <button type="button" className="secondaryButton" onClick={() => setServicePanelOpen(true)}>Open service controls</button>}
                 </div>
               ) : null}
               {currentWorkspaceSection === "audio" ? (

@@ -38,6 +38,10 @@ records to establish release evidence.
 - [ADR 0014](decisions/0014-operator-preferences-by-access-identity.md) records why
   operator configuration is bound to the Cloudflare Access identity in an
   `OperatorPreferences` Durable Object, with `localStorage` kept only as a fallback.
+- [ADR 0015](decisions/0015-named-workspace-sized-for-its-operators.md) records why the
+  Access tenant is named *BEST Church workspace* in the operator UI, why the saved-sermon
+  copy states that every operator shares the archive, and why the watcher and paired-phone
+  identity cap rose from 8 to 32.
 - [Caption policy](evaluation/CAPTION_POLICY_DECISION.md) describes completion and filtering.
 - [Indonesian→English review](evaluation/ID_EN_REVIEW.md) and its
   [synthetic fixtures](evaluation/id-en-synthetic.json) remain unscored.

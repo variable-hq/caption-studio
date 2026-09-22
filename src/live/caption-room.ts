@@ -139,7 +139,7 @@ function normalizedAttempts(value: unknown): number[] {
 /**
  * Keeps at most `MAX_SERVICE_OBSERVERS` credentials, one per hashed Access
  * identity. Insertion order is preserved, so the oldest identity is dropped
- * first when a ninth operator joins.
+ * first once the cap is full.
  */
 function normalizedCredentialMap(value: unknown): Record<string, string> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;

@@ -82,7 +82,7 @@ still consumes its claim; it cannot be replayed to spend again.
 | `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol | OBS and latest-viewer WebSockets |
 | `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation. `…/pair` needs Access only, so any workspace operator can pair a phone; the other operations still need the controller |
 | `GET`/`POST`/`DELETE …/experience/preferences` | Access | The signed-in operator's saved configuration; POST merges a partial record, `null` clears a field |
-| `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index, one sermon's private archive |
+| `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index, one sermon's workspace-wide archive |
 | `POST …/sermons/{id}/summary`, `…/remove`, `…/correct`, `…/delete` | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion |
 | `GET /api/live/reader` | `x-caption-reader` header | Appending reader paragraphs and operator notes, 50 per poll |
 
@@ -112,15 +112,18 @@ server-only `OBS_CHANNEL_ENCRYPTION_KEY`. Other raw live credentials stay in the
 operator tab's sessionStorage; server state retains hashes. End/expiry preserves the
 OBS URL and style. Only explicit idle rotation changes that reusable credential.
 
-One Access workspace shares one operation. Every signed-in operator already reads the
+One Access workspace shares one operation. That workspace is shown as *BEST Church
+workspace* in the operator UI. Every signed-in operator already reads the
 same channel status, usage, archive and OBS URL; the channel also names the Access email
 of the operator who started the running service, and a watcher credential adds the live
 public caption stream to that, and the Access-protected archive supplies source text
 when the running service saves history. Watching never reserves attempts, sends audio or
 displaces the controller, so only takeover moves microphone capture. The room keeps at
-most 8 watcher and 8 paired-phone credentials per service, one of each per hashed Access
-identity, and the ninth identity evicts the oldest. Every paired phone drives the same
-single-command queue: one command may be pending at a time, whoever sent it.
+most 32 watcher and 32 paired-phone credentials per service, one of each per hashed Access
+identity — the same ceiling as its 32 watcher sockets — and the next identity past the cap
+evicts the oldest. Every paired phone drives the same single-command queue: one command
+may be pending at a time, whoever sent it. The phone stays a live remote: saved sermons
+are reviewed on the dashboard, not on `/operator/mobile`.
 
 The latest viewer is revoked at End, expiry, takeover or replacement. Watcher and phone
 credentials live and die with one service: Start, End, expiry and takeover clear them all,
@@ -178,8 +181,8 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
 | Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
 | Latest public caption | Main live state; cleared by controls and End/expiry |
-| Source, corrections, exclusions, paragraphs, summaries with saving on | Private per-service journal; expires seven days after End/expiry |
-| Reader text with saving off | Object/browser memory; may be lost on eviction; no private source archive |
+| Source, corrections, exclusions, paragraphs, summaries with saving on | Per-service journal, readable by every workspace operator and by no audience surface; expires seven days after End/expiry |
+| Reader text with saving off | Object/browser memory; may be lost on eviction; no stored source archive |
 | Reader rule snapshot/checkpoint with saving on | Bounded glossary/filter and pending public input in journal while needed for processing/recovery |
 | Numeric usage and deduplication entries | Separate usage object; each expires 30 days after its original attempt |
 | Archive index / deletion tombstones | Content-free lifecycle records; expired index entries cleaned, tombstones reject late writes |

@@ -4,6 +4,7 @@ import { CloudProviderClient } from "@/ai/cloud-provider-client";
 import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
 import {
   MAX_MANUAL_CAPTION_CHARS,
+  MAX_SERVICE_OBSERVERS,
   MAX_TRANSCRIPTION_REQUESTS,
   normalizeCaptionStyle,
 } from "@/live/contracts";
@@ -1591,19 +1592,22 @@ describe("workspace watchers", () => {
     expect(Object.values(configuration!.observers)).toEqual(["a".repeat(64), "b".repeat(64)]);
   });
 
-  it("keeps the newest eight identities and refuses malformed registrations", async () => {
+  it("keeps the newest MAX_SERVICE_OBSERVERS identities and refuses malformed registrations", async () => {
     const { room, storage } = roomFixture();
     await createChannel(room);
     await startService(room);
 
-    for (let index = 0; index < 9; index += 1) {
-      const suffix = index.toString(16);
-      expect((await room.fetch(observe(identity(suffix), suffix.repeat(64)))).status).toBe(200);
+    // One more than the cap, so the first registration is the one evicted.
+    const numbered = (index: number) => index.toString(16).padStart(64, "0");
+    for (let index = 0; index <= MAX_SERVICE_OBSERVERS; index += 1) {
+      const key = `operator:${numbered(index)}`;
+      expect((await room.fetch(observe(key, numbered(index)))).status).toBe(200);
     }
     const configuration = await storage.get<{ observers: Record<string, string> }>("configuration");
-    expect(Object.keys(configuration!.observers)).toHaveLength(8);
-    expect(configuration!.observers[identity("0")]).toBeUndefined();
-    expect(configuration!.observers[identity("8")]).toBe("8".repeat(64));
+    expect(Object.keys(configuration!.observers)).toHaveLength(MAX_SERVICE_OBSERVERS);
+    expect(configuration!.observers[`operator:${numbered(0)}`]).toBeUndefined();
+    expect(configuration!.observers[`operator:${numbered(MAX_SERVICE_OBSERVERS)}`])
+      .toBe(numbered(MAX_SERVICE_OBSERVERS));
 
     expect((await room.fetch(observe("operator:short", "c".repeat(64)))).status).toBe(400);
     expect((await room.fetch(observe(identity("1"), "not-a-hash"))).status).toBe(400);

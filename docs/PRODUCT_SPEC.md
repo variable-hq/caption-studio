@@ -26,8 +26,10 @@ reviewer and must never invent speech, scripture, or doctrine.
 - **Operator remote:** uses an Access-authenticated, paired phone to control Pause,
   Resume and Clear on the capture computer.
 - **Archive reviewer:** any Access-approved operator can review/correct saved source and
-  generate/export private summary drafts. There is no distinct reviewer role or per-email
-  archive ownership. Workspace/administrator roles remain deferred.
+  generate/export summary drafts. There is no distinct reviewer role or per-email
+  archive ownership: one Access tenant is one workspace, named *BEST Church workspace*
+  in the operator UI, and every saved transcript and sermon in it is reachable by every
+  signed-in operator. Workspace/administrator roles remain deferred.
 
 The first evaluation direction is **Indonesian→English**, with **Operator** selected as
 the human reviewer outside the app. [All 30 prepared samples](evaluation/ID_EN_REVIEW.md)
@@ -296,7 +298,8 @@ explicit translation refresh used for language, buffer, and prompt changes.
   translation-refresh controls appear in Translation and AI instructions, with a compact
   review link on other pages.
 - Live outputs groups OBS, latest-viewer and reader/phone sharing into expandable sections.
-  Sermon history contains private archives, corrections and summaries. OBS link rotation
+  Sermon history contains the workspace's saved archives, corrections and summaries;
+  the panel states that every signed-in operator sees them and the audience does not. OBS link rotation
   stays disabled during a service; paused test captions remain under More.
 - A status bar docked at the bottom of the workspace (beside the sidebar on desktop,
   full width on phones) holds two pills. They read Checking cloud AI, Cloud AI configured, Cloud setup needed or
@@ -516,7 +519,13 @@ Confirmed Delete requires End, removes content and the archive index, and reject
 
 The paired `/operator/mobile` remote offers **Pause captions**, **Resume captions** and
 **Clear live caption**; Resume stays disabled while the capture computer is disconnected,
-and each action reads as pending until the capture computer acknowledges it.
+and each action reads as pending until the capture computer acknowledges it. The remote
+stays scoped to those live commands: saved transcripts and sermons are reviewed on the
+dashboard's Sermon history page, which any signed-in operator may open on any device.
+
+Up to 32 Access identities may hold a watcher credential for one service, and up to 32 may
+hold a paired-phone credential, matching the 32 watcher sockets the room accepts. Past
+that ceiling the oldest identity is dropped and must register again.
 
 Manual summaries use opted-in, ended history with a frozen source revision. Operators
 select an allowlisted Workers AI model, output language, short/detailed length and up to
