@@ -493,6 +493,8 @@ export default function OperatorDashboard() {
   const [activeWorkspaceSection, setActiveWorkspaceSection] =
     useState<WorkspaceSectionId>("overview");
   const workspaceHeadingRef = useRef<HTMLHeadingElement>(null);
+  // Last input modality, so a programmatic focus can tell a click from a keypress.
+  const pointerInteractionRef = useRef(false);
   const [confirmTranslationRefresh, setConfirmTranslationRefresh] =
     useState(false);
   const refreshConfirmationHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -885,12 +887,25 @@ export default function OperatorDashboard() {
     : LANGUAGE_OPTIONS.find(({ locale }) => locale === displayedTranslationSettings?.sourceLanguage)?.label;
   const displayedTargetLabel = LANGUAGE_OPTIONS.find(({ locale }) => locale === displayedTranslationSettings?.targetLanguage)?.label;
 
+  /**
+   * Moving focus to the section heading announces the new page to a screen
+   * reader. A pointer operator does not need the focus ring that comes with it,
+   * so the heading records how the section was opened and the ring is drawn for
+   * keyboard navigation only.
+   */
+  const focusWorkspaceHeading = () => {
+    const heading = workspaceHeadingRef.current;
+    if (!heading) return;
+    heading.dataset.pointerFocus = pointerInteractionRef.current ? "true" : "false";
+    heading.focus();
+  };
+
   const openWorkspaceSection = (section: WorkspaceSectionId) => {
     if (window.location.hash !== `#workspace=${section}`) {
       window.history.pushState(window.history.state, "", `#workspace=${section}`);
     }
     setActiveWorkspaceSection(section);
-    window.requestAnimationFrame(() => workspaceHeadingRef.current?.focus());
+    window.requestAnimationFrame(focusWorkspaceHeading);
   };
 
   useEffect(() => {
@@ -899,16 +914,22 @@ export default function OperatorDashboard() {
       const id = hash === "" ? "overview" : hash.startsWith("#workspace=") ? hash.slice(11) : null;
       if (!WORKSPACE_ITEMS.some((item) => item.id === id)) return;
       setActiveWorkspaceSection(id as WorkspaceSectionId);
-      if (focus) window.requestAnimationFrame(() => workspaceHeadingRef.current?.focus());
+      if (focus) window.requestAnimationFrame(focusWorkspaceHeading);
     };
     const initial = window.requestAnimationFrame(() => syncSection(false));
     const onHistory = () => syncSection(true);
+    const pointerInput = () => { pointerInteractionRef.current = true; };
+    const keyboardInput = () => { pointerInteractionRef.current = false; };
     window.addEventListener("popstate", onHistory);
     window.addEventListener("hashchange", onHistory);
+    window.addEventListener("pointerdown", pointerInput, true);
+    window.addEventListener("keydown", keyboardInput, true);
     return () => {
       window.cancelAnimationFrame(initial);
       window.removeEventListener("popstate", onHistory);
       window.removeEventListener("hashchange", onHistory);
+      window.removeEventListener("pointerdown", pointerInput, true);
+      window.removeEventListener("keydown", keyboardInput, true);
     };
   }, []);
 
@@ -1179,7 +1200,7 @@ export default function OperatorDashboard() {
   const confirmAndRefreshTranslation = () => {
     setConfirmTranslationRefresh(false);
     void refreshTranslationSession();
-    window.requestAnimationFrame(() => workspaceHeadingRef.current?.focus());
+    window.requestAnimationFrame(focusWorkspaceHeading);
   };
 
   const cancelTranslationRefreshConfirmation = () => {

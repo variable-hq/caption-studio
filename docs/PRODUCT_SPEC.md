@@ -307,7 +307,10 @@ explicit translation refresh used for language, buffer, and prompt changes.
   Idle/Live/Paused. They describe configuration and the server room, not observed OBS
   connectivity or measured translation quality. Channel errors offer **Retry channel**
   or, when the OBS credential must be rebuilt, **Rotate and recover**.
-- A skip link and workspace-heading focus support keyboard navigation. When Service
+- A skip link and workspace-heading focus support keyboard navigation. Opening a section
+  always moves focus to its heading so a screen reader announces the new page, but the
+  focus ring is drawn only when the section was opened from the keyboard; a click or tap
+  leaves the title unringed. When Service
   controls is collapsed, a compact sticky bar keeps Pause/Resume and Clear reachable;
   while paused, it also offers a Manual caption field.
   End stays inside the service panel with a native confirmation dialog (**Confirm End**

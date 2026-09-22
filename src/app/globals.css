@@ -279,6 +279,14 @@ a:focus-visible,
   outline-offset: 4px;
 }
 
+/*
+ * A heading that a click moved focus to keeps the focus for screen readers but
+ * drops the ring: the operator already sees which page opened.
+ */
+[data-pointer-focus="true"]:focus-visible {
+  outline: none;
+}
+
 .skipLink {
   position: fixed;
   z-index: 50;
