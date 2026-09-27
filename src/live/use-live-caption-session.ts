@@ -789,8 +789,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       );
       outputBufferQueueRef.current = outcome.queue;
       setOutputBufferQueue(outcome.queue);
-      // Sequential, not concurrent, so force-advanced entries can't resolve out of order.
+      // Sequential, not concurrent, so force-advanced entries can't resolve out of order;
+      // bails early if a mid-loop Pause/Clear/etc. already discarded the buffer.
+      const forceAdvanceGeneration = outputBufferGenerationRef.current;
       for (const forced of outcome.publishNow) {
+        if (outputBufferGenerationRef.current !== forceAdvanceGeneration) break;
         await publishBufferedEntry(forced);
       }
       setLiveState((state) => ({
