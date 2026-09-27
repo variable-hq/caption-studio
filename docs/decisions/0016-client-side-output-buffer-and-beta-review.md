@@ -93,9 +93,12 @@ shipped, addressing both directly.
 - The on/off choice applies live, without the translation-refresh gate that
   language/terminology/filter/recording-window/prompt changes require, because it does not
   affect the model call — only client-side pacing before an already-produced translation
-  reaches Live. It is not yet persisted to `OperatorPreferences`; an operator's choice
-  resets to Off on next visit. This is a known, documented first-pass gap, not an
-  oversight.
+  reaches Live. It is saved to `OperatorPreferences` through the same **Save as my
+  default** action used elsewhere, independent of the translation-refresh cycle.
+- A visible `entries/OUTPUT_BUFFER_BACKING_CAPACITY` counter and an explicit "buffer full"
+  warning (shown only when the backlog is at capacity *and* the next-up caption is held)
+  make the leakage risk observable rather than something an operator could discover only
+  by losing content.
 - `src/live/output-buffer.ts` is pure and covered by `output-buffer.test.ts`
   (enqueue/tick/pause/edit/clear/fast-forward/review transitions, including draining down
   to a shrunk capacity and headroom before leakage); `caption-room.test.ts` covers the new

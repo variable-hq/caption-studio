@@ -2,6 +2,10 @@ import type { SummaryOptions } from "@/experience/contracts";
 import { normalizeSummaryOptions } from "@/experience/summary-defaults";
 import { normalizeCaptionStyle, type CaptionStyle } from "@/live/contracts";
 import {
+  normalizeOutputBufferCount,
+  type OutputBufferCount,
+} from "@/live/output-buffer";
+import {
   normalizeTranslationSessionSettings,
   type TranslationSessionSettings,
 } from "@/live/translation-settings";
@@ -22,6 +26,7 @@ export interface OperatorPreferences {
   summaryDefaults: SummaryOptions | null;
   captionStyle: CaptionStyle | null;
   translationDefaults: TranslationDefaults | null;
+  outputBufferCount: OutputBufferCount | null;
   tutorialDismissed: boolean;
   updatedAt: number | null;
 }
@@ -34,6 +39,7 @@ export const EMPTY_PREFERENCES: OperatorPreferences = {
   summaryDefaults: null,
   captionStyle: null,
   translationDefaults: null,
+  outputBufferCount: null,
   tutorialDismissed: false,
   updatedAt: null,
 };
@@ -93,6 +99,7 @@ export function mergeOperatorPreferences(
     captionStyle: pick("captionStyle", base.captionStyle, (value) =>
       value && typeof value === "object" ? normalizeCaptionStyle(value as Partial<CaptionStyle>) : null),
     translationDefaults: pick("translationDefaults", base.translationDefaults, normalizeTranslationDefaults),
+    outputBufferCount: pick("outputBufferCount", base.outputBufferCount, normalizeOutputBufferCount),
     tutorialDismissed: "tutorialDismissed" in input ? input.tutorialDismissed === true : base.tutorialDismissed,
     updatedAt: at,
   };

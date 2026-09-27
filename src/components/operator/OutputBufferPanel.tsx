@@ -5,6 +5,7 @@ import { useId } from "react";
 import { DashboardIcon } from "@/components/operator/DashboardNavigation";
 import { BorderGlow } from "@/components/reactbits";
 import {
+  OUTPUT_BUFFER_BACKING_CAPACITY,
   OUTPUT_BUFFER_COUNT_OPTIONS,
   isOutputBufferEntryPaused,
   normalizeOutputBufferCount,
@@ -22,6 +23,8 @@ const COUNT_LABELS: Record<OutputBufferCount, string> = {
 interface OutputBufferPanelProps {
   count: OutputBufferCount;
   onCountChange: (value: OutputBufferCount) => void;
+  onSaveDefault: () => void;
+  savedMessage: string;
   queue: OutputBufferQueueState;
   disabled?: boolean;
   onPause: (id: string, paused: boolean) => void;
@@ -38,6 +41,8 @@ interface OutputBufferPanelProps {
 export function OutputBufferPanel({
   count,
   onCountChange,
+  onSaveDefault,
+  savedMessage,
   queue,
   disabled = false,
   onPause,
@@ -52,7 +57,8 @@ export function OutputBufferPanel({
 }: OutputBufferPanelProps) {
   const countHelpId = useId();
   const front = queue.entries[0] ?? null;
-  const waiting = queue.entries.length - (front ? 1 : 0);
+  const atCapacity = queue.entries.length >= OUTPUT_BUFFER_BACKING_CAPACITY;
+  const frontHeld = front ? isOutputBufferEntryPaused(front) : false;
   const frontStatus = !front
     ? ""
     : front.pausedForReview
@@ -92,15 +98,19 @@ export function OutputBufferPanel({
         captions keep queuing up behind it out of sight; once that backlog is full, any
         further caption is dropped rather than shown or queued.
       </p>
+      <div className="saveRow">
+        <button className="secondaryButton" type="button" onClick={onSaveDefault} disabled={disabled}>
+          Save as my default
+        </button>
+        <p role="status" aria-live="polite" aria-atomic="true">
+          {savedMessage}
+        </p>
+      </div>
       {count > 0 ? (
         <div className="outputBufferQueue" aria-label="Output buffer">
           <div className="outputBufferQueueHeader">
             <span>
-              {!front
-                ? "Buffer empty"
-                : waiting > 0
-                  ? `Next up · ${waiting} more waiting`
-                  : "Next up"}
+              {!front ? "Buffer empty" : "Next up"} · {queue.entries.length}/{OUTPUT_BUFFER_BACKING_CAPACITY} queued
             </span>
             <button
               type="button"
@@ -113,6 +123,12 @@ export function OutputBufferPanel({
               <DashboardIcon name="wand" /> Beta review
             </button>
           </div>
+          {atCapacity && frontHeld ? (
+            <p className="privacyNote" role="alert">
+              Buffer full — further captions will be dropped until you resume, submit, or
+              clear this one.
+            </p>
+          ) : null}
           {review.message ? (
             <p className="helpText" role="status">
               {review.message}

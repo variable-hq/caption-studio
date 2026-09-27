@@ -495,6 +495,7 @@ export default function OperatorDashboard() {
   const sidebarSyncRef = useRef<{ timeout: number; width: number } | null>(null);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [translationDefaultsMessage, setTranslationDefaultsMessage] = useState("");
+  const [outputBufferSavedMessage, setOutputBufferSavedMessage] = useState("");
   const [summaryDefaults, setSummaryDefaults] = useState<SummaryOptions>(DEFAULT_SUMMARY_OPTIONS);
   const [savedSummaryDefaults, setSavedSummaryDefaults] = useState<SummaryOptions | null>(null);
   const [summaryStorageMessage, setSummaryStorageMessage] = useState("");
@@ -1052,6 +1053,10 @@ export default function OperatorDashboard() {
           setRecordingWindowMs(defaults.recordingWindowMs);
           setTranslationDefaultsMessage("Loaded your saved default setup.");
         }
+        if (loaded.outputBufferCount !== null && !hasServiceRef.current) {
+          setOutputBufferCount(loaded.outputBufferCount);
+          setOutputBufferSavedMessage("Loaded your saved default.");
+        }
       })
       .catch(() => {
         if (!cancelled) setAccountPreferences(null);
@@ -1097,6 +1102,17 @@ export default function OperatorDashboard() {
         ok
           ? "Saved as your default setup. New services start from these languages, recording window and terms."
           : "Account sync is unavailable; the default setup was not saved.",
+      ),
+    );
+  };
+
+  const saveOutputBufferDefault = () => {
+    setOutputBufferSavedMessage("Saving your default…");
+    void syncAccountPreferences({ outputBufferCount }).then((ok) =>
+      setOutputBufferSavedMessage(
+        ok
+          ? "Saved as your default. New services start with the output buffer in this state."
+          : "Account sync is unavailable; the default was not saved.",
       ),
     );
   };
@@ -1905,23 +1921,28 @@ export default function OperatorDashboard() {
                 <section className="outputMonitorSection" aria-label="Output monitor">
                   {outputMonitor}
                   <p className="helpText">OBS and the latest viewer mirror this caption without extra AI calls. The reader appends shared paragraphs about 30 seconds later.</p>
-                  {hasService ? (
-                    <OutputBufferPanel
-                      count={outputBufferCount}
-                      onCountChange={setOutputBufferCount}
-                      queue={outputBufferQueue}
-                      disabled={isBusy}
-                      onPause={setOutputBufferEntryPaused}
-                      onClear={clearOutputBufferEntry}
-                      onFastForward={fastForwardOutputBufferEntry}
-                      onBeginEdit={beginOutputBufferEdit}
-                      onEditDraftChange={updateOutputBufferEditDraft}
-                      onCancelEdit={cancelOutputBufferEdit}
-                      onSubmitEdit={submitOutputBufferEdit}
-                      review={bufferReview}
-                      onRequestReview={() => void requestOutputBufferReview()}
-                    />
-                  ) : null}
+                  <OutputBufferPanel
+                    count={outputBufferCount}
+                    onCountChange={setOutputBufferCount}
+                    onSaveDefault={saveOutputBufferDefault}
+                    savedMessage={
+                      outputBufferSavedMessage ||
+                      (accountPreferences && accountPreferences.outputBufferCount !== null
+                        ? "Your account has a saved default for this."
+                        : "Saves this choice to your account for new services.")
+                    }
+                    queue={outputBufferQueue}
+                    disabled={isBusy}
+                    onPause={setOutputBufferEntryPaused}
+                    onClear={clearOutputBufferEntry}
+                    onFastForward={fastForwardOutputBufferEntry}
+                    onBeginEdit={beginOutputBufferEdit}
+                    onEditDraftChange={updateOutputBufferEditDraft}
+                    onCancelEdit={cancelOutputBufferEdit}
+                    onSubmitEdit={submitOutputBufferEdit}
+                    review={bufferReview}
+                    onRequestReview={() => void requestOutputBufferReview()}
+                  />
                   {anotherOperatorActive ? (
                     <p className="privacyNote" role="status">
                       {runningOperator ? `${runningOperator} is running this service. ` : ""}

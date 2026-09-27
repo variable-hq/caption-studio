@@ -284,7 +284,10 @@ duration. See [ADR 0016](decisions/0016-client-side-output-buffer-and-beta-revie
 - Only the next-up caption is ever shown or individually controllable. Internally, up to
   3 more translations can queue behind it out of sight, giving a paused or in-edit caption
   real headroom; once that backlog is full, a paused front drops any further arriving
-  translation (leakage) instead of growing without bound.
+  translation (leakage) instead of growing without bound. A visible counter (for example
+  "2/4 queued") always shows how much of that headroom is used, and an explicit warning
+  appears once the backlog is full and the next-up caption is held, since that is the
+  specific state in which the next translation would be dropped.
 - The next-up caption can be **paused** (frozen; remaining hold time preserved), **edited**
   (operator override, re-moderated before it can reach Live; auto-resumes on Submit),
   **cleared** (removed from the queue), or **fast-forwarded** (shown on Live immediately).
@@ -298,8 +301,8 @@ duration. See [ADR 0016](decisions/0016-client-side-output-buffer-and-beta-revie
   separately paused by hand. Revised text passes through the same public filter and
   glossary rules as any other caption before it can replace one. Capped at 30 calls per
   service, separately from the 900-request transcription ceiling.
-- The On/Off choice is not yet saved to the operator's account; it resets to Off on the
-  next visit.
+- **Save as my default** stores the On/Off choice with the operator's account, the same
+  way the Translation page saves its default setup; new services start from it.
 
 ### Caption display, OBS, and mobile viewing
 
