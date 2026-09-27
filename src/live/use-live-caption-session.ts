@@ -175,6 +175,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const outputBufferQueueRef = useRef<OutputBufferQueueState>(EMPTY_OUTPUT_BUFFER_QUEUE);
   const bufferReviewBusyRef = useRef(false);
   const latestPublicTextRef = useRef("");
+  const previousOutputBufferCountRef = useRef<OutputBufferCount>(settings.outputBufferCount);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -555,11 +556,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     async (entry: OutputBufferEntry) => {
       const service = serviceRef.current;
       if (!service) return;
+      const isStillCurrentService = () =>
+        serviceRef.current?.controllerToken === service.controllerToken;
       try {
         const published = await liveClientRef.current.publish(service.controllerToken, {
           ...entry.request,
           publicText: entry.publicText,
         });
+        if (!isStillCurrentService()) return;
         setLiveState((state) => ({
           ...state,
           message: entry.publicText
@@ -573,6 +577,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           latestPublicLanguage: entry.publicText ? entry.targetLanguage : null,
         }));
       } catch (error) {
+        // The active service may have changed (ended/restarted, taken over, or paused)
+        // while this publish was in flight; a stale response must not act on the new
+        // session (e.g. falsely reporting a takeover of a service this tab itself started).
+        if (!isStillCurrentService()) return;
         if (isControllerReplaced(error)) {
           handleTakenOver();
           return;
@@ -1985,6 +1993,29 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     return () => window.clearInterval(id);
   }, [settings.outputBufferCount, liveState.status, publishBufferedEntry]);
 
+  // Lowering the output buffer count (including to 0, where the panel hides its controls
+  // entirely and the ticking effect above never drains the queue again) can leave the
+  // queue holding more entries than the new capacity allows — enqueueTranslation only
+  // self-heals that on the *next* translation, which may never come before the service
+  // ends. Flush the oldest excess entries straight to Live, in order, immediately instead.
+  useEffect(() => {
+    const previousCount = previousOutputBufferCountRef.current;
+    previousOutputBufferCountRef.current = settings.outputBufferCount;
+    if (settings.outputBufferCount >= previousCount) return;
+    const current = outputBufferQueueRef.current.entries;
+    const overflow = current.length - settings.outputBufferCount;
+    if (overflow <= 0) return;
+    const excess = current.slice(0, overflow);
+    const kept = { entries: current.slice(overflow) };
+    outputBufferQueueRef.current = kept;
+    setOutputBufferQueue(kept);
+    void (async () => {
+      for (const entry of excess) {
+        await publishBufferedEntry(entry);
+      }
+    })();
+  }, [settings.outputBufferCount, publishBufferedEntry]);
+
   const setOutputBufferEntryPaused = useCallback((id: string, paused: boolean) => {
     const next = setManualPause(outputBufferQueueRef.current, id, paused, Date.now());
     outputBufferQueueRef.current = next;
@@ -2071,9 +2102,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         body: JSON.stringify({
           targetLanguage: current.targetLanguage,
           liveText: latestPublicTextRef.current,
+          // Always send the already-moderated `publicText`, never the raw, not-yet-submitted
+          // `editedDraft` — the latter has not passed moderation yet, and `applyReviewResults`
+          // discards any revision for an entry still being hand-edited anyway.
           entries: started.entries.map((entry) => ({
             id: entry.id,
-            text: entry.editedDraft ?? entry.publicText,
+            text: entry.publicText,
           })),
         }),
         signal: AbortSignal.timeout(20_000),

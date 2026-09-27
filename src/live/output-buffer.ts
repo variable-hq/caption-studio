@@ -130,7 +130,13 @@ export type NewOutputBufferEntry = Pick<
 
 export interface EnqueueOutcome {
   queue: OutputBufferQueueState;
-  /** The entry force-advanced to make room, when the queue was already full. At most one. */
+  /**
+   * Entries force-advanced to make room, oldest first. Usually at most one; more than one
+   * only when the buffer's capacity just shrank (an operator lowering the output buffer
+   * count) while it already held more entries than the new capacity allows — those excess
+   * entries are drained straight to Live in order rather than getting stuck above the new
+   * limit forever.
+   */
   publishNow: OutputBufferEntry[];
   /** True when the incoming translation could not be admitted and was dropped (queue full, front paused). */
   dropped: boolean;
@@ -171,17 +177,27 @@ export function enqueueTranslation(
     };
   }
 
-  const front = queue.entries[0];
-  if (isOutputBufferEntryPaused(front)) {
-    return { queue, publishNow: [], dropped: true };
+  // Full, or already over capacity because the buffer's count just shrank: force-advance
+  // from the front until there is room for exactly one more, or a paused entry blocks
+  // further progress.
+  const publishNow: OutputBufferEntry[] = [];
+  let entries = queue.entries;
+  while (entries.length >= count) {
+    const front = entries[0];
+    if (isOutputBufferEntryPaused(front)) break;
+    publishNow.push(front);
+    entries = entries.slice(1);
   }
-  const rest = queue.entries.slice(1);
+  if (entries.length >= count) {
+    return { queue: { entries }, publishNow, dropped: true };
+  }
   return {
-    queue: applyFrontEditGuard({ entries: [...rest, entry] }, now),
-    publishNow: [front],
+    queue: applyFrontEditGuard({ entries: [...entries, entry] }, now),
+    publishNow,
     dropped: false,
   };
 }
+
 
 export interface TickOutcome {
   queue: OutputBufferQueueState;

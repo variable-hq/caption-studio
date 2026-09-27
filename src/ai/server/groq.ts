@@ -395,7 +395,10 @@ export async function reviewBufferWithGroq(
             !outputLooksUnsafe(entry.text),
         )
         .map((entry) => ({ id: entry.id, text: entry.text.trim() }));
-      incomplete = revisions.length !== request.entries.length;
+      // Count alone is not sufficient: a malformed response could repeat one expected id and
+      // omit another, passing a length check while actually leaving an entry unrevised.
+      const revisedIds = new Set(revisions.map((entry) => entry.id));
+      incomplete = revisedIds.size !== expectedIds.size;
     } catch {
       incomplete = true;
     }

@@ -106,6 +106,30 @@ describe("enqueueTranslation", () => {
     expect(outcome.publishNow).toEqual([]);
     expect(outcome.queue.entries.map((entry) => entry.id)).toEqual(["a"]);
   });
+
+  it("drains down to a newly-shrunk capacity in one call instead of getting stuck above it", () => {
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, 2_000, true, candidate("a", "Hi"), 0).queue;
+    queue = enqueueTranslation(queue, 2, 2_000, false, candidate("b", "There"), 0).queue;
+    expect(queue.entries).toHaveLength(2);
+
+    // The operator lowers the output buffer to 1 slot; the next translation must not
+    // merely swap 1-for-1 and stay stuck at length 2 forever.
+    const outcome = enqueueTranslation(queue, 1, 2_000, false, candidate("c", "Amen"), 1_000);
+    expect(outcome.dropped).toBe(false);
+    expect(outcome.publishNow.map((entry) => entry.id)).toEqual(["a", "b"]);
+    expect(outcome.queue.entries.map((entry) => entry.id)).toEqual(["c"]);
+  });
+
+  it("stops draining for a shrunk capacity at a paused entry, and still drops the candidate if that leaves no room", () => {
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, 2_000, true, candidate("a", "Hi"), 0).queue;
+    queue = enqueueTranslation(queue, 2, 2_000, false, candidate("b", "There"), 0).queue;
+    queue = setManualPause(queue, "a", true, 50);
+
+    const outcome = enqueueTranslation(queue, 1, 2_000, false, candidate("c", "Amen"), 1_000);
+    expect(outcome.dropped).toBe(true);
+    expect(outcome.publishNow).toEqual([]);
+    expect(outcome.queue.entries.map((entry) => entry.id)).toEqual(["a", "b"]);
+  });
 });
 
 describe("tick", () => {

@@ -281,10 +281,9 @@ duration. See [ADR 0016](decisions/0016-client-side-output-buffer-and-beta-revie
 
 - **Count**: 0 (none), 1, or 2 slots; default 1. None publishes every caption straight to
   Live, matching behavior before this feature existed.
-- **Delay**: Auto (default), or a fixed 2, 4, or 6 seconds; hidden when count is 0. A fixed
-  delay holds every queued caption for that long. Auto has no fixed hold: the first caption
-  after a fresh or empty Live output still waits briefly (2 seconds) before appearing, but
-  once captions are flowing continuously each later one paces at that same flat 2 seconds
+- **Delay**: Auto (default), or a fixed 2, 4, or 6 seconds; hidden when count is 0. It sets
+  how long the first caption into a fresh or empty queue is held (2 seconds for Auto). Once
+  captions are flowing continuously, every later caption paces at a flat 2 seconds
   regardless of the delay setting, so the buffer does not let captions drift further and
   further behind speech.
 - Regardless of delay setting, a completely full queue force-advances its front slot the
@@ -296,8 +295,10 @@ duration. See [ADR 0016](decisions/0016-client-side-output-buffer-and-beta-revie
   Live; the slot auto-pauses only once it reaches the front of the queue, and auto-resumes
   on Submit), **cleared** (removed from the queue entirely), or **fast-forwarded** (shown
   on Live immediately, ahead of its turn). These controls are separate from Pause/Resume,
-  Clear live caption, and quick block above: pausing the service or clearing Live does not
-  touch queued buffer content, and clearing one queued caption does not affect the others.
+  Clear live caption, and quick block above: pausing the service discards all queued buffer
+  content, the same as a translation refresh, takeover, or End; clearing the current Live
+  caption does not touch queued buffer content, and clearing one queued caption does not
+  affect the others.
 - A **Beta** "review buffer" action sends the queued captions' current text, plus the
   caption currently on Live for context, to a separate, bounded model call that may revise
   only the queued text for continuity; it never touches Live and never retranslates from

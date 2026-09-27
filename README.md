@@ -113,9 +113,10 @@ OBS rotation is a separate idle action and requires updating the Browser Source 
 Removing/deleting content cannot recall an export, screenshot, or text already read.
 
 An optional output buffer sits between translation and the OBS/latest-viewer column above:
-with 1 or 2 slots selected, a moderated caption is held briefly (Pause/Clear/End above all
-clear it) instead of publishing immediately. It never reaches the reader or archive until
-it is actually shown on Live. See [Output buffer](docs/PRODUCT_SPEC.md#output-buffer) and
+with 1 or 2 slots selected, a moderated caption is held briefly (Pause, refresh, takeover,
+or End above all discard it; Clear live caption leaves it queued) instead of publishing
+immediately. It never reaches the reader or archive until it is actually shown on Live. See
+[Output buffer](docs/PRODUCT_SPEC.md#output-buffer) and
 [ADR 0016](docs/decisions/0016-client-side-output-buffer-and-beta-review.md).
 
 ## AI usage and limits
