@@ -38,12 +38,12 @@ import {
   enqueueTranslation,
   endReview,
   fastForwardEntry,
+  outputBufferCapacity,
   setManualPause,
   submitEdit as submitOutputBufferEntryEdit,
   tick as tickOutputBufferQueue,
   updateEditDraft,
   type OutputBufferCount,
-  type OutputBufferDelayMs,
   type OutputBufferEntry,
   type OutputBufferQueueState,
   type OutputBufferReviewState,
@@ -69,7 +69,6 @@ interface LiveCaptionSettings extends TranslationSessionSettings {
   saveHistory?: boolean;
   style: CaptionStyle;
   outputBufferCount: OutputBufferCount;
-  outputBufferDelay: OutputBufferDelayMs;
 }
 
 interface QueuedChunk {
@@ -175,7 +174,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const outputBufferQueueRef = useRef<OutputBufferQueueState>(EMPTY_OUTPUT_BUFFER_QUEUE);
   const bufferReviewBusyRef = useRef(false);
   const latestPublicTextRef = useRef("");
-  const previousOutputBufferCountRef = useRef<OutputBufferCount>(settings.outputBufferCount);
+  const previousOutputBufferCapacityRef = useRef(outputBufferCapacity(settings.outputBufferCount));
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -772,9 +771,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
       const outcome = enqueueTranslation(
         outputBufferQueueRef.current,
-        bufferCount,
-        settingsRef.current.outputBufferDelay,
-        latestPublicTextRef.current === "",
+        outputBufferCapacity(bufferCount),
         {
           id: crypto.randomUUID(),
           sourceText: forms.protectedSourceText,
@@ -1993,17 +1990,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     return () => window.clearInterval(id);
   }, [settings.outputBufferCount, liveState.status, publishBufferedEntry]);
 
-  // Lowering the output buffer count (including to 0, where the panel hides its controls
-  // entirely and the ticking effect above never drains the queue again) can leave the
-  // queue holding more entries than the new capacity allows — enqueueTranslation only
-  // self-heals that on the *next* translation, which may never come before the service
-  // ends. Flush the oldest excess entries straight to Live, in order, immediately instead.
+  // Lowering the output buffer's capacity (including turning it off, where the panel
+  // hides its controls entirely and the ticking effect above never drains the queue
+  // again) can leave the queue holding more entries than the new capacity allows —
+  // enqueueTranslation only self-heals that on the *next* translation, which may never
+  // come before the service ends. Flush the oldest excess entries to Live immediately.
   useEffect(() => {
-    const previousCount = previousOutputBufferCountRef.current;
-    previousOutputBufferCountRef.current = settings.outputBufferCount;
-    if (settings.outputBufferCount >= previousCount) return;
+    const capacity = outputBufferCapacity(settings.outputBufferCount);
+    const previousCapacity = previousOutputBufferCapacityRef.current;
+    previousOutputBufferCapacityRef.current = capacity;
+    if (capacity >= previousCapacity) return;
     const current = outputBufferQueueRef.current.entries;
-    const overflow = current.length - settings.outputBufferCount;
+    const overflow = current.length - capacity;
     if (overflow <= 0) return;
     const excess = current.slice(0, overflow);
     const kept = { entries: current.slice(overflow) };

@@ -279,36 +279,27 @@ the mobile viewer). It lives only in the controlling operator's browser tab, app
 immediately without a translation refresh, and is unrelated to the recording window
 duration. See [ADR 0016](decisions/0016-client-side-output-buffer-and-beta-review.md).
 
-- **Count**: 0 (none), 1, or 2 slots; default 1. None publishes every caption straight to
-  Live, matching behavior before this feature existed.
-- **Delay**: Auto (default), or a fixed 2, 4, or 6 seconds; hidden when count is 0. It sets
-  how long the first caption into a fresh or empty queue is held (2 seconds for Auto). Once
-  captions are flowing continuously, every later caption paces at a flat 2 seconds
-  regardless of the delay setting, so the buffer does not let captions drift further and
-  further behind speech.
-- Regardless of delay setting, a completely full queue force-advances its front slot the
-  moment a new translation arrives, unless that slot is paused. A paused, full queue drops
-  the arriving translation instead (leakage) rather than growing without bound or silently
-  discarding a caption the operator deliberately held.
-- Each queued caption can be **paused** (frozen in place until resumed; the remaining hold
-  time is preserved), **edited** (operator override text, re-moderated before it can reach
-  Live; the slot auto-pauses only once it reaches the front of the queue, and auto-resumes
-  on Submit), **cleared** (removed from the queue entirely), or **fast-forwarded** (shown
-  on Live immediately, ahead of its turn). These controls are separate from Pause/Resume,
-  Clear live caption, and quick block above: pausing the service discards all queued buffer
-  content, the same as a translation refresh, takeover, or End; clearing the current Live
-  caption does not touch queued buffer content, and clearing one queued caption does not
-  affect the others.
-- A **Beta** "review buffer" action sends the queued captions' current text, plus the
-  caption currently on Live for context, to a separate, bounded model call that may revise
-  only the queued text for continuity; it never touches Live and never retranslates from
-  source. The whole queue is held for the duration of that call and released afterward,
-  independent of any slot separately paused by hand. Revised text passes through the same
-  public filter and glossary rules as any other caption before it can replace a slot. This
-  call is capped at 30 per service, separately from the 900-request transcription ceiling,
-  since it is operator-triggered rather than one call per audio chunk.
-- Output buffer count and delay are not yet saved to the operator's account; they reset to
-  the default (1 slot, Auto) on the next visit.
+- **On/Off**, default Off (matching behavior before this feature existed). On holds each
+  caption for 2 seconds before it advances to Live; there is no separate delay setting.
+- Only the next-up caption is ever shown or individually controllable. Internally, up to
+  3 more translations can queue behind it out of sight, giving a paused or in-edit caption
+  real headroom; once that backlog is full, a paused front drops any further arriving
+  translation (leakage) instead of growing without bound.
+- The next-up caption can be **paused** (frozen; remaining hold time preserved), **edited**
+  (operator override, re-moderated before it can reach Live; auto-resumes on Submit),
+  **cleared** (removed from the queue), or **fast-forwarded** (shown on Live immediately).
+  These are separate from Pause/Resume, Clear live caption, and quick block above: pausing
+  the service discards the whole buffer, the same as a translation refresh, takeover, or
+  End; clearing the current Live caption does not.
+- A **Beta** "review buffer" action sends every currently queued caption — including ones
+  not yet shown — plus the caption on Live for context, to a separate, bounded model call
+  that may revise only the queued text for continuity; it never touches Live or retranslates
+  from source. The whole queue is held for the call's duration, independent of any caption
+  separately paused by hand. Revised text passes through the same public filter and
+  glossary rules as any other caption before it can replace one. Capped at 30 calls per
+  service, separately from the 900-request transcription ceiling.
+- The On/Off choice is not yet saved to the operator's account; it resets to Off on the
+  next visit.
 
 ### Caption display, OBS, and mobile viewing
 
@@ -488,13 +479,14 @@ Code-level acceptance:
 - A preferred term can affect transcription guidance and translated output.
 - A configured mask changes public output without changing the protected source preview.
 - Style changes reach a connected overlay without restarting the service.
-- An output buffer of 1 or 2 slots holds a moderated caption before Live; None publishes
-  immediately as before. A full, unpaused queue force-advances to admit a new caption; a
-  full, paused queue drops the incoming one instead. Pause freezes a slot's remaining hold
-  time; Clear removes one slot only; Fast-forward publishes a slot immediately regardless of
-  position. An edited slot cannot reach Live unmoderated, and auto-pauses only once it
-  reaches the front of the queue. The Beta review call revises only queued text, never Live,
-  and is capped independently of the transcription ceiling.
+- An output buffer, when On, holds the next moderated caption before Live, with up to 3
+  more queued out of sight behind it; Off publishes immediately as before. A full,
+  unpaused backlog force-advances to admit a new caption; a full, paused backlog drops the
+  incoming one instead. Pause freezes the shown caption's remaining hold time; Clear
+  removes only it; Fast-forward publishes it immediately. Editing cannot reach Live
+  unmoderated, and auto-resumes on Submit. The Beta review call revises every currently
+  queued caption (shown or not), never Live, and is capped independently of the
+  transcription ceiling.
 - Appearance controls update the dashboard design preview continuously before Save.
 - Setup separates navigation and the selected settings page from collapsible service
   controls. The output monitor renders the real 1920 × 1080 canvas scaled to the card and

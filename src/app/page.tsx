@@ -51,9 +51,7 @@ import {
 } from "@/live/contracts";
 import {
   DEFAULT_OUTPUT_BUFFER_COUNT,
-  DEFAULT_OUTPUT_BUFFER_DELAY,
   type OutputBufferCount,
-  type OutputBufferDelayMs,
 } from "@/live/output-buffer";
 import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
@@ -486,9 +484,6 @@ export default function OperatorDashboard() {
   const [outputBufferCount, setOutputBufferCount] = useState<OutputBufferCount>(
     DEFAULT_OUTPUT_BUFFER_COUNT,
   );
-  const [outputBufferDelay, setOutputBufferDelay] = useState<OutputBufferDelayMs>(
-    DEFAULT_OUTPUT_BUFFER_DELAY,
-  );
   const [translationSystemPrompt, setTranslationSystemPrompt] = useState(
     DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   );
@@ -572,9 +567,8 @@ export default function OperatorDashboard() {
       style,
       saveHistory,
       outputBufferCount,
-      outputBufferDelay,
     }),
-    [draftTranslationSettings, style, saveHistory, outputBufferCount, outputBufferDelay],
+    [draftTranslationSettings, style, saveHistory, outputBufferCount],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {
@@ -1914,9 +1908,7 @@ export default function OperatorDashboard() {
                   {hasService ? (
                     <OutputBufferPanel
                       count={outputBufferCount}
-                      delay={outputBufferDelay}
                       onCountChange={setOutputBufferCount}
-                      onDelayChange={setOutputBufferDelay}
                       queue={outputBufferQueue}
                       disabled={isBusy}
                       onPause={setOutputBufferEntryPaused}

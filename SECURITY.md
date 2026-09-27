@@ -194,7 +194,7 @@ Current behavior:
   on Pause, refresh, takeover, or End;
 - a Beta output-buffer review sends the current Live caption and the queued captions'
   already-translated, already-moderated text (never protected source) across the same
-  protected API/Groq boundary as translation, bounded to at most two queued captions and
+  protected API/Groq boundary as translation, bounded to at most four queued captions and
   capped at 30 calls per service;
 - the active translation prompt crosses the protected API/Groq boundary and is not
   stored in the room or sent to audience clients. The journal receives glossary/filter

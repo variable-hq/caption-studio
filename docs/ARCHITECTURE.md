@@ -73,7 +73,7 @@ still consumes its claim; it cannot be replayed to spend again.
 | --- | --- | --- |
 | `GET /api/ai/health`, `POST /api/ai/readiness` | Access (readiness) | Configured models; readiness also checks Groq model availability |
 | `POST /api/ai/transcribe`, `POST /api/ai/translate` | Access + controller + attempt claim | Live inference; 3 MB audio + 16 KB fields, 32,000-byte JSON |
-| `POST /api/ai/buffer-review` | Access + controller (no attempt claim; own bounded counter) | Beta: revises queued output-buffer captions for continuity with Live; never retranslates or touches Live; 16,000-byte JSON |
+| `POST /api/ai/buffer-review` | Access + controller (no attempt claim; own bounded counter) | Beta: revises queued output-buffer captions for continuity with Live; never retranslates or touches Live; 32,000-byte JSON |
 | `GET`/`POST /api/live/channel` | Access | Read or create the Main channel |
 | `POST /api/live/channel/service`, `DELETE …/service` | Access | Start/takeover and End |
 | `POST …/lease`, `POST …/caption` | Access + controller | Reserve an attempt; publish one moderated caption (8,192 bytes) |
@@ -219,7 +219,7 @@ filters, nor successful finish reasons establish semantic faithfulness.
 Beta output-buffer review (`"buffer-review"` stage) reuses the same Groq translation model
 with its own immutable, non-operator-editable prompt (`src/ai/buffer-review-prompt.ts`) and
 a `response_format: json_object` request. It receives the current Live caption as read-only
-context plus at most two queued captions (2,000 characters each) and returns a revision per
+context plus at most four queued captions (2,000 characters each) and returns a revision per
 queued id; a missing or malformed revision, or one for an unrequested id, makes the whole
 call incomplete rather than partially applied. It is admitted through `meteredGroq` like
 transcription/translation for usage-ledger accounting, but the room gates dispatch with its
@@ -263,8 +263,8 @@ IDs each.
 Services allow 90 minutes, 900 reserved transcription attempts and 1,400 caption events.
 At most one translation follows an eligible chunk. The latest viewer allows 250 sockets.
 Two queued audio chunks bound backlog; additional chunks are dropped with operator feedback.
-The client-side output buffer holds at most 2 slots; Beta review calls are capped at 30 per
-service, independent of the transcription ceiling.
+The client-side output buffer holds at most 4 entries (only the front is shown/controllable);
+Beta review calls are capped at 30 per service, independent of the transcription ceiling.
 
 Reader/summary calls are capped at 200/60 per service. The ledger conservatively reserves
 up to 9,000 estimated neurons per UTC day, including a 6,000 reader ceiling. Reservations

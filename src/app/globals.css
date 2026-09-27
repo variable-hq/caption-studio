@@ -1016,14 +1016,6 @@ input[type="color"] {
   height: 16px;
 }
 
-.outputBufferSlots {
-  display: grid;
-  gap: var(--gap-sm);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
 .outputBufferSlotGlow {
   border-radius: var(--radius-md);
 }

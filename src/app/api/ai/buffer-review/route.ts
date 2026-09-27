@@ -22,7 +22,7 @@ import {
   readJsonObject,
 } from "@/http/request-body";
 
-const MAX_REQUEST_BYTES = 16_000;
+const MAX_REQUEST_BYTES = 32_000;
 const ENTRY_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 function errorResponse(error: unknown) {

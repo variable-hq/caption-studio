@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { PublicCaptionRequest } from "@/live/contracts";
 import {
   EMPTY_OUTPUT_BUFFER_QUEUE,
-  OUTPUT_BUFFER_STEADY_STATE_DELAY_MS,
+  OUTPUT_BUFFER_DWELL_MS,
   applyReviewResults,
   beginEdit,
   beginReview,
@@ -14,7 +14,7 @@ import {
   fastForwardEntry,
   isOutputBufferEntryPaused,
   normalizeOutputBufferCount,
-  normalizeOutputBufferDelay,
+  outputBufferCapacity,
   setManualPause,
   submitEdit,
   tick,
@@ -49,100 +49,100 @@ function candidate(id: string, publicText: string): NewOutputBufferEntry {
   };
 }
 
-describe("normalizeOutputBufferCount / normalizeOutputBufferDelay", () => {
-  it("falls back to the documented defaults for anything outside the bounded set", () => {
+describe("normalizeOutputBufferCount / outputBufferCapacity", () => {
+  it("is a strict on/off setting that falls back to off", () => {
     expect(normalizeOutputBufferCount(1)).toBe(1);
-    expect(normalizeOutputBufferCount(2)).toBe(2);
-    expect(normalizeOutputBufferCount(3)).toBe(1);
-    expect(normalizeOutputBufferCount("nope")).toBe(1);
-    expect(normalizeOutputBufferDelay("auto")).toBe("auto");
-    expect(normalizeOutputBufferDelay(4_000)).toBe(4_000);
-    expect(normalizeOutputBufferDelay(5_000)).toBe("auto");
+    expect(normalizeOutputBufferCount(0)).toBe(0);
+    expect(normalizeOutputBufferCount(2)).toBe(0);
+    expect(normalizeOutputBufferCount("nope")).toBe(0);
+  });
+
+  it("maps on/off to the engine's real queue depth", () => {
+    expect(outputBufferCapacity(0)).toBe(0);
+    expect(outputBufferCapacity(1)).toBeGreaterThan(1);
   });
 });
 
 describe("enqueueTranslation", () => {
-  it("gives the first item into a fresh queue the configured delay", () => {
+  it("admits entries up to capacity with a flat dwell time", () => {
     const { queue, publishNow, dropped } = enqueueTranslation(
       EMPTY_OUTPUT_BUFFER_QUEUE,
-      1,
-      4_000,
-      true,
+      4,
       candidate("a", "Hello"),
       1_000,
     );
     expect(dropped).toBe(false);
     expect(publishNow).toEqual([]);
     expect(queue.entries).toHaveLength(1);
-    expect(queue.entries[0].dueAt).toBe(1_000 + 4_000);
-  });
-
-  it("uses the auto-mode baseline for a fresh item when delay is auto", () => {
-    const { queue } = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, "auto", true, candidate("a", "Hi"), 0);
-    expect(queue.entries[0].dueAt).toBe(OUTPUT_BUFFER_STEADY_STATE_DELAY_MS);
-  });
-
-  it("uses the flat steady-state delay for an item entering behind existing content", () => {
-    const first = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, 6_000, true, candidate("a", "Hi"), 0).queue;
-    const { queue } = enqueueTranslation(first, 2, 6_000, false, candidate("b", "There"), 500);
-    expect(queue.entries).toHaveLength(2);
-    expect(queue.entries[1].dueAt).toBe(500 + OUTPUT_BUFFER_STEADY_STATE_DELAY_MS);
+    expect(queue.entries[0].dueAt).toBe(1_000 + OUTPUT_BUFFER_DWELL_MS);
   });
 
   it("force-advances the front entry to make room when the queue is full", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, 6_000, true, candidate("a", "Hi"), 0).queue;
-    const outcome = enqueueTranslation(queue, 1, 6_000, false, candidate("b", "There"), 100);
+    const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
+    const outcome = enqueueTranslation(queue, 1, candidate("b", "There"), 100);
     expect(outcome.dropped).toBe(false);
     expect(outcome.publishNow.map((entry) => entry.id)).toEqual(["a"]);
     expect(outcome.queue.entries.map((entry) => entry.id)).toEqual(["b"]);
-    queue = outcome.queue;
   });
 
   it("drops the incoming translation (leakage) when the queue is full and the front is paused", () => {
-    const queued = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, 6_000, true, candidate("a", "Hi"), 0).queue;
+    const queued = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
     const paused = setManualPause(queued, "a", true, 50);
-    const outcome = enqueueTranslation(paused, 1, 6_000, false, candidate("b", "There"), 100);
+    const outcome = enqueueTranslation(paused, 1, candidate("b", "There"), 100);
     expect(outcome.dropped).toBe(true);
     expect(outcome.publishNow).toEqual([]);
     expect(outcome.queue.entries.map((entry) => entry.id)).toEqual(["a"]);
   });
 
   it("drains down to a newly-shrunk capacity in one call instead of getting stuck above it", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, 2_000, true, candidate("a", "Hi"), 0).queue;
-    queue = enqueueTranslation(queue, 2, 2_000, false, candidate("b", "There"), 0).queue;
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, candidate("a", "Hi"), 0).queue;
+    queue = enqueueTranslation(queue, 2, candidate("b", "There"), 0).queue;
     expect(queue.entries).toHaveLength(2);
 
-    // The operator lowers the output buffer to 1 slot; the next translation must not
-    // merely swap 1-for-1 and stay stuck at length 2 forever.
-    const outcome = enqueueTranslation(queue, 1, 2_000, false, candidate("c", "Amen"), 1_000);
+    // Capacity drops to 1; the next translation must not merely swap 1-for-1 and stay
+    // stuck at length 2 forever.
+    const outcome = enqueueTranslation(queue, 1, candidate("c", "Amen"), 1_000);
     expect(outcome.dropped).toBe(false);
     expect(outcome.publishNow.map((entry) => entry.id)).toEqual(["a", "b"]);
     expect(outcome.queue.entries.map((entry) => entry.id)).toEqual(["c"]);
   });
 
   it("stops draining for a shrunk capacity at a paused entry, and still drops the candidate if that leaves no room", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, 2_000, true, candidate("a", "Hi"), 0).queue;
-    queue = enqueueTranslation(queue, 2, 2_000, false, candidate("b", "There"), 0).queue;
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, candidate("a", "Hi"), 0).queue;
+    queue = enqueueTranslation(queue, 2, candidate("b", "There"), 0).queue;
     queue = setManualPause(queue, "a", true, 50);
 
-    const outcome = enqueueTranslation(queue, 1, 2_000, false, candidate("c", "Amen"), 1_000);
+    const outcome = enqueueTranslation(queue, 1, candidate("c", "Amen"), 1_000);
     expect(outcome.dropped).toBe(true);
     expect(outcome.publishNow).toEqual([]);
     expect(outcome.queue.entries.map((entry) => entry.id)).toEqual(["a", "b"]);
+  });
+
+  it("gives a paused front real headroom before a full backing capacity starts dropping arrivals", () => {
+    const capacity = outputBufferCapacity(1);
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, capacity, candidate("a", "Hi"), 0).queue;
+    queue = setManualPause(queue, "a", true, 10);
+    for (let i = 1; i < capacity; i += 1) {
+      const outcome = enqueueTranslation(queue, capacity, candidate(`n${i}`, `n${i}`), 10 + i);
+      expect(outcome.dropped).toBe(false);
+      queue = outcome.queue;
+    }
+    // Now at capacity with the front still paused: the next arrival leaks.
+    expect(enqueueTranslation(queue, capacity, candidate("overflow", "overflow"), 999).dropped).toBe(true);
   });
 });
 
 describe("tick", () => {
   it("publishes the front entry once its dwell time elapses", () => {
-    const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, 2_000, true, candidate("a", "Hi"), 0).queue;
-    expect(tick(queue, 1_999).publish).toBeNull();
-    const due = tick(queue, 2_000);
+    const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
+    expect(tick(queue, OUTPUT_BUFFER_DWELL_MS - 1).publish).toBeNull();
+    const due = tick(queue, OUTPUT_BUFFER_DWELL_MS);
     expect(due.publish?.id).toBe("a");
     expect(due.queue.entries).toEqual([]);
   });
 
   it("never advances a paused front entry", () => {
-    const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, 2_000, true, candidate("a", "Hi"), 0).queue;
+    const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
     const paused = setManualPause(queue, "a", true, 10);
     expect(tick(paused, 10_000).publish).toBeNull();
   });
@@ -150,26 +150,26 @@ describe("tick", () => {
 
 describe("pause and resume", () => {
   it("freezes and restores the remaining dwell time", () => {
-    const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, 6_000, true, candidate("a", "Hi"), 0).queue;
-    const paused = setManualPause(queue, "a", true, 4_000);
+    const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
+    const paused = setManualPause(queue, "a", true, OUTPUT_BUFFER_DWELL_MS - 500);
     expect(isOutputBufferEntryPaused(paused.entries[0])).toBe(true);
     expect(paused.entries[0].dueAt).toBeNull();
-    expect(paused.entries[0].remainingMs).toBe(2_000);
+    expect(paused.entries[0].remainingMs).toBe(500);
     const resumed = setManualPause(paused, "a", false, 10_000);
     expect(isOutputBufferEntryPaused(resumed.entries[0])).toBe(false);
-    expect(resumed.entries[0].dueAt).toBe(12_000);
+    expect(resumed.entries[0].dueAt).toBe(10_500);
   });
 });
 
 describe("edit lifecycle", () => {
   it("auto-pauses only once the edited entry reaches the front, and auto-resumes on submit", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, 2_000, true, candidate("a", "Hi"), 0).queue;
-    queue = enqueueTranslation(queue, 2, 2_000, false, candidate("b", "There"), 0).queue;
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, candidate("a", "Hi"), 0).queue;
+    queue = enqueueTranslation(queue, 2, candidate("b", "There"), 0).queue;
 
     queue = beginEdit(queue, "b", 100);
     expect(isOutputBufferEntryPaused(queue.entries[1])).toBe(false);
 
-    const advanced = tick(queue, 2_000);
+    const advanced = tick(queue, OUTPUT_BUFFER_DWELL_MS);
     expect(advanced.publish?.id).toBe("a");
     queue = advanced.queue;
     expect(queue.entries[0].id).toBe("b");
@@ -186,7 +186,7 @@ describe("edit lifecycle", () => {
   });
 
   it("cancelling an edit discards the draft and releases any auto-pause", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, 2_000, true, candidate("a", "Hi"), 0).queue;
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
     queue = beginEdit(queue, "a", 100);
     expect(isOutputBufferEntryPaused(queue.entries[0])).toBe(true);
     queue = cancelEdit(queue, "a", 500);
@@ -198,15 +198,15 @@ describe("edit lifecycle", () => {
 
 describe("clear and fast-forward", () => {
   it("removes a cleared entry without disturbing the others", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, 2_000, true, candidate("a", "Hi"), 0).queue;
-    queue = enqueueTranslation(queue, 2, 2_000, false, candidate("b", "There"), 0).queue;
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, candidate("a", "Hi"), 0).queue;
+    queue = enqueueTranslation(queue, 2, candidate("b", "There"), 0).queue;
     queue = clearEntry(queue, "a", 100);
     expect(queue.entries.map((entry) => entry.id)).toEqual(["b"]);
   });
 
   it("fast-forwards a non-front entry immediately, ahead of its position", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, 6_000, true, candidate("a", "Hi"), 0).queue;
-    queue = enqueueTranslation(queue, 2, 6_000, false, candidate("b", "There"), 0).queue;
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, candidate("a", "Hi"), 0).queue;
+    queue = enqueueTranslation(queue, 2, candidate("b", "There"), 0).queue;
     const outcome = fastForwardEntry(queue, "b", 100);
     expect(outcome.publish?.id).toBe("b");
     expect(outcome.queue.entries.map((entry) => entry.id)).toEqual(["a"]);
@@ -215,8 +215,8 @@ describe("clear and fast-forward", () => {
 
 describe("beta review", () => {
   it("pauses the whole queue during review and restores independent pause state afterward", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, 2_000, true, candidate("a", "Hi"), 0).queue;
-    queue = enqueueTranslation(queue, 2, 2_000, false, candidate("b", "There"), 0).queue;
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, candidate("a", "Hi"), 0).queue;
+    queue = enqueueTranslation(queue, 2, candidate("b", "There"), 0).queue;
     queue = setManualPause(queue, "a", true, 50);
 
     queue = beginReview(queue, 100);
@@ -233,7 +233,7 @@ describe("beta review", () => {
   });
 
   it("never overwrites an entry the operator is actively hand-editing", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, 2_000, true, candidate("a", "Hi"), 0).queue;
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
     queue = beginEdit(queue, "a", 10);
     queue = applyReviewResults(queue, new Map([["a", "Model revision"]]));
     expect(queue.entries[0].publicText).toBe("Hi");

@@ -2,28 +2,18 @@ import type { LanguageLocale } from "@/domain/languages";
 import type { PublicCaptionRequest } from "@/live/contracts";
 
 /**
- * A staging queue for translated captions between translation and the public Live
- * output. Distinct from the recording window (src/live/contracts.ts), which bounds how
- * much audio is captured per chunk; this bounds how long translated text is held before
- * it reaches OBS/the mobile viewer.
+ * Delay queue between translation and public Live output (OBS/viewer), distinct from the
+ * recording window (src/live/contracts.ts). Operator sees only On/Off and the front
+ * entry; internally an enabled buffer holds up to OUTPUT_BUFFER_BACKING_CAPACITY entries
+ * so a paused/edited front caption has headroom before a new one is dropped. See ADR 0016.
  */
-export const OUTPUT_BUFFER_COUNT_OPTIONS = [0, 1, 2] as const;
+export const OUTPUT_BUFFER_COUNT_OPTIONS = [0, 1] as const;
 export type OutputBufferCount = (typeof OUTPUT_BUFFER_COUNT_OPTIONS)[number];
-export const DEFAULT_OUTPUT_BUFFER_COUNT: OutputBufferCount = 1;
+export const DEFAULT_OUTPUT_BUFFER_COUNT: OutputBufferCount = 0;
+export const OUTPUT_BUFFER_BACKING_CAPACITY = 4;
 
-export const OUTPUT_BUFFER_DELAY_OPTIONS = ["auto", 2_000, 4_000, 6_000] as const;
-export type OutputBufferDelayMs = (typeof OUTPUT_BUFFER_DELAY_OPTIONS)[number];
-export const DEFAULT_OUTPUT_BUFFER_DELAY: OutputBufferDelayMs = "auto";
-export const MAX_OUTPUT_BUFFER_DELAY_MS = 6_000;
-
-/**
- * How long a queued item dwells once the queue is already carrying content, and the
- * Auto-mode dwell for the first item after a fresh/empty Live output. A fixed delay
- * (2/4/6s) instead sets that first-item dwell explicitly; every later item in a
- * continuous run still paces at this steady-state rate so captions do not fall
- * increasingly far behind speech.
- */
-export const OUTPUT_BUFFER_STEADY_STATE_DELAY_MS = 2_000;
+/** How long a queued caption is held before advancing to Live, once the buffer is on. */
+export const OUTPUT_BUFFER_DWELL_MS = 2_000;
 
 export function normalizeOutputBufferCount(value: unknown): OutputBufferCount {
   const number = Number(value);
@@ -32,16 +22,9 @@ export function normalizeOutputBufferCount(value: unknown): OutputBufferCount {
     : DEFAULT_OUTPUT_BUFFER_COUNT;
 }
 
-export function normalizeOutputBufferDelay(value: unknown): OutputBufferDelayMs {
-  if (value === "auto") return "auto";
-  const number = Number(value);
-  return OUTPUT_BUFFER_DELAY_OPTIONS.includes(number as OutputBufferDelayMs)
-    ? (number as OutputBufferDelayMs)
-    : DEFAULT_OUTPUT_BUFFER_DELAY;
-}
-
-function freshDelayMs(delay: OutputBufferDelayMs): number {
-  return delay === "auto" ? OUTPUT_BUFFER_STEADY_STATE_DELAY_MS : delay;
+/** 0 when off, the full backing capacity when on. */
+export function outputBufferCapacity(count: OutputBufferCount): number {
+  return count === 0 ? 0 : OUTPUT_BUFFER_BACKING_CAPACITY;
 }
 
 export interface OutputBufferEntry {
@@ -111,7 +94,7 @@ function withPauseFlag(
   }
   return {
     ...next,
-    dueAt: now + (next.remainingMs ?? OUTPUT_BUFFER_STEADY_STATE_DELAY_MS),
+    dueAt: now + (next.remainingMs ?? OUTPUT_BUFFER_DWELL_MS),
     remainingMs: null,
   };
 }
@@ -130,32 +113,19 @@ export type NewOutputBufferEntry = Pick<
 
 export interface EnqueueOutcome {
   queue: OutputBufferQueueState;
-  /**
-   * Entries force-advanced to make room, oldest first. Usually at most one; more than one
-   * only when the buffer's capacity just shrank (an operator lowering the output buffer
-   * count) while it already held more entries than the new capacity allows — those excess
-   * entries are drained straight to Live in order rather than getting stuck above the new
-   * limit forever.
-   */
+  /** Entries force-advanced to make room, oldest first; usually 0 or 1, more only if capacity just shrank. */
   publishNow: OutputBufferEntry[];
-  /** True when the incoming translation could not be admitted and was dropped (queue full, front paused). */
+  /** True when the incoming translation was dropped (queue full, front paused). */
   dropped: boolean;
 }
 
-/**
- * Admits a newly translated caption into a queue of the given capacity (count must be
- * 1 or 2; a caller with count 0 should publish directly and never call this).
- */
+/** Admits a translated caption into a queue of the given capacity. */
 export function enqueueTranslation(
   queue: OutputBufferQueueState,
-  count: Exclude<OutputBufferCount, 0>,
-  delay: OutputBufferDelayMs,
-  liveIsEmpty: boolean,
+  count: number,
   candidate: NewOutputBufferEntry,
   now: number,
 ): EnqueueOutcome {
-  const fresh = queue.entries.length === 0 && liveIsEmpty;
-  const dwellMs = fresh ? freshDelayMs(delay) : OUTPUT_BUFFER_STEADY_STATE_DELAY_MS;
   const entry: OutputBufferEntry = {
     ...candidate,
     originalPublicText: candidate.publicText,
@@ -166,7 +136,7 @@ export function enqueueTranslation(
     pausedForEdit: false,
     pausedForReview: false,
     remainingMs: null,
-    dueAt: now + dwellMs,
+    dueAt: now + OUTPUT_BUFFER_DWELL_MS,
   };
 
   if (queue.entries.length < count) {
@@ -177,9 +147,8 @@ export function enqueueTranslation(
     };
   }
 
-  // Full, or already over capacity because the buffer's count just shrank: force-advance
-  // from the front until there is room for exactly one more, or a paused entry blocks
-  // further progress.
+  // Full, or over capacity because count just shrank: force-advance from the front until
+  // there's room for one more, or a paused entry blocks further progress.
   const publishNow: OutputBufferEntry[] = [];
   let entries = queue.entries;
   while (entries.length >= count) {
@@ -197,7 +166,6 @@ export function enqueueTranslation(
     dropped: false,
   };
 }
-
 
 export interface TickOutcome {
   queue: OutputBufferQueueState;
