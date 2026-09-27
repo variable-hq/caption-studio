@@ -9,16 +9,16 @@ import {
   type SourceLanguage,
 } from "@/domain/languages";
 import {
-  SPEECH_BUFFER_OPTIONS_MS,
-  normalizeSpeechBufferMs,
-  type SpeechBufferMs,
+  RECORDING_WINDOW_OPTIONS_MS,
+  normalizeRecordingWindowMs,
+  type RecordingWindowMs,
 } from "@/live/contracts";
 import {
   MAX_FILTER_INPUT_CHARS,
   MAX_TERMINOLOGY_INPUT_CHARS,
 } from "@/live/translation-settings";
 
-const SPEECH_BUFFER_LABELS: Record<SpeechBufferMs, string> = {
+const RECORDING_WINDOW_LABELS: Record<RecordingWindowMs, string> = {
   6000: "6 sec · Fast",
   9000: "9 sec · Balanced",
   12000: "12 sec · More context",
@@ -31,7 +31,7 @@ interface TranslationSettingsEditorProps {
   targetLanguage: LanguageLocale;
   keywordText: string;
   filterText: string;
-  speechBufferMs: SpeechBufferMs;
+  recordingWindowMs: RecordingWindowMs;
   sourceLabel: string;
   keywordCount: number;
   disabled?: boolean;
@@ -39,7 +39,7 @@ interface TranslationSettingsEditorProps {
   onTargetLanguageChange: (value: LanguageLocale) => void;
   onKeywordTextChange: (value: string) => void;
   onFilterTextChange: (value: string) => void;
-  onSpeechBufferChange: (value: SpeechBufferMs) => void;
+  onRecordingWindowChange: (value: RecordingWindowMs) => void;
 }
 
 export function TranslationSettingsEditor({
@@ -47,7 +47,7 @@ export function TranslationSettingsEditor({
   targetLanguage,
   keywordText,
   filterText,
-  speechBufferMs,
+  recordingWindowMs,
   sourceLabel,
   keywordCount,
   disabled = false,
@@ -55,10 +55,10 @@ export function TranslationSettingsEditor({
   onTargetLanguageChange,
   onKeywordTextChange,
   onFilterTextChange,
-  onSpeechBufferChange,
+  onRecordingWindowChange,
 }: TranslationSettingsEditorProps) {
   const sourceHelpId = useId();
-  const bufferHelpId = useId();
+  const windowHelpId = useId();
   const glossaryHelpId = useId();
   const filterHelpId = useId();
 
@@ -106,21 +106,21 @@ export function TranslationSettingsEditor({
           </select>
         </label>
         <label className="fullField">
-          Speech buffer before translation
+          Recording window before translation
           <select
-            name="speechBuffer"
+            name="recordingWindow"
             autoComplete="off"
-            data-testid="speech-buffer"
-            value={speechBufferMs}
-            aria-describedby={bufferHelpId}
+            data-testid="recording-window"
+            value={recordingWindowMs}
+            aria-describedby={windowHelpId}
             disabled={disabled}
             onChange={(event) =>
-              onSpeechBufferChange(normalizeSpeechBufferMs(event.target.value))
+              onRecordingWindowChange(normalizeRecordingWindowMs(event.target.value))
             }
           >
-            {SPEECH_BUFFER_OPTIONS_MS.map((value) => (
+            {RECORDING_WINDOW_OPTIONS_MS.map((value) => (
               <option value={value} key={value}>
-                {SPEECH_BUFFER_LABELS[value]}
+                {RECORDING_WINDOW_LABELS[value]}
               </option>
             ))}
           </select>
@@ -129,7 +129,7 @@ export function TranslationSettingsEditor({
       <p className="helpText" id={sourceHelpId}>
         Selected source: {sourceLabel}. Explicit selection is recommended live.
       </p>
-      <p className="helpText" id={bufferHelpId}>
+      <p className="helpText" id={windowHelpId}>
         Longer windows can reduce chopped sentences, but captions appear later.
         Refreshing discards the unfinished audio window and recent translation context.
       </p>

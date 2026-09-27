@@ -6,35 +6,35 @@ import {
   preferredTermMap,
 } from "@/live/config";
 import {
-  DEFAULT_SPEECH_BUFFER_MS,
+  DEFAULT_RECORDING_WINDOW_MS,
   MAX_LIVE_SESSION_MS,
   MAX_TRANSCRIPTION_REQUESTS,
-  MIN_SPEECH_BUFFER_MS,
-  SPEECH_BUFFER_OPTIONS_MS,
+  MIN_RECORDING_WINDOW_MS,
+  RECORDING_WINDOW_OPTIONS_MS,
   normalizeCaptionStyle,
-  normalizeSpeechBufferMs,
+  normalizeRecordingWindowMs,
 } from "@/live/contracts";
 
 describe("live caption configuration", () => {
   it("derives the session transcription request cap from the audio cadence", () => {
-    expect(DEFAULT_SPEECH_BUFFER_MS).toBe(6_000);
-    expect(MIN_SPEECH_BUFFER_MS).toBe(6_000);
-    expect(SPEECH_BUFFER_OPTIONS_MS).toEqual([6_000, 9_000, 12_000, 15_000, 18_000]);
+    expect(DEFAULT_RECORDING_WINDOW_MS).toBe(6_000);
+    expect(MIN_RECORDING_WINDOW_MS).toBe(6_000);
+    expect(RECORDING_WINDOW_OPTIONS_MS).toEqual([6_000, 9_000, 12_000, 15_000, 18_000]);
     expect(MAX_TRANSCRIPTION_REQUESTS).toBe(900);
     expect(MAX_TRANSCRIPTION_REQUESTS).toBe(
-      MAX_LIVE_SESSION_MS / MIN_SPEECH_BUFFER_MS,
+      MAX_LIVE_SESSION_MS / MIN_RECORDING_WINDOW_MS,
     );
   });
 
-  it("accepts only the bounded speech-buffer options", () => {
-    expect(normalizeSpeechBufferMs(6_000)).toBe(6_000);
-    expect(normalizeSpeechBufferMs("9000")).toBe(9_000);
-    expect(normalizeSpeechBufferMs(12_000)).toBe(12_000);
-    expect(normalizeSpeechBufferMs(15_000)).toBe(15_000);
-    expect(normalizeSpeechBufferMs("18000")).toBe(18_000);
-    expect(normalizeSpeechBufferMs(3_000)).toBe(6_000);
-    expect(normalizeSpeechBufferMs(21_000)).toBe(6_000);
-    expect(normalizeSpeechBufferMs("invalid")).toBe(6_000);
+  it("accepts only the bounded recording-window options", () => {
+    expect(normalizeRecordingWindowMs(6_000)).toBe(6_000);
+    expect(normalizeRecordingWindowMs("9000")).toBe(9_000);
+    expect(normalizeRecordingWindowMs(12_000)).toBe(12_000);
+    expect(normalizeRecordingWindowMs(15_000)).toBe(15_000);
+    expect(normalizeRecordingWindowMs("18000")).toBe(18_000);
+    expect(normalizeRecordingWindowMs(3_000)).toBe(6_000);
+    expect(normalizeRecordingWindowMs(21_000)).toBe(6_000);
+    expect(normalizeRecordingWindowMs("invalid")).toBe(6_000);
   });
 
   it("parses recognition hints and target-language preferred terms", () => {

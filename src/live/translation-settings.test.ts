@@ -15,7 +15,7 @@ const BASE_SETTINGS = normalizeTranslationSessionSettings({
   targetLanguage: "id",
   keywordText: "Grace => Kasih karunia",
   filterText: "private",
-  speechBufferMs: 6_000,
+  recordingWindowMs: 6_000,
   translationSystemPrompt: DEFAULT_TRANSLATION_SYSTEM_PROMPT,
 });
 const SERVICE_IDENTITY = {
@@ -31,12 +31,12 @@ describe("translation-session settings", () => {
         ...BASE_SETTINGS,
         sourceLanguage: "auto",
         targetLanguage: "zh-Hant",
-        speechBufferMs: 12_000,
+        recordingWindowMs: 12_000,
       }),
     ).toMatchObject({
       sourceLanguage: "auto",
       targetLanguage: "zh-Hant",
-      speechBufferMs: 12_000,
+      recordingWindowMs: 12_000,
     });
   });
 
@@ -45,13 +45,13 @@ describe("translation-session settings", () => {
       translationSettingsChanges(BASE_SETTINGS, {
         ...BASE_SETTINGS,
         targetLanguage: "ja",
-        speechBufferMs: 9_000,
+        recordingWindowMs: 9_000,
         keywordText: "Bethlehem",
         translationSystemPrompt: "Prefer concise, natural captions.",
       }),
     ).toEqual([
       "Translation language",
-      "Speech buffer",
+      "Recording window",
       "Terminology",
       "System prompt",
     ]);
@@ -97,7 +97,7 @@ describe("translation-session settings", () => {
     expect(
       parseStoredTranslationSessionSettings(
         JSON.stringify({
-          version: 2,
+          version: 3,
           settings: { targetLanguage: "id" },
           ...SERVICE_IDENTITY,
         }),
@@ -106,7 +106,7 @@ describe("translation-session settings", () => {
     expect(
       parseStoredTranslationSessionSettings(
         JSON.stringify({
-          version: 2,
+          version: 3,
           settings: BASE_SETTINGS,
           ...SERVICE_IDENTITY,
           translationRevision: "7",

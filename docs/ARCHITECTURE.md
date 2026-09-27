@@ -9,7 +9,7 @@ physical-device, provider-output or semantic acceptance.
 
 | Component | Responsibility |
 | --- | --- |
-| Capture browser | Audio selection, 6/9/12/15/18-second MediaRecorder chunks, two-chunk queue, source preview, terminology, moderation, controls and same-tab recovery |
+| Capture browser | Audio selection, 6/9/12/15/18-second MediaRecorder chunks, two-chunk queue, source preview, terminology, moderation, output buffer queue, background-tab pause detection, controls and same-tab recovery |
 | Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
 | `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
@@ -177,7 +177,7 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | --- | --- |
 | Raw audio and queued chunks | Browser/request memory only; never archived |
 | Draft translation settings | Page memory; active snapshot in tab sessionStorage for recovery |
-| Explicitly saved prompt, summary defaults, style, default translation setup, theme, sidebar width, tutorial dismissal | `OperatorPreferences` object keyed by the SHA-256 of the lower-cased Access email, kept until the operator clears it; a browser copy remains in unencrypted localStorage as a fallback, and the shared channel style also persists |
+| Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, theme, sidebar width, tutorial dismissal | `OperatorPreferences` object keyed by the SHA-256 of the lower-cased Access email, kept until the operator clears it; a browser copy remains in unencrypted localStorage as a fallback, and the shared channel style also persists |
 | OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
 | Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
 | Latest public caption | Main live state; cleared by controls and End/expiry |
@@ -248,6 +248,8 @@ IDs each.
 Services allow 90 minutes, 900 reserved transcription attempts and 1,400 caption events.
 At most one translation follows an eligible chunk. The latest viewer allows 250 sockets.
 Two queued audio chunks bound backlog; additional chunks are dropped with operator feedback.
+The client-side output buffer holds at most 4 entries; only the front is shown or
+individually controllable.
 
 Reader/summary calls are capped at 200/60 per service. The ledger conservatively reserves
 up to 9,000 estimated neurons per UTC day, including a 6,000 reader ceiling. Reservations

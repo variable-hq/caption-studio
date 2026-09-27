@@ -1,0 +1,212 @@
+"use client";
+
+import { useId } from "react";
+
+import { DashboardIcon } from "@/components/operator/DashboardNavigation";
+import { BorderGlow } from "@/components/reactbits";
+import {
+  OUTPUT_BUFFER_BACKING_CAPACITY,
+  OUTPUT_BUFFER_COUNT_OPTIONS,
+  OUTPUT_BUFFER_DWELL_MS,
+  isOutputBufferEntryPaused,
+  normalizeOutputBufferCount,
+  type OutputBufferCount,
+  type OutputBufferQueueState,
+} from "@/live/output-buffer";
+import { MAX_MANUAL_CAPTION_CHARS } from "@/live/contracts";
+
+function countLabel(value: OutputBufferCount): string {
+  return value === 0 ? "Off" : `On (${OUTPUT_BUFFER_DWELL_MS / 1_000}s delay)`;
+}
+
+interface OutputBufferPanelProps {
+  count: OutputBufferCount;
+  onCountChange: (value: OutputBufferCount) => void;
+  onSaveDefault: () => void;
+  savedMessage: string;
+  queue: OutputBufferQueueState;
+  disabled?: boolean;
+  onPause: (id: string, paused: boolean) => void;
+  onClear: (id: string) => void;
+  onFastForward: (id: string) => void;
+  onBeginEdit: (id: string) => void;
+  onEditDraftChange: (id: string, text: string) => void;
+  onCancelEdit: (id: string) => void;
+  onSubmitEdit: (id: string) => void;
+}
+
+export function OutputBufferPanel({
+  count,
+  onCountChange,
+  onSaveDefault,
+  savedMessage,
+  queue,
+  disabled = false,
+  onPause,
+  onClear,
+  onFastForward,
+  onBeginEdit,
+  onEditDraftChange,
+  onCancelEdit,
+  onSubmitEdit,
+}: OutputBufferPanelProps) {
+  const countHelpId = useId();
+  const front = queue.entries[0] ?? null;
+  const atCapacity = queue.entries.length >= OUTPUT_BUFFER_BACKING_CAPACITY;
+  const frontHeld = front ? isOutputBufferEntryPaused(front) : false;
+  const frontStatus = !front
+    ? ""
+    : front.pausedForEdit
+      ? "Paused for edit"
+      : front.manuallyPaused
+        ? "Paused"
+        : "";
+
+  return (
+    <div className="outputBufferPanel">
+      <label>
+        Output buffer
+        <select
+          name="outputBufferCount"
+          autoComplete="off"
+          data-testid="output-buffer-count"
+          value={count}
+          disabled={disabled}
+          aria-describedby={countHelpId}
+          onChange={(event) => onCountChange(normalizeOutputBufferCount(event.target.value))}
+        >
+          {OUTPUT_BUFFER_COUNT_OPTIONS.map((value) => (
+            <option value={value} key={value}>
+              {countLabel(value)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="helpText" id={countHelpId}>
+        Off shows each translation live immediately, with no delay. On holds the next
+        caption for {OUTPUT_BUFFER_DWELL_MS / 1_000} seconds so you can pause, correct, or
+        drop it before it reaches OBS and the mobile viewer. If you leave one paused or
+        being edited while more speech comes in, captions keep queuing up behind it out of
+        sight; once that backlog is full, any further caption is dropped rather than shown
+        or queued.
+      </p>
+      <div className="saveRow">
+        <button className="secondaryButton" type="button" onClick={onSaveDefault} disabled={disabled}>
+          Save as my default
+        </button>
+        <p role="status" aria-live="polite" aria-atomic="true">
+          {savedMessage}
+        </p>
+      </div>
+      {count > 0 ? (
+        <div className="outputBufferQueue" aria-label="Output buffer">
+          <div className="outputBufferQueueHeader">
+            <span>
+              {!front ? "Buffer empty" : "Next up"} · {queue.entries.length}/{OUTPUT_BUFFER_BACKING_CAPACITY} queued
+            </span>
+          </div>
+          {atCapacity && frontHeld ? (
+            <p className="privacyNote" role="alert">
+              Buffer full — further captions will be dropped until you resume, submit, or
+              clear this one.
+            </p>
+          ) : null}
+          {!front ? (
+            <p className="previewEmpty">Nothing queued. New translations will land here first.</p>
+          ) : (
+            <BorderGlow className="outputBufferSlotGlow" pending={frontHeld}>
+              <article className="outputBufferSlot" aria-label="Next queued caption">
+                {frontStatus ? (
+                  <div className="outputBufferSlotHeader">
+                    <span className="outputBufferSlotStatus">{frontStatus}</span>
+                  </div>
+                ) : null}
+                {front.editing ? (
+                  <>
+                    <textarea
+                      name="outputBufferEditDraft"
+                      autoComplete="off"
+                      rows={2}
+                      maxLength={MAX_MANUAL_CAPTION_CHARS}
+                      value={front.editedDraft ?? ""}
+                      disabled={disabled}
+                      onChange={(event) => onEditDraftChange(front.id, event.target.value)}
+                    />
+                    <div className="outputBufferSlotActions">
+                      <button
+                        type="button"
+                        className="secondaryButton compactButton"
+                        title="Cancel edit"
+                        aria-label="Cancel edit"
+                        disabled={disabled}
+                        onClick={() => onCancelEdit(front.id)}
+                      >
+                        <DashboardIcon name="close" />
+                      </button>
+                      <button
+                        type="button"
+                        className="primaryButton compactButton"
+                        title="Submit edit"
+                        aria-label="Submit edit"
+                        disabled={disabled}
+                        onClick={() => onSubmitEdit(front.id)}
+                      >
+                        <DashboardIcon name="check" />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="outputBufferSlotText">{front.publicText || "(hidden by a public filter)"}</p>
+                    <div className="outputBufferSlotActions">
+                      <button
+                        type="button"
+                        className="secondaryButton compactButton"
+                        title={front.manuallyPaused ? "Resume" : "Pause"}
+                        aria-label={front.manuallyPaused ? "Resume this queued caption" : "Pause this queued caption"}
+                        disabled={disabled}
+                        onClick={() => onPause(front.id, !front.manuallyPaused)}
+                      >
+                        <DashboardIcon name={front.manuallyPaused ? "play" : "pause"} />
+                      </button>
+                      <button
+                        type="button"
+                        className="secondaryButton compactButton"
+                        title="Edit"
+                        aria-label="Edit this queued caption"
+                        disabled={disabled}
+                        onClick={() => onBeginEdit(front.id)}
+                      >
+                        <DashboardIcon name="edit" />
+                      </button>
+                      <button
+                        type="button"
+                        className="secondaryButton compactButton"
+                        title="Fast-forward to Live"
+                        aria-label="Fast-forward this queued caption to Live"
+                        disabled={disabled}
+                        onClick={() => onFastForward(front.id)}
+                      >
+                        <DashboardIcon name="fastForward" />
+                      </button>
+                      <button
+                        type="button"
+                        className="dangerButton compactButton"
+                        title="Clear"
+                        aria-label="Clear this queued caption"
+                        disabled={disabled}
+                        onClick={() => onClear(front.id)}
+                      >
+                        <DashboardIcon name="trash" />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </article>
+            </BorderGlow>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}

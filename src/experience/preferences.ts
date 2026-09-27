@@ -1,6 +1,10 @@
 import type { SummaryOptions } from "@/experience/contracts";
 import { normalizeSummaryOptions } from "@/experience/summary-defaults";
-import { normalizeCaptionStyle, type CaptionStyle } from "@/live/contracts";
+import { normalizeCaptionStyle, type CaptionStyle, type RecordingWindowMs } from "@/live/contracts";
+import {
+  normalizeOutputBufferCount,
+  type OutputBufferCount,
+} from "@/live/output-buffer";
 import {
   normalizeTranslationSessionSettings,
   type TranslationSessionSettings,
@@ -22,6 +26,7 @@ export interface OperatorPreferences {
   summaryDefaults: SummaryOptions | null;
   captionStyle: CaptionStyle | null;
   translationDefaults: TranslationDefaults | null;
+  outputBufferCount: OutputBufferCount | null;
   tutorialDismissed: boolean;
   updatedAt: number | null;
 }
@@ -34,6 +39,7 @@ export const EMPTY_PREFERENCES: OperatorPreferences = {
   summaryDefaults: null,
   captionStyle: null,
   translationDefaults: null,
+  outputBufferCount: null,
   tutorialDismissed: false,
   updatedAt: null,
 };
@@ -62,13 +68,19 @@ function normalizePrompt(value: unknown) {
 
 function normalizeTranslationDefaults(value: unknown): TranslationDefaults | null {
   if (!value || typeof value !== "object") return null;
-  const settings = normalizeTranslationSessionSettings(value as Partial<TranslationSessionSettings>);
+  const record = value as Partial<TranslationSessionSettings> & { speechBufferMs?: unknown };
+  // Migrates a default saved before the recordingWindowMs rename.
+  const migrated =
+    record.recordingWindowMs === undefined && "speechBufferMs" in record
+      ? { ...record, recordingWindowMs: record.speechBufferMs as RecordingWindowMs }
+      : record;
+  const settings = normalizeTranslationSessionSettings(migrated);
   return {
     sourceLanguage: settings.sourceLanguage,
     targetLanguage: settings.targetLanguage,
     keywordText: settings.keywordText,
     filterText: settings.filterText,
-    speechBufferMs: settings.speechBufferMs,
+    recordingWindowMs: settings.recordingWindowMs,
   };
 }
 
@@ -93,6 +105,7 @@ export function mergeOperatorPreferences(
     captionStyle: pick("captionStyle", base.captionStyle, (value) =>
       value && typeof value === "object" ? normalizeCaptionStyle(value as Partial<CaptionStyle>) : null),
     translationDefaults: pick("translationDefaults", base.translationDefaults, normalizeTranslationDefaults),
+    outputBufferCount: pick("outputBufferCount", base.outputBufferCount, normalizeOutputBufferCount),
     tutorialDismissed: "tutorialDismissed" in input ? input.tutorialDismissed === true : base.tutorialDismissed,
     updatedAt: at,
   };

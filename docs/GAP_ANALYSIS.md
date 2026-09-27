@@ -48,10 +48,12 @@ injection cases before enabling optional AI. No exact TB2 passage source is auth
 ### G04 — P1: queue and audience latency
 
 The displayed processing metric starts after dequeue and excludes capture time, queue
-wait and audience rendering. Retain content-free timestamps if adding metrics, then
+wait, output buffer hold time, and audience rendering. Retain content-free timestamps if adding metrics, then
 measure word-onset-to-display and utterance-end-to-display separately. Fixed 6- to 18-second
 windows and 30-second reader alarms do not guarantee semantic boundaries or a latency SLA.
-Set approved delay/drop thresholds before the duration test.
+Set approved delay/drop thresholds before the duration test. Separately, and not a pilot
+gate: the output buffer's advancement polls every 200ms on a fixed `setInterval` rather
+than a single timer scheduled to the next entry's due time; low-priority, deferred.
 
 ### G05 — P1: device and browser recovery
 

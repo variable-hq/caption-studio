@@ -44,7 +44,7 @@ const STEPS = [
     location: "Translation",
     instructions: [
       "For this rehearsal, select Indonesian as spoken and English as audience language. Check the selections yourself.",
-      "Choose a 6- to 18-second buffer. Longer buffers add delay. Add approved terminology and public filter terms if needed.",
+      "Choose a 6- to 18-second recording window. Longer windows add delay. Add approved terminology and public filter terms if needed.",
       "During a service, choose Review refresh and Confirm refresh to apply draft changes. Check names, numbers, references, and meaning.",
     ],
     section: "translation",
@@ -74,7 +74,7 @@ const STEPS = [
     location: "Service controls, then Live outputs",
     instructions: [
       "Open Service controls, choose whether to save transcript history, then select Start captions. Resolve any setup message before continuing.",
-      "Speak an approved test phrase. Allow for the buffer and processing time, then check the caption in OBS.",
+      "Speak an approved test phrase. Allow for the recording window and processing time, then check the caption in OBS.",
       "Open Live outputs to share the mobile viewer or reader link, and to pair your operator phone. Each viewer can adjust their own text size.",
     ],
     section: "outputs",

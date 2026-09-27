@@ -17,16 +17,33 @@ import { chooseAudioInputDevice } from "@/live/audio-devices";
 import { parseGlossaryInput, parseModerationInput, preferredTermMap } from "@/live/config";
 import { addQuickBlockEntry, combineFilterText, removeQuickBlockEntry, type QuickBlockEntry } from "@/live/quick-block";
 import {
-  DEFAULT_SPEECH_BUFFER_MS,
+  DEFAULT_RECORDING_WINDOW_MS,
   MAX_LIVE_SESSION_MS,
+  MAX_MANUAL_CAPTION_CHARS,
   normalizeCaptionStyle,
   type CaptionStyle,
   type LiveServiceDetails,
   type LiveSessionControlAction,
   type LiveSessionState,
   type PublicCaptionRequest,
-  type SpeechBufferMs,
+  type RecordingWindowMs,
 } from "@/live/contracts";
+import {
+  EMPTY_OUTPUT_BUFFER_QUEUE,
+  beginEdit as beginOutputBufferEntryEdit,
+  cancelEdit as cancelOutputBufferEntryEdit,
+  clearEntry as clearOutputBufferQueueEntry,
+  enqueueTranslation,
+  fastForwardEntry,
+  outputBufferCapacity,
+  setManualPause,
+  submitEdit as submitOutputBufferEntryEdit,
+  tick as tickOutputBufferQueue,
+  updateEditDraft,
+  type OutputBufferCount,
+  type OutputBufferEntry,
+  type OutputBufferQueueState,
+} from "@/live/output-buffer";
 import { LiveApiError, LiveSessionClient } from "@/live/session-client";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import {
@@ -46,6 +63,7 @@ import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
 interface LiveCaptionSettings extends TranslationSessionSettings {
   saveHistory?: boolean;
   style: CaptionStyle;
+  outputBufferCount: OutputBufferCount;
 }
 
 interface QueuedChunk {
@@ -133,6 +151,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const [translationRefreshRequired, setTranslationRefreshRequired] =
     useState(false);
   const [quickBlockEntries, setQuickBlockEntries] = useState<QuickBlockEntry[]>([]);
+  const [outputBufferQueue, setOutputBufferQueue] =
+    useState<OutputBufferQueueState>(EMPTY_OUTPUT_BUFFER_QUEUE);
 
   const settingsRef = useRef(settings);
   const endRetryRequiredRef = useRef(false);
@@ -142,6 +162,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const refreshShouldResumeRef = useRef(false);
   const translationRefreshRequestIdRef = useRef<string | null>(null);
   const quickBlockEntriesRef = useRef<QuickBlockEntry[]>([]);
+  const outputBufferQueueRef = useRef<OutputBufferQueueState>(EMPTY_OUTPUT_BUFFER_QUEUE);
+  // Bumped every time the buffer is discarded (pause/refresh/takeover/End), so an in-flight
+  // async flush of force-published entries (see the capacity-shrink effect) can tell that the
+  // session moved on mid-loop and stop, instead of publishing the rest of a stale backlog.
+  const outputBufferGenerationRef = useRef(0);
+  const previousOutputBufferCapacityRef = useRef(outputBufferCapacity(settings.outputBufferCount));
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -158,7 +184,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const recentContextRef = useRef<string[]>([]);
   const sessionTimerRef = useRef<number | null>(null);
   const lifecyclePauseRef = useRef(false);
-  const speechBufferRef = useRef<SpeechBufferMs>(DEFAULT_SPEECH_BUFFER_MS);
+  const visibilityPauseTimerRef = useRef<number | null>(null);
+  const recordingWindowRef = useRef<RecordingWindowMs>(DEFAULT_RECORDING_WINDOW_MS);
   const cloudClientRef = useRef(new CloudProviderClient());
   const liveClientRef = useRef(new LiveSessionClient());
 
@@ -170,9 +197,17 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     quickBlockEntriesRef.current = quickBlockEntries;
   }, [quickBlockEntries]);
 
+
+  const resetOutputBuffer = useCallback(() => {
+    outputBufferGenerationRef.current += 1;
+    outputBufferQueueRef.current = EMPTY_OUTPUT_BUFFER_QUEUE;
+    setOutputBufferQueue(EMPTY_OUTPUT_BUFFER_QUEUE);
+  }, []);
+
   const addQuickBlock = useCallback((term: string) => {
     setQuickBlockEntries((current) => addQuickBlockEntry(current, term));
   }, []);
+
 
   const removeQuickBlock = useCallback((id: string) => {
     setQuickBlockEntries((current) => removeQuickBlockEntry(current, id));
@@ -319,6 +354,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     (message = "Control of the Main channel moved to another operator.") => {
       loadGenerationRef.current += 1;
       stopCapture();
+      resetOutputBuffer();
       clearServiceTimer();
       window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
       window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
@@ -357,7 +393,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           : current.channel,
       }));
     },
-    [clearServiceTimer, requireTranslationRefresh, stopCapture],
+    [clearServiceTimer, requireTranslationRefresh, resetOutputBuffer, stopCapture],
   );
 
   const endService = useCallback(
@@ -367,6 +403,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       loadGenerationRef.current += 1;
       setControlAction(null);
       stopCapture();
+      resetOutputBuffer();
       clearServiceTimer();
       const service = serviceRef.current;
       if (!service) {
@@ -454,7 +491,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         endingRef.current = false;
       }
     },
-    [clearServiceTimer, handleTakenOver, requireTranslationRefresh, stopCapture],
+    [clearServiceTimer, handleTakenOver, requireTranslationRefresh, resetOutputBuffer, stopCapture],
   );
 
   const reconcileExternalTranslationRevision = useCallback(
@@ -475,6 +512,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       refreshShouldResumeRef.current =
         capturingRef.current || refreshShouldResumeRef.current;
       stopCapture();
+      resetOutputBuffer();
       serviceRef.current = updatedService;
       activeTranslationSettingsRef.current = null;
       setActiveTranslationSettings(null);
@@ -502,7 +540,80 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           : current.channel,
       }));
     },
-    [requireTranslationRefresh, stopCapture],
+    [requireTranslationRefresh, resetOutputBuffer, stopCapture],
+  );
+
+  const publishBufferedEntry = useCallback(
+    async (entry: OutputBufferEntry) => {
+      const service = serviceRef.current;
+      if (!service) return;
+      // Also requires the buffer generation to be unchanged, since Pause/Clear/refresh/
+      // takeover/End all discard it via resetOutputBuffer without changing controllerToken.
+      const bufferGeneration = outputBufferGenerationRef.current;
+      const isStillCurrentService = () =>
+        serviceRef.current?.controllerToken === service.controllerToken &&
+        outputBufferGenerationRef.current === bufferGeneration;
+      try {
+        const published = await liveClientRef.current.publish(service.controllerToken, {
+          ...entry.request,
+          publicText: entry.publicText,
+        });
+        if (!isStillCurrentService()) return;
+        setLiveState((state) => ({
+          ...state,
+          message: entry.hidden
+            ? "A filtered caption was hidden from the public overlay."
+            : "Caption published to the OBS overlay.",
+          sequence: published.sequence,
+          historyIncomplete: state.historyIncomplete || published.historyIncomplete === true,
+          latestSourceText: entry.sourceText,
+          latestPublicText: entry.publicText,
+          latestPublicAt: entry.publicText ? Date.now() : null,
+          latestPublicLanguage: entry.publicText ? entry.targetLanguage : null,
+        }));
+      } catch (error) {
+        // A stale response must not act on a session this tab has since ended or changed.
+        if (!isStillCurrentService()) return;
+        if (isControllerReplaced(error)) {
+          handleTakenOver();
+          return;
+        }
+        if (error instanceof LiveApiError && error.code === "caption_cleared") return;
+        if (error instanceof LiveApiError && error.code === "service_paused") {
+          stopCapture();
+          resetOutputBuffer();
+          setLiveState((state) => ({
+            ...state,
+            status: "paused",
+            latestPublicText: "",
+            latestPublicAt: null,
+            latestSourceText: "",
+            message: "Paused from the remote control.",
+          }));
+          return;
+        }
+        if (error instanceof LiveApiError && error.code === "translation_session_refreshed") {
+          reconcileExternalTranslationRevision(error.translationRevision);
+          return;
+        }
+        // Mirror drainQueue's escalation for the equivalent non-buffered publish failure.
+        const message = error instanceof Error ? error.message : "Buffered caption publish failed.";
+        if (service.saveHistory) {
+          setLiveState((state) => ({ ...state, historyIncomplete: true }));
+          void experienceRequest("gap", {}, service.controllerToken).catch(() => {});
+        }
+        if (
+          isTerminalInferenceControlError(error) ||
+          (error instanceof LiveApiError && error.code === "transcription_limit_reached") ||
+          /quota|expired|event limit|language could not be detected|authentication/i.test(message)
+        ) {
+          await endService(message, true);
+          return;
+        }
+        setLiveState((state) => ({ ...state, message }));
+      }
+    },
+    [endService, handleTakenOver, reconcileExternalTranslationRevision, resetOutputBuffer, stopCapture],
   );
 
   const processChunk = useCallback(
@@ -638,28 +749,62 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       };
       const service = serviceRef.current;
       if (!service || !isCurrentCapture()) return;
-      const published = await liveClientRef.current.publish(
-        service.controllerToken,
-        event,
-      );
-      if (!isCurrentCapture()) return;
-
       recentContextRef.current = [...recentContextRef.current, sourceText].slice(-4);
+
+      const bufferCount = settingsRef.current.outputBufferCount;
+      if (bufferCount === 0) {
+        const published = await liveClientRef.current.publish(
+          service.controllerToken,
+          event,
+        );
+        if (!isCurrentCapture()) return;
+        setLiveState((state) => ({
+          ...state,
+          message: forms.hiddenFromPublicDisplay
+            ? "A filtered caption was hidden from the public overlay."
+            : "Caption published to the OBS overlay.",
+          sequence: published.sequence,
+          historyIncomplete: state.historyIncomplete || published.historyIncomplete === true,
+          latestSourceText: forms.protectedSourceText,
+          latestPublicText: forms.publicText,
+          latestPublicAt: forms.publicText ? Date.now() : null,
+          latestPublicLanguage: forms.publicText ? current.targetLanguage : null,
+          lastLatencyMs: Math.round(performance.now() - startedAt),
+        }));
+        return;
+      }
+
+      const outcome = enqueueTranslation(
+        outputBufferQueueRef.current,
+        outputBufferCapacity(bufferCount),
+        {
+          id: crypto.randomUUID(),
+          sourceText: forms.protectedSourceText,
+          targetLanguage: current.targetLanguage,
+          publicText: forms.publicText,
+          hidden: forms.hiddenFromPublicDisplay,
+          request: event,
+        },
+        Date.now(),
+      );
+      outputBufferQueueRef.current = outcome.queue;
+      setOutputBufferQueue(outcome.queue);
+      // Sequential, not concurrent, so force-advanced entries can't resolve out of order;
+      // bails early if a mid-loop Pause/Clear/etc. already discarded the buffer.
+      const forceAdvanceGeneration = outputBufferGenerationRef.current;
+      for (const forced of outcome.publishNow) {
+        if (outputBufferGenerationRef.current !== forceAdvanceGeneration) break;
+        await publishBufferedEntry(forced);
+      }
       setLiveState((state) => ({
         ...state,
-        message: forms.hiddenFromPublicDisplay
-          ? "A filtered caption was hidden from the public overlay."
-          : "Caption published to the OBS overlay.",
-        sequence: published.sequence,
-        historyIncomplete: state.historyIncomplete || published.historyIncomplete === true,
-        latestSourceText: forms.protectedSourceText,
-        latestPublicText: forms.publicText,
-        latestPublicAt: forms.publicText ? Date.now() : null,
-        latestPublicLanguage: forms.publicText ? current.targetLanguage : null,
+        message: outcome.dropped
+          ? "The output buffer was full and paused; the latest translation was dropped."
+          : "Caption queued in the output buffer.",
         lastLatencyMs: Math.round(performance.now() - startedAt),
       }));
     },
-    [reconcileExternalTranslationRevision],
+    [publishBufferedEntry, reconcileExternalTranslationRevision],
   );
 
   const drainQueue = useCallback(async () => {
@@ -678,6 +823,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           if (error instanceof LiveApiError && error.code === "caption_cleared") continue;
           if ((error instanceof LiveApiError || error instanceof CloudProviderClientError) && error.code === "service_paused") {
             stopCapture();
+            resetOutputBuffer();
             setLiveState((state) => ({ ...state, status: "paused", latestPublicText: "", latestPublicAt: null, latestSourceText: "", message: "Paused from the remote control." }));
             break;
           }
@@ -726,6 +872,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     endService,
     handleTakenOver,
     processChunk,
+    resetOutputBuffer,
     stopCapture,
     reconcileExternalTranslationRevision,
   ]);
@@ -759,7 +906,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   );
 
   const startRecorder = useCallback(
-    (stream: MediaStream, generation: number, speechBufferMs: SpeechBufferMs) => {
+    (stream: MediaStream, generation: number, recordingWindowMs: RecordingWindowMs) => {
       const startRecorderChunk = () => {
         if (
           !serviceRef.current ||
@@ -796,7 +943,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         recorderTimerRef.current = window.setTimeout(() => {
           recorderTimerRef.current = null;
           if (recorder.state === "recording") recorder.stop();
-        }, speechBufferMs);
+        }, recordingWindowMs);
       };
       startRecorderChunk();
     },
@@ -872,8 +1019,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             )
               ? storedTranslationSnapshot.settings
               : null;
-          speechBufferRef.current =
-            storedTranslationSettings?.speechBufferMs ?? DEFAULT_SPEECH_BUFFER_MS;
+          recordingWindowRef.current =
+            storedTranslationSettings?.recordingWindowMs ?? DEFAULT_RECORDING_WINDOW_MS;
           serviceRef.current = recovered;
           activeTranslationSettingsRef.current = storedTranslationSettings;
           setActiveTranslationSettings(storedTranslationSettings);
@@ -1144,14 +1291,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           takeover,
           settingsRef.current.saveHistory === true,
         );
-        const speechBufferMs = translationSettings.speechBufferMs;
+        const recordingWindowMs = translationSettings.recordingWindowMs;
         serviceRef.current = service;
         activeTranslationSettingsRef.current = translationSettings;
         setActiveTranslationSettings(translationSettings);
         requireTranslationRefresh(false);
         refreshShouldResumeRef.current = false;
         translationRefreshRequestIdRef.current = null;
-        speechBufferRef.current = speechBufferMs;
+        recordingWindowRef.current = recordingWindowMs;
         window.sessionStorage.setItem(
           CONTROLLER_STORAGE_KEY,
           service.controllerToken,
@@ -1166,18 +1313,19 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
         recentContextRef.current = [];
         queueRef.current = [];
+        resetOutputBuffer();
         captureGenerationRef.current += 1;
         const generation = captureGenerationRef.current;
         captureAbortRef.current = new AbortController();
         capturingRef.current = true;
-        startRecorder(stream, generation, speechBufferMs);
+        startRecorder(stream, generation, recordingWindowMs);
         armServiceTimer(service);
         setLiveState((current) => ({
           ...current,
           status: "live",
           message: takeover
             ? "Takeover complete. Listening for the next caption."
-            : `Listening. The first caption appears after the ${speechBufferMs / 1_000}-second speech buffer and cloud processing.`,
+            : `Listening. The first caption appears after the ${recordingWindowMs / 1_000}-second recording window and cloud processing.`,
           service,
           channel: current.channel
             ? {
@@ -1227,6 +1375,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       ensureMicrophone,
       liveState.channel?.configured,
       requireTranslationRefresh,
+      resetOutputBuffer,
       selectedDeviceId,
       startRecorder,
       stopMicrophone,
@@ -1279,6 +1428,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       message: "Stopping capture and clearing OBS…",
     }));
     stopCapture();
+    resetOutputBuffer();
     try {
       const response = await pauseOrConfirmService(service);
       if (!serviceIsCurrent()) return;
@@ -1315,6 +1465,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     handleTakenOver,
     pauseOrConfirmService,
     reconcileExternalTranslationRevision,
+    resetOutputBuffer,
     stopCapture,
   ]);
 
@@ -1363,7 +1514,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       captureAbortRef.current = new AbortController();
       capturingRef.current = true;
       queueRef.current = [];
-      startRecorder(stream, generation, speechBufferRef.current);
+      startRecorder(stream, generation, recordingWindowRef.current);
       setLiveState((current) => ({
         ...current,
         status: "live",
@@ -1461,9 +1612,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       serviceRef.current = updatedService;
       activeTranslationSettingsRef.current = translationSettings;
       setActiveTranslationSettings(translationSettings);
-      speechBufferRef.current = translationSettings.speechBufferMs;
+      recordingWindowRef.current = translationSettings.recordingWindowMs;
       recentContextRef.current = [];
       queueRef.current = [];
+      resetOutputBuffer();
       window.sessionStorage.setItem(
         TRANSLATION_SETTINGS_STORAGE_KEY,
         serializeTranslationSessionSettings(
@@ -1489,7 +1641,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           startRecorder(
             stream,
             generation,
-            translationSettings.speechBufferMs,
+            translationSettings.recordingWindowMs,
           );
           refreshShouldResumeRef.current = false;
           setLiveState((current) => ({
@@ -1694,6 +1846,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     pauseOrConfirmService,
     reconcileExternalTranslationRevision,
     requireTranslationRefresh,
+    resetOutputBuffer,
     selectedDeviceId,
     startRecorder,
     stopCapture,
@@ -1706,6 +1859,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     setControlAction("clear");
     const wasCapturing = capturingRef.current;
     stopTranslationCapture();
+    resetOutputBuffer();
     recentContextRef.current = [];
     try {
       await liveClientRef.current.control(
@@ -1715,7 +1869,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       if (wasCapturing && streamRef.current?.active && serviceRef.current) {
         capturingRef.current = true;
         captureAbortRef.current = new AbortController();
-        startRecorder(streamRef.current, captureGenerationRef.current, speechBufferRef.current);
+        startRecorder(streamRef.current, captureGenerationRef.current, recordingWindowRef.current);
       }
       setLiveState((current) => ({
         ...current,
@@ -1743,7 +1897,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     } finally {
       setControlAction(null);
     }
-  }, [handleTakenOver, liveState.channel?.configured, startRecorder, stopTranslationCapture, stopCapture]);
+  }, [handleTakenOver, liveState.channel?.configured, resetOutputBuffer, startRecorder, stopTranslationCapture, stopCapture]);
 
   const showTestCaption = useCallback(async () => {
     if (!liveState.channel?.configured || liveState.status === "live") return;
@@ -1837,16 +1991,125 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   );
 
   useEffect(() => {
+    if (settings.outputBufferCount === 0 || liveState.status !== "live") return;
+    const id = window.setInterval(() => {
+      const outcome = tickOutputBufferQueue(outputBufferQueueRef.current, Date.now());
+      if (outcome.queue !== outputBufferQueueRef.current) {
+        outputBufferQueueRef.current = outcome.queue;
+        setOutputBufferQueue(outcome.queue);
+      }
+      if (outcome.publish) void publishBufferedEntry(outcome.publish);
+    }, 200);
+    return () => window.clearInterval(id);
+  }, [settings.outputBufferCount, liveState.status, publishBufferedEntry]);
+
+  // Shrinking capacity can leave more entries queued than it now allows; enqueueTranslation
+  // only fixes that on the next arrival, which may never come. Flush the excess to Live now.
+  useEffect(() => {
+    const capacity = outputBufferCapacity(settings.outputBufferCount);
+    const previousCapacity = previousOutputBufferCapacityRef.current;
+    previousOutputBufferCapacityRef.current = capacity;
+    if (capacity >= previousCapacity) return;
+    const current = outputBufferQueueRef.current.entries;
+    const overflow = current.length - capacity;
+    if (overflow <= 0) return;
+    const excess = current.slice(0, overflow);
+    const kept = { entries: current.slice(overflow) };
+    outputBufferQueueRef.current = kept;
+    setOutputBufferQueue(kept);
+    void (async () => {
+      // If publishing one entry reveals the session paused/refreshed/ended (resetOutputBuffer
+      // runs as part of handling that), stop rather than keep force-publishing the rest of a
+      // backlog that no longer should exist.
+      const flushGeneration = outputBufferGenerationRef.current;
+      for (const entry of excess) {
+        if (outputBufferGenerationRef.current !== flushGeneration) return;
+        await publishBufferedEntry(entry);
+      }
+    })();
+  }, [settings.outputBufferCount, publishBufferedEntry]);
+
+  const setOutputBufferEntryPaused = useCallback((id: string, paused: boolean) => {
+    const next = setManualPause(outputBufferQueueRef.current, id, paused, Date.now());
+    outputBufferQueueRef.current = next;
+    setOutputBufferQueue(next);
+  }, []);
+
+  const clearOutputBufferEntry = useCallback((id: string) => {
+    const next = clearOutputBufferQueueEntry(outputBufferQueueRef.current, id, Date.now());
+    outputBufferQueueRef.current = next;
+    setOutputBufferQueue(next);
+  }, []);
+
+  const fastForwardOutputBufferEntry = useCallback(
+    (id: string) => {
+      const outcome = fastForwardEntry(outputBufferQueueRef.current, id, Date.now());
+      outputBufferQueueRef.current = outcome.queue;
+      setOutputBufferQueue(outcome.queue);
+      if (outcome.publish) void publishBufferedEntry(outcome.publish);
+    },
+    [publishBufferedEntry],
+  );
+
+  const beginOutputBufferEdit = useCallback((id: string) => {
+    const next = beginOutputBufferEntryEdit(outputBufferQueueRef.current, id, Date.now());
+    outputBufferQueueRef.current = next;
+    setOutputBufferQueue(next);
+  }, []);
+
+  const updateOutputBufferEditDraft = useCallback((id: string, text: string) => {
+    const next = updateEditDraft(outputBufferQueueRef.current, id, text.slice(0, MAX_MANUAL_CAPTION_CHARS));
+    outputBufferQueueRef.current = next;
+    setOutputBufferQueue(next);
+  }, []);
+
+  const cancelOutputBufferEdit = useCallback((id: string) => {
+    const next = cancelOutputBufferEntryEdit(outputBufferQueueRef.current, id, Date.now());
+    outputBufferQueueRef.current = next;
+    setOutputBufferQueue(next);
+  }, []);
+
+  const submitOutputBufferEdit = useCallback((id: string) => {
+    const entry = outputBufferQueueRef.current.entries.find((item) => item.id === id);
+    if (!entry || entry.editedDraft === null) return;
+    // Re-moderates against the confirmed session settings, not the unconfirmed draft.
+    const current = activeTranslationSettingsRef.current ?? settingsRef.current;
+    const effectiveFilterText = combineFilterText(
+      quickBlockEntriesRef.current,
+      current.filterText,
+      MAX_FILTER_INPUT_CHARS,
+    );
+    // Same glossary + moderation pass every other caption gets, via prepareCaptionForms.
+    const forms = prepareCaptionForms({
+      sourceText: entry.sourceText,
+      translatedText: entry.editedDraft,
+      targetLanguage: current.targetLanguage,
+      glossary: parseGlossaryInput(current.keywordText, current.targetLanguage),
+      moderationRules: parseModerationInput(effectiveFilterText),
+    });
+    const next = submitOutputBufferEntryEdit(
+      outputBufferQueueRef.current,
+      id,
+      forms.publicText,
+      forms.hiddenFromPublicDisplay,
+      Date.now(),
+    );
+    outputBufferQueueRef.current = next;
+    setOutputBufferQueue(next);
+  }, []);
+
+  useEffect(() => {
     const pauseForLifecycle = () => {
       if (lifecyclePauseRef.current) return;
       lifecyclePauseRef.current = true;
       stopCapture();
+      resetOutputBuffer();
       const service = serviceRef.current;
       if (!service) return;
       setLiveState((current) => ({
         ...current,
         status: "paused",
-        message: "App inactive. Audio stopped; confirming the channel is paused.",
+        message: "App or tab inactive. Audio stopped; confirming the channel is paused.",
         latestSourceText: "",
         latestPublicText: "",
         latestPublicAt: null,
@@ -1865,13 +2128,37 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     };
 
     const reconcileAfterForeground = () => {
+      if (visibilityPauseTimerRef.current !== null) {
+        window.clearTimeout(visibilityPauseTimerRef.current);
+        visibilityPauseTimerRef.current = null;
+      }
       lifecyclePauseRef.current = false;
       void loadChannel();
+    };
+
+    // Backgrounded tabs throttle timers that both the tick and the recorder's chunk
+    // boundary depend on, so treat sustained backgrounding as an explicit pause rather
+    // than risk degraded capture. Ignore brief tab switches.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        if (visibilityPauseTimerRef.current !== null) return;
+        visibilityPauseTimerRef.current = window.setTimeout(() => {
+          visibilityPauseTimerRef.current = null;
+          pauseForLifecycle();
+        }, 10_000);
+      } else {
+        if (visibilityPauseTimerRef.current !== null) {
+          window.clearTimeout(visibilityPauseTimerRef.current);
+          visibilityPauseTimerRef.current = null;
+        }
+        if (lifecyclePauseRef.current) reconcileAfterForeground();
+      }
     };
 
     window.addEventListener("pagehide", pauseForLifecycle);
     window.addEventListener("church-caption-native-background", pauseForLifecycle);
     window.addEventListener("church-caption-native-foreground", reconcileAfterForeground);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       window.removeEventListener("pagehide", pauseForLifecycle);
       window.removeEventListener("church-caption-native-background", pauseForLifecycle);
@@ -1879,8 +2166,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         "church-caption-native-foreground",
         reconcileAfterForeground,
       );
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (visibilityPauseTimerRef.current !== null) {
+        window.clearTimeout(visibilityPauseTimerRef.current);
+        visibilityPauseTimerRef.current = null;
+      }
     };
-  }, [loadChannel, stopCapture]);
+  }, [loadChannel, resetOutputBuffer, stopCapture]);
 
   useEffect(() => {
     if (!navigator.mediaDevices) return;
@@ -1932,8 +2224,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     viewerAction,
     activeTranslationSettings,
     translationRefreshRequired,
-    activeSpeechBufferMs:
-      activeTranslationSettings?.speechBufferMs ?? settings.speechBufferMs,
+    activeRecordingWindowMs:
+      activeTranslationSettings?.recordingWindowMs ?? settings.recordingWindowMs,
     endRetryRequired,
     takeoverRequired,
     rotationRecoveryRequired,
@@ -1954,6 +2246,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     rememberReaderLink,
     showTestCaption,
     showManualCaption,
+    outputBufferQueue,
+    setOutputBufferEntryPaused,
+    clearOutputBufferEntry,
+    fastForwardOutputBufferEntry,
+    beginOutputBufferEdit,
+    updateOutputBufferEditDraft,
+    cancelOutputBufferEdit,
+    submitOutputBufferEdit,
     stopSession: () => endService(),
     reloadChannel: loadChannel,
   };

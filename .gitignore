@@ -55,3 +55,6 @@ ios/ChurchLiveCaption.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettin
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Agent task notes (local planning only, not project docs)
+/TODO.md

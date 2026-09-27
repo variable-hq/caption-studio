@@ -58,7 +58,7 @@ translation setting, requests no microphone permission, and never starts a servi
 2. The operator chooses a browser-visible microphone or audio interface and confirms its
    input level.
 3. The operator selects a spoken language or automatic detection, one target language,
-   and a 6-, 9-, 12-, 15-, or 18-second speech buffer. The UI notes that longer buffers reduce
+   and a 6-, 9-, 12-, 15-, or 18-second recording window. The UI notes that longer windows reduce
    chopped sentences but make captions appear later.
 4. The operator optionally enters bounded keyword/preferred-translation pairs and public
    mask words, and may edit the reviewed operator translation prompt.
@@ -86,21 +86,28 @@ translation setting, requests no microphone permission, and never starts a servi
    latency, dropped chunks, elapsed service time, and the server-owned reserved
    transcription-attempt count for the active service. Overlay sequence protection is
    applied internally and is not displayed.
-6. The latest public caption and style are published to the read-only Main OBS channel.
+6. If the output buffer is enabled, the moderated caption enters the buffer queue instead
+   of publishing immediately; otherwise it publishes now. The latest public caption and
+   style are published to the read-only Main OBS channel once a queued caption's turn
+   comes, or is fast-forwarded.
 7. OBS reconnects after temporary channel loss and receives the latest caption.
 8. The operator can Pause capture and AI without changing the OBS URL or expiry, Clear
-   the current public caption, or show a localized synthetic test while paused.
+   the current public caption, or show a localized synthetic test while paused. Pausing
+   or clearing the current caption also clears the output buffer queue.
 9. A second operator is blocked unless they explicitly confirm takeover. Takeover clears
    OBS, replaces controller ownership, and causes stale operations to stop the old mic.
 10. The operator can copy a separate mobile link. A viewer receives only current
     moderated target text and service status. A long caption shrinks on the phone
     from the chosen text size down to 18 px so it fits one screen. Confirmed replacement revokes that link
     without changing OBS.
-11. Source/target language, terminology, public filters, buffer duration, and operator
+11. Source/target language, terminology, public filters, recording window, and operator
     prompt remain editable as drafts. The operator selects **Review refresh**, then
     **Confirm refresh**, to apply them together; **Undo draft changes** discards them. Refresh clears unfinished audio, recent
-    translation context, and current output but does not end or extend the service, change
-    live/paused state, replace controller ownership, or rotate the mobile/OBS links.
+    translation context, current output, and any queued buffer content, but does not end or
+    extend the service, change
+    live/paused state, replace controller ownership, or rotate the mobile/OBS links. Output
+    buffer count and delay are not part of this draft/refresh cycle: they apply immediately,
+    like caption style.
 
 ### After the service
 
@@ -225,10 +232,13 @@ Translation drafts stay in React/page memory. A custom prompt enters unencrypted
 dismissal flag are also local preferences. Dismissing or completing the tutorial stores
 only `dismissed`; no step history, identity, or content is retained. If storage is blocked,
 the guide remains usable but may reappear after reload. Clearing site data resets this
-first-visit behavior. During a service, the full active language, terminology, filter, buffer,
+first-visit behavior. During a service, the full active language, terminology, filter, recording window,
 and prompt snapshot is held in that tab's unencrypted `sessionStorage` solely for same-tab
 recovery and removed on End, takeover, or idle cleanup. The active prompt is sent through
 the protected inference path to Groq, but the live translation prompt is not sent to OBS/viewer clients or stored in the room.
+The output buffer queue is likewise only ever held in that tab's React state; it is never
+written to `sessionStorage`, `localStorage`, or the room, and is discarded on Pause, Clear,
+refresh, takeover, or End.
 The journal receives bounded glossary/filter snapshots to process public reader paragraphs;
 with saving on, its pending-work checkpoint persists that context while needed. Operators must not enter credentials
 or confidential pastoral information.
@@ -259,7 +269,33 @@ session-only, and does not persist between services; a term meant to persist sti
 belongs in the filter field above.
 
 Terminology and filter edits made during an active service are drafts until the same
-explicit translation refresh used for language, buffer, and prompt changes.
+explicit translation refresh used for language, recording window, and prompt changes.
+
+### Output buffer
+
+Distinct from the recording window above: the output buffer is an optional delay queue
+between a translated, moderated caption and its arrival on the public Live output (OBS and
+the mobile viewer). It lives only in the controlling operator's browser tab, applies
+immediately without a translation refresh, and is unrelated to the recording window
+duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md).
+
+- **On/Off**, default Off (matching behavior before this feature existed). On holds each
+  caption for 3 seconds before it advances to Live; there is no separate delay setting.
+- Only the next-up caption is ever shown or individually controllable. Internally, up to
+  3 more translations can queue behind it out of sight, giving a paused or in-edit caption
+  real headroom; once that backlog is full, a paused front drops any further arriving
+  translation (leakage) instead of growing without bound. A visible counter (for example
+  "2/4 queued") always shows how much of that headroom is used, and an explicit warning
+  appears once the backlog is full and the next-up caption is held, since that is the
+  specific state in which the next translation would be dropped.
+- The next-up caption can be **paused** (frozen; remaining hold time preserved), **edited**
+  (operator override, put back through the same glossary and confirmed-filter moderation
+  as every other caption before it can reach Live; auto-resumes on Submit), **cleared**
+  (removed from the queue), or **fast-forwarded** (shown on Live immediately). These are
+  separate from the quick block above: pausing the service, clearing the current Live
+  caption, a translation refresh, takeover, and End all discard the whole buffer.
+- **Save as my default** stores the On/Off choice with the operator's account, the same
+  way the Translation page saves its default setup; new services start from it.
 
 ### Caption display, OBS, and mobile viewing
 
@@ -366,6 +402,15 @@ caption writes while keeping the original URL and expiry. Resume clears any synt
 test before capture restarts. Clear does not pause capture, so the next valid live
 caption may replace the blank display.
 
+The operator tab also pauses itself automatically, with the same visible "paused" state
+and message, rather than leaving capture or the output buffer running unobserved: on full
+navigation away or close (`pagehide`), immediately; and after the tab stays in the
+background for 10 seconds, since a backgrounded tab's timers are throttled by the browser
+and both audio-chunk timing and the output buffer's advancement depend on them. A brief
+tab switch under that threshold does not pause anything. Returning to the tab reloads
+channel status but does not resume capture automatically; the operator resumes explicitly,
+as with any other pause.
+
 While paused, a Manual caption control can show operator-typed text (up to 240
 characters, no AI translation involved) in the session's current target language to OBS
 and the latest viewer, in place of the hidden translation. Resume or Clear removes
@@ -419,8 +464,8 @@ the 90-minute limit.
 
 Code-level acceptance:
 
-- An operator can select an input, source, target, and 6- to 18-second buffer. During
-  live or paused operation, language, terminology, filter, buffer, and custom-prompt edits
+- An operator can select an input, source, target, and 6- to 18-second recording window. During
+  live or paused operation, language, terminology, filter, recording window, and custom-prompt edits
   stay draft until an explicit confirmed translation refresh.
 - The AI usage section separates service time, reserved transcription attempts,
   acknowledged translation calls/tokens, and provider headroom; it remains truthful when
@@ -439,6 +484,12 @@ Code-level acceptance:
 - A preferred term can affect transcription guidance and translated output.
 - A configured mask changes public output without changing the protected source preview.
 - Style changes reach a connected overlay without restarting the service.
+- An output buffer, when On, holds the next moderated caption before Live, with up to 3
+  more queued out of sight behind it; Off publishes immediately as before. A full,
+  unpaused backlog force-advances to admit a new caption; a full, paused backlog drops the
+  incoming one instead. Pause freezes the shown caption's remaining hold time; Clear
+  removes only it; Fast-forward publishes it immediately. Editing cannot reach Live
+  unmoderated, and auto-resumes on Submit.
 - Appearance controls update the dashboard design preview continuously before Save.
 - Setup separates navigation and the selected settings page from collapsible service
   controls. The output monitor renders the real 1920 × 1080 canvas scaled to the card and
