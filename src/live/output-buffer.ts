@@ -267,10 +267,9 @@ export function endReview(queue: OutputBufferQueueState, now: number): OutputBuf
 }
 
 /**
- * Applies Beta model revisions (already moderated by the caller) by entry id. Skips an
- * entry currently being hand-edited, and skips one whose text no longer matches what was
- * actually sent for review (`requestedFrom`) — it was submitted or otherwise changed while
- * the call was in flight, so the revision is stale and must not clobber the newer text.
+ * Applies Beta revisions by entry id. Skips an entry being hand-edited, and skips one
+ * whose text no longer matches `requestedFrom` — it changed while the call was in
+ * flight, so the revision is stale.
  */
 export function applyReviewResults(
   queue: OutputBufferQueueState,

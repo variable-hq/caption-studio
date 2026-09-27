@@ -119,3 +119,12 @@ shipped, addressing both directly.
   `bufferReviewRequests` admission, ceiling and controller/pause checks. Real Beta-review
   model output quality is unverified — the ADR 0011/PRODUCT_SPEC caveat that prompting does
   not establish semantic faithfulness applies here identically.
+- Both the buffer's tick and the recorder's own chunk-boundary timer depend on browser
+  timers, which a backgrounded tab throttles unpredictably. Rather than add buffer-specific
+  timer workarounds, the operator tab now treats sustained backgrounding (10+ seconds) the
+  same as `pagehide`: an explicit Pause with a clear message, which already discards the
+  buffer along with capture. This closes a pre-existing gap in the capture pipeline more
+  than it patches the buffer specifically — plain tab-switching was not covered by the
+  existing `pagehide`/native-background handling at all — and it also fixes a related
+  inconsistency where that existing lifecycle-pause path did not discard the buffer like
+  every other pause path already did.

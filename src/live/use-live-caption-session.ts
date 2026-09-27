@@ -191,6 +191,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const recentContextRef = useRef<string[]>([]);
   const sessionTimerRef = useRef<number | null>(null);
   const lifecyclePauseRef = useRef(false);
+  const visibilityPauseTimerRef = useRef<number | null>(null);
   const recordingWindowRef = useRef<RecordingWindowMs>(DEFAULT_RECORDING_WINDOW_MS);
   const cloudClientRef = useRef(new CloudProviderClient());
   const liveClientRef = useRef(new LiveSessionClient());
@@ -576,9 +577,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           latestPublicLanguage: entry.publicText ? entry.targetLanguage : null,
         }));
       } catch (error) {
-        // The active service may have changed (ended/restarted, taken over, or paused)
-        // while this publish was in flight; a stale response must not act on the new
-        // session (e.g. falsely reporting a takeover of a service this tab itself started).
+        // A stale response must not act on a session this tab has since ended or changed.
         if (!isStillCurrentService()) return;
         if (isControllerReplaced(error)) {
           handleTakenOver();
@@ -1990,11 +1989,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     return () => window.clearInterval(id);
   }, [settings.outputBufferCount, liveState.status, publishBufferedEntry]);
 
-  // Lowering the output buffer's capacity (including turning it off, where the panel
-  // hides its controls entirely and the ticking effect above never drains the queue
-  // again) can leave the queue holding more entries than the new capacity allows —
-  // enqueueTranslation only self-heals that on the *next* translation, which may never
-  // come before the service ends. Flush the oldest excess entries to Live immediately.
+  // Shrinking capacity can leave more entries queued than it now allows; enqueueTranslation
+  // only fixes that on the next arrival, which may never come. Flush the excess to Live now.
   useEffect(() => {
     const capacity = outputBufferCapacity(settings.outputBufferCount);
     const previousCapacity = previousOutputBufferCapacityRef.current;
@@ -2100,9 +2096,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         body: JSON.stringify({
           targetLanguage: current.targetLanguage,
           liveText: latestPublicTextRef.current,
-          // Always send the already-moderated `publicText`, never the raw, not-yet-submitted
-          // `editedDraft` — the latter has not passed moderation yet, and `applyReviewResults`
-          // discards any revision for an entry still being hand-edited anyway.
+          // publicText only — editedDraft hasn't passed moderation.
           entries: started.entries.map((entry) => ({
             id: entry.id,
             text: entry.publicText,
@@ -2150,12 +2144,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       if (lifecyclePauseRef.current) return;
       lifecyclePauseRef.current = true;
       stopCapture();
+      resetOutputBuffer();
       const service = serviceRef.current;
       if (!service) return;
       setLiveState((current) => ({
         ...current,
         status: "paused",
-        message: "App inactive. Audio stopped; confirming the channel is paused.",
+        message: "App or tab inactive. Audio stopped; confirming the channel is paused.",
         latestSourceText: "",
         latestPublicText: "",
         latestPublicAt: null,
@@ -2174,13 +2169,37 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     };
 
     const reconcileAfterForeground = () => {
+      if (visibilityPauseTimerRef.current !== null) {
+        window.clearTimeout(visibilityPauseTimerRef.current);
+        visibilityPauseTimerRef.current = null;
+      }
       lifecyclePauseRef.current = false;
       void loadChannel();
+    };
+
+    // Backgrounded tabs throttle timers that both the tick and the recorder's chunk
+    // boundary depend on, so treat sustained backgrounding as an explicit pause rather
+    // than risk degraded capture. Ignore brief tab switches.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        if (visibilityPauseTimerRef.current !== null) return;
+        visibilityPauseTimerRef.current = window.setTimeout(() => {
+          visibilityPauseTimerRef.current = null;
+          pauseForLifecycle();
+        }, 10_000);
+      } else {
+        if (visibilityPauseTimerRef.current !== null) {
+          window.clearTimeout(visibilityPauseTimerRef.current);
+          visibilityPauseTimerRef.current = null;
+        }
+        if (lifecyclePauseRef.current) reconcileAfterForeground();
+      }
     };
 
     window.addEventListener("pagehide", pauseForLifecycle);
     window.addEventListener("church-caption-native-background", pauseForLifecycle);
     window.addEventListener("church-caption-native-foreground", reconcileAfterForeground);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       window.removeEventListener("pagehide", pauseForLifecycle);
       window.removeEventListener("church-caption-native-background", pauseForLifecycle);
@@ -2188,8 +2207,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         "church-caption-native-foreground",
         reconcileAfterForeground,
       );
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (visibilityPauseTimerRef.current !== null) {
+        window.clearTimeout(visibilityPauseTimerRef.current);
+        visibilityPauseTimerRef.current = null;
+      }
     };
-  }, [loadChannel, stopCapture]);
+  }, [loadChannel, resetOutputBuffer, stopCapture]);
 
   useEffect(() => {
     if (!navigator.mediaDevices) return;
