@@ -280,7 +280,7 @@ immediately without a translation refresh, and is unrelated to the recording win
 duration. See [ADR 0016](decisions/0016-client-side-output-buffer-and-beta-review.md).
 
 - **On/Off**, default Off (matching behavior before this feature existed). On holds each
-  caption for 2 seconds before it advances to Live; there is no separate delay setting.
+  caption for 3 seconds before it advances to Live; there is no separate delay setting.
 - Only the next-up caption is ever shown or individually controllable. Internally, up to
   3 more translations can queue behind it out of sight, giving a paused or in-edit caption
   real headroom; once that backlog is full, a paused front drops any further arriving

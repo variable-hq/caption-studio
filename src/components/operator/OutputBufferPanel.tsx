@@ -7,6 +7,7 @@ import { BorderGlow } from "@/components/reactbits";
 import {
   OUTPUT_BUFFER_BACKING_CAPACITY,
   OUTPUT_BUFFER_COUNT_OPTIONS,
+  OUTPUT_BUFFER_DWELL_MS,
   isOutputBufferEntryPaused,
   normalizeOutputBufferCount,
   type OutputBufferCount,
@@ -15,10 +16,9 @@ import {
 } from "@/live/output-buffer";
 import { MAX_MANUAL_CAPTION_CHARS } from "@/live/contracts";
 
-const COUNT_LABELS: Record<OutputBufferCount, string> = {
-  0: "Off",
-  1: "On",
-};
+function countLabel(value: OutputBufferCount): string {
+  return value === 0 ? "Off" : `On (${OUTPUT_BUFFER_DWELL_MS / 1_000}s delay)`;
+}
 
 interface OutputBufferPanelProps {
   count: OutputBufferCount;
@@ -87,17 +87,18 @@ export function OutputBufferPanel({
         >
           {OUTPUT_BUFFER_COUNT_OPTIONS.map((value) => (
             <option value={value} key={value}>
-              {COUNT_LABELS[value]}
+              {countLabel(value)}
             </option>
           ))}
         </select>
       </label>
       <p className="helpText" id={countHelpId}>
         Off shows each translation live immediately, with no delay. On holds the next
-        caption briefly so you can pause, correct, or drop it before it reaches OBS and the
-        mobile viewer. If you leave one paused or being edited while more speech comes in,
-        captions keep queuing up behind it out of sight; once that backlog is full, any
-        further caption is dropped rather than shown or queued.
+        caption for {OUTPUT_BUFFER_DWELL_MS / 1_000} seconds so you can pause, correct, or
+        drop it before it reaches OBS and the mobile viewer. If you leave one paused or
+        being edited while more speech comes in, captions keep queuing up behind it out of
+        sight; once that backlog is full, any further caption is dropped rather than shown
+        or queued.
       </p>
       <div className="saveRow">
         <button className="secondaryButton" type="button" onClick={onSaveDefault} disabled={disabled}>

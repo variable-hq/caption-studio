@@ -44,7 +44,7 @@ shipped, addressing both directly.
   queue does not survive reload or takeover; both already clear it explicitly, consistent
   with how they already discard in-flight translation state.
 - **On/Off, default Off.** Off matches behavior before this feature existed exactly. On
-  holds each caption for one fixed 2-second dwell (`OUTPUT_BUFFER_DWELL_MS`) before it
+  holds each caption for one fixed 3-second dwell (`OUTPUT_BUFFER_DWELL_MS`) before it
   advances to Live; there is no separate configurable delay. Pause already gives the
   operator an on-demand, unbounded hold on any one caption, so a passive, pre-configured
   delay would only add a setting without adding capability.

@@ -13,7 +13,7 @@ export const DEFAULT_OUTPUT_BUFFER_COUNT: OutputBufferCount = 0;
 export const OUTPUT_BUFFER_BACKING_CAPACITY = 4;
 
 /** How long a queued caption is held before advancing to Live, once the buffer is on. */
-export const OUTPUT_BUFFER_DWELL_MS = 2_000;
+export const OUTPUT_BUFFER_DWELL_MS = 3_000;
 
 export function normalizeOutputBufferCount(value: unknown): OutputBufferCount {
   const number = Number(value);
