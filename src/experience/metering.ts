@@ -10,7 +10,7 @@ export interface ProviderTelemetry {
   audioSeconds?: number;
 }
 
-export async function meteredGroq<T>(request: Request, stage: "transcription" | "translation",
+export async function meteredGroq<T>(request: Request, stage: "transcription" | "translation" | "buffer-review",
   invoke: (telemetry?: ProviderTelemetry) => Promise<T>): Promise<T> {
   let env: LiveWorkerEnvironment & ExperienceEnvironment;
   try { env = getCloudflareContext().env as unknown as LiveWorkerEnvironment; }

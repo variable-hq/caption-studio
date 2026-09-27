@@ -42,6 +42,10 @@ records to establish release evidence.
   Access tenant is named *BEST Church workspace* in the operator UI, why the saved-sermon
   copy states that every operator shares the archive, and why the watcher and paired-phone
   identity cap rose from 8 to 32.
+- [ADR 0016](decisions/0016-client-side-output-buffer-and-beta-review.md) records why the
+  new output buffer (a pre-publish delay queue, distinct from the recording window) lives
+  client-side in the controlling operator's tab, and why its Beta continuity review is a
+  separately bounded inference stage rather than a general revision loop.
 - [Caption policy](evaluation/CAPTION_POLICY_DECISION.md) describes completion and filtering.
 - [Indonesian→English review](evaluation/ID_EN_REVIEW.md) and its
   [synthetic fixtures](evaluation/id-en-synthetic.json) remain unscored.

@@ -38,7 +38,9 @@ Implemented: browser audio selection and meter; six-step setup guide; 6- to 18-s
 capture; Groq Whisper transcription and contextual GPT-OSS 20B translation; biblical
 name hints, approved recognition aliases, preferred translations and configurable public
 filtering (mask, replace, or hide); an instant quick-block for unanticipated words;
-editable translation settings; OBS styles and safe margins; and the service features below.
+editable translation settings; an optional 0–2 slot output buffer with per-caption pause,
+edit, clear, and fast-forward, plus a Beta continuity review call; OBS styles and safe
+margins; and the service features below.
 
 AI runs in the cloud; the browser captures audio. No application audio storage,
 paid fallback, simultaneous target languages, live caption correction editor, shared
@@ -109,6 +111,12 @@ Live language, vocabulary, filters, recording window and prompt edits stay draft
 translation refresh. It preserves the service clock, controller, links and usage.
 OBS rotation is a separate idle action and requires updating the Browser Source URL.
 Removing/deleting content cannot recall an export, screenshot, or text already read.
+
+An optional output buffer sits between translation and the OBS/latest-viewer column above:
+with 1 or 2 slots selected, a moderated caption is held briefly (Pause/Clear/End above all
+clear it) instead of publishing immediately. It never reaches the reader or archive until
+it is actually shown on Live. See [Output buffer](docs/PRODUCT_SPEC.md#output-buffer) and
+[ADR 0016](docs/decisions/0016-client-side-output-buffer-and-beta-review.md).
 
 ## AI usage and limits
 

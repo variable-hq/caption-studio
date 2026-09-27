@@ -27,6 +27,13 @@ const ICON_PATHS = {
   chevronRight: "m9 5 7 7-7 7",
   panel: "M3 4h18v16H3z M15 4v16 M18 8v8",
   close: "M6 6l12 12 M18 6 6 18",
+  pause: "M7 4h4v16H7z M13 4h4v16h-4z",
+  play: "M6 4l14 8-14 8z",
+  edit: "M4 20h4L18 10l-4-4L4 16z M14 4l4 4 M14.5 5.5l4 4",
+  trash: "M5 7h14 M9 7V4h6v3 M7 7l1 13h8l1-13 M10 11v6 M14 11v6",
+  fastForward: "M4 5l8 7-8 7z M13 5l8 7-8 7z",
+  wand: "M5 19 17 7 M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1z M19 12l.7 1.3 1.3.7-1.3.7-.7 1.3-.7-1.3-1.3-.7 1.3-.7z",
+  check: "M4 12l5 5L20 6",
 } as const;
 
 export function DashboardIcon({ name }: { name: keyof typeof ICON_PATHS }) {

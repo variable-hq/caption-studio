@@ -86,10 +86,14 @@ translation setting, requests no microphone permission, and never starts a servi
    latency, dropped chunks, elapsed service time, and the server-owned reserved
    transcription-attempt count for the active service. Overlay sequence protection is
    applied internally and is not displayed.
-6. The latest public caption and style are published to the read-only Main OBS channel.
+6. If the output buffer is enabled, the moderated caption enters the buffer queue instead
+   of publishing immediately; otherwise it publishes now. The latest public caption and
+   style are published to the read-only Main OBS channel once a queued caption's turn
+   comes, or is fast-forwarded.
 7. OBS reconnects after temporary channel loss and receives the latest caption.
 8. The operator can Pause capture and AI without changing the OBS URL or expiry, Clear
-   the current public caption, or show a localized synthetic test while paused.
+   the current public caption, or show a localized synthetic test while paused. Pausing
+   also clears the output buffer queue.
 9. A second operator is blocked unless they explicitly confirm takeover. Takeover clears
    OBS, replaces controller ownership, and causes stale operations to stop the old mic.
 10. The operator can copy a separate mobile link. A viewer receives only current
@@ -99,8 +103,11 @@ translation setting, requests no microphone permission, and never starts a servi
 11. Source/target language, terminology, public filters, recording window, and operator
     prompt remain editable as drafts. The operator selects **Review refresh**, then
     **Confirm refresh**, to apply them together; **Undo draft changes** discards them. Refresh clears unfinished audio, recent
-    translation context, and current output but does not end or extend the service, change
-    live/paused state, replace controller ownership, or rotate the mobile/OBS links.
+    translation context, current output, and any queued buffer content, but does not end or
+    extend the service, change
+    live/paused state, replace controller ownership, or rotate the mobile/OBS links. Output
+    buffer count and delay are not part of this draft/refresh cycle: they apply immediately,
+    like caption style.
 
 ### After the service
 
@@ -229,6 +236,9 @@ first-visit behavior. During a service, the full active language, terminology, f
 and prompt snapshot is held in that tab's unencrypted `sessionStorage` solely for same-tab
 recovery and removed on End, takeover, or idle cleanup. The active prompt is sent through
 the protected inference path to Groq, but the live translation prompt is not sent to OBS/viewer clients or stored in the room.
+The output buffer queue is likewise only ever held in that tab's React state; it is never
+written to `sessionStorage`, `localStorage`, or the room, and is discarded on Pause,
+refresh, takeover, or End.
 The journal receives bounded glossary/filter snapshots to process public reader paragraphs;
 with saving on, its pending-work checkpoint persists that context while needed. Operators must not enter credentials
 or confidential pastoral information.
@@ -260,6 +270,44 @@ belongs in the filter field above.
 
 Terminology and filter edits made during an active service are drafts until the same
 explicit translation refresh used for language, recording window, and prompt changes.
+
+### Output buffer
+
+Distinct from the recording window above: the output buffer is an optional delay queue
+between a translated, moderated caption and its arrival on the public Live output (OBS and
+the mobile viewer). It lives only in the controlling operator's browser tab, applies
+immediately without a translation refresh, and is unrelated to the recording window
+duration. See [ADR 0016](decisions/0016-client-side-output-buffer-and-beta-review.md).
+
+- **Count**: 0 (none), 1, or 2 slots; default 1. None publishes every caption straight to
+  Live, matching behavior before this feature existed.
+- **Delay**: Auto (default), or a fixed 2, 4, or 6 seconds; hidden when count is 0. A fixed
+  delay holds every queued caption for that long. Auto has no fixed hold: the first caption
+  after a fresh or empty Live output still waits briefly (2 seconds) before appearing, but
+  once captions are flowing continuously each later one paces at that same flat 2 seconds
+  regardless of the delay setting, so the buffer does not let captions drift further and
+  further behind speech.
+- Regardless of delay setting, a completely full queue force-advances its front slot the
+  moment a new translation arrives, unless that slot is paused. A paused, full queue drops
+  the arriving translation instead (leakage) rather than growing without bound or silently
+  discarding a caption the operator deliberately held.
+- Each queued caption can be **paused** (frozen in place until resumed; the remaining hold
+  time is preserved), **edited** (operator override text, re-moderated before it can reach
+  Live; the slot auto-pauses only once it reaches the front of the queue, and auto-resumes
+  on Submit), **cleared** (removed from the queue entirely), or **fast-forwarded** (shown
+  on Live immediately, ahead of its turn). These controls are separate from Pause/Resume,
+  Clear live caption, and quick block above: pausing the service or clearing Live does not
+  touch queued buffer content, and clearing one queued caption does not affect the others.
+- A **Beta** "review buffer" action sends the queued captions' current text, plus the
+  caption currently on Live for context, to a separate, bounded model call that may revise
+  only the queued text for continuity; it never touches Live and never retranslates from
+  source. The whole queue is held for the duration of that call and released afterward,
+  independent of any slot separately paused by hand. Revised text passes through the same
+  public filter and glossary rules as any other caption before it can replace a slot. This
+  call is capped at 30 per service, separately from the 900-request transcription ceiling,
+  since it is operator-triggered rather than one call per audio chunk.
+- Output buffer count and delay are not yet saved to the operator's account; they reset to
+  the default (1 slot, Auto) on the next visit.
 
 ### Caption display, OBS, and mobile viewing
 
@@ -439,6 +487,13 @@ Code-level acceptance:
 - A preferred term can affect transcription guidance and translated output.
 - A configured mask changes public output without changing the protected source preview.
 - Style changes reach a connected overlay without restarting the service.
+- An output buffer of 1 or 2 slots holds a moderated caption before Live; None publishes
+  immediately as before. A full, unpaused queue force-advances to admit a new caption; a
+  full, paused queue drops the incoming one instead. Pause freezes a slot's remaining hold
+  time; Clear removes one slot only; Fast-forward publishes a slot immediately regardless of
+  position. An edited slot cannot reach Live unmoderated, and auto-pauses only once it
+  reaches the front of the queue. The Beta review call revises only queued text, never Live,
+  and is capped independently of the transcription ceiling.
 - Appearance controls update the dashboard design preview continuously before Save.
 - Setup separates navigation and the selected settings page from collapsible service
   controls. The output monitor renders the real 1920 × 1080 canvas scaled to the card and

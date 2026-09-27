@@ -9,10 +9,10 @@ physical-device, provider-output or semantic acceptance.
 
 | Component | Responsibility |
 | --- | --- |
-| Capture browser | Audio selection, 6/9/12/15/18-second MediaRecorder chunks, two-chunk queue, source preview, terminology, moderation, controls and same-tab recovery |
-| Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
+| Capture browser | Audio selection, 6/9/12/15/18-second MediaRecorder chunks, two-chunk queue, source preview, terminology, moderation, output buffer queue, controls and same-tab recovery |
+| Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription, translation and buffer-review handlers |
 | `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
-| `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
+| `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, buffer-review admission, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
 | `SermonJournal` | One service's source/corrections/exclusions, reader paragraphs, operator notes, lifecycle checkpoints and manual summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
 | `OperatorPreferences` | One object per hashed Access email: theme, sidebar width, saved prompt, summary defaults, caption style, default translation setup and tutorial dismissal |
@@ -73,6 +73,7 @@ still consumes its claim; it cannot be replayed to spend again.
 | --- | --- | --- |
 | `GET /api/ai/health`, `POST /api/ai/readiness` | Access (readiness) | Configured models; readiness also checks Groq model availability |
 | `POST /api/ai/transcribe`, `POST /api/ai/translate` | Access + controller + attempt claim | Live inference; 3 MB audio + 16 KB fields, 32,000-byte JSON |
+| `POST /api/ai/buffer-review` | Access + controller (no attempt claim; own bounded counter) | Beta: revises queued output-buffer captions for continuity with Live; never retranslates or touches Live; 16,000-byte JSON |
 | `GET`/`POST /api/live/channel` | Access | Read or create the Main channel |
 | `POST /api/live/channel/service`, `DELETE …/service` | Access | Start/takeover and End |
 | `POST …/lease`, `POST …/caption` | Access + controller | Reserve an attempt; publish one moderated caption (8,192 bytes) |
@@ -215,6 +216,19 @@ Masking uses native word boundaries for Han/Hiragana/Katakana and Unicode whole-
 matching elsewhere. Missing required segmentation blocks publication. Neither prompts,
 filters, nor successful finish reasons establish semantic faithfulness.
 
+Beta output-buffer review (`"buffer-review"` stage) reuses the same Groq translation model
+with its own immutable, non-operator-editable prompt (`src/ai/buffer-review-prompt.ts`) and
+a `response_format: json_object` request. It receives the current Live caption as read-only
+context plus at most two queued captions (2,000 characters each) and returns a revision per
+queued id; a missing or malformed revision, or one for an unrequested id, makes the whole
+call incomplete rather than partially applied. It is admitted through `meteredGroq` like
+transcription/translation for usage-ledger accounting, but the room gates dispatch with its
+own `bufferReviewRequests` counter and `MAX_BUFFER_REVIEW_REQUESTS` (30 per service) ceiling
+instead of an attempt claim, since it is operator-triggered rather than one call per chunk;
+see [ADR 0016](decisions/0016-client-side-output-buffer-and-beta-review.md). The client
+re-applies glossary and public moderation to every returned revision before it can replace
+queued text.
+
 Optional Workers AI requires `CAPTION_OPTIONAL_AI_ENABLED=true`. Reader uses Llama 3.1
 8B FP8; summaries allow that model or Llama 3.3 70B FP8 Fast. Summary stages use bounded
 source sections (about 10 KB) and evidence notes (at most 14 KB), then synthesis.
@@ -238,6 +252,7 @@ IDs each.
 | `controller_replaced`, `service_paused`, `caption_cleared`, `translation_session_refreshed`, `{stage}_attempt_used` | 409 | Stale controller, paused service, superseded caption, stale settings revision, or reused claim |
 | `invalid_{stage}_attempt` | 400 | Malformed or unreserved attempt |
 | `transcription_limit_reached` | 429 | 900 reserved attempts exhausted; usage admission may also return 409/429 |
+| `buffer_review_limit_reached` | 429 | 30 Beta buffer-review calls exhausted for the service |
 | `service_inactive` | 410 | Ended or expired service; reader links return 403/410 |
 | `invalid_overlay_key`, `invalid_viewer_key` | 401 (503 when the OBS credential cannot be decrypted) | Wrong-purpose or revoked token |
 | `translation_incomplete` | 422 | Provider output skipped; usage retained |
@@ -248,6 +263,8 @@ IDs each.
 Services allow 90 minutes, 900 reserved transcription attempts and 1,400 caption events.
 At most one translation follows an eligible chunk. The latest viewer allows 250 sockets.
 Two queued audio chunks bound backlog; additional chunks are dropped with operator feedback.
+The client-side output buffer holds at most 2 slots; Beta review calls are capped at 30 per
+service, independent of the transcription ceiling.
 
 Reader/summary calls are capped at 200/60 per service. The ledger conservatively reserves
 up to 9,000 estimated neurons per UTC day, including a 6,000 reader ceiling. Reservations

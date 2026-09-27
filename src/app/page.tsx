@@ -49,6 +49,13 @@ import {
   type ChannelStatus,
   type RecordingWindowMs,
 } from "@/live/contracts";
+import {
+  DEFAULT_OUTPUT_BUFFER_COUNT,
+  DEFAULT_OUTPUT_BUFFER_DELAY,
+  type OutputBufferCount,
+  type OutputBufferDelayMs,
+} from "@/live/output-buffer";
+import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { startSerialPolling } from "@/live/serial-polling";
 import { THEME_PREFERENCE_KEY, applyTheme, normalizeTheme, readStoredTheme, type ThemePreference } from "@/live/theme";
@@ -476,6 +483,12 @@ export default function OperatorDashboard() {
   const [recordingWindowMs, setRecordingWindowMs] = useState<RecordingWindowMs>(
     DEFAULT_RECORDING_WINDOW_MS,
   );
+  const [outputBufferCount, setOutputBufferCount] = useState<OutputBufferCount>(
+    DEFAULT_OUTPUT_BUFFER_COUNT,
+  );
+  const [outputBufferDelay, setOutputBufferDelay] = useState<OutputBufferDelayMs>(
+    DEFAULT_OUTPUT_BUFFER_DELAY,
+  );
   const [translationSystemPrompt, setTranslationSystemPrompt] = useState(
     DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   );
@@ -558,8 +571,10 @@ export default function OperatorDashboard() {
       ...draftTranslationSettings,
       style,
       saveHistory,
+      outputBufferCount,
+      outputBufferDelay,
     }),
-    [draftTranslationSettings, style, saveHistory],
+    [draftTranslationSettings, style, saveHistory, outputBufferCount, outputBufferDelay],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {
@@ -598,6 +613,16 @@ export default function OperatorDashboard() {
     refreshTranslationSession,
     stopSession,
     reloadChannel,
+    outputBufferQueue,
+    setOutputBufferEntryPaused,
+    clearOutputBufferEntry,
+    fastForwardOutputBufferEntry,
+    beginOutputBufferEdit,
+    updateOutputBufferEditDraft,
+    cancelOutputBufferEdit,
+    submitOutputBufferEdit,
+    bufferReview,
+    requestOutputBufferReview,
   } = useLiveCaptionSession(liveSettings);
   const activeTranslationSettingsFingerprint = useMemo(
     () =>
@@ -1886,6 +1911,25 @@ export default function OperatorDashboard() {
                 <section className="outputMonitorSection" aria-label="Output monitor">
                   {outputMonitor}
                   <p className="helpText">OBS and the latest viewer mirror this caption without extra AI calls. The reader appends shared paragraphs about 30 seconds later.</p>
+                  {hasService ? (
+                    <OutputBufferPanel
+                      count={outputBufferCount}
+                      delay={outputBufferDelay}
+                      onCountChange={setOutputBufferCount}
+                      onDelayChange={setOutputBufferDelay}
+                      queue={outputBufferQueue}
+                      disabled={isBusy}
+                      onPause={setOutputBufferEntryPaused}
+                      onClear={clearOutputBufferEntry}
+                      onFastForward={fastForwardOutputBufferEntry}
+                      onBeginEdit={beginOutputBufferEdit}
+                      onEditDraftChange={updateOutputBufferEditDraft}
+                      onCancelEdit={cancelOutputBufferEdit}
+                      onSubmitEdit={submitOutputBufferEdit}
+                      review={bufferReview}
+                      onRequestReview={() => void requestOutputBufferReview()}
+                    />
+                  ) : null}
                   {anotherOperatorActive ? (
                     <p className="privacyNote" role="status">
                       {runningOperator ? `${runningOperator} is running this service. ` : ""}

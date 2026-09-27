@@ -1,5 +1,11 @@
-import { MAX_TRANSLATION_COMPLETION_TOKENS } from "@/ai/contracts";
+import {
+  MAX_BUFFER_REVIEW_COMPLETION_TOKENS,
+  MAX_TRANSLATION_COMPLETION_TOKENS,
+} from "@/ai/contracts";
 import type {
+  BufferReviewEntry,
+  BufferReviewRequest,
+  BufferReviewResult,
   LlmProviderRateLimitSnapshot,
   TranscriptSegment,
   TranslationRequest,
@@ -13,6 +19,7 @@ import {
   buildTranslationEnvelopeRules,
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
+import { buildBufferReviewMessages } from "@/ai/buffer-review-prompt";
 import { buildEnvelopeSystemMessage, buildUntrustedDataMessage } from "@/ai/prompt-envelope";
 import { outputLooksUnsafe } from "@/ai/output-guard";
 import {
@@ -326,6 +333,76 @@ export async function translateWithGroq(
 
   return {
     text: incomplete ? "" : text,
+    ...(incomplete ? { incomplete: true as const } : {}),
+    ...(usage ? { usage } : {}),
+    ...(rateLimit ? { rateLimit } : {}),
+  };
+}
+
+interface GroqBufferReviewPayload {
+  revisions?: Array<{ id?: unknown; text?: unknown }>;
+}
+
+export async function reviewBufferWithGroq(
+  request: BufferReviewRequest,
+  signal?: AbortSignal,
+  telemetry?: ProviderTelemetry,
+): Promise<BufferReviewResult> {
+  if (!isLanguageLocale(request.targetLanguage)) {
+    throw new GroqProviderError("Unsupported language selection.", 400);
+  }
+
+  const model = translationModel();
+  const response = await groqFetch("/chat/completions", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      model,
+      messages: buildBufferReviewMessages(request),
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      ...(model.startsWith("openai/gpt-oss-")
+        ? { reasoning_effort: "low" }
+        : {}),
+      max_completion_tokens: MAX_BUFFER_REVIEW_COMPLETION_TOKENS,
+    }),
+    signal,
+  }, model, telemetry);
+  const payload = (await response.json()) as GroqChatResponse;
+  const choice = payload.choices?.[0];
+  const content = typeof choice?.message?.content === "string" ? choice.message.content.trim() : "";
+
+  const usage = normalizeLlmTokenUsage({
+    promptTokens: payload.usage?.prompt_tokens,
+    completionTokens: payload.usage?.completion_tokens,
+    totalTokens: payload.usage?.total_tokens,
+  });
+  const rateLimit = providerRateLimitFromHeaders(response.headers, model);
+  if (telemetry && usage) telemetry.tokens = usage;
+
+  const expectedIds = new Set(request.entries.map((entry) => entry.id));
+  let incomplete = choice?.finish_reason !== "stop" || !content;
+  let revisions: BufferReviewEntry[] = [];
+  if (!incomplete) {
+    try {
+      const parsed = JSON.parse(content) as GroqBufferReviewPayload;
+      revisions = (parsed.revisions ?? [])
+        .filter(
+          (entry): entry is { id: string; text: string } =>
+            typeof entry?.id === "string" &&
+            typeof entry?.text === "string" &&
+            expectedIds.has(entry.id) &&
+            !outputLooksUnsafe(entry.text),
+        )
+        .map((entry) => ({ id: entry.id, text: entry.text.trim() }));
+      incomplete = revisions.length !== request.entries.length;
+    } catch {
+      incomplete = true;
+    }
+  }
+
+  return {
+    revisions: incomplete ? [] : revisions,
     ...(incomplete ? { incomplete: true as const } : {}),
     ...(usage ? { usage } : {}),
     ...(rateLimit ? { rateLimit } : {}),

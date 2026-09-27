@@ -985,6 +985,92 @@ input[type="color"] {
   overflow-wrap: anywhere;
 }
 
+.outputBufferPanel {
+  margin-top: var(--space-3);
+  display: grid;
+  gap: var(--gap-sm);
+}
+
+.outputBufferQueue {
+  display: grid;
+  gap: var(--gap-sm);
+}
+
+.outputBufferQueueHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-sm);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.outputBufferQueueHeader .compactButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.outputBufferQueueHeader svg {
+  width: 16px;
+  height: 16px;
+}
+
+.outputBufferSlots {
+  display: grid;
+  gap: var(--gap-sm);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.outputBufferSlotGlow {
+  border-radius: var(--radius-md);
+}
+
+.outputBufferSlot {
+  display: grid;
+  gap: var(--space-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: var(--gap-md);
+  background: var(--surface-muted);
+}
+
+.outputBufferSlotHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-sm);
+}
+
+.outputBufferSlotStatus {
+  font-size: var(--text-sm);
+  color: var(--accent);
+  font-weight: var(--weight-bold);
+}
+
+.outputBufferSlotText {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.outputBufferSlotActions {
+  display: flex;
+  gap: var(--gap-sm);
+  flex-wrap: wrap;
+}
+
+.outputBufferSlotActions .compactButton {
+  min-width: 0;
+  padding-inline: var(--gap-md);
+}
+
+.outputBufferSlotActions svg {
+  width: 18px;
+  height: 18px;
+}
+
 .credentialDisclosure summary {
   min-height: var(--control-height);
   padding: var(--space-1) 0;
