@@ -77,8 +77,22 @@ shipped, addressing both directly.
   service (re)starts. `MAX_BUFFER_REVIEW_ENTRIES` (4) matches the backing capacity, with
   matching completion-token and request-byte budgets. Revised text is re-run through the
   same glossary/moderation pipeline as any other public caption before it replaces an
-  entry's text, and an entry the operator is actively hand-editing is never overwritten by
-  a review result.
+  entry's text. `applyReviewResults` refuses a revision for an entry that is being
+  hand-edited *or* whose text no longer matches what was actually sent for review
+  (`requestedFrom`) — a plain "is it editing right now" check is not enough, since an
+  edit can be submitted while the call is still in flight, and a stale revision must not
+  clobber a newer, already-submitted correction. The four per-caption controls
+  (Pause/Resume, Edit, Fast-forward, Clear) are disabled in the UI while a review is
+  pending, both to avoid that race in practice and so the operator isn't acting on a
+  caption the review call currently has a hold on; Cancel/Submit for an edit already open
+  before the review started stay enabled, since blocking them would trap that edit open
+  until the call resolves.
+- Turning the buffer off or shrinking it discards any unsubmitted edit draft on a flushed
+  entry — the flush publishes each entry's committed `publicText`, never `editedDraft` —
+  and does not wait for a pending Beta review; a response that arrives afterward for an
+  already-flushed entry is a safe no-op. `enqueueTranslation` treats a non-positive
+  capacity as an unconditional drop rather than assuming a caller never passes one, since
+  its capacity parameter is a plain number decoupled from the on/off setting.
 - The tooltip states outright that a full, paused/edited buffer drops further captions,
   rather than leaving that as an implementation detail an operator could discover only by
   losing content.

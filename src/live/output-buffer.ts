@@ -119,13 +119,15 @@ export interface EnqueueOutcome {
   dropped: boolean;
 }
 
-/** Admits a translated caption into a queue of the given capacity. */
+/** Admits a translated caption into a queue of the given capacity (0 always drops). */
 export function enqueueTranslation(
   queue: OutputBufferQueueState,
   count: number,
   candidate: NewOutputBufferEntry,
   now: number,
 ): EnqueueOutcome {
+  if (count <= 0) return { queue, publishNow: [], dropped: true };
+
   const entry: OutputBufferEntry = {
     ...candidate,
     originalPublicText: candidate.publicText,
@@ -264,15 +266,22 @@ export function endReview(queue: OutputBufferQueueState, now: number): OutputBuf
   return applyFrontEditGuard(released, now);
 }
 
-/** Applies Beta model revisions (already moderated by the caller) by entry id; never overwrites an entry the operator is hand-editing. */
+/**
+ * Applies Beta model revisions (already moderated by the caller) by entry id. Skips an
+ * entry currently being hand-edited, and skips one whose text no longer matches what was
+ * actually sent for review (`requestedFrom`) — it was submitted or otherwise changed while
+ * the call was in flight, so the revision is stale and must not clobber the newer text.
+ */
 export function applyReviewResults(
   queue: OutputBufferQueueState,
   revisions: ReadonlyMap<string, string>,
+  requestedFrom: ReadonlyMap<string, string>,
 ): OutputBufferQueueState {
   return {
     entries: queue.entries.map((entry) => {
       const revised = revisions.get(entry.id);
       if (revised === undefined || entry.editing) return entry;
+      if (entry.publicText !== requestedFrom.get(entry.id)) return entry;
       return { ...entry, publicText: revised, revisedByModel: true };
     }),
   };

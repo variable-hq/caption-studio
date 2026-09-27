@@ -59,6 +59,7 @@ export function OutputBufferPanel({
   const front = queue.entries[0] ?? null;
   const atCapacity = queue.entries.length >= OUTPUT_BUFFER_BACKING_CAPACITY;
   const frontHeld = front ? isOutputBufferEntryPaused(front) : false;
+  const frontActionsDisabled = disabled || review.busy;
   const frontStatus = !front
     ? ""
     : front.pausedForReview
@@ -184,7 +185,7 @@ export function OutputBufferPanel({
                         className="secondaryButton compactButton"
                         title={front.manuallyPaused ? "Resume" : "Pause"}
                         aria-label={front.manuallyPaused ? "Resume this queued caption" : "Pause this queued caption"}
-                        disabled={disabled}
+                        disabled={frontActionsDisabled}
                         onClick={() => onPause(front.id, !front.manuallyPaused)}
                       >
                         <DashboardIcon name={front.manuallyPaused ? "play" : "pause"} />
@@ -194,7 +195,7 @@ export function OutputBufferPanel({
                         className="secondaryButton compactButton"
                         title="Edit"
                         aria-label="Edit this queued caption"
-                        disabled={disabled}
+                        disabled={frontActionsDisabled}
                         onClick={() => onBeginEdit(front.id)}
                       >
                         <DashboardIcon name="edit" />
@@ -204,7 +205,7 @@ export function OutputBufferPanel({
                         className="secondaryButton compactButton"
                         title="Fast-forward to Live"
                         aria-label="Fast-forward this queued caption to Live"
-                        disabled={disabled}
+                        disabled={frontActionsDisabled}
                         onClick={() => onFastForward(front.id)}
                       >
                         <DashboardIcon name="fastForward" />
@@ -214,7 +215,7 @@ export function OutputBufferPanel({
                         className="dangerButton compactButton"
                         title="Clear"
                         aria-label="Clear this queued caption"
-                        disabled={disabled}
+                        disabled={frontActionsDisabled}
                         onClick={() => onClear(front.id)}
                       >
                         <DashboardIcon name="trash" />

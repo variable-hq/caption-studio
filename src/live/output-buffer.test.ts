@@ -64,6 +64,12 @@ describe("normalizeOutputBufferCount / outputBufferCapacity", () => {
 });
 
 describe("enqueueTranslation", () => {
+  it("always drops when capacity is zero or negative, even on an empty queue", () => {
+    const outcome = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 0, candidate("a", "Hi"), 0);
+    expect(outcome.dropped).toBe(true);
+    expect(outcome.queue).toEqual(EMPTY_OUTPUT_BUFFER_QUEUE);
+  });
+
   it("admits entries up to capacity with a flat dwell time", () => {
     const { queue, publishNow, dropped } = enqueueTranslation(
       EMPTY_OUTPUT_BUFFER_QUEUE,
@@ -194,6 +200,14 @@ describe("edit lifecycle", () => {
     expect(queue.entries[0].editing).toBe(false);
     expect(isOutputBufferEntryPaused(queue.entries[0])).toBe(false);
   });
+
+  it("never changes publicText from an unsubmitted draft, so a flush publishes only committed text", () => {
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
+    queue = beginEdit(queue, "a", 100);
+    queue = updateEditDraft(queue, "a", "an unsaved correction");
+    expect(queue.entries[0].editedDraft).toBe("an unsaved correction");
+    expect(queue.entries[0].publicText).toBe("Hi");
+  });
 });
 
 describe("clear and fast-forward", () => {
@@ -222,7 +236,8 @@ describe("beta review", () => {
     queue = beginReview(queue, 100);
     expect(queue.entries.every(isOutputBufferEntryPaused)).toBe(true);
 
-    queue = applyReviewResults(queue, new Map([["a", "Hi (revised)"], ["b", "There (revised)"]]));
+    const requestedFrom = new Map([["a", "Hi"], ["b", "There"]]);
+    queue = applyReviewResults(queue, new Map([["a", "Hi (revised)"], ["b", "There (revised)"]]), requestedFrom);
     expect(queue.entries[0].publicText).toBe("Hi (revised)");
     expect(queue.entries[0].revisedByModel).toBe(true);
 
@@ -235,8 +250,25 @@ describe("beta review", () => {
   it("never overwrites an entry the operator is actively hand-editing", () => {
     let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
     queue = beginEdit(queue, "a", 10);
-    queue = applyReviewResults(queue, new Map([["a", "Model revision"]]));
+    queue = applyReviewResults(queue, new Map([["a", "Model revision"]]), new Map([["a", "Hi"]]));
     expect(queue.entries[0].publicText).toBe("Hi");
+    expect(queue.entries[0].revisedByModel).toBe(false);
+  });
+
+  it("never applies a stale revision if the entry was edited and submitted while the review was in flight", () => {
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
+    const requestedFrom = new Map([["a", "Hi"]]); // snapshot taken when the review started
+    queue = beginReview(queue, 100);
+
+    // The operator edits and submits a correction while the model call is still pending.
+    queue = beginEdit(queue, "a", 200);
+    queue = updateEditDraft(queue, "a", "Grace");
+    queue = submitEdit(queue, "a", "Grace", 300);
+    expect(queue.entries[0].publicText).toBe("Grace");
+
+    // The response finally arrives, carrying a revision computed from the old "Hi" text.
+    queue = applyReviewResults(queue, new Map([["a", "Hi (revised)"]]), requestedFrom);
+    expect(queue.entries[0].publicText).toBe("Grace");
     expect(queue.entries[0].revisedByModel).toBe(false);
   });
 });

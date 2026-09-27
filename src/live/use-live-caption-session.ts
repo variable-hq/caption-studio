@@ -2116,6 +2116,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       if (!response.ok || !payload?.revisions) {
         throw new Error(payload?.error ?? "Buffer review failed.");
       }
+      const requestedFrom = new Map(started.entries.map((entry) => [entry.id, entry.publicText]));
       const effectiveFilterText = combineFilterText(
         quickBlockEntriesRef.current,
         current.filterText,
@@ -2128,7 +2129,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           applyModeration(text, moderationRules, current.targetLanguage).publicText,
         ]),
       );
-      outputBufferQueueRef.current = applyReviewResults(outputBufferQueueRef.current, revisions);
+      outputBufferQueueRef.current = applyReviewResults(outputBufferQueueRef.current, revisions, requestedFrom);
       setOutputBufferQueue(outputBufferQueueRef.current);
       setBufferReview({ busy: false, message: "Buffer reviewed for continuity." });
     } catch (error) {
