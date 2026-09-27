@@ -1840,6 +1840,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     setControlAction("clear");
     const wasCapturing = capturingRef.current;
     stopTranslationCapture();
+    resetOutputBuffer();
     recentContextRef.current = [];
     try {
       await liveClientRef.current.control(
@@ -1877,7 +1878,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     } finally {
       setControlAction(null);
     }
-  }, [handleTakenOver, liveState.channel?.configured, startRecorder, stopTranslationCapture, stopCapture]);
+  }, [handleTakenOver, liveState.channel?.configured, resetOutputBuffer, startRecorder, stopTranslationCapture, stopCapture]);
 
   const showTestCaption = useCallback(async () => {
     if (!liveState.channel?.configured || liveState.status === "live") return;
@@ -2052,7 +2053,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const submitOutputBufferEdit = useCallback((id: string) => {
     const entry = outputBufferQueueRef.current.entries.find((item) => item.id === id);
     if (!entry || entry.editedDraft === null) return;
-    const current = settingsRef.current;
+    // Re-moderate against the confirmed session settings, the same source every other
+    // publish path uses, not the live draft form (which can hold an unconfirmed change).
+    const current = activeTranslationSettingsRef.current ?? settingsRef.current;
     const effectiveFilterText = combineFilterText(
       quickBlockEntriesRef.current,
       current.filterText,

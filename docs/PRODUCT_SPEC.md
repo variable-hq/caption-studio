@@ -93,7 +93,7 @@ translation setting, requests no microphone permission, and never starts a servi
 7. OBS reconnects after temporary channel loss and receives the latest caption.
 8. The operator can Pause capture and AI without changing the OBS URL or expiry, Clear
    the current public caption, or show a localized synthetic test while paused. Pausing
-   also clears the output buffer queue.
+   or clearing the current caption also clears the output buffer queue.
 9. A second operator is blocked unless they explicitly confirm takeover. Takeover clears
    OBS, replaces controller ownership, and causes stale operations to stop the old mic.
 10. The operator can copy a separate mobile link. A viewer receives only current
@@ -237,7 +237,7 @@ and prompt snapshot is held in that tab's unencrypted `sessionStorage` solely fo
 recovery and removed on End, takeover, or idle cleanup. The active prompt is sent through
 the protected inference path to Groq, but the live translation prompt is not sent to OBS/viewer clients or stored in the room.
 The output buffer queue is likewise only ever held in that tab's React state; it is never
-written to `sessionStorage`, `localStorage`, or the room, and is discarded on Pause,
+written to `sessionStorage`, `localStorage`, or the room, and is discarded on Pause, Clear,
 refresh, takeover, or End.
 The journal receives bounded glossary/filter snapshots to process public reader paragraphs;
 with saving on, its pending-work checkpoint persists that context while needed. Operators must not enter credentials
@@ -289,11 +289,11 @@ duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md).
   appears once the backlog is full and the next-up caption is held, since that is the
   specific state in which the next translation would be dropped.
 - The next-up caption can be **paused** (frozen; remaining hold time preserved), **edited**
-  (operator override, re-moderated before it can reach Live; auto-resumes on Submit),
-  **cleared** (removed from the queue), or **fast-forwarded** (shown on Live immediately).
-  These are separate from Pause/Resume, Clear live caption, and quick block above: pausing
-  the service discards the whole buffer, the same as a translation refresh, takeover, or
-  End; clearing the current Live caption does not.
+  (operator override, re-moderated against the confirmed session filter before it can reach
+  Live; auto-resumes on Submit), **cleared** (removed from the queue), or **fast-forwarded**
+  (shown on Live immediately). These are separate from the quick block above: pausing the
+  service, clearing the current Live caption, a translation refresh, takeover, and End all
+  discard the whole buffer.
 - **Save as my default** stores the On/Off choice with the operator's account, the same
   way the Translation page saves its default setup; new services start from it.
 

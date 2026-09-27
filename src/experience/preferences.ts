@@ -1,6 +1,6 @@
 import type { SummaryOptions } from "@/experience/contracts";
 import { normalizeSummaryOptions } from "@/experience/summary-defaults";
-import { normalizeCaptionStyle, type CaptionStyle } from "@/live/contracts";
+import { normalizeCaptionStyle, type CaptionStyle, type RecordingWindowMs } from "@/live/contracts";
 import {
   normalizeOutputBufferCount,
   type OutputBufferCount,
@@ -68,7 +68,15 @@ function normalizePrompt(value: unknown) {
 
 function normalizeTranslationDefaults(value: unknown): TranslationDefaults | null {
   if (!value || typeof value !== "object") return null;
-  const settings = normalizeTranslationSessionSettings(value as Partial<TranslationSessionSettings>);
+  const record = value as Partial<TranslationSessionSettings> & { speechBufferMs?: unknown };
+  // A default saved before the recordingWindowMs rename (see the "recording window" ADR)
+  // is still on disk under the old key; without this, reading it back silently drops the
+  // operator's chosen value to the default the moment any preference is next saved.
+  const migrated =
+    record.recordingWindowMs === undefined && "speechBufferMs" in record
+      ? { ...record, recordingWindowMs: record.speechBufferMs as RecordingWindowMs }
+      : record;
+  const settings = normalizeTranslationSessionSettings(migrated);
   return {
     sourceLanguage: settings.sourceLanguage,
     targetLanguage: settings.targetLanguage,
