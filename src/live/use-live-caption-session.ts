@@ -164,6 +164,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const translationRefreshRequestIdRef = useRef<string | null>(null);
   const quickBlockEntriesRef = useRef<QuickBlockEntry[]>([]);
   const outputBufferQueueRef = useRef<OutputBufferQueueState>(EMPTY_OUTPUT_BUFFER_QUEUE);
+  // Bumped every time the buffer is discarded (pause/refresh/takeover/End), so an in-flight
+  // async flush of force-published entries (see the capacity-shrink effect) can tell that the
+  // session moved on mid-loop and stop, instead of publishing the rest of a stale backlog.
+  const outputBufferGenerationRef = useRef(0);
   const previousOutputBufferCapacityRef = useRef(outputBufferCapacity(settings.outputBufferCount));
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -196,6 +200,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
 
   const resetOutputBuffer = useCallback(() => {
+    outputBufferGenerationRef.current += 1;
     outputBufferQueueRef.current = EMPTY_OUTPUT_BUFFER_QUEUE;
     setOutputBufferQueue(EMPTY_OUTPUT_BUFFER_QUEUE);
   }, []);
@@ -799,6 +804,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           if (error instanceof LiveApiError && error.code === "caption_cleared") continue;
           if ((error instanceof LiveApiError || error instanceof CloudProviderClientError) && error.code === "service_paused") {
             stopCapture();
+            resetOutputBuffer();
             setLiveState((state) => ({ ...state, status: "paused", latestPublicText: "", latestPublicAt: null, latestSourceText: "", message: "Paused from the remote control." }));
             break;
           }
@@ -847,6 +853,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     endService,
     handleTakenOver,
     processChunk,
+    resetOutputBuffer,
     stopCapture,
     reconcileExternalTranslationRevision,
   ]);
@@ -1991,7 +1998,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     outputBufferQueueRef.current = kept;
     setOutputBufferQueue(kept);
     void (async () => {
+      // If publishing one entry reveals the session paused/refreshed/ended (resetOutputBuffer
+      // runs as part of handling that), stop rather than keep force-publishing the rest of a
+      // backlog that no longer should exist.
+      const flushGeneration = outputBufferGenerationRef.current;
       for (const entry of excess) {
+        if (outputBufferGenerationRef.current !== flushGeneration) return;
         await publishBufferedEntry(entry);
       }
     })();

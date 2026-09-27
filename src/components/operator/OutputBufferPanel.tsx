@@ -114,7 +114,7 @@ export function OutputBufferPanel({
           {!front ? (
             <p className="previewEmpty">Nothing queued. New translations will land here first.</p>
           ) : (
-            <BorderGlow className="outputBufferSlotGlow" pending={isOutputBufferEntryPaused(front)}>
+            <BorderGlow className="outputBufferSlotGlow" pending={frontHeld}>
               <article className="outputBufferSlot" aria-label="Next queued caption">
                 {frontStatus ? (
                   <div className="outputBufferSlotHeader">
@@ -129,6 +129,7 @@ export function OutputBufferPanel({
                       rows={2}
                       maxLength={MAX_MANUAL_CAPTION_CHARS}
                       value={front.editedDraft ?? ""}
+                      disabled={disabled}
                       onChange={(event) => onEditDraftChange(front.id, event.target.value)}
                     />
                     <div className="outputBufferSlotActions">
@@ -137,6 +138,7 @@ export function OutputBufferPanel({
                         className="secondaryButton compactButton"
                         title="Cancel edit"
                         aria-label="Cancel edit"
+                        disabled={disabled}
                         onClick={() => onCancelEdit(front.id)}
                       >
                         <DashboardIcon name="close" />
@@ -146,6 +148,7 @@ export function OutputBufferPanel({
                         className="primaryButton compactButton"
                         title="Submit edit"
                         aria-label="Submit edit"
+                        disabled={disabled}
                         onClick={() => onSubmitEdit(front.id)}
                       >
                         <DashboardIcon name="check" />

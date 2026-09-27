@@ -31,7 +31,6 @@ export interface OutputBufferEntry {
   id: string;
   sourceText: string;
   targetLanguage: LanguageLocale;
-  originalPublicText: string;
   publicText: string;
   editedDraft: string | null;
   editing: boolean;
@@ -123,7 +122,6 @@ export function enqueueTranslation(
 
   const entry: OutputBufferEntry = {
     ...candidate,
-    originalPublicText: candidate.publicText,
     editedDraft: null,
     editing: false,
     manuallyPaused: false,
