@@ -249,4 +249,3 @@ describe("clear and fast-forward", () => {
     expect(outcome.queue.entries.map((entry) => entry.id)).toEqual(["a"]);
   });
 });
-
