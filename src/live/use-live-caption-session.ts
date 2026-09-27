@@ -55,7 +55,6 @@ import {
   type TranslationSessionSettings,
 } from "@/live/translation-settings";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
-import { applyModeration } from "@/pipeline/moderation";
 import { keywordHints } from "@/pipeline/glossary";
 import { experienceRequest } from "@/experience/client";
 import { startSerialPolling } from "@/live/serial-polling";
@@ -548,8 +547,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     async (entry: OutputBufferEntry) => {
       const service = serviceRef.current;
       if (!service) return;
+      // Also requires the buffer generation to be unchanged, since Pause/Clear/refresh/
+      // takeover/End all discard it via resetOutputBuffer without changing controllerToken.
+      const bufferGeneration = outputBufferGenerationRef.current;
       const isStillCurrentService = () =>
-        serviceRef.current?.controllerToken === service.controllerToken;
+        serviceRef.current?.controllerToken === service.controllerToken &&
+        outputBufferGenerationRef.current === bufferGeneration;
       try {
         const published = await liveClientRef.current.publish(service.controllerToken, {
           ...entry.request,
@@ -558,9 +561,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         if (!isStillCurrentService()) return;
         setLiveState((state) => ({
           ...state,
-          message: entry.publicText
-            ? "Caption published to the OBS overlay."
-            : "A filtered caption was hidden from the public overlay.",
+          message: entry.hidden
+            ? "A filtered caption was hidden from the public overlay."
+            : "Caption published to the OBS overlay.",
           sequence: published.sequence,
           historyIncomplete: state.historyIncomplete || published.historyIncomplete === true,
           latestSourceText: entry.sourceText,
@@ -593,13 +596,24 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           reconcileExternalTranslationRevision(error.translationRevision);
           return;
         }
-        setLiveState((state) => ({
-          ...state,
-          message: error instanceof Error ? error.message : "Buffered caption publish failed.",
-        }));
+        // Mirror drainQueue's escalation for the equivalent non-buffered publish failure.
+        const message = error instanceof Error ? error.message : "Buffered caption publish failed.";
+        if (service.saveHistory) {
+          setLiveState((state) => ({ ...state, historyIncomplete: true }));
+          void experienceRequest("gap", {}, service.controllerToken).catch(() => {});
+        }
+        if (
+          isTerminalInferenceControlError(error) ||
+          (error instanceof LiveApiError && error.code === "transcription_limit_reached") ||
+          /quota|expired|event limit|language could not be detected|authentication/i.test(message)
+        ) {
+          await endService(message, true);
+          return;
+        }
+        setLiveState((state) => ({ ...state, message }));
       }
     },
-    [handleTakenOver, reconcileExternalTranslationRevision, resetOutputBuffer, stopCapture],
+    [endService, handleTakenOver, reconcileExternalTranslationRevision, resetOutputBuffer, stopCapture],
   );
 
   const processChunk = useCallback(
@@ -768,14 +782,16 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           sourceText: forms.protectedSourceText,
           targetLanguage: current.targetLanguage,
           publicText: forms.publicText,
+          hidden: forms.hiddenFromPublicDisplay,
           request: event,
         },
         Date.now(),
       );
       outputBufferQueueRef.current = outcome.queue;
       setOutputBufferQueue(outcome.queue);
+      // Sequential, not concurrent, so force-advanced entries can't resolve out of order.
       for (const forced of outcome.publishNow) {
-        void publishBufferedEntry(forced);
+        await publishBufferedEntry(forced);
       }
       setLiveState((state) => ({
         ...state,
@@ -2053,23 +2069,26 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const submitOutputBufferEdit = useCallback((id: string) => {
     const entry = outputBufferQueueRef.current.entries.find((item) => item.id === id);
     if (!entry || entry.editedDraft === null) return;
-    // Re-moderate against the confirmed session settings, the same source every other
-    // publish path uses, not the live draft form (which can hold an unconfirmed change).
+    // Re-moderates against the confirmed session settings, not the unconfirmed draft.
     const current = activeTranslationSettingsRef.current ?? settingsRef.current;
     const effectiveFilterText = combineFilterText(
       quickBlockEntriesRef.current,
       current.filterText,
       MAX_FILTER_INPUT_CHARS,
     );
-    const moderation = applyModeration(
-      entry.editedDraft,
-      parseModerationInput(effectiveFilterText),
-      current.targetLanguage,
-    );
+    // Same glossary + moderation pass every other caption gets, via prepareCaptionForms.
+    const forms = prepareCaptionForms({
+      sourceText: entry.sourceText,
+      translatedText: entry.editedDraft,
+      targetLanguage: current.targetLanguage,
+      glossary: parseGlossaryInput(current.keywordText, current.targetLanguage),
+      moderationRules: parseModerationInput(effectiveFilterText),
+    });
     const next = submitOutputBufferEntryEdit(
       outputBufferQueueRef.current,
       id,
-      moderation.publicText,
+      forms.publicText,
+      forms.hiddenFromPublicDisplay,
       Date.now(),
     );
     outputBufferQueueRef.current = next;

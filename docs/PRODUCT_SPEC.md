@@ -289,11 +289,11 @@ duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md).
   appears once the backlog is full and the next-up caption is held, since that is the
   specific state in which the next translation would be dropped.
 - The next-up caption can be **paused** (frozen; remaining hold time preserved), **edited**
-  (operator override, re-moderated against the confirmed session filter before it can reach
-  Live; auto-resumes on Submit), **cleared** (removed from the queue), or **fast-forwarded**
-  (shown on Live immediately). These are separate from the quick block above: pausing the
-  service, clearing the current Live caption, a translation refresh, takeover, and End all
-  discard the whole buffer.
+  (operator override, put back through the same glossary and confirmed-filter moderation
+  as every other caption before it can reach Live; auto-resumes on Submit), **cleared**
+  (removed from the queue), or **fast-forwarded** (shown on Live immediately). These are
+  separate from the quick block above: pausing the service, clearing the current Live
+  caption, a translation refresh, takeover, and End all discard the whole buffer.
 - **Save as my default** stores the On/Off choice with the operator's account, the same
   way the Translation page saves its default setup; new services start from it.
 

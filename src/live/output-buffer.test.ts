@@ -42,6 +42,7 @@ function candidate(id: string, publicText: string): NewOutputBufferEntry {
     sourceText: `source ${id}`,
     targetLanguage: "en",
     publicText,
+    hidden: false,
     request: { ...REQUEST, publicText },
   };
 }
@@ -208,8 +209,9 @@ describe("edit lifecycle", () => {
     expect(tick(queue, 100_000).publish).toBeNull();
 
     queue = updateEditDraft(queue, "b", "Corrected");
-    queue = submitEdit(queue, "b", "Corrected", 5_000);
+    queue = submitEdit(queue, "b", "Corrected", false, 5_000);
     expect(queue.entries[0].publicText).toBe("Corrected");
+    expect(queue.entries[0].hidden).toBe(false);
     expect(queue.entries[0].editing).toBe(false);
     expect(isOutputBufferEntryPaused(queue.entries[0])).toBe(false);
   });
@@ -230,6 +232,15 @@ describe("edit lifecycle", () => {
     queue = updateEditDraft(queue, "a", "an unsaved correction");
     expect(queue.entries[0].editedDraft).toBe("an unsaved correction");
     expect(queue.entries[0].publicText).toBe("Hi");
+  });
+
+  it("records hidden as reported by the caller's moderation pass, not inferred from publicText", () => {
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
+    queue = beginEdit(queue, "a", 100);
+    queue = updateEditDraft(queue, "a", "blocked word");
+    queue = submitEdit(queue, "a", "", true, 200);
+    expect(queue.entries[0].publicText).toBe("");
+    expect(queue.entries[0].hidden).toBe(true);
   });
 });
 

@@ -32,6 +32,8 @@ export interface OutputBufferEntry {
   sourceText: string;
   targetLanguage: LanguageLocale;
   publicText: string;
+  /** Whether a filter hid `publicText`, vs. it happening to be empty for another reason. */
+  hidden: boolean;
   editedDraft: string | null;
   editing: boolean;
   /** Captured at translation time; publish uses `publicText` above in its place. */
@@ -100,7 +102,7 @@ function applyFrontEditGuard(queue: OutputBufferQueueState, now: number): Output
 
 export type NewOutputBufferEntry = Pick<
   OutputBufferEntry,
-  "id" | "sourceText" | "targetLanguage" | "publicText" | "request"
+  "id" | "sourceText" | "targetLanguage" | "publicText" | "hidden" | "request"
 >;
 
 export interface EnqueueOutcome {
@@ -231,6 +233,7 @@ export function submitEdit(
   queue: OutputBufferQueueState,
   id: string,
   finalPublicText: string,
+  finalHidden: boolean,
   now: number,
 ): OutputBufferQueueState {
   return mapEntry(queue, id, (entry) =>
@@ -240,6 +243,7 @@ export function submitEdit(
           editing: false,
           editedDraft: null,
           publicText: finalPublicText,
+          hidden: finalHidden,
         }
       : entry,
   );

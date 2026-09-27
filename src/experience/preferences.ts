@@ -69,9 +69,7 @@ function normalizePrompt(value: unknown) {
 function normalizeTranslationDefaults(value: unknown): TranslationDefaults | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Partial<TranslationSessionSettings> & { speechBufferMs?: unknown };
-  // A default saved before the recordingWindowMs rename (see the "recording window" ADR)
-  // is still on disk under the old key; without this, reading it back silently drops the
-  // operator's chosen value to the default the moment any preference is next saved.
+  // Migrates a default saved before the recordingWindowMs rename.
   const migrated =
     record.recordingWindowMs === undefined && "speechBufferMs" in record
       ? { ...record, recordingWindowMs: record.speechBufferMs as RecordingWindowMs }
