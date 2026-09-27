@@ -10,13 +10,13 @@ import {
   type SourceLanguage,
 } from "@/domain/languages";
 import {
-  DEFAULT_SPEECH_BUFFER_MS,
-  SPEECH_BUFFER_OPTIONS_MS,
-  normalizeSpeechBufferMs,
-  type SpeechBufferMs,
+  DEFAULT_RECORDING_WINDOW_MS,
+  RECORDING_WINDOW_OPTIONS_MS,
+  normalizeRecordingWindowMs,
+  type RecordingWindowMs,
 } from "@/live/contracts";
 
-const TRANSLATION_SETTINGS_STORAGE_VERSION = 2;
+const TRANSLATION_SETTINGS_STORAGE_VERSION = 3;
 export const MAX_TERMINOLOGY_INPUT_CHARS = 8_000;
 export const MAX_FILTER_INPUT_CHARS = 4_000;
 
@@ -25,7 +25,7 @@ export interface TranslationSessionSettings {
   targetLanguage: LanguageLocale;
   keywordText: string;
   filterText: string;
-  speechBufferMs: SpeechBufferMs;
+  recordingWindowMs: RecordingWindowMs;
   translationSystemPrompt: string;
 }
 
@@ -43,7 +43,7 @@ interface StoredTranslationSessionSnapshot
 type TranslationSettingsChange =
   | "Spoken language"
   | "Translation language"
-  | "Speech buffer"
+  | "Recording window"
   | "Terminology"
   | "Public filter"
   | "System prompt";
@@ -72,8 +72,8 @@ export function normalizeTranslationSessionSettings(
     targetLanguage,
     keywordText: boundedText(input.keywordText, MAX_TERMINOLOGY_INPUT_CHARS),
     filterText: boundedText(input.filterText, MAX_FILTER_INPUT_CHARS),
-    speechBufferMs: normalizeSpeechBufferMs(
-      input.speechBufferMs ?? DEFAULT_SPEECH_BUFFER_MS,
+    recordingWindowMs: normalizeRecordingWindowMs(
+      input.recordingWindowMs ?? DEFAULT_RECORDING_WINDOW_MS,
     ),
     translationSystemPrompt: normalizeTranslationSystemPrompt(
       input.translationSystemPrompt ?? DEFAULT_TRANSLATION_SYSTEM_PROMPT,
@@ -101,8 +101,8 @@ export function translationSettingsChanges(
   if (current.targetLanguage !== next.targetLanguage) {
     changes.push("Translation language");
   }
-  if (current.speechBufferMs !== next.speechBufferMs) {
-    changes.push("Speech buffer");
+  if (current.recordingWindowMs !== next.recordingWindowMs) {
+    changes.push("Recording window");
   }
   if (current.keywordText !== next.keywordText) {
     changes.push("Terminology");
@@ -160,8 +160,8 @@ export function parseStoredTranslationSessionSettings(
       settings.keywordText.length > MAX_TERMINOLOGY_INPUT_CHARS ||
       typeof settings.filterText !== "string" ||
       settings.filterText.length > MAX_FILTER_INPUT_CHARS ||
-      !SPEECH_BUFFER_OPTIONS_MS.includes(
-        Number(settings.speechBufferMs) as SpeechBufferMs,
+      !RECORDING_WINDOW_OPTIONS_MS.includes(
+        Number(settings.recordingWindowMs) as RecordingWindowMs,
       ) ||
       typeof settings.translationSystemPrompt !== "string" ||
       !validTranslationSessionIdentity(payload)

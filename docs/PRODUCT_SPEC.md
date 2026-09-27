@@ -58,7 +58,7 @@ translation setting, requests no microphone permission, and never starts a servi
 2. The operator chooses a browser-visible microphone or audio interface and confirms its
    input level.
 3. The operator selects a spoken language or automatic detection, one target language,
-   and a 6-, 9-, 12-, 15-, or 18-second speech buffer. The UI notes that longer buffers reduce
+   and a 6-, 9-, 12-, 15-, or 18-second recording window. The UI notes that longer windows reduce
    chopped sentences but make captions appear later.
 4. The operator optionally enters bounded keyword/preferred-translation pairs and public
    mask words, and may edit the reviewed operator translation prompt.
@@ -96,7 +96,7 @@ translation setting, requests no microphone permission, and never starts a servi
     moderated target text and service status. A long caption shrinks on the phone
     from the chosen text size down to 18 px so it fits one screen. Confirmed replacement revokes that link
     without changing OBS.
-11. Source/target language, terminology, public filters, buffer duration, and operator
+11. Source/target language, terminology, public filters, recording window, and operator
     prompt remain editable as drafts. The operator selects **Review refresh**, then
     **Confirm refresh**, to apply them together; **Undo draft changes** discards them. Refresh clears unfinished audio, recent
     translation context, and current output but does not end or extend the service, change
@@ -225,7 +225,7 @@ Translation drafts stay in React/page memory. A custom prompt enters unencrypted
 dismissal flag are also local preferences. Dismissing or completing the tutorial stores
 only `dismissed`; no step history, identity, or content is retained. If storage is blocked,
 the guide remains usable but may reappear after reload. Clearing site data resets this
-first-visit behavior. During a service, the full active language, terminology, filter, buffer,
+first-visit behavior. During a service, the full active language, terminology, filter, recording window,
 and prompt snapshot is held in that tab's unencrypted `sessionStorage` solely for same-tab
 recovery and removed on End, takeover, or idle cleanup. The active prompt is sent through
 the protected inference path to Groq, but the live translation prompt is not sent to OBS/viewer clients or stored in the room.
@@ -259,7 +259,7 @@ session-only, and does not persist between services; a term meant to persist sti
 belongs in the filter field above.
 
 Terminology and filter edits made during an active service are drafts until the same
-explicit translation refresh used for language, buffer, and prompt changes.
+explicit translation refresh used for language, recording window, and prompt changes.
 
 ### Caption display, OBS, and mobile viewing
 
@@ -419,8 +419,8 @@ the 90-minute limit.
 
 Code-level acceptance:
 
-- An operator can select an input, source, target, and 6- to 18-second buffer. During
-  live or paused operation, language, terminology, filter, buffer, and custom-prompt edits
+- An operator can select an input, source, target, and 6- to 18-second recording window. During
+  live or paused operation, language, terminology, filter, recording window, and custom-prompt edits
   stay draft until an explicit confirmed translation refresh.
 - The AI usage section separates service time, reserved transcription attempts,
   acknowledged translation calls/tokens, and provider headroom; it remains truthful when

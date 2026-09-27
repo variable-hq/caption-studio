@@ -17,7 +17,7 @@ import { chooseAudioInputDevice } from "@/live/audio-devices";
 import { parseGlossaryInput, parseModerationInput, preferredTermMap } from "@/live/config";
 import { addQuickBlockEntry, combineFilterText, removeQuickBlockEntry, type QuickBlockEntry } from "@/live/quick-block";
 import {
-  DEFAULT_SPEECH_BUFFER_MS,
+  DEFAULT_RECORDING_WINDOW_MS,
   MAX_LIVE_SESSION_MS,
   normalizeCaptionStyle,
   type CaptionStyle,
@@ -25,7 +25,7 @@ import {
   type LiveSessionControlAction,
   type LiveSessionState,
   type PublicCaptionRequest,
-  type SpeechBufferMs,
+  type RecordingWindowMs,
 } from "@/live/contracts";
 import { LiveApiError, LiveSessionClient } from "@/live/session-client";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
@@ -158,7 +158,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const recentContextRef = useRef<string[]>([]);
   const sessionTimerRef = useRef<number | null>(null);
   const lifecyclePauseRef = useRef(false);
-  const speechBufferRef = useRef<SpeechBufferMs>(DEFAULT_SPEECH_BUFFER_MS);
+  const recordingWindowRef = useRef<RecordingWindowMs>(DEFAULT_RECORDING_WINDOW_MS);
   const cloudClientRef = useRef(new CloudProviderClient());
   const liveClientRef = useRef(new LiveSessionClient());
 
@@ -759,7 +759,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   );
 
   const startRecorder = useCallback(
-    (stream: MediaStream, generation: number, speechBufferMs: SpeechBufferMs) => {
+    (stream: MediaStream, generation: number, recordingWindowMs: RecordingWindowMs) => {
       const startRecorderChunk = () => {
         if (
           !serviceRef.current ||
@@ -796,7 +796,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         recorderTimerRef.current = window.setTimeout(() => {
           recorderTimerRef.current = null;
           if (recorder.state === "recording") recorder.stop();
-        }, speechBufferMs);
+        }, recordingWindowMs);
       };
       startRecorderChunk();
     },
@@ -872,8 +872,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             )
               ? storedTranslationSnapshot.settings
               : null;
-          speechBufferRef.current =
-            storedTranslationSettings?.speechBufferMs ?? DEFAULT_SPEECH_BUFFER_MS;
+          recordingWindowRef.current =
+            storedTranslationSettings?.recordingWindowMs ?? DEFAULT_RECORDING_WINDOW_MS;
           serviceRef.current = recovered;
           activeTranslationSettingsRef.current = storedTranslationSettings;
           setActiveTranslationSettings(storedTranslationSettings);
@@ -1144,14 +1144,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           takeover,
           settingsRef.current.saveHistory === true,
         );
-        const speechBufferMs = translationSettings.speechBufferMs;
+        const recordingWindowMs = translationSettings.recordingWindowMs;
         serviceRef.current = service;
         activeTranslationSettingsRef.current = translationSettings;
         setActiveTranslationSettings(translationSettings);
         requireTranslationRefresh(false);
         refreshShouldResumeRef.current = false;
         translationRefreshRequestIdRef.current = null;
-        speechBufferRef.current = speechBufferMs;
+        recordingWindowRef.current = recordingWindowMs;
         window.sessionStorage.setItem(
           CONTROLLER_STORAGE_KEY,
           service.controllerToken,
@@ -1170,14 +1170,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         const generation = captureGenerationRef.current;
         captureAbortRef.current = new AbortController();
         capturingRef.current = true;
-        startRecorder(stream, generation, speechBufferMs);
+        startRecorder(stream, generation, recordingWindowMs);
         armServiceTimer(service);
         setLiveState((current) => ({
           ...current,
           status: "live",
           message: takeover
             ? "Takeover complete. Listening for the next caption."
-            : `Listening. The first caption appears after the ${speechBufferMs / 1_000}-second speech buffer and cloud processing.`,
+            : `Listening. The first caption appears after the ${recordingWindowMs / 1_000}-second recording window and cloud processing.`,
           service,
           channel: current.channel
             ? {
@@ -1363,7 +1363,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       captureAbortRef.current = new AbortController();
       capturingRef.current = true;
       queueRef.current = [];
-      startRecorder(stream, generation, speechBufferRef.current);
+      startRecorder(stream, generation, recordingWindowRef.current);
       setLiveState((current) => ({
         ...current,
         status: "live",
@@ -1461,7 +1461,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       serviceRef.current = updatedService;
       activeTranslationSettingsRef.current = translationSettings;
       setActiveTranslationSettings(translationSettings);
-      speechBufferRef.current = translationSettings.speechBufferMs;
+      recordingWindowRef.current = translationSettings.recordingWindowMs;
       recentContextRef.current = [];
       queueRef.current = [];
       window.sessionStorage.setItem(
@@ -1489,7 +1489,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           startRecorder(
             stream,
             generation,
-            translationSettings.speechBufferMs,
+            translationSettings.recordingWindowMs,
           );
           refreshShouldResumeRef.current = false;
           setLiveState((current) => ({
@@ -1715,7 +1715,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       if (wasCapturing && streamRef.current?.active && serviceRef.current) {
         capturingRef.current = true;
         captureAbortRef.current = new AbortController();
-        startRecorder(streamRef.current, captureGenerationRef.current, speechBufferRef.current);
+        startRecorder(streamRef.current, captureGenerationRef.current, recordingWindowRef.current);
       }
       setLiveState((current) => ({
         ...current,
@@ -1932,8 +1932,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     viewerAction,
     activeTranslationSettings,
     translationRefreshRequired,
-    activeSpeechBufferMs:
-      activeTranslationSettings?.speechBufferMs ?? settings.speechBufferMs,
+    activeRecordingWindowMs:
+      activeTranslationSettings?.recordingWindowMs ?? settings.recordingWindowMs,
     endRetryRequired,
     takeoverRequired,
     rotationRecoveryRequired,

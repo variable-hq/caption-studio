@@ -60,7 +60,7 @@ and its native/signing checklists are not web release gates.
 4. Enable the audio test, select the USB interface and speak into the AUX feed. Mute that
    feed and confirm nearby computer speech does not reveal an unintended input. Verify the
    selected device after reconnecting it.
-5. Choose Indonesian→English and a 9-second buffer. Review the TB2 vocabulary action and
+5. Choose Indonesian→English and a 9-second recording window. Review the TB2 vocabulary action and
    approved mappings; test `Saul|swauf => Saul` only as an explicit reviewed alias.
    Compare original recognition and translation separately; do not infer the biblical identity.
 6. Add safe synthetic glossary/filter data. Review translation guidance; unsaved drafts
@@ -74,8 +74,8 @@ and its native/signing checklists are not web release gates.
    Start performs readiness and ownership checks. Expand **Preview captions** when needed.
 9. Speak approved samples. Confirm private source versus moderated public output, glossary
    behavior, masks, caption language, skipped chunks and processing-time labels.
-   The processing number excludes buffer, queue wait and audience rendering.
-10. While live and paused, draft language, terms, filters, buffer and prompt changes.
+   The processing number excludes the recording window, queue wait and audience rendering.
+10. While live and paused, draft language, terms, filters, recording window and prompt changes.
     Cancel refresh once, then confirm it. Old output/context disappears; old results cannot
     reappear. Timer, controller, links, usage and live/paused state remain. Repeat a short
     sample at 6 and 18 seconds; longer windows do not guarantee complete sentences.
@@ -168,7 +168,7 @@ Record content-free metadata:
 Date / approved environment / Git SHA / final Worker version:
 Device / OS / browser / selected USB interface:
 Separate OBS computer / OBS version / audience phone models:
-Source -> target / models / buffer / evaluation sample IDs:
+Source -> target / models / recording window / evaluation sample IDs:
 History consent / optional AI state / account-plan and data-control checks:
 Tutorial / keyboard / zoom / screen-reader / layout results:
 Fast output / glossary / filter / completion / attempt-claim results:

@@ -186,7 +186,7 @@ Current behavior:
   tutorial stores only `dismissed` under `church-live-caption:operator-tutorial:v1` on
   Skip, Escape, or completion; it makes no audio, inference, service-control, or analytics
   request. This browser-local flag lasts until site data is cleared;
-- during an active service, the active language, terminology, filter, buffer, and prompt
+- during an active service, the active language, terminology, filter, recording window, and prompt
   snapshot is stored in that tab's unencrypted `sessionStorage` solely for same-tab
   recovery, then removed on End, takeover, or idle cleanup;
 - the active translation prompt crosses the protected API/Groq boundary and is not

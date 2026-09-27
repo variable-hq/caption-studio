@@ -30,7 +30,7 @@ design tokens and one control system; see the [design system](docs/DESIGN_SYSTEM
 Settings hold **AI instructions** (translation prompt) and **AI summary** (default
 summary model, language, length and guidance). **Save to my account** stores each with
 the signed-in operator; Translation offers **Save as my default setup** for languages,
-buffer, terminology and filters.
+recording window, terminology and filters.
 See the [service-panel design and QA record](docs/SERVICE_PANEL_UX_QA.md) and the
 [earlier dashboard review](docs/DASHBOARD_UI_QA.md).
 
@@ -105,7 +105,7 @@ or reconstructed. Long jobs can stop at context, call, or daily budget limits.
 | Remove passage | Clear current caption if its source belongs to the removed passage | Remove selected paragraph on refresh/poll | Preserve original source, exclude its IDs from summaries, invalidate drafts |
 | Delete saved sermon | Available after End | Revoke reader and remove history on its next successful poll | Delete sermon content; numeric usage retained |
 
-Live language, vocabulary, filters, buffer and prompt edits stay drafts until confirmed
+Live language, vocabulary, filters, recording window and prompt edits stay drafts until confirmed
 translation refresh. It preserves the service clock, controller, links and usage.
 OBS rotation is a separate idle action and requires updating the Browser Source URL.
 Removing/deleting content cannot recall an export, screenshot, or text already read.

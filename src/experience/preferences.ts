@@ -68,7 +68,7 @@ function normalizeTranslationDefaults(value: unknown): TranslationDefaults | nul
     targetLanguage: settings.targetLanguage,
     keywordText: settings.keywordText,
     filterText: settings.filterText,
-    speechBufferMs: settings.speechBufferMs,
+    recordingWindowMs: settings.recordingWindowMs,
   };
 }
 

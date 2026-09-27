@@ -41,13 +41,13 @@ import {
 import { WORKSPACE_NAME } from "@/domain/workspace";
 import { parseGlossaryInput } from "@/live/config";
 import {
-  DEFAULT_SPEECH_BUFFER_MS,
+  DEFAULT_RECORDING_WINDOW_MS,
   MAX_LIVE_SESSION_MS,
   MAX_TRANSCRIPTION_REQUESTS,
   normalizeCaptionStyle,
   type CaptionStyle,
   type ChannelStatus,
-  type SpeechBufferMs,
+  type RecordingWindowMs,
 } from "@/live/contracts";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { startSerialPolling } from "@/live/serial-polling";
@@ -473,8 +473,8 @@ export default function OperatorDashboard() {
   const [servicePanelOpen, setServicePanelOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>("system");
   const servicePanelTriggerRef = useRef<HTMLButtonElement>(null);
-  const [speechBufferMs, setSpeechBufferMs] = useState<SpeechBufferMs>(
-    DEFAULT_SPEECH_BUFFER_MS,
+  const [recordingWindowMs, setRecordingWindowMs] = useState<RecordingWindowMs>(
+    DEFAULT_RECORDING_WINDOW_MS,
   );
   const [translationSystemPrompt, setTranslationSystemPrompt] = useState(
     DEFAULT_TRANSLATION_SYSTEM_PROMPT,
@@ -541,14 +541,14 @@ export default function OperatorDashboard() {
         targetLanguage,
         keywordText,
         filterText,
-        speechBufferMs,
+        recordingWindowMs,
         translationSystemPrompt,
       }),
     [
       filterText,
       keywordText,
       sourceLanguage,
-      speechBufferMs,
+      recordingWindowMs,
       targetLanguage,
       translationSystemPrompt,
     ],
@@ -573,7 +573,7 @@ export default function OperatorDashboard() {
     controlAction,
     channelAction,
     viewerAction,
-    activeSpeechBufferMs,
+    activeRecordingWindowMs,
     activeTranslationSettings,
     translationRefreshRequired,
     endRetryRequired,
@@ -640,7 +640,7 @@ export default function OperatorDashboard() {
       setTargetLanguage(active.targetLanguage);
       setKeywordText(active.keywordText);
       setFilterText(active.filterText);
-      setSpeechBufferMs(active.speechBufferMs);
+      setRecordingWindowMs(active.recordingWindowMs);
       setTranslationSystemPrompt(active.translationSystemPrompt);
       setConfirmTranslationRefresh(false);
       setPromptStorageMessage("");
@@ -1030,7 +1030,7 @@ export default function OperatorDashboard() {
           setTargetLanguage(defaults.targetLanguage);
           setKeywordText(defaults.keywordText);
           setFilterText(defaults.filterText);
-          setSpeechBufferMs(defaults.speechBufferMs);
+          setRecordingWindowMs(defaults.recordingWindowMs);
           setTranslationDefaultsMessage("Loaded your saved default setup.");
         }
       })
@@ -1072,11 +1072,11 @@ export default function OperatorDashboard() {
   const saveTranslationDefaults = () => {
     setTranslationDefaultsMessage("Saving your default setup…");
     void syncAccountPreferences({
-      translationDefaults: { sourceLanguage, targetLanguage, keywordText, filterText, speechBufferMs },
+      translationDefaults: { sourceLanguage, targetLanguage, keywordText, filterText, recordingWindowMs },
     }).then((ok) =>
       setTranslationDefaultsMessage(
         ok
-          ? "Saved as your default setup. New services start from these languages, buffer and terms."
+          ? "Saved as your default setup. New services start from these languages, recording window and terms."
           : "Account sync is unavailable; the default setup was not saved.",
       ),
     );
@@ -1189,7 +1189,7 @@ export default function OperatorDashboard() {
     setTargetLanguage(active.targetLanguage);
     setKeywordText(active.keywordText);
     setFilterText(active.filterText);
-    setSpeechBufferMs(active.speechBufferMs);
+    setRecordingWindowMs(active.recordingWindowMs);
     setTranslationSystemPrompt(active.translationSystemPrompt);
     setConfirmTranslationRefresh(false);
     setPromptStorageMessage(
@@ -1269,7 +1269,7 @@ export default function OperatorDashboard() {
       targetLanguage={targetLanguage}
       keywordText={keywordText}
       filterText={filterText}
-      speechBufferMs={speechBufferMs}
+      recordingWindowMs={recordingWindowMs}
       sourceLabel={sourceLabel ?? sourceLanguage}
       keywordCount={keywordCount}
       disabled={translationEditorDisabled}
@@ -1277,7 +1277,7 @@ export default function OperatorDashboard() {
       onTargetLanguageChange={setTargetLanguage}
       onKeywordTextChange={setKeywordText}
       onFilterTextChange={setFilterText}
-      onSpeechBufferChange={setSpeechBufferMs}
+      onRecordingWindowChange={setRecordingWindowMs}
     />
   );
 
@@ -1787,7 +1787,7 @@ export default function OperatorDashboard() {
                     </button>
                     <button type="button" className="overviewTask" onClick={() => openWorkspaceSection("translation")}>
                       <span className="overviewTaskIcon"><DashboardIcon name="translation" /></span>
-                      <span><strong>Confirm translation settings</strong><small>{displayedSourceLabel ?? "Unknown"} → {displayedTargetLabel ?? "Unknown"} · {(hasService ? activeSpeechBufferMs : speechBufferMs) / 1_000}s buffer</small></span><DashboardIcon name="chevronRight" />
+                      <span><strong>Confirm translation settings</strong><small>{displayedSourceLabel ?? "Unknown"} → {displayedTargetLabel ?? "Unknown"} · {(hasService ? activeRecordingWindowMs : recordingWindowMs) / 1_000}s window</small></span><DashboardIcon name="chevronRight" />
                     </button>
                     <button type="button" className="overviewTask" onClick={() => openWorkspaceSection("outputs")}>
                       <span className="overviewTaskIcon"><DashboardIcon name="outputs" /></span>
@@ -1827,7 +1827,7 @@ export default function OperatorDashboard() {
                       {translationDefaultsMessage ||
                         (accountPreferences?.translationDefaults
                           ? "Your account has a saved default setup for new services."
-                          : "Saves languages, buffer, terminology and filters to your account for new services.")}
+                          : "Saves languages, recording window, terminology and filters to your account for new services.")}
                     </p>
                   </div>
                   <details className="modelSummary serviceDetailStrip advancedActions">
@@ -1841,7 +1841,7 @@ export default function OperatorDashboard() {
                       <code>{cloudModels?.translation ?? cloudModelStatus}</code>
                     </p>
                     <p>
-                      <strong>Caption timing:</strong> The selected speech buffer plus queue wait, cloud processing, and audience delivery delay.
+                      <strong>Caption timing:</strong> The selected recording window plus queue wait, cloud processing, and audience delivery delay.
                     </p>
                   </details>
                 </div>
@@ -2204,7 +2204,7 @@ export default function OperatorDashboard() {
                           : "Capturing audio"}
               </strong>
               <p>
-                {activeSpeechBufferMs / 1_000}s buffer · {liveState.droppedChunks}{" "}
+                {activeRecordingWindowMs / 1_000}s window · {liveState.droppedChunks}{" "}
                 skipped · {liveState.lastLatencyMs === null
                   ? "waiting for processing time"
                   : `${liveState.lastLatencyMs} ms processing`}
@@ -2303,8 +2303,8 @@ export default function OperatorDashboard() {
                 <dd>{displayedTargetLabel ?? "Refresh required"}</dd>
               </div>
               <div>
-                <dt>{hasService ? "Active buffer" : "Draft buffer"}</dt>
-                <dd>{(hasService ? activeSpeechBufferMs : speechBufferMs) / 1_000}s</dd>
+                <dt>{hasService ? "Active window" : "Draft window"}</dt>
+                <dd>{(hasService ? activeRecordingWindowMs : recordingWindowMs) / 1_000}s</dd>
               </div>
             </dl>
             {hasPendingTranslationChanges ? <p className="helpText">Draft changes are not active until you confirm a refresh.</p> : null}
