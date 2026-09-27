@@ -39,8 +39,8 @@ capture; Groq Whisper transcription and contextual GPT-OSS 20B translation; bibl
 name hints, approved recognition aliases, preferred translations and configurable public
 filtering (mask, replace, or hide); an instant quick-block for unanticipated words;
 editable translation settings; an optional output buffer (On/Off) with pause, edit,
-clear, and fast-forward on the next-up caption, plus a Beta continuity review call; OBS
-styles and safe margins; and the service features below.
+clear, and fast-forward on the next-up caption; OBS styles and safe margins; and the
+service features below.
 
 AI runs in the cloud; the browser captures audio. No application audio storage,
 paid fallback, simultaneous target languages, live caption correction editor, shared
@@ -117,7 +117,7 @@ when On, the next moderated caption is held briefly (Pause, refresh, takeover, o
 all discard the buffer; Clear live caption leaves it queued) instead of publishing
 immediately. It never reaches the reader or archive until it is actually shown on Live. See
 [Output buffer](docs/PRODUCT_SPEC.md#output-buffer) and
-[ADR 0016](docs/decisions/0016-client-side-output-buffer-and-beta-review.md).
+[ADR 0016](docs/decisions/0016-client-side-output-buffer.md).
 
 ## AI usage and limits
 

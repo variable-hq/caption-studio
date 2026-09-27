@@ -17,12 +17,6 @@ export const MAX_CAPTION_EVENTS = 1_400;
  */
 export const MAX_SERVICE_OBSERVERS = 32;
 export const MAX_MANUAL_CAPTION_CHARS = 240;
-/**
- * Beta output-buffer review calls per service. Bounded independently of
- * MAX_TRANSCRIPTION_REQUESTS since these are operator-triggered on demand, not
- * one per audio chunk.
- */
-export const MAX_BUFFER_REVIEW_REQUESTS = 30;
 export const MAIN_CHANNEL_ID = "main" as const;
 const TRANSLATION_REFRESH_REQUEST_ID = /^[A-Za-z0-9_-]{16,64}$/;
 

@@ -616,8 +616,6 @@ export default function OperatorDashboard() {
     updateOutputBufferEditDraft,
     cancelOutputBufferEdit,
     submitOutputBufferEdit,
-    bufferReview,
-    requestOutputBufferReview,
   } = useLiveCaptionSession(liveSettings);
   const activeTranslationSettingsFingerprint = useMemo(
     () =>
@@ -1940,8 +1938,6 @@ export default function OperatorDashboard() {
                     onEditDraftChange={updateOutputBufferEditDraft}
                     onCancelEdit={cancelOutputBufferEdit}
                     onSubmitEdit={submitOutputBufferEdit}
-                    review={bufferReview}
-                    onRequestReview={() => void requestOutputBufferReview()}
                   />
                   {anotherOperatorActive ? (
                     <p className="privacyNote" role="status">

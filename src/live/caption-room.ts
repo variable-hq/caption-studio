@@ -6,7 +6,6 @@ import {
 } from "@/ai/usage";
 import { isLanguageLocale } from "@/domain/languages";
 import {
-  MAX_BUFFER_REVIEW_REQUESTS,
   MAX_CAPTION_EVENTS,
   MAX_LIVE_SESSION_MS,
   MAX_MANUAL_CAPTION_CHARS,
@@ -60,8 +59,6 @@ interface ChannelConfiguration {
   claimedTranslationAttempts: number[];
   recordedTranslationAttempts: number[];
   inferenceAttemptFloor: number;
-  /** Beta output-buffer review calls admitted this service; bounded independently of the transcription-attempt ceiling since these are operator-triggered, not per-chunk. */
-  bufferReviewRequests: number;
   translationRevision: number;
   lastTranslationRefreshRequestId?: string;
   controllerHash?: string;
@@ -204,9 +201,6 @@ function normalizeConfiguration(configuration: ChannelConfiguration) {
       : Math.max(0, configuration.transcriptionRequests || 0),
     claimedTranslationAttempts: normalizedAttempts(configuration.claimedTranslationAttempts),
     recordedTranslationAttempts: normalizedAttempts(configuration.recordedTranslationAttempts),
-    bufferReviewRequests: Number.isSafeInteger(configuration.bufferReviewRequests)
-      ? Math.max(0, configuration.bufferReviewRequests)
-      : 0,
     translationRevision: normalizeTranslationRevision(
       configuration.translationRevision,
     ),
@@ -223,7 +217,6 @@ function deactivate(configuration: ChannelConfiguration) {
   current.inferenceAttemptFloor = 0;
   current.claimedTranslationAttempts = [];
   current.recordedTranslationAttempts = [];
-  current.bufferReviewRequests = 0;
   delete current.controllerHash;
   delete current.controllerLabel;
   delete current.viewerTokenHash;
@@ -511,21 +504,6 @@ export class CaptionRoom {
       return json({ status: current.status, command: current.remoteCommand ?? null, epoch: current.captionEpoch });
     }
     if (action === "context") {
-      if (body.stage === "buffer-review") {
-        if (current.status !== "live") return json({ error: "Service paused.", code: "service_paused" }, 409);
-        if (current.bufferReviewRequests >= MAX_BUFFER_REVIEW_REQUESTS) {
-          return json(
-            {
-              error: `The ${MAX_BUFFER_REVIEW_REQUESTS}-request buffer review limit has been reached for this service.`,
-              code: "buffer_review_limit_reached",
-            },
-            429,
-          );
-        }
-        current.bufferReviewRequests += 1;
-        await this.state.storage.put("configuration", current);
-        return json({ serviceId: current.serviceId });
-      }
       const attempt = body.transcriptionAttempt;
       if (!Number.isSafeInteger(attempt) || !["transcription", "translation"].includes(body.stage ?? "") ||
           !(body.stage === "transcription" ? current.claimedTranscriptionAttempts : current.claimedTranslationAttempts).includes(attempt!)) return json({ error: "Inference attempt was not claimed." }, 403);
@@ -652,7 +630,6 @@ export class CaptionRoom {
           inferenceAttemptFloor: 0,
           claimedTranslationAttempts: [],
           recordedTranslationAttempts: [],
-          bufferReviewRequests: 0,
           translationRevision: 0,
         };
         await transaction.put("configuration", created);
@@ -852,7 +829,6 @@ export class CaptionRoom {
       configuration.inferenceAttemptFloor = 0;
       configuration.claimedTranslationAttempts = [];
       configuration.recordedTranslationAttempts = [];
-      configuration.bufferReviewRequests = 0;
       configuration.translationRevision += 1;
       delete configuration.lastTranslationRefreshRequestId;
       configuration.style = normalizeCaptionStyle(body.style ?? configuration.style);

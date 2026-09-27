@@ -4,13 +4,10 @@ import type { PublicCaptionRequest } from "@/live/contracts";
 import {
   EMPTY_OUTPUT_BUFFER_QUEUE,
   OUTPUT_BUFFER_DWELL_MS,
-  applyReviewResults,
   beginEdit,
-  beginReview,
   cancelEdit,
   clearEntry,
   enqueueTranslation,
-  endReview,
   fastForwardEntry,
   isOutputBufferEntryPaused,
   normalizeOutputBufferCount,
@@ -253,48 +250,3 @@ describe("clear and fast-forward", () => {
   });
 });
 
-describe("beta review", () => {
-  it("pauses the whole queue during review and restores independent pause state afterward", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, candidate("a", "Hi"), 0).queue;
-    queue = enqueueTranslation(queue, 2, candidate("b", "There"), 0).queue;
-    queue = setManualPause(queue, "a", true, 50);
-
-    queue = beginReview(queue, 100);
-    expect(queue.entries.every(isOutputBufferEntryPaused)).toBe(true);
-
-    const requestedFrom = new Map([["a", "Hi"], ["b", "There"]]);
-    queue = applyReviewResults(queue, new Map([["a", "Hi (revised)"], ["b", "There (revised)"]]), requestedFrom);
-    expect(queue.entries[0].publicText).toBe("Hi (revised)");
-    expect(queue.entries[0].revisedByModel).toBe(true);
-
-    queue = endReview(queue, 5_000);
-    expect(isOutputBufferEntryPaused(queue.entries[0])).toBe(true);
-    expect(queue.entries[0].manuallyPaused).toBe(true);
-    expect(isOutputBufferEntryPaused(queue.entries[1])).toBe(false);
-  });
-
-  it("never overwrites an entry the operator is actively hand-editing", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
-    queue = beginEdit(queue, "a", 10);
-    queue = applyReviewResults(queue, new Map([["a", "Model revision"]]), new Map([["a", "Hi"]]));
-    expect(queue.entries[0].publicText).toBe("Hi");
-    expect(queue.entries[0].revisedByModel).toBe(false);
-  });
-
-  it("never applies a stale revision if the entry was edited and submitted while the review was in flight", () => {
-    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
-    const requestedFrom = new Map([["a", "Hi"]]); // snapshot taken when the review started
-    queue = beginReview(queue, 100);
-
-    // The operator edits and submits a correction while the model call is still pending.
-    queue = beginEdit(queue, "a", 200);
-    queue = updateEditDraft(queue, "a", "Grace");
-    queue = submitEdit(queue, "a", "Grace", 300);
-    expect(queue.entries[0].publicText).toBe("Grace");
-
-    // The response finally arrives, carrying a revision computed from the old "Hi" text.
-    queue = applyReviewResults(queue, new Map([["a", "Hi (revised)"]]), requestedFrom);
-    expect(queue.entries[0].publicText).toBe("Grace");
-    expect(queue.entries[0].revisedByModel).toBe(false);
-  });
-});

@@ -30,13 +30,10 @@ import {
 } from "@/live/contracts";
 import {
   EMPTY_OUTPUT_BUFFER_QUEUE,
-  applyReviewResults,
   beginEdit as beginOutputBufferEntryEdit,
-  beginReview,
   cancelEdit as cancelOutputBufferEntryEdit,
   clearEntry as clearOutputBufferQueueEntry,
   enqueueTranslation,
-  endReview,
   fastForwardEntry,
   outputBufferCapacity,
   setManualPause,
@@ -46,7 +43,6 @@ import {
   type OutputBufferCount,
   type OutputBufferEntry,
   type OutputBufferQueueState,
-  type OutputBufferReviewState,
 } from "@/live/output-buffer";
 import { LiveApiError, LiveSessionClient } from "@/live/session-client";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
@@ -158,10 +154,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const [quickBlockEntries, setQuickBlockEntries] = useState<QuickBlockEntry[]>([]);
   const [outputBufferQueue, setOutputBufferQueue] =
     useState<OutputBufferQueueState>(EMPTY_OUTPUT_BUFFER_QUEUE);
-  const [bufferReview, setBufferReview] = useState<OutputBufferReviewState>({
-    busy: false,
-    message: "",
-  });
 
   const settingsRef = useRef(settings);
   const endRetryRequiredRef = useRef(false);
@@ -172,8 +164,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const translationRefreshRequestIdRef = useRef<string | null>(null);
   const quickBlockEntriesRef = useRef<QuickBlockEntry[]>([]);
   const outputBufferQueueRef = useRef<OutputBufferQueueState>(EMPTY_OUTPUT_BUFFER_QUEUE);
-  const bufferReviewBusyRef = useRef(false);
-  const latestPublicTextRef = useRef("");
   const previousOutputBufferCapacityRef = useRef(outputBufferCapacity(settings.outputBufferCount));
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -204,9 +194,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     quickBlockEntriesRef.current = quickBlockEntries;
   }, [quickBlockEntries]);
 
-  useEffect(() => {
-    latestPublicTextRef.current = liveState.latestPublicText;
-  }, [liveState.latestPublicText]);
 
   const resetOutputBuffer = useCallback(() => {
     outputBufferQueueRef.current = EMPTY_OUTPUT_BUFFER_QUEUE;
@@ -2074,71 +2061,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     setOutputBufferQueue(next);
   }, []);
 
-  const requestOutputBufferReview = useCallback(async () => {
-    const service = serviceRef.current;
-    if (!service || bufferReviewBusyRef.current || outputBufferQueueRef.current.entries.length === 0) {
-      return;
-    }
-    bufferReviewBusyRef.current = true;
-    setBufferReview({ busy: true, message: "" });
-    const started = beginReview(outputBufferQueueRef.current, Date.now());
-    outputBufferQueueRef.current = started;
-    setOutputBufferQueue(started);
-    try {
-      const current = settingsRef.current;
-      const response = await fetch("/api/ai/buffer-review", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-caption-controller": service.controllerToken,
-          "x-caption-transcription-attempt": String(Date.now()),
-        },
-        body: JSON.stringify({
-          targetLanguage: current.targetLanguage,
-          liveText: latestPublicTextRef.current,
-          // publicText only — editedDraft hasn't passed moderation.
-          entries: started.entries.map((entry) => ({
-            id: entry.id,
-            text: entry.publicText,
-          })),
-        }),
-        signal: AbortSignal.timeout(20_000),
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | { revisions?: { id: string; text: string }[]; error?: string }
-        | null;
-      if (!response.ok || !payload?.revisions) {
-        throw new Error(payload?.error ?? "Buffer review failed.");
-      }
-      const requestedFrom = new Map(started.entries.map((entry) => [entry.id, entry.publicText]));
-      const effectiveFilterText = combineFilterText(
-        quickBlockEntriesRef.current,
-        current.filterText,
-        MAX_FILTER_INPUT_CHARS,
-      );
-      const moderationRules = parseModerationInput(effectiveFilterText);
-      const revisions = new Map(
-        payload.revisions.map(({ id, text }) => [
-          id,
-          applyModeration(text, moderationRules, current.targetLanguage).publicText,
-        ]),
-      );
-      outputBufferQueueRef.current = applyReviewResults(outputBufferQueueRef.current, revisions, requestedFrom);
-      setOutputBufferQueue(outputBufferQueueRef.current);
-      setBufferReview({ busy: false, message: "Buffer reviewed for continuity." });
-    } catch (error) {
-      setBufferReview({
-        busy: false,
-        message: error instanceof Error ? error.message : "Buffer review failed.",
-      });
-    } finally {
-      bufferReviewBusyRef.current = false;
-      const released = endReview(outputBufferQueueRef.current, Date.now());
-      outputBufferQueueRef.current = released;
-      setOutputBufferQueue(released);
-    }
-  }, []);
-
   useEffect(() => {
     const pauseForLifecycle = () => {
       if (lifecyclePauseRef.current) return;
@@ -2295,8 +2217,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     updateOutputBufferEditDraft,
     cancelOutputBufferEdit,
     submitOutputBufferEdit,
-    bufferReview,
-    requestOutputBufferReview,
     stopSession: () => endService(),
     reloadChannel: loadChannel,
   };

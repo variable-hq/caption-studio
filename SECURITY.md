@@ -29,7 +29,6 @@ The deployment separates operator authentication from scoped audience credential
 | `/api/ai/health` | Deployment-level Cloudflare Access | Non-secret configuration status |
 | `/api/ai/readiness` | Access JWT plus server-side Groq secret | Provider model-availability verification |
 | `/api/ai/transcribe`, `/api/ai/translate` | Access JWT, active controller, one-time reserved attempt per stage, and server-side Groq secret | Bounded AI inference |
-| `/api/ai/buffer-review` | Access JWT, active controller, room-bounded call counter (no attempt claim), and server-side Groq secret | Beta: revises queued output-buffer text only, never Live or source |
 | `/api/live/channel*` | Cloudflare Access JWT | Create, retrieve, control, take over, end, and rotate the Main channel |
 | `/overlay*` | Public network path; no operator capability | Self-contained OBS page |
 | `/api/live/overlay*` | Reusable channel token and read-only WebSocket | Current public caption stream |
@@ -192,10 +191,6 @@ Current behavior:
   recovery, then removed on End, takeover, or idle cleanup. The output buffer queue is not
   stored there or anywhere else; it exists only in that tab's React state and is discarded
   on Pause, refresh, takeover, or End;
-- a Beta output-buffer review sends the current Live caption and the queued captions'
-  already-translated, already-moderated text (never protected source) across the same
-  protected API/Groq boundary as translation, bounded to at most four queued captions and
-  capped at 30 calls per service;
 - the active translation prompt crosses the protected API/Groq boundary and is not
   stored in the room or sent to audience clients. The journal receives glossary/filter
   context for reader work; opted-in checkpoints retain that bounded context while needed.

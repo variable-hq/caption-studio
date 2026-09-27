@@ -12,7 +12,6 @@ import {
   normalizeOutputBufferCount,
   type OutputBufferCount,
   type OutputBufferQueueState,
-  type OutputBufferReviewState,
 } from "@/live/output-buffer";
 import { MAX_MANUAL_CAPTION_CHARS } from "@/live/contracts";
 
@@ -34,8 +33,6 @@ interface OutputBufferPanelProps {
   onEditDraftChange: (id: string, text: string) => void;
   onCancelEdit: (id: string) => void;
   onSubmitEdit: (id: string) => void;
-  review: OutputBufferReviewState;
-  onRequestReview: () => void;
 }
 
 export function OutputBufferPanel({
@@ -52,25 +49,18 @@ export function OutputBufferPanel({
   onEditDraftChange,
   onCancelEdit,
   onSubmitEdit,
-  review,
-  onRequestReview,
 }: OutputBufferPanelProps) {
   const countHelpId = useId();
   const front = queue.entries[0] ?? null;
   const atCapacity = queue.entries.length >= OUTPUT_BUFFER_BACKING_CAPACITY;
   const frontHeld = front ? isOutputBufferEntryPaused(front) : false;
-  const frontActionsDisabled = disabled || review.busy;
   const frontStatus = !front
     ? ""
-    : front.pausedForReview
-      ? "Reviewing…"
-      : front.pausedForEdit
-        ? "Paused for edit"
-        : front.manuallyPaused
-          ? "Paused"
-          : front.revisedByModel
-            ? "Revised"
-            : "";
+    : front.pausedForEdit
+      ? "Paused for edit"
+      : front.manuallyPaused
+        ? "Paused"
+        : "";
 
   return (
     <div className="outputBufferPanel">
@@ -114,26 +104,11 @@ export function OutputBufferPanel({
             <span>
               {!front ? "Buffer empty" : "Next up"} · {queue.entries.length}/{OUTPUT_BUFFER_BACKING_CAPACITY} queued
             </span>
-            <button
-              type="button"
-              className="secondaryButton compactButton"
-              title="Beta: let AI review everything currently queued, including captions not shown here yet, for continuity with the current live caption"
-              aria-label="Beta: review buffer for continuity"
-              disabled={disabled || review.busy || queue.entries.length === 0}
-              onClick={onRequestReview}
-            >
-              <DashboardIcon name="wand" /> Beta review
-            </button>
           </div>
           {atCapacity && frontHeld ? (
             <p className="privacyNote" role="alert">
               Buffer full — further captions will be dropped until you resume, submit, or
               clear this one.
-            </p>
-          ) : null}
-          {review.message ? (
-            <p className="helpText" role="status">
-              {review.message}
             </p>
           ) : null}
           {!front ? (
@@ -186,7 +161,7 @@ export function OutputBufferPanel({
                         className="secondaryButton compactButton"
                         title={front.manuallyPaused ? "Resume" : "Pause"}
                         aria-label={front.manuallyPaused ? "Resume this queued caption" : "Pause this queued caption"}
-                        disabled={frontActionsDisabled}
+                        disabled={disabled}
                         onClick={() => onPause(front.id, !front.manuallyPaused)}
                       >
                         <DashboardIcon name={front.manuallyPaused ? "play" : "pause"} />
@@ -196,7 +171,7 @@ export function OutputBufferPanel({
                         className="secondaryButton compactButton"
                         title="Edit"
                         aria-label="Edit this queued caption"
-                        disabled={frontActionsDisabled}
+                        disabled={disabled}
                         onClick={() => onBeginEdit(front.id)}
                       >
                         <DashboardIcon name="edit" />
@@ -206,7 +181,7 @@ export function OutputBufferPanel({
                         className="secondaryButton compactButton"
                         title="Fast-forward to Live"
                         aria-label="Fast-forward this queued caption to Live"
-                        disabled={frontActionsDisabled}
+                        disabled={disabled}
                         onClick={() => onFastForward(front.id)}
                       >
                         <DashboardIcon name="fastForward" />
@@ -216,7 +191,7 @@ export function OutputBufferPanel({
                         className="dangerButton compactButton"
                         title="Clear"
                         aria-label="Clear this queued caption"
-                        disabled={frontActionsDisabled}
+                        disabled={disabled}
                         onClick={() => onClear(front.id)}
                       >
                         <DashboardIcon name="trash" />

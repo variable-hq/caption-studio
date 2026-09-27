@@ -35,29 +35,22 @@ export interface OutputBufferEntry {
   publicText: string;
   editedDraft: string | null;
   editing: boolean;
-  revisedByModel: boolean;
   /** Captured at translation time; publish uses `publicText` above in its place. */
   request: PublicCaptionRequest;
   dueAt: number | null;
   remainingMs: number | null;
   manuallyPaused: boolean;
   pausedForEdit: boolean;
-  pausedForReview: boolean;
 }
 
 export interface OutputBufferQueueState {
   entries: OutputBufferEntry[];
 }
 
-export interface OutputBufferReviewState {
-  busy: boolean;
-  message: string;
-}
-
 export const EMPTY_OUTPUT_BUFFER_QUEUE: OutputBufferQueueState = { entries: [] };
 
 export function isOutputBufferEntryPaused(entry: OutputBufferEntry): boolean {
-  return entry.manuallyPaused || entry.pausedForEdit || entry.pausedForReview;
+  return entry.manuallyPaused || entry.pausedForEdit;
 }
 
 function mapEntry(
@@ -77,7 +70,7 @@ function mapEntry(
 function withPauseFlag(
   entry: OutputBufferEntry,
   now: number,
-  flag: "manuallyPaused" | "pausedForEdit" | "pausedForReview",
+  flag: "manuallyPaused" | "pausedForEdit",
   value: boolean,
 ): OutputBufferEntry {
   if (entry[flag] === value) return entry;
@@ -133,10 +126,8 @@ export function enqueueTranslation(
     originalPublicText: candidate.publicText,
     editedDraft: null,
     editing: false,
-    revisedByModel: false,
     manuallyPaused: false,
     pausedForEdit: false,
-    pausedForReview: false,
     remainingMs: null,
     dueAt: now + OUTPUT_BUFFER_DWELL_MS,
   };
@@ -251,37 +242,7 @@ export function submitEdit(
           editing: false,
           editedDraft: null,
           publicText: finalPublicText,
-          revisedByModel: false,
         }
       : entry,
   );
-}
-
-export function beginReview(queue: OutputBufferQueueState, now: number): OutputBufferQueueState {
-  return { entries: queue.entries.map((entry) => withPauseFlag(entry, now, "pausedForReview", true)) };
-}
-
-export function endReview(queue: OutputBufferQueueState, now: number): OutputBufferQueueState {
-  const released = { entries: queue.entries.map((entry) => withPauseFlag(entry, now, "pausedForReview", false)) };
-  return applyFrontEditGuard(released, now);
-}
-
-/**
- * Applies Beta revisions by entry id. Skips an entry being hand-edited, and skips one
- * whose text no longer matches `requestedFrom` — it changed while the call was in
- * flight, so the revision is stale.
- */
-export function applyReviewResults(
-  queue: OutputBufferQueueState,
-  revisions: ReadonlyMap<string, string>,
-  requestedFrom: ReadonlyMap<string, string>,
-): OutputBufferQueueState {
-  return {
-    entries: queue.entries.map((entry) => {
-      const revised = revisions.get(entry.id);
-      if (revised === undefined || entry.editing) return entry;
-      if (entry.publicText !== requestedFrom.get(entry.id)) return entry;
-      return { ...entry, publicText: revised, revisedByModel: true };
-    }),
-  };
 }

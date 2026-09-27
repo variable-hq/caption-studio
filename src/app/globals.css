@@ -999,21 +999,9 @@ input[type="color"] {
 .outputBufferQueueHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--gap-sm);
   font-size: var(--text-sm);
   color: var(--muted);
-}
-
-.outputBufferQueueHeader .compactButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-}
-
-.outputBufferQueueHeader svg {
-  width: 16px;
-  height: 16px;
 }
 
 .outputBufferSlotGlow {

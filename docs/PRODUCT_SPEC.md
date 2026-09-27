@@ -277,7 +277,7 @@ Distinct from the recording window above: the output buffer is an optional delay
 between a translated, moderated caption and its arrival on the public Live output (OBS and
 the mobile viewer). It lives only in the controlling operator's browser tab, applies
 immediately without a translation refresh, and is unrelated to the recording window
-duration. See [ADR 0016](decisions/0016-client-side-output-buffer-and-beta-review.md).
+duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md).
 
 - **On/Off**, default Off (matching behavior before this feature existed). On holds each
   caption for 3 seconds before it advances to Live; there is no separate delay setting.
@@ -294,13 +294,6 @@ duration. See [ADR 0016](decisions/0016-client-side-output-buffer-and-beta-revie
   These are separate from Pause/Resume, Clear live caption, and quick block above: pausing
   the service discards the whole buffer, the same as a translation refresh, takeover, or
   End; clearing the current Live caption does not.
-- A **Beta** "review buffer" action sends every currently queued caption — including ones
-  not yet shown — plus the caption on Live for context, to a separate, bounded model call
-  that may revise only the queued text for continuity; it never touches Live or retranslates
-  from source. The whole queue is held for the call's duration, independent of any caption
-  separately paused by hand. Revised text passes through the same public filter and
-  glossary rules as any other caption before it can replace one. Capped at 30 calls per
-  service, separately from the 900-request transcription ceiling.
 - **Save as my default** stores the On/Off choice with the operator's account, the same
   way the Translation page saves its default setup; new services start from it.
 
@@ -496,9 +489,7 @@ Code-level acceptance:
   unpaused backlog force-advances to admit a new caption; a full, paused backlog drops the
   incoming one instead. Pause freezes the shown caption's remaining hold time; Clear
   removes only it; Fast-forward publishes it immediately. Editing cannot reach Live
-  unmoderated, and auto-resumes on Submit. The Beta review call revises every currently
-  queued caption (shown or not), never Live, and is capped independently of the
-  transcription ceiling.
+  unmoderated, and auto-resumes on Submit.
 - Appearance controls update the dashboard design preview continuously before Save.
 - Setup separates navigation and the selected settings page from collapsible service
   controls. The output monitor renders the real 1920 × 1080 canvas scaled to the card and

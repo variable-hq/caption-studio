@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import { CloudProviderClient } from "@/ai/cloud-provider-client";
 import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
 import {
-  MAX_BUFFER_REVIEW_REQUESTS,
   MAX_MANUAL_CAPTION_CHARS,
   MAX_SERVICE_OBSERVERS,
   MAX_TRANSCRIPTION_REQUESTS,
@@ -1548,57 +1547,6 @@ describe("transcription dispatch enforcement", () => {
     await room.fetch(request("/internal/lease", { controllerHash: hash }));
     expect((await handleInferenceRequest(transcribeRequest(2), env, provider)).status).toBe(200);
     expect(provider).toHaveBeenCalledOnce();
-  });
-});
-
-describe("buffer review admission", () => {
-  it("admits the controller without an attempt claim, up to the bounded ceiling", async () => {
-    const { room, storage } = roomFixture();
-    await createChannel(room);
-    await startService(room, CONTROLLER_A);
-
-    const admit = () =>
-      room.fetch(request("/internal/experience/context", { controllerHash: CONTROLLER_A, stage: "buffer-review" }));
-
-    for (let i = 0; i < MAX_BUFFER_REVIEW_REQUESTS; i += 1) {
-      const response = await admit();
-      expect(response.status).toBe(200);
-    }
-    expect(await storage.get("configuration")).toMatchObject({
-      bufferReviewRequests: MAX_BUFFER_REVIEW_REQUESTS,
-    });
-
-    const overLimit = await admit();
-    expect(overLimit.status).toBe(429);
-  });
-
-  it("rejects a mismatched controller and a paused service", async () => {
-    const { room } = roomFixture();
-    await createChannel(room);
-    await startService(room, CONTROLLER_A);
-
-    const wrongController = await room.fetch(
-      request("/internal/experience/context", { controllerHash: CONTROLLER_B, stage: "buffer-review" }),
-    );
-    expect(wrongController.status).toBe(409);
-
-    await room.fetch(request("/internal/control", { action: "pause", controllerHash: CONTROLLER_A }));
-    const whilePaused = await room.fetch(
-      request("/internal/experience/context", { controllerHash: CONTROLLER_A, stage: "buffer-review" }),
-    );
-    expect(whilePaused.status).toBe(409);
-    expect((await whilePaused.json())).toMatchObject({ code: "service_paused" });
-  });
-
-  it("resets the counter on a fresh service start", async () => {
-    const { room, storage } = roomFixture();
-    await createChannel(room);
-    await startService(room, CONTROLLER_A);
-    await room.fetch(request("/internal/experience/context", { controllerHash: CONTROLLER_A, stage: "buffer-review" }));
-    expect(await storage.get("configuration")).toMatchObject({ bufferReviewRequests: 1 });
-
-    await startService(room, CONTROLLER_A, true);
-    expect(await storage.get("configuration")).toMatchObject({ bufferReviewRequests: 0 });
   });
 });
 

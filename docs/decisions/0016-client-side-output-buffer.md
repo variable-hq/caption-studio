@@ -1,4 +1,4 @@
-# ADR 0016: client-side output buffer, on/off, with a hidden backing queue and a Beta continuity review call
+# ADR 0016: client-side output buffer with a hidden backing queue
 
 27 September 2026. Status: accepted, implemented in source.
 
@@ -8,8 +8,7 @@ Every previous merge published a translated caption to the Main room the moment
 moderation finished; there was no way for an operator to catch a bad transcription or
 translation before the audience saw it. A staging queue between translation and
 publication was requested: upcoming captions held briefly, pausable, editable,
-clearable, or fast-forwardable, plus an optional model call to smooth continuity between
-queued captions and the caption already on Live.
+clearable, or fast-forwardable.
 
 Two names collided during design: the feature request called this new delay queue a
 "buffer", and this repository already uses "buffer" for the existing 6/9/12/15/18-second
@@ -28,6 +27,17 @@ can't judge without knowing the target language; and a 1–2 slot queue is exhau
 immediately, so pausing or editing one caption while speech continues would drop the next
 one (leakage) far sooner than an operator would expect. The design below is the one that
 shipped, addressing both directly.
+
+A separate, on-demand "Beta" model call that revised queued captions for continuity was
+designed, implemented, and then removed before merge: it had no access to the source text
+or the approved-terms glossary, so it could not reliably fix the specific recurring
+mistranslation that would actually cause an operator to reach for it; it revised the
+whole backlog indiscriminately rather than the one caption that needed a fix; and nothing
+required the operator to review its output before the queue's pause released and it
+resumed flowing to Live. A proactive alternative — feeding operator-supplied context into
+the *live* translation call itself, so future captions self-correct instead of patching
+already-translated ones after the fact — was judged more promising and is tracked as a
+separate idea, not part of this feature.
 
 ## Decision
 
@@ -57,45 +67,19 @@ shipped, addressing both directly.
   operator-facing on/off setting, so the same force-advance/leakage logic serves both.
   Regardless of capacity, a completely full queue force-advances its front entry to admit
   a new translation unless that entry is paused, in which case the arriving translation is
-  dropped (leakage) rather than growing the queue without bound.
-- **Editing and Beta review share one pause mechanism.** An edited entry auto-pauses only
-  once it reaches the front, and auto-resumes on Submit. A Beta "review buffer" call pauses
-  the whole backlog — including entries not yet visible — for the call's duration and
-  releases it afterward, independent of any entry separately paused by hand; this does not
-  remove the leakage risk during a review call, but the larger backing capacity makes
-  "completely full" a rarer state to be in when a review starts.
-- **Beta review is scoped, not a general revision loop.** A single, immutable,
-  non-operator-editable prompt (`src/ai/buffer-review-prompt.ts`) may revise the *queued*
-  entries' already-translated text — the whole backlog, including hidden entries, since
-  the operator may want continuity across everything queued even though only one caption
-  is shown at a time — for continuity with the current Live caption; it never retranslates
-  from source and never touches Live. It is a new inference stage (`"buffer-review"`)
-  admitted through the existing `meteredGroq` usage-ledger path, but bounded independently
-  of the 900-request transcription ceiling: it is operator-triggered on demand, not one
-  call per audio chunk, so `CaptionRoom` gates it with its own `bufferReviewRequests`
-  counter capped at `MAX_BUFFER_REVIEW_REQUESTS` (30) per service, reset only when a
-  service (re)starts. `MAX_BUFFER_REVIEW_ENTRIES` (4) matches the backing capacity, with
-  matching completion-token and request-byte budgets. Revised text is re-run through the
-  same glossary/moderation pipeline as any other public caption before it replaces an
-  entry's text. `applyReviewResults` refuses a revision for an entry that is being
-  hand-edited *or* whose text no longer matches what was actually sent for review
-  (`requestedFrom`) — a plain "is it editing right now" check is not enough, since an
-  edit can be submitted while the call is still in flight, and a stale revision must not
-  clobber a newer, already-submitted correction. The four per-caption controls
-  (Pause/Resume, Edit, Fast-forward, Clear) are disabled in the UI while a review is
-  pending, both to avoid that race in practice and so the operator isn't acting on a
-  caption the review call currently has a hold on; Cancel/Submit for an edit already open
-  before the review started stay enabled, since blocking them would trap that edit open
-  until the call resolves.
+  dropped (leakage) rather than growing the queue without bound. `enqueueTranslation`
+  treats a non-positive capacity as an unconditional drop rather than assuming a caller
+  never passes one, since its capacity parameter is a plain number decoupled from the
+  on/off setting.
+- **Editing auto-pauses only at the front.** An edited entry auto-pauses once it reaches
+  the front of the queue, and auto-resumes on Submit — the operator can start editing an
+  entry earlier, but nothing blocks it from advancing until it's actually next in line.
 - Turning the buffer off or shrinking it discards any unsubmitted edit draft on a flushed
-  entry — the flush publishes each entry's committed `publicText`, never `editedDraft` —
-  and does not wait for a pending Beta review; a response that arrives afterward for an
-  already-flushed entry is a safe no-op. `enqueueTranslation` treats a non-positive
-  capacity as an unconditional drop rather than assuming a caller never passes one, since
-  its capacity parameter is a plain number decoupled from the on/off setting.
-- The tooltip states outright that a full, paused/edited buffer drops further captions,
-  rather than leaving that as an implementation detail an operator could discover only by
-  losing content.
+  entry — the flush publishes each entry's committed `publicText`, never `editedDraft`.
+- A visible `entries/OUTPUT_BUFFER_BACKING_CAPACITY` counter and an explicit "buffer full"
+  warning (shown only when the backlog is at capacity *and* the next-up caption is held)
+  make the leakage risk observable rather than something an operator could discover only
+  by losing content. The tooltip states the same tradeoff outright.
 
 ## Tradeoffs and verification
 
@@ -109,22 +93,16 @@ shipped, addressing both directly.
   affect the model call — only client-side pacing before an already-produced translation
   reaches Live. It is saved to `OperatorPreferences` through the same **Save as my
   default** action used elsewhere, independent of the translation-refresh cycle.
-- A visible `entries/OUTPUT_BUFFER_BACKING_CAPACITY` counter and an explicit "buffer full"
-  warning (shown only when the backlog is at capacity *and* the next-up caption is held)
-  make the leakage risk observable rather than something an operator could discover only
-  by losing content.
 - `src/live/output-buffer.ts` is pure and covered by `output-buffer.test.ts`
-  (enqueue/tick/pause/edit/clear/fast-forward/review transitions, including draining down
-  to a shrunk capacity and headroom before leakage); `caption-room.test.ts` covers the new
-  `bufferReviewRequests` admission, ceiling and controller/pause checks. Real Beta-review
-  model output quality is unverified — the ADR 0011/PRODUCT_SPEC caveat that prompting does
-  not establish semantic faithfulness applies here identically.
+  (enqueue/tick/pause/edit/clear/fast-forward transitions, including draining down to a
+  shrunk capacity, headroom before leakage, and a steady-arrivals simulation confirming the
+  dwell does not compound into growing lag).
 - Both the buffer's tick and the recorder's own chunk-boundary timer depend on browser
   timers, which a backgrounded tab throttles unpredictably. Rather than add buffer-specific
-  timer workarounds, the operator tab now treats sustained backgrounding (10+ seconds) the
-  same as `pagehide`: an explicit Pause with a clear message, which already discards the
-  buffer along with capture. This closes a pre-existing gap in the capture pipeline more
-  than it patches the buffer specifically — plain tab-switching was not covered by the
-  existing `pagehide`/native-background handling at all — and it also fixes a related
-  inconsistency where that existing lifecycle-pause path did not discard the buffer like
-  every other pause path already did.
+  timer workarounds, the operator tab treats sustained backgrounding (10+ seconds) the same
+  as `pagehide`: an explicit Pause with a clear message, which already discards the buffer
+  along with capture. This closes a pre-existing gap in the capture pipeline more than it
+  patches the buffer specifically — plain tab-switching was not covered by the existing
+  `pagehide`/native-background handling at all — and it also fixes a related inconsistency
+  where that existing lifecycle-pause path did not discard the buffer like every other
+  pause path already did.
