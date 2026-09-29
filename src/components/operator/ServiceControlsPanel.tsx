@@ -2,14 +2,18 @@
 
 import type { ReactNode } from "react";
 
+import { AudioLevelMeter } from "@/components/operator/AudioLevelMeter";
 import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
+import { WORKSPACE_NAME } from "@/domain/workspace";
 import { MAX_TRANSCRIPTION_REQUESTS, type CloudState, type LiveSessionControlAction, type LiveSessionState, type RecordingWindowMs } from "@/live/contracts";
 import type { OutputBufferCount, OutputBufferQueueState } from "@/live/output-buffer";
 import type { QuickBlockEntry } from "@/live/quick-block";
 
 interface StartBarProps {
   anotherOperatorActive: boolean;
-  historyConsent: ReactNode;
+  saveHistoryActive: boolean | undefined;
+  saveHistory: boolean;
+  onSaveHistoryChange: (checked: boolean) => void;
   heading: string;
   description: string;
   confirmTakeover: boolean;
@@ -30,7 +34,7 @@ interface LiveConsoleProps {
   droppedChunks: number;
   lastLatencyMs: number | null;
   saveHistory: boolean | undefined;
-  audioMeter: ReactNode;
+  level: number;
   elapsedMinutes: number;
   elapsedSeconds: number;
   transcriptionRequests: number;
@@ -97,7 +101,25 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
           className={`startBar ${startBar.anotherOperatorActive ? "takeover" : ""}`}
           aria-labelledby="start-service-heading"
         >
-          {startBar.historyConsent}
+          <section className="historyConsent" aria-label="Transcript saving">
+            <label className="checkLabel">
+              <input
+                type="checkbox"
+                name="saveTranscript"
+                checked={hasService ? startBar.saveHistoryActive === true : startBar.saveHistory}
+                disabled={hasService || startBar.isBusy}
+                onChange={(event) => startBar.onSaveHistoryChange(event.target.checked)}
+              />
+              Save transcript history for this service
+            </label>
+            <p className="helpText">
+              {hasService
+                ? startBar.saveHistoryActive
+                  ? `Saving to ${WORKSPACE_NAME} during this service, where every signed-in operator can review it. Tell participants that transcript history is enabled.`
+                  : "History saving is off for this service."
+                : "Choose before Start and tell participants when saving is enabled. History deletes 7 days after End; numeric AI usage is retained separately for 30 days."}
+            </p>
+          </section>
           <div className="startBarActions">
             <div>
               <strong id="start-service-heading">{startBar.heading}</strong>
@@ -165,7 +187,7 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
                   : `${liveConsole.lastLatencyMs} ms processing`}
               </p>
               <p>History saving {liveConsole.saveHistory ? "on" : "off"}</p>
-              <div className="liveInputMeter">{liveConsole.audioMeter}</div>
+              <div className="liveInputMeter"><AudioLevelMeter level={liveConsole.level} /></div>
             </div>
           </div>
           <div className="compactUsage">

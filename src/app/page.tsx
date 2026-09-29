@@ -8,6 +8,7 @@ import {
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
 import { AiUsageDashboard } from "@/components/operator/AiUsageDashboard";
+import { AudioInputSection } from "@/components/operator/AudioInputSection";
 import { CaptionPreview } from "@/components/operator/CaptionPreview";
 import { LiveOutputsSection } from "@/components/operator/LiveOutputsSection";
 import { MasterControlsBar } from "@/components/operator/MasterControlsBar";
@@ -28,6 +29,7 @@ import {
   normalizeSummaryOptions,
   summaryOptionsEqual,
 } from "@/experience/summary-defaults";
+import { TranslationSection } from "@/components/operator/TranslationSection";
 import { TranslationSettingsEditor } from "@/components/operator/TranslationSettingsEditor";
 import {
   BorderGlow,
@@ -1063,23 +1065,6 @@ export default function OperatorDashboard() {
     />
   );
 
-  const audioMeter = (
-    <div className="meterRow">
-      <div
-        className="meter"
-        role="meter"
-        aria-label="Microphone input level"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(level * 100)}
-        aria-valuetext={`${Math.round(level * 100)} percent`}
-      >
-        <span style={{ width: `${level * 100}%` }} />
-      </div>
-      <span>{Math.round(level * 100)}%</span>
-    </div>
-  );
-
   const overlayUrlField = (
     <label>
       Reusable Main channel URL
@@ -1091,65 +1076,6 @@ export default function OperatorDashboard() {
         aria-label="Reusable OBS browser-source URL"
       />
     </label>
-  );
-
-  const audioFields = (
-    <>
-      <label>
-        Microphone or audio interface
-        <select
-          value={selectedDeviceId}
-          disabled={isLive || isBusy}
-          onChange={(event) => setSelectedDeviceId(event.target.value)}
-        >
-          {devices.length === 0 ? (
-            <option value="">Permission required to list devices</option>
-          ) : (
-            devices.map((device, index) => (
-              <option value={device.deviceId} key={device.deviceId}>
-                {device.label || `Audio input ${index + 1}`}
-              </option>
-            ))
-          )}
-        </select>
-      </label>
-      {audioMeter}
-      <button
-        className="secondaryButton"
-        onClick={() => { void startAudioTest().catch(() => undefined); }}
-        disabled={microphoneState === "active" || microphoneState === "requesting" || isLive || isBusy}
-      >
-        {microphoneState === "active" ? "Microphone connected" : "Enable audio test"}
-      </button>
-      <p className="helpText">Speak into the selected input and check that the meter moves. This test stays in the browser and makes no AI calls.</p>
-      {microphoneError ? (
-        <p className="errorText" role="alert">
-          {microphoneError}
-        </p>
-      ) : null}
-    </>
-  );
-
-  const historyConsent = (
-    <section className="historyConsent" aria-label="Transcript saving">
-      <label className="checkLabel">
-        <input
-          type="checkbox"
-          name="saveTranscript"
-          checked={hasService ? liveState.service?.saveHistory === true : saveHistory}
-          disabled={hasService || isBusy}
-          onChange={(event) => setSaveHistory(event.target.checked)}
-        />
-        Save transcript history for this service
-      </label>
-      <p className="helpText">
-        {hasService
-          ? liveState.service?.saveHistory
-            ? `Saving to ${WORKSPACE_NAME} during this service, where every signed-in operator can review it. Tell participants that transcript history is enabled.`
-            : "History saving is off for this service."
-          : "Choose before Start and tell participants when saving is enabled. History deletes 7 days after End; numeric AI usage is retained separately for 30 days."}
-      </p>
-    </section>
   );
 
   // Watchers mirror the same public output, so the monitor shows one source of truth.
@@ -1494,7 +1420,16 @@ export default function OperatorDashboard() {
               ) : null}
               {currentWorkspaceSection === "audio" ? (
                 <div className="panelStack">
-                  {audioFields}
+                  <AudioInputSection
+                    devices={devices}
+                    selectedDeviceId={selectedDeviceId}
+                    onDeviceChange={setSelectedDeviceId}
+                    disabled={isLive || isBusy}
+                    microphoneState={microphoneState}
+                    microphoneError={microphoneError}
+                    level={level}
+                    onStartAudioTest={() => { void startAudioTest().catch(() => undefined); }}
+                  />
                   {hasService && isLive ? (
                     <p className="privacyNote">
                       Language, terminology, timing, filtering, and the AI prompt can
@@ -1506,39 +1441,19 @@ export default function OperatorDashboard() {
               ) : null}
 
               {currentWorkspaceSection === "translation" ? (
-                <div className="panelStack">
-                  {translationSettingsEditor}
-                  <div className="saveRow">
-                    <button
-                      className="secondaryButton"
-                      type="button"
-                      onClick={saveTranslationDefaults}
-                      disabled={translationEditorDisabled}
-                    >
-                      Save as my default setup
-                    </button>
-                    <p role="status" aria-live="polite" aria-atomic="true">
-                      {translationDefaultsMessage ||
-                        (accountPreferences?.translationDefaults
-                          ? "Your account has a saved default setup for new services."
-                          : "Saves languages, recording window, terminology and filters to your account for new services.")}
-                    </p>
-                  </div>
-                  <details className="modelSummary serviceDetailStrip advancedActions">
-                    <summary>Service details</summary>
-                    <p>
-                      <strong>Transcription:</strong>{" "}
-                      <code>{cloudModels?.transcription ?? cloudModelStatus}</code>
-                    </p>
-                    <p>
-                      <strong>Translation:</strong>{" "}
-                      <code>{cloudModels?.translation ?? cloudModelStatus}</code>
-                    </p>
-                    <p>
-                      <strong>Caption timing:</strong> The selected recording window plus queue wait, cloud processing, and audience delivery delay.
-                    </p>
-                  </details>
-                </div>
+                <TranslationSection
+                  translationSettingsEditor={translationSettingsEditor}
+                  onSaveDefaults={saveTranslationDefaults}
+                  disabled={translationEditorDisabled}
+                  savedDefaultMessage={
+                    translationDefaultsMessage ||
+                    (accountPreferences?.translationDefaults
+                      ? "Your account has a saved default setup for new services."
+                      : "Saves languages, recording window, terminology and filters to your account for new services.")
+                  }
+                  transcriptionModel={cloudModels?.transcription ?? cloudModelStatus}
+                  translationModel={cloudModels?.translation ?? cloudModelStatus}
+                />
               ) : null}
 
               {currentWorkspaceSection === "usage" ? (
@@ -1644,7 +1559,9 @@ export default function OperatorDashboard() {
         hasService={hasService}
         startBar={{
           anotherOperatorActive,
-          historyConsent,
+          saveHistoryActive: liveState.service?.saveHistory,
+          saveHistory,
+          onSaveHistoryChange: setSaveHistory,
           heading: startHeading,
           description: startDescription,
           confirmTakeover,
@@ -1664,7 +1581,7 @@ export default function OperatorDashboard() {
           droppedChunks: liveState.droppedChunks,
           lastLatencyMs: liveState.lastLatencyMs,
           saveHistory: liveState.service?.saveHistory,
-          audioMeter,
+          level,
           elapsedMinutes,
           elapsedSeconds,
           transcriptionRequests: liveState.transcriptionRequests,
