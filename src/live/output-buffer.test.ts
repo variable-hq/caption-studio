@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { PublicCaptionRequest } from "@/live/contracts";
 import {
+  DEFAULT_OUTPUT_BUFFER_DWELL_MS,
   EMPTY_OUTPUT_BUFFER_QUEUE,
-  OUTPUT_BUFFER_DWELL_MS,
   beginEdit,
   cancelEdit,
   clearEntry,
@@ -78,7 +78,7 @@ describe("enqueueTranslation", () => {
     expect(dropped).toBe(false);
     expect(publishNow).toEqual([]);
     expect(queue.entries).toHaveLength(1);
-    expect(queue.entries[0].dueAt).toBe(1_000 + OUTPUT_BUFFER_DWELL_MS);
+    expect(queue.entries[0].dueAt).toBe(1_000 + DEFAULT_OUTPUT_BUFFER_DWELL_MS);
   });
 
   it("force-advances the front entry to make room when the queue is full", () => {
@@ -156,8 +156,8 @@ describe("enqueueTranslation", () => {
     // Every one of the 20 captions published at (arrival + dwell), not later and later.
     expect(lags).toHaveLength(20);
     for (const lag of lags) {
-      expect(lag).toBeGreaterThanOrEqual(OUTPUT_BUFFER_DWELL_MS);
-      expect(lag).toBeLessThan(OUTPUT_BUFFER_DWELL_MS + 200); // tick granularity slack
+      expect(lag).toBeGreaterThanOrEqual(DEFAULT_OUTPUT_BUFFER_DWELL_MS);
+      expect(lag).toBeLessThan(DEFAULT_OUTPUT_BUFFER_DWELL_MS + 200); // tick granularity slack
     }
   });
 });
@@ -165,8 +165,8 @@ describe("enqueueTranslation", () => {
 describe("tick", () => {
   it("publishes the front entry once its dwell time elapses", () => {
     const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
-    expect(tick(queue, OUTPUT_BUFFER_DWELL_MS - 1).publish).toBeNull();
-    const due = tick(queue, OUTPUT_BUFFER_DWELL_MS);
+    expect(tick(queue, DEFAULT_OUTPUT_BUFFER_DWELL_MS - 1).publish).toBeNull();
+    const due = tick(queue, DEFAULT_OUTPUT_BUFFER_DWELL_MS);
     expect(due.publish?.id).toBe("a");
     expect(due.queue.entries).toEqual([]);
   });
@@ -181,7 +181,7 @@ describe("tick", () => {
 describe("pause and resume", () => {
   it("freezes and restores the remaining dwell time", () => {
     const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
-    const paused = setManualPause(queue, "a", true, OUTPUT_BUFFER_DWELL_MS - 500);
+    const paused = setManualPause(queue, "a", true, DEFAULT_OUTPUT_BUFFER_DWELL_MS - 500);
     expect(isOutputBufferEntryPaused(paused.entries[0])).toBe(true);
     expect(paused.entries[0].dueAt).toBeNull();
     expect(paused.entries[0].remainingMs).toBe(500);
@@ -199,7 +199,7 @@ describe("edit lifecycle", () => {
     queue = beginEdit(queue, "b", 100);
     expect(isOutputBufferEntryPaused(queue.entries[1])).toBe(false);
 
-    const advanced = tick(queue, OUTPUT_BUFFER_DWELL_MS);
+    const advanced = tick(queue, DEFAULT_OUTPUT_BUFFER_DWELL_MS);
     expect(advanced.publish?.id).toBe("a");
     queue = advanced.queue;
     expect(queue.entries[0].id).toBe("b");

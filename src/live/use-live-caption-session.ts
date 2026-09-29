@@ -41,6 +41,7 @@ import {
   tick as tickOutputBufferQueue,
   updateEditDraft,
   type OutputBufferCount,
+  type OutputBufferDwellMs,
   type OutputBufferEntry,
   type OutputBufferQueueState,
 } from "@/live/output-buffer";
@@ -64,6 +65,7 @@ interface LiveCaptionSettings extends TranslationSessionSettings {
   saveHistory?: boolean;
   style: CaptionStyle;
   outputBufferCount: OutputBufferCount;
+  outputBufferDwellMs: OutputBufferDwellMs;
 }
 
 interface QueuedChunk {
@@ -786,6 +788,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           request: event,
         },
         Date.now(),
+        settingsRef.current.outputBufferDwellMs,
       );
       outputBufferQueueRef.current = outcome.queue;
       setOutputBufferQueue(outcome.queue);
@@ -1993,7 +1996,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   useEffect(() => {
     if (settings.outputBufferCount === 0 || liveState.status !== "live") return;
     const id = window.setInterval(() => {
-      const outcome = tickOutputBufferQueue(outputBufferQueueRef.current, Date.now());
+      const outcome = tickOutputBufferQueue(
+        outputBufferQueueRef.current,
+        Date.now(),
+        settingsRef.current.outputBufferDwellMs,
+      );
       if (outcome.queue !== outputBufferQueueRef.current) {
         outputBufferQueueRef.current = outcome.queue;
         setOutputBufferQueue(outcome.queue);
@@ -2030,20 +2037,36 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, [settings.outputBufferCount, publishBufferedEntry]);
 
   const setOutputBufferEntryPaused = useCallback((id: string, paused: boolean) => {
-    const next = setManualPause(outputBufferQueueRef.current, id, paused, Date.now());
+    const next = setManualPause(
+      outputBufferQueueRef.current,
+      id,
+      paused,
+      Date.now(),
+      settingsRef.current.outputBufferDwellMs,
+    );
     outputBufferQueueRef.current = next;
     setOutputBufferQueue(next);
   }, []);
 
   const clearOutputBufferEntry = useCallback((id: string) => {
-    const next = clearOutputBufferQueueEntry(outputBufferQueueRef.current, id, Date.now());
+    const next = clearOutputBufferQueueEntry(
+      outputBufferQueueRef.current,
+      id,
+      Date.now(),
+      settingsRef.current.outputBufferDwellMs,
+    );
     outputBufferQueueRef.current = next;
     setOutputBufferQueue(next);
   }, []);
 
   const fastForwardOutputBufferEntry = useCallback(
     (id: string) => {
-      const outcome = fastForwardEntry(outputBufferQueueRef.current, id, Date.now());
+      const outcome = fastForwardEntry(
+        outputBufferQueueRef.current,
+        id,
+        Date.now(),
+        settingsRef.current.outputBufferDwellMs,
+      );
       outputBufferQueueRef.current = outcome.queue;
       setOutputBufferQueue(outcome.queue);
       if (outcome.publish) void publishBufferedEntry(outcome.publish);
@@ -2052,7 +2075,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   );
 
   const beginOutputBufferEdit = useCallback((id: string) => {
-    const next = beginOutputBufferEntryEdit(outputBufferQueueRef.current, id, Date.now());
+    const next = beginOutputBufferEntryEdit(
+      outputBufferQueueRef.current,
+      id,
+      Date.now(),
+      settingsRef.current.outputBufferDwellMs,
+    );
     outputBufferQueueRef.current = next;
     setOutputBufferQueue(next);
   }, []);
@@ -2064,7 +2092,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, []);
 
   const cancelOutputBufferEdit = useCallback((id: string) => {
-    const next = cancelOutputBufferEntryEdit(outputBufferQueueRef.current, id, Date.now());
+    const next = cancelOutputBufferEntryEdit(
+      outputBufferQueueRef.current,
+      id,
+      Date.now(),
+      settingsRef.current.outputBufferDwellMs,
+    );
     outputBufferQueueRef.current = next;
     setOutputBufferQueue(next);
   }, []);
@@ -2093,6 +2126,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       forms.publicText,
       forms.hiddenFromPublicDisplay,
       Date.now(),
+      settingsRef.current.outputBufferDwellMs,
     );
     outputBufferQueueRef.current = next;
     setOutputBufferQueue(next);

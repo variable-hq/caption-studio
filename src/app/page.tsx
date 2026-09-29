@@ -54,7 +54,9 @@ import {
 } from "@/live/contracts";
 import {
   DEFAULT_OUTPUT_BUFFER_COUNT,
+  DEFAULT_OUTPUT_BUFFER_DWELL_MS,
   type OutputBufferCount,
+  type OutputBufferDwellMs,
 } from "@/live/output-buffer";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { startSerialPolling } from "@/live/serial-polling";
@@ -193,6 +195,9 @@ export default function OperatorDashboard() {
   const [outputBufferCount, setOutputBufferCount] = useState<OutputBufferCount>(
     DEFAULT_OUTPUT_BUFFER_COUNT,
   );
+  const [outputBufferDwellMs, setOutputBufferDwellMs] = useState<OutputBufferDwellMs>(
+    DEFAULT_OUTPUT_BUFFER_DWELL_MS,
+  );
   const [translationSystemPrompt, setTranslationSystemPrompt] = useState(
     DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   );
@@ -277,8 +282,9 @@ export default function OperatorDashboard() {
       style,
       saveHistory,
       outputBufferCount,
+      outputBufferDwellMs,
     }),
-    [draftTranslationSettings, style, saveHistory, outputBufferCount],
+    [draftTranslationSettings, style, saveHistory, outputBufferCount, outputBufferDwellMs],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {
@@ -764,6 +770,9 @@ export default function OperatorDashboard() {
           setOutputBufferCount(loaded.outputBufferCount);
           setOutputBufferSavedMessage("Loaded your saved default.");
         }
+        if (loaded.outputBufferDwellMs !== null && !hasServiceRef.current) {
+          setOutputBufferDwellMs(loaded.outputBufferDwellMs);
+        }
       })
       .catch(() => {
         if (!cancelled) setAccountPreferences(null);
@@ -815,7 +824,7 @@ export default function OperatorDashboard() {
 
   const saveOutputBufferDefault = () => {
     setOutputBufferSavedMessage("Saving your default…");
-    void syncAccountPreferences({ outputBufferCount }).then((ok) =>
+    void syncAccountPreferences({ outputBufferCount, outputBufferDwellMs }).then((ok) =>
       setOutputBufferSavedMessage(
         ok
           ? "Saved as your default. New services start with the output buffer in this state."
@@ -1616,6 +1625,8 @@ export default function OperatorDashboard() {
                   outputBuffer={{
                     count: outputBufferCount,
                     onCountChange: setOutputBufferCount,
+                    dwellMs: outputBufferDwellMs,
+                    onDwellChange: setOutputBufferDwellMs,
                     onSaveDefault: saveOutputBufferDefault,
                     savedMessage:
                       outputBufferSavedMessage ||
@@ -1623,6 +1634,7 @@ export default function OperatorDashboard() {
                         ? "Your account has a saved default for this."
                         : "Saves this choice to your account for new services."),
                     defaultCount: accountPreferences?.outputBufferCount ?? null,
+                    defaultDwellMs: accountPreferences?.outputBufferDwellMs ?? null,
                   }}
                   obs={{
                     configured: Boolean(liveState.channel?.configured),

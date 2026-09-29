@@ -4,14 +4,17 @@ import type { ReactNode } from "react";
 
 import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
 import type { LiveSessionControlAction } from "@/live/contracts";
-import type { OutputBufferCount } from "@/live/output-buffer";
+import type { OutputBufferCount, OutputBufferDwellMs } from "@/live/output-buffer";
 
 interface OutputBufferSectionProps {
   count: OutputBufferCount;
   onCountChange: (value: OutputBufferCount) => void;
+  dwellMs: OutputBufferDwellMs;
+  onDwellChange: (value: OutputBufferDwellMs) => void;
   onSaveDefault: () => void;
   savedMessage: string;
   defaultCount: OutputBufferCount | null;
+  defaultDwellMs: OutputBufferDwellMs | null;
 }
 
 interface ObsOverlayProps {
@@ -76,10 +79,13 @@ export function LiveOutputsSection({
         <OutputBufferPanel
           count={outputBuffer.count}
           onCountChange={outputBuffer.onCountChange}
+          dwellMs={outputBuffer.dwellMs}
+          onDwellChange={outputBuffer.onDwellChange}
           onSaveDefault={outputBuffer.onSaveDefault}
           savedMessage={outputBuffer.savedMessage}
           disabled={isBusy}
           defaultCount={outputBuffer.defaultCount}
+          defaultDwellMs={outputBuffer.defaultDwellMs}
         />
         {anotherOperatorActive ? (
           <p className="privacyNote" role="status">

@@ -3,7 +3,9 @@ import { normalizeSummaryOptions } from "@/experience/summary-defaults";
 import { normalizeCaptionStyle, type CaptionStyle, type RecordingWindowMs } from "@/live/contracts";
 import {
   normalizeOutputBufferCount,
+  normalizeOutputBufferDwellMs,
   type OutputBufferCount,
+  type OutputBufferDwellMs,
 } from "@/live/output-buffer";
 import {
   normalizeTranslationSessionSettings,
@@ -27,6 +29,7 @@ export interface OperatorPreferences {
   captionStyle: CaptionStyle | null;
   translationDefaults: TranslationDefaults | null;
   outputBufferCount: OutputBufferCount | null;
+  outputBufferDwellMs: OutputBufferDwellMs | null;
   tutorialDismissed: boolean;
   updatedAt: number | null;
 }
@@ -40,6 +43,7 @@ export const EMPTY_PREFERENCES: OperatorPreferences = {
   captionStyle: null,
   translationDefaults: null,
   outputBufferCount: null,
+  outputBufferDwellMs: null,
   tutorialDismissed: false,
   updatedAt: null,
 };
@@ -106,6 +110,7 @@ export function mergeOperatorPreferences(
       value && typeof value === "object" ? normalizeCaptionStyle(value as Partial<CaptionStyle>) : null),
     translationDefaults: pick("translationDefaults", base.translationDefaults, normalizeTranslationDefaults),
     outputBufferCount: pick("outputBufferCount", base.outputBufferCount, normalizeOutputBufferCount),
+    outputBufferDwellMs: pick("outputBufferDwellMs", base.outputBufferDwellMs, normalizeOutputBufferDwellMs),
     tutorialDismissed: "tutorialDismissed" in input ? input.tutorialDismissed === true : base.tutorialDismissed,
     updatedAt: at,
   };

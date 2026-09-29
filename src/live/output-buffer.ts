@@ -13,7 +13,16 @@ export const DEFAULT_OUTPUT_BUFFER_COUNT: OutputBufferCount = 0;
 export const OUTPUT_BUFFER_BACKING_CAPACITY = 4;
 
 /** How long a queued caption is held before advancing to Live, once the buffer is on. */
-export const OUTPUT_BUFFER_DWELL_MS = 3_000;
+export const OUTPUT_BUFFER_DWELL_OPTIONS_MS = [1_000, 2_000, 3_000, 4_000, 5_000] as const;
+export type OutputBufferDwellMs = (typeof OUTPUT_BUFFER_DWELL_OPTIONS_MS)[number];
+export const DEFAULT_OUTPUT_BUFFER_DWELL_MS: OutputBufferDwellMs = 3_000;
+
+export function normalizeOutputBufferDwellMs(value: unknown): OutputBufferDwellMs {
+  const number = Number(value);
+  return OUTPUT_BUFFER_DWELL_OPTIONS_MS.includes(number as OutputBufferDwellMs)
+    ? (number as OutputBufferDwellMs)
+    : DEFAULT_OUTPUT_BUFFER_DWELL_MS;
+}
 
 export function normalizeOutputBufferCount(value: unknown): OutputBufferCount {
   const number = Number(value);
@@ -71,6 +80,7 @@ function mapEntry(
 function withPauseFlag(
   entry: OutputBufferEntry,
   now: number,
+  dwellMs: OutputBufferDwellMs,
   flag: "manuallyPaused" | "pausedForEdit",
   value: boolean,
 ): OutputBufferEntry {
@@ -88,16 +98,20 @@ function withPauseFlag(
   }
   return {
     ...next,
-    dueAt: now + (next.remainingMs ?? OUTPUT_BUFFER_DWELL_MS),
+    dueAt: now + (next.remainingMs ?? dwellMs),
     remainingMs: null,
   };
 }
 
 /** Restores the invariant that a front entry mid-edit is always paused, after any mutation that could change the front. */
-function applyFrontEditGuard(queue: OutputBufferQueueState, now: number): OutputBufferQueueState {
+function applyFrontEditGuard(
+  queue: OutputBufferQueueState,
+  now: number,
+  dwellMs: OutputBufferDwellMs,
+): OutputBufferQueueState {
   const front = queue.entries[0];
   if (!front || !front.editing || front.pausedForEdit) return queue;
-  return { entries: [withPauseFlag(front, now, "pausedForEdit", true), ...queue.entries.slice(1)] };
+  return { entries: [withPauseFlag(front, now, dwellMs, "pausedForEdit", true), ...queue.entries.slice(1)] };
 }
 
 export type NewOutputBufferEntry = Pick<
@@ -119,6 +133,7 @@ export function enqueueTranslation(
   count: number,
   candidate: NewOutputBufferEntry,
   now: number,
+  dwellMs: OutputBufferDwellMs = DEFAULT_OUTPUT_BUFFER_DWELL_MS,
 ): EnqueueOutcome {
   if (count <= 0) return { queue, publishNow: [], dropped: true };
 
@@ -129,12 +144,12 @@ export function enqueueTranslation(
     manuallyPaused: false,
     pausedForEdit: false,
     remainingMs: null,
-    dueAt: now + OUTPUT_BUFFER_DWELL_MS,
+    dueAt: now + dwellMs,
   };
 
   if (queue.entries.length < count) {
     return {
-      queue: applyFrontEditGuard({ entries: [...queue.entries, entry] }, now),
+      queue: applyFrontEditGuard({ entries: [...queue.entries, entry] }, now, dwellMs),
       publishNow: [],
       dropped: false,
     };
@@ -154,7 +169,7 @@ export function enqueueTranslation(
     return { queue: { entries }, publishNow, dropped: true };
   }
   return {
-    queue: applyFrontEditGuard({ entries: [...entries, entry] }, now),
+    queue: applyFrontEditGuard({ entries: [...entries, entry] }, now, dwellMs),
     publishNow,
     dropped: false,
   };
@@ -166,12 +181,16 @@ export interface TickOutcome {
 }
 
 /** Advances the front entry to Live once its dwell time has elapsed, unless it is paused. */
-export function tick(queue: OutputBufferQueueState, now: number): TickOutcome {
+export function tick(
+  queue: OutputBufferQueueState,
+  now: number,
+  dwellMs: OutputBufferDwellMs = DEFAULT_OUTPUT_BUFFER_DWELL_MS,
+): TickOutcome {
   const front = queue.entries[0];
   if (!front || isOutputBufferEntryPaused(front) || front.dueAt === null || front.dueAt > now) {
     return { queue, publish: null };
   }
-  return { queue: applyFrontEditGuard({ entries: queue.entries.slice(1) }, now), publish: front };
+  return { queue: applyFrontEditGuard({ entries: queue.entries.slice(1) }, now, dwellMs), publish: front };
 }
 
 export function setManualPause(
@@ -179,14 +198,20 @@ export function setManualPause(
   id: string,
   paused: boolean,
   now: number,
+  dwellMs: OutputBufferDwellMs = DEFAULT_OUTPUT_BUFFER_DWELL_MS,
 ): OutputBufferQueueState {
-  return mapEntry(queue, id, (entry) => withPauseFlag(entry, now, "manuallyPaused", paused));
+  return mapEntry(queue, id, (entry) => withPauseFlag(entry, now, dwellMs, "manuallyPaused", paused));
 }
 
-export function clearEntry(queue: OutputBufferQueueState, id: string, now: number): OutputBufferQueueState {
+export function clearEntry(
+  queue: OutputBufferQueueState,
+  id: string,
+  now: number,
+  dwellMs: OutputBufferDwellMs = DEFAULT_OUTPUT_BUFFER_DWELL_MS,
+): OutputBufferQueueState {
   const entries = queue.entries.filter((entry) => entry.id !== id);
   if (entries.length === queue.entries.length) return queue;
-  return applyFrontEditGuard({ entries }, now);
+  return applyFrontEditGuard({ entries }, now, dwellMs);
 }
 
 export interface FastForwardOutcome {
@@ -198,18 +223,24 @@ export function fastForwardEntry(
   queue: OutputBufferQueueState,
   id: string,
   now: number,
+  dwellMs: OutputBufferDwellMs = DEFAULT_OUTPUT_BUFFER_DWELL_MS,
 ): FastForwardOutcome {
   const target = queue.entries.find((entry) => entry.id === id) ?? null;
   if (!target) return { queue, publish: null };
   const entries = queue.entries.filter((entry) => entry.id !== id);
-  return { queue: applyFrontEditGuard({ entries }, now), publish: target };
+  return { queue: applyFrontEditGuard({ entries }, now, dwellMs), publish: target };
 }
 
-export function beginEdit(queue: OutputBufferQueueState, id: string, now: number): OutputBufferQueueState {
+export function beginEdit(
+  queue: OutputBufferQueueState,
+  id: string,
+  now: number,
+  dwellMs: OutputBufferDwellMs = DEFAULT_OUTPUT_BUFFER_DWELL_MS,
+): OutputBufferQueueState {
   const withEditing = mapEntry(queue, id, (entry) =>
     entry.editing ? entry : { ...entry, editing: true, editedDraft: entry.publicText },
   );
-  return applyFrontEditGuard(withEditing, now);
+  return applyFrontEditGuard(withEditing, now, dwellMs);
 }
 
 export function updateEditDraft(
@@ -220,10 +251,15 @@ export function updateEditDraft(
   return mapEntry(queue, id, (entry) => (entry.editing ? { ...entry, editedDraft: text } : entry));
 }
 
-export function cancelEdit(queue: OutputBufferQueueState, id: string, now: number): OutputBufferQueueState {
+export function cancelEdit(
+  queue: OutputBufferQueueState,
+  id: string,
+  now: number,
+  dwellMs: OutputBufferDwellMs = DEFAULT_OUTPUT_BUFFER_DWELL_MS,
+): OutputBufferQueueState {
   return mapEntry(queue, id, (entry) =>
     entry.editing
-      ? { ...withPauseFlag(entry, now, "pausedForEdit", false), editing: false, editedDraft: null }
+      ? { ...withPauseFlag(entry, now, dwellMs, "pausedForEdit", false), editing: false, editedDraft: null }
       : entry,
   );
 }
@@ -235,11 +271,12 @@ export function submitEdit(
   finalPublicText: string,
   finalHidden: boolean,
   now: number,
+  dwellMs: OutputBufferDwellMs = DEFAULT_OUTPUT_BUFFER_DWELL_MS,
 ): OutputBufferQueueState {
   return mapEntry(queue, id, (entry) =>
     entry.editing
       ? {
-          ...withPauseFlag(entry, now, "pausedForEdit", false),
+          ...withPauseFlag(entry, now, dwellMs, "pausedForEdit", false),
           editing: false,
           editedDraft: null,
           publicText: finalPublicText,
