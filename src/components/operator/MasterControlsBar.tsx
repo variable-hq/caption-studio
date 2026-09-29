@@ -62,8 +62,8 @@ export function MasterControlsBar({
           ? "Capturing audio"
           : anotherOperatorActive
             ? runningOperator
-              ? `${runningOperator} is running a service`
-              : "Another operator is running a service"
+              ? `${runningOperator} is running this service`
+              : "Another operator is running this service"
             : "No service running";
 
   return (

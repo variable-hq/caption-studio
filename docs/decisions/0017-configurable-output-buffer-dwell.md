@@ -42,6 +42,8 @@ without extra clamping logic, and matches how the recording window
   translation-refresh gate, for the same reason the On/Off setting doesn't — it's
   client-side pacing before an already-produced translation reaches Live, not a change
   to the model call.
-- `output-buffer.test.ts` covers the queue engine parametrically over dwell already (via
-  the default); no behavior in the fixed-dwell tests changed, since a caller that omits
-  `dwellMs` still gets the same 3-second default ADR 0016 shipped.
+- `output-buffer.test.ts`'s no-compounding-lag regression test is parametrized over
+  `OUTPUT_BUFFER_DWELL_OPTIONS_MS`, confirming the property holds at every dwell option
+  (1-5s), not just the 3-second default; the rest of the suite's fixed-dwell tests are
+  unchanged, since a caller that omits `dwellMs` still gets the same 3-second default
+  ADR 0016 shipped.

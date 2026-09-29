@@ -4,6 +4,7 @@ import type { PublicCaptionRequest } from "@/live/contracts";
 import {
   DEFAULT_OUTPUT_BUFFER_DWELL_MS,
   EMPTY_OUTPUT_BUFFER_QUEUE,
+  OUTPUT_BUFFER_DWELL_OPTIONS_MS,
   beginEdit,
   cancelEdit,
   clearEntry,
@@ -135,31 +136,34 @@ describe("enqueueTranslation", () => {
     expect(enqueueTranslation(queue, capacity, candidate("overflow", "overflow"), 999).dropped).toBe(true);
   });
 
-  it("holds each caption for exactly the fixed dwell under sustained arrivals, with no growing lag", () => {
-    const capacity = outputBufferCapacity(1);
-    const arrivalIntervalMs = 6_000; // the fastest recording window
-    let queue = EMPTY_OUTPUT_BUFFER_QUEUE;
-    const lags: number[] = [];
+  it.each(OUTPUT_BUFFER_DWELL_OPTIONS_MS)(
+    "holds each caption for exactly the fixed dwell (%dms) under sustained arrivals, with no growing lag",
+    (dwellMs) => {
+      const capacity = outputBufferCapacity(1);
+      const arrivalIntervalMs = 6_000; // the fastest recording window
+      let queue = EMPTY_OUTPUT_BUFFER_QUEUE;
+      const lags: number[] = [];
 
-    for (let i = 0; i < 20; i += 1) {
-      const arrivedAt = i * arrivalIntervalMs;
-      queue = enqueueTranslation(queue, capacity, candidate(`c${i}`, `c${i}`), arrivedAt).queue;
-      for (let t = arrivedAt; t < arrivedAt + arrivalIntervalMs; t += 200) {
-        const result = tick(queue, t);
-        queue = result.queue;
-        if (result.publish) lags.push(t - arrivedAt);
+      for (let i = 0; i < 20; i += 1) {
+        const arrivedAt = i * arrivalIntervalMs;
+        queue = enqueueTranslation(queue, capacity, candidate(`c${i}`, `c${i}`), arrivedAt, dwellMs).queue;
+        for (let t = arrivedAt; t < arrivedAt + arrivalIntervalMs; t += 200) {
+          const result = tick(queue, t, dwellMs);
+          queue = result.queue;
+          if (result.publish) lags.push(t - arrivedAt);
+        }
       }
-    }
 
-    // The queue never backs up, because arrivals are far slower than the dwell.
-    expect(queue.entries.length).toBeLessThanOrEqual(1);
-    // Every one of the 20 captions published at (arrival + dwell), not later and later.
-    expect(lags).toHaveLength(20);
-    for (const lag of lags) {
-      expect(lag).toBeGreaterThanOrEqual(DEFAULT_OUTPUT_BUFFER_DWELL_MS);
-      expect(lag).toBeLessThan(DEFAULT_OUTPUT_BUFFER_DWELL_MS + 200); // tick granularity slack
-    }
-  });
+      // The queue never backs up, because arrivals are far slower than the dwell.
+      expect(queue.entries.length).toBeLessThanOrEqual(1);
+      // Every one of the 20 captions published at (arrival + dwell), not later and later.
+      expect(lags).toHaveLength(20);
+      for (const lag of lags) {
+        expect(lag).toBeGreaterThanOrEqual(dwellMs);
+        expect(lag).toBeLessThan(dwellMs + 200); // tick granularity slack
+      }
+    },
+  );
 });
 
 describe("tick", () => {
