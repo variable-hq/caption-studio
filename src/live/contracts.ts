@@ -55,6 +55,9 @@ export function isLiveSessionControlAction(
 
 export type ChannelStatus = "unconfigured" | "idle" | "live" | "paused";
 
+/** The operator dashboard's read of `/api/ai/health` readiness, independent of channel/service state. */
+export type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
+
 export interface LiveSessionControlRequest {
   action: LiveSessionControlAction;
   targetLanguage?: LanguageLocale;
