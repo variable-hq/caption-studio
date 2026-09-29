@@ -213,7 +213,6 @@ export function useOutputBufferQueue({
 
   return {
     queue,
-    queueRef,
     generationRef,
     reset,
     enqueue,

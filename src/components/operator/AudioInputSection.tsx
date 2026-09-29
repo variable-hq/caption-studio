@@ -1,13 +1,14 @@
 "use client";
 
 import { AudioLevelMeter } from "@/components/operator/AudioLevelMeter";
+import type { MicrophoneState } from "@/live/use-microphone-input";
 
 interface AudioInputSectionProps {
   devices: MediaDeviceInfo[];
   selectedDeviceId: string;
   onDeviceChange: (deviceId: string) => void;
   disabled: boolean;
-  microphoneState: "idle" | "requesting" | "active" | "error";
+  microphoneState: MicrophoneState;
   microphoneError: string;
   level: number;
   onStartAudioTest: () => void;

@@ -92,7 +92,7 @@ const CAPTION_PREFERENCE_KEY = "church-live-caption:caption-style:v1";
 const TRANSLATION_PROMPT_PREFERENCE_KEY =
   "church-live-caption:translation-system-prompt:v1";
 
-type WorkspaceSectionId =
+export type WorkspaceSectionId =
   | "history"
   | "audio"
   | "translation"
@@ -1399,20 +1399,28 @@ export default function OperatorDashboard() {
               {currentWorkspaceSection === "overview" ? (
                 <OverviewSection
                   hasService={hasService}
-                  liveNeedsAttention={liveNeedsAttention}
-                  isRefreshing={isRefreshing}
-                  isPaused={isPaused}
-                  anotherOperatorActive={anotherOperatorActive}
-                  displayedSourceLabel={displayedSourceLabel}
-                  displayedTargetLabel={displayedTargetLabel}
-                  elapsedMinutes={elapsedMinutes}
-                  elapsedSeconds={elapsedSeconds}
-                  latestPublicAt={liveState.latestPublicAt}
-                  usageClock={usageClock}
+                  status={{
+                    liveNeedsAttention,
+                    isRefreshing,
+                    isPaused,
+                    anotherOperatorActive,
+                  }}
+                  translation={{
+                    displayedSourceLabel,
+                    displayedTargetLabel,
+                    activeRecordingWindowMs,
+                    recordingWindowMs,
+                  }}
+                  elapsed={{
+                    minutes: elapsedMinutes,
+                    seconds: elapsedSeconds,
+                  }}
+                  lastCaption={{
+                    publishedAt: liveState.latestPublicAt,
+                    clockNow: usageClock,
+                  }}
                   droppedChunks={liveState.droppedChunks}
                   microphoneState={microphoneState}
-                  activeRecordingWindowMs={activeRecordingWindowMs}
-                  recordingWindowMs={recordingWindowMs}
                   channelConfigured={channelConfigured}
                   onOpenSection={openWorkspaceSection}
                   onOpenServicePanel={() => setServicePanelOpen(true)}
@@ -1582,13 +1590,15 @@ export default function OperatorDashboard() {
           lastLatencyMs: liveState.lastLatencyMs,
           saveHistory: liveState.service?.saveHistory,
           level,
-          elapsedMinutes,
-          elapsedSeconds,
-          transcriptionRequests: liveState.transcriptionRequests,
-          translationRequests: liveState.llmUsage.translationRequests,
-          totalTokens: liveState.llmUsage.totalTokens,
-          usagePercent,
-          onViewUsage: () => { setServicePanelOpen(false); openWorkspaceSection("usage"); },
+          usage: {
+            elapsedMinutes,
+            elapsedSeconds,
+            transcriptionRequests: liveState.transcriptionRequests,
+            translationRequests: liveState.llmUsage.translationRequests,
+            totalTokens: liveState.llmUsage.totalTokens,
+            usagePercent,
+            onViewUsage: () => { setServicePanelOpen(false); openWorkspaceSection("usage"); },
+          },
           manualOverrides: {
             quickBlockEntries,
             onAddQuickBlock: addQuickBlock,
@@ -1607,17 +1617,18 @@ export default function OperatorDashboard() {
             onOutputBufferCancelEdit: cancelOutputBufferEdit,
             onOutputBufferSubmitEdit: submitOutputBufferEdit,
           },
-          onCopyOverlayUrl: () => void copyOverlayUrl(),
-          copied,
-          viewerUrl,
-          onCopyViewerUrl: () => void copyViewerUrl(),
-          viewerCopied,
-          controlAction,
-          onShowTestCaption: () => void showTestCaption(),
-          overlayUrlField,
+          moreMenu: {
+            onCopyOverlayUrl: () => void copyOverlayUrl(),
+            copied,
+            viewerUrl,
+            onCopyViewerUrl: () => void copyViewerUrl(),
+            viewerCopied,
+            controlAction,
+            onShowTestCaption: () => void showTestCaption(),
+            overlayUrlField,
+          },
         }}
         snapshot={{
-          hasService,
           displayedSourceLabel,
           displayedTargetLabel,
           activeRecordingWindowMs,

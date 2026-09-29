@@ -2,7 +2,7 @@ import type { LlmSessionUsage, TranslationResult } from "@/ai/contracts";
 import { emptyLlmSessionUsage, normalizeLlmSessionUsage } from "@/ai/usage";
 import { isLanguageLocale } from "@/domain/languages";
 import { json } from "@/experience/contracts";
-import { CAPABILITY_TOKEN_PATTERN } from "@/http/tokens";
+import { CAPABILITY_TOKEN_PATTERN, HASH_HEX_PATTERN } from "@/http/tokens";
 import {
   MAX_SERVICE_OBSERVERS,
   MAX_TRANSCRIPTION_REQUESTS,
@@ -135,7 +135,7 @@ export function normalizedCredentialMap(value: unknown): Record<string, string> 
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const entries = Object.entries(value as Record<string, unknown>)
     .filter(([key, hash]) =>
-      IDENTITY_KEY.test(key) && typeof hash === "string" && /^[a-f0-9]{64}$/u.test(hash))
+      IDENTITY_KEY.test(key) && typeof hash === "string" && HASH_HEX_PATTERN.test(hash))
     .slice(-MAX_SERVICE_OBSERVERS) as [string, string][];
   return entries.length ? Object.fromEntries(entries) : undefined;
 }

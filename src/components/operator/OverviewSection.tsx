@@ -4,34 +4,33 @@ import { DashboardIcon } from "@/components/operator/DashboardNavigation";
 import { formatMinutesSeconds } from "@/components/operator/format-duration";
 import { WORKSPACE_NAME } from "@/domain/workspace";
 import type { RecordingWindowMs } from "@/live/contracts";
-
-type WorkspaceSectionId =
-  | "history"
-  | "audio"
-  | "translation"
-  | "usage"
-  | "prompt"
-  | "summary"
-  | "appearance"
-  | "outputs"
-  | "overview";
+import type { MicrophoneState } from "@/live/use-microphone-input";
+import type { WorkspaceSectionId } from "@/app/page";
 
 interface OverviewSectionProps {
   hasService: boolean;
-  liveNeedsAttention: boolean;
-  isRefreshing: boolean;
-  isPaused: boolean;
-  anotherOperatorActive: boolean;
-  displayedSourceLabel: string | undefined;
-  displayedTargetLabel: string | undefined;
-  elapsedMinutes: number;
-  elapsedSeconds: number;
-  latestPublicAt: number | null | undefined;
-  usageClock: number;
+  status: {
+    liveNeedsAttention: boolean;
+    isRefreshing: boolean;
+    isPaused: boolean;
+    anotherOperatorActive: boolean;
+  };
+  translation: {
+    displayedSourceLabel: string | undefined;
+    displayedTargetLabel: string | undefined;
+    activeRecordingWindowMs: number;
+    recordingWindowMs: RecordingWindowMs;
+  };
+  elapsed: {
+    minutes: number;
+    seconds: number;
+  };
+  lastCaption: {
+    publishedAt: number | null | undefined;
+    clockNow: number;
+  };
   droppedChunks: number;
-  microphoneState: "idle" | "requesting" | "active" | "error";
-  activeRecordingWindowMs: number;
-  recordingWindowMs: RecordingWindowMs;
+  microphoneState: MicrophoneState;
   channelConfigured: boolean;
   onOpenSection: (section: WorkspaceSectionId) => void;
   onOpenServicePanel: () => void;
@@ -40,20 +39,12 @@ interface OverviewSectionProps {
 /** The "overview" workspace section: at-a-glance status, metrics, and a setup checklist. */
 export function OverviewSection({
   hasService,
-  liveNeedsAttention,
-  isRefreshing,
-  isPaused,
-  anotherOperatorActive,
-  displayedSourceLabel,
-  displayedTargetLabel,
-  elapsedMinutes,
-  elapsedSeconds,
-  latestPublicAt,
-  usageClock,
+  status,
+  translation,
+  elapsed,
+  lastCaption,
   droppedChunks,
   microphoneState,
-  activeRecordingWindowMs,
-  recordingWindowMs,
   channelConfigured,
   onOpenSection,
   onOpenServicePanel,
@@ -67,21 +58,21 @@ export function OverviewSection({
         <div>
           <h3>
             {hasService
-              ? liveNeedsAttention
+              ? status.liveNeedsAttention
                 ? "Service needs attention"
-                : isRefreshing
+                : status.isRefreshing
                   ? "Updating translation"
-                  : isPaused
+                  : status.isPaused
                     ? "Service paused"
                     : "Your service is in progress"
-              : anotherOperatorActive
+              : status.anotherOperatorActive
                 ? "Another operator is live"
                 : "Prepare your next service"}
           </h3>
           <p>
             {hasService
               ? "Pause and Clear stay within reach. Open Service controls for the output monitor, service details, and End."
-              : anotherOperatorActive
+              : status.anotherOperatorActive
                 ? "Main channel is already in use. Taking over stops the current capture computer."
                 : "Check your audio, confirm the languages, and connect your audience."}
           </p>
@@ -90,21 +81,21 @@ export function OverviewSection({
       <dl className="overviewMetrics">
         <div>
           <dt>Spoken language</dt>
-          <dd>{displayedSourceLabel ?? "Refresh required"}</dd>
+          <dd>{translation.displayedSourceLabel ?? "Refresh required"}</dd>
         </div>
         <div>
           <dt>Audience language</dt>
-          <dd>{displayedTargetLabel ?? "Refresh required"}</dd>
+          <dd>{translation.displayedTargetLabel ?? "Refresh required"}</dd>
         </div>
         <div>
           <dt>{hasService ? "Elapsed / 90 min" : "Service window"}</dt>
-          <dd>{hasService ? formatMinutesSeconds(elapsedMinutes, elapsedSeconds) : "90 minutes"}</dd>
+          <dd>{hasService ? formatMinutesSeconds(elapsed.minutes, elapsed.seconds) : "90 minutes"}</dd>
         </div>
         {hasService ? (
           <>
             <div>
               <dt>Last caption</dt>
-              <dd>{latestPublicAt ? `${Math.max(0, Math.floor((usageClock - latestPublicAt) / 1_000))}s ago` : "None yet"}</dd>
+              <dd>{lastCaption.publishedAt ? `${Math.max(0, Math.floor((lastCaption.clockNow - lastCaption.publishedAt) / 1_000))}s ago` : "None yet"}</dd>
             </div>
             <div>
               <dt>Skipped chunks</dt>
@@ -141,8 +132,8 @@ export function OverviewSection({
           <span>
             <strong>Confirm translation settings</strong>
             <small>
-              {displayedSourceLabel ?? "Unknown"} → {displayedTargetLabel ?? "Unknown"} ·{" "}
-              {(hasService ? activeRecordingWindowMs : recordingWindowMs) / 1_000}s window
+              {translation.displayedSourceLabel ?? "Unknown"} → {translation.displayedTargetLabel ?? "Unknown"} ·{" "}
+              {(hasService ? translation.activeRecordingWindowMs : translation.recordingWindowMs) / 1_000}s window
             </small>
           </span>
           <DashboardIcon name="chevronRight" />

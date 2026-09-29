@@ -36,13 +36,15 @@ interface LiveConsoleProps {
   lastLatencyMs: number | null;
   saveHistory: boolean | undefined;
   level: number;
-  elapsedMinutes: number;
-  elapsedSeconds: number;
-  transcriptionRequests: number;
-  translationRequests: number;
-  totalTokens: number;
-  usagePercent: number;
-  onViewUsage: () => void;
+  usage: {
+    elapsedMinutes: number;
+    elapsedSeconds: number;
+    transcriptionRequests: number;
+    translationRequests: number;
+    totalTokens: number;
+    usagePercent: number;
+    onViewUsage: () => void;
+  };
   manualOverrides: {
     quickBlockEntries: readonly QuickBlockEntry[];
     onAddQuickBlock: (term: string) => void;
@@ -61,18 +63,19 @@ interface LiveConsoleProps {
     onOutputBufferCancelEdit: (id: string) => void;
     onOutputBufferSubmitEdit: (id: string) => void;
   };
-  onCopyOverlayUrl: () => void;
-  copied: boolean;
-  viewerUrl: string | null;
-  onCopyViewerUrl: () => void;
-  viewerCopied: boolean;
-  controlAction: LiveSessionControlAction | null;
-  onShowTestCaption: () => void;
-  overlayUrlField: ReactNode;
+  moreMenu: {
+    onCopyOverlayUrl: () => void;
+    copied: boolean;
+    viewerUrl: string | null;
+    onCopyViewerUrl: () => void;
+    viewerCopied: boolean;
+    controlAction: LiveSessionControlAction | null;
+    onShowTestCaption: () => void;
+    overlayUrlField: ReactNode;
+  };
 }
 
 interface ServiceSnapshotProps {
-  hasService: boolean;
   displayedSourceLabel: string | undefined;
   displayedTargetLabel: string | undefined;
   activeRecordingWindowMs: number;
@@ -194,13 +197,13 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
           <div className="compactUsage">
             <div>
               <span>
-                {formatMinutesSeconds(liveConsole.elapsedMinutes, liveConsole.elapsedSeconds)} / 90m
+                {formatMinutesSeconds(liveConsole.usage.elapsedMinutes, liveConsole.usage.elapsedSeconds)} / 90m
               </span>
               <span>
-                {liveConsole.transcriptionRequests} / {MAX_TRANSCRIPTION_REQUESTS}{" "}
-                attempts · {liveConsole.translationRequests} translations
+                {liveConsole.usage.transcriptionRequests} / {MAX_TRANSCRIPTION_REQUESTS}{" "}
+                attempts · {liveConsole.usage.translationRequests} translations
               </span>
-              <button className="usageDetailsButton" type="button" onClick={liveConsole.onViewUsage}>
+              <button className="usageDetailsButton" type="button" onClick={liveConsole.usage.onViewUsage}>
                 View usage
               </button>
             </div>
@@ -210,10 +213,10 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
               aria-label="Live service usage"
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={liveConsole.usagePercent}
-              aria-valuetext={`${liveConsole.elapsedMinutes} minutes ${liveConsole.elapsedSeconds} seconds elapsed; ${liveConsole.transcriptionRequests} of ${MAX_TRANSCRIPTION_REQUESTS} transcription attempts used; ${liveConsole.translationRequests} translation calls and ${liveConsole.totalTokens} translation tokens`}
+              aria-valuenow={liveConsole.usage.usagePercent}
+              aria-valuetext={`${liveConsole.usage.elapsedMinutes} minutes ${liveConsole.usage.elapsedSeconds} seconds elapsed; ${liveConsole.usage.transcriptionRequests} of ${MAX_TRANSCRIPTION_REQUESTS} transcription attempts used; ${liveConsole.usage.translationRequests} translation calls and ${liveConsole.usage.totalTokens} translation tokens`}
             >
-              <span style={{ width: `${liveConsole.usagePercent}%` }} />
+              <span style={{ width: `${liveConsole.usage.usagePercent}%` }} />
             </div>
           </div>
           <div className="primaryControls">
@@ -249,24 +252,24 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
             >
               <summary>More</summary>
               <div>
-                <button onClick={liveConsole.onCopyOverlayUrl}>
-                  {liveConsole.copied ? "Copied" : "Copy OBS URL"}
+                <button onClick={liveConsole.moreMenu.onCopyOverlayUrl}>
+                  {liveConsole.moreMenu.copied ? "Copied" : "Copy OBS URL"}
                 </button>
-                {liveConsole.viewerUrl ? (
-                  <button onClick={liveConsole.onCopyViewerUrl}>
-                    {liveConsole.viewerCopied ? "Mobile link copied" : "Copy mobile viewer link"}
+                {liveConsole.moreMenu.viewerUrl ? (
+                  <button onClick={liveConsole.moreMenu.onCopyViewerUrl}>
+                    {liveConsole.moreMenu.viewerCopied ? "Mobile link copied" : "Copy mobile viewer link"}
                   </button>
                 ) : null}
                 <button
-                  disabled={!liveConsole.isPaused || liveConsole.controlAction !== null}
-                  onClick={liveConsole.onShowTestCaption}
+                  disabled={!liveConsole.isPaused || liveConsole.moreMenu.controlAction !== null}
+                  onClick={liveConsole.moreMenu.onShowTestCaption}
                 >
-                  {liveConsole.controlAction === "show-test" ? "Showing test…" : "Show test caption"}
+                  {liveConsole.moreMenu.controlAction === "show-test" ? "Showing test…" : "Show test caption"}
                 </button>
                 <details className="credentialDisclosure">
                   <summary>Reveal OBS URL for manual copy</summary>
                   <p className="helpText">Keep this reusable credential private.</p>
-                  {liveConsole.overlayUrlField}
+                  {liveConsole.moreMenu.overlayUrlField}
                 </details>
               </div>
             </details>
@@ -278,8 +281,8 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
           </p>
         </section>
       ) : null}
-      <details className="serviceSnapshot" open={snapshot.hasService}>
-        <summary>{snapshot.hasService ? "Active translation" : "Starting configuration"}</summary>
+      <details className="serviceSnapshot" open={hasService}>
+        <summary>{hasService ? "Active translation" : "Starting configuration"}</summary>
         <dl>
           <div>
             <dt>Spoken language</dt>
@@ -290,8 +293,8 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
             <dd>{snapshot.displayedTargetLabel ?? "Refresh required"}</dd>
           </div>
           <div>
-            <dt>{snapshot.hasService ? "Active window" : "Draft window"}</dt>
-            <dd>{(snapshot.hasService ? snapshot.activeRecordingWindowMs : snapshot.recordingWindowMs) / 1_000}s</dd>
+            <dt>{hasService ? "Active window" : "Draft window"}</dt>
+            <dd>{(hasService ? snapshot.activeRecordingWindowMs : snapshot.recordingWindowMs) / 1_000}s</dd>
           </div>
         </dl>
         {snapshot.hasPendingTranslationChanges ? (

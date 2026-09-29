@@ -4,6 +4,8 @@ import { useCallback, useRef, useState } from "react";
 
 import { chooseAudioInputDevice } from "@/live/audio-devices";
 
+export type MicrophoneState = "idle" | "requesting" | "active" | "error";
+
 /**
  * Owns browser microphone access end to end: device enumeration/selection, the live input
  * level meter, and the underlying `MediaStream`/`AudioContext`. Self-contained - unlike the
@@ -17,9 +19,7 @@ import { chooseAudioInputDevice } from "@/live/audio-devices";
 export function useMicrophoneInput() {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
-  const [microphoneState, setMicrophoneState] = useState<
-    "idle" | "requesting" | "active" | "error"
-  >("idle");
+  const [microphoneState, setMicrophoneState] = useState<MicrophoneState>("idle");
   const [microphoneError, setMicrophoneError] = useState("");
   const [level, setLevel] = useState(0);
 
