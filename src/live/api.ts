@@ -31,9 +31,10 @@ import {
   RequestBodyTooLargeError,
   readJsonObject,
 } from "@/http/request-body";
+import { CAPABILITY_TOKEN_PATTERN, randomToken } from "@/http/tokens";
 import { viewerDocumentResponse } from "@/live/viewer-document";
 import { operatorIdentityKey } from "@/experience/preferences";
-import type { ExperienceEnvironment } from "@/experience/contracts";
+import { json, type ExperienceEnvironment } from "@/experience/contracts";
 
 interface DurableObjectStubLike {
   fetch(request: Request): Promise<Response>;
@@ -67,25 +68,7 @@ interface InternalChannelDetails {
   translationRevision?: number;
 }
 
-const JSON_HEADERS = {
-  "content-type": "application/json",
-  "cache-control": "no-store",
-};
 const CONTROLLER_HEADER = "x-caption-controller";
-
-function json(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), { status, headers: JSON_HEADERS });
-}
-
-function randomToken() {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary)
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/u, "");
-}
 
 function channelRoom(env: LiveWorkerEnvironment) {
   return env.CAPTION_ROOMS.get(
@@ -223,7 +206,7 @@ function validInferenceAttemptContext(
   transcriptionAttempt: number,
 ) {
   return (
-    /^[A-Za-z0-9_-]{43}$/u.test(controllerToken) &&
+    CAPABILITY_TOKEN_PATTERN.test(controllerToken) &&
     Number.isSafeInteger(transcriptionAttempt) &&
     transcriptionAttempt > 0 &&
     transcriptionAttempt <= MAX_TRANSCRIPTION_REQUESTS

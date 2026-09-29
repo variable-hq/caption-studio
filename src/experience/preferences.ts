@@ -1,5 +1,6 @@
 import type { SummaryOptions } from "@/experience/contracts";
 import { normalizeSummaryOptions } from "@/experience/summary-defaults";
+import { sha256Hex } from "@/http/tokens";
 import { normalizeCaptionStyle, type CaptionStyle, type RecordingWindowMs } from "@/live/contracts";
 import {
   normalizeOutputBufferCount,
@@ -134,7 +135,5 @@ export function normalizeOperatorPreferences(value: unknown): OperatorPreference
 
 /** Deterministic, non-reversible key for an operator identity such as an Access email. */
 export async function operatorIdentityKey(identity: string) {
-  const bytes = new TextEncoder().encode(identity.trim().toLowerCase());
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return `operator:${[...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+  return `operator:${await sha256Hex(identity.trim().toLowerCase())}`;
 }

@@ -1,6 +1,7 @@
 import { mergeModerationRules, parseGlossaryInput, parseModerationInput } from "@/live/config";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { isLanguageLocale } from "@/domain/languages";
+import { HASH_HEX_PATTERN, UUID_PATTERN } from "@/http/tokens";
 import {
   DAY, HISTORY_RETENTION, MAX_JOURNAL_NOTES, READER_GRACE, READER_INTERVAL, SUMMARY_MODELS, json,
   type ExperienceEnvironment, type JournalState, type ReaderInput, type ReaderNote, type ReaderParagraph,
@@ -87,7 +88,7 @@ export class SermonJournal {
   private async handleSync(request: Request) {
     const incoming = await request.json() as JournalState;
     if (await this.state.storage.get("deleted")) return json({ error: "Sermon deleted." }, 410);
-    if (!/^[a-f0-9-]{36}$/u.test(incoming.id) || !/^[a-f0-9]{64}$/u.test(incoming.readerHash) ||
+    if (!UUID_PATTERN.test(incoming.id) || !HASH_HEX_PATTERN.test(incoming.readerHash) ||
         !Number.isSafeInteger(incoming.epoch) || incoming.epoch < 0 ||
         !Number.isFinite(incoming.startedAt) || !Number.isFinite(incoming.expiresAt)) return json({ error: "Invalid journal." }, 400);
     const old = await this.configuration();

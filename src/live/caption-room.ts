@@ -25,7 +25,6 @@ import {
   credentialMatches,
   deactivate,
   isActive,
-  json,
   normalizeConfiguration,
   publicConfiguration,
   serviceExpired,
@@ -45,7 +44,8 @@ import {
   type ViewerStreamEvent,
 } from "@/live/caption-room-helpers";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
-import { rpc, type ExperienceEnvironment, type JournalState } from "@/experience/contracts";
+import { HASH_HEX_PATTERN, UUID_PATTERN, sha256Hex } from "@/http/tokens";
+import { json, rpc, type ExperienceEnvironment, type JournalState } from "@/experience/contracts";
 
 const OVERLAY_PROTOCOL = "church-caption-v1";
 const VIEWER_PROTOCOL = "church-caption-viewer-v1";
@@ -201,7 +201,7 @@ export class CaptionRoom {
         connected: Date.now() - (current.heartbeatAt ?? 0) < 15_000 });
     }
     if (action === "observer") {
-      if (!IDENTITY_KEY.test(body.identityKey ?? "") || !/^[a-f0-9]{64}$/u.test(body.observerHash ?? "")) {
+      if (!IDENTITY_KEY.test(body.identityKey ?? "") || !HASH_HEX_PATTERN.test(body.observerHash ?? "")) {
         return json({ error: "Invalid watcher registration." }, 400);
       }
       current.observers = withCredential(current.observers, body.identityKey!, body.observerHash!);
@@ -218,7 +218,7 @@ export class CaptionRoom {
     }
     if (action === "pair") {
       // Any workspace operator may pair a phone; each identity keeps its own remote.
-      if (!IDENTITY_KEY.test(body.identityKey ?? "") || !/^[a-f0-9]{64}$/u.test(body.remoteHash ?? "")) {
+      if (!IDENTITY_KEY.test(body.identityKey ?? "") || !HASH_HEX_PATTERN.test(body.remoteHash ?? "")) {
         return json({ error: "Invalid pairing." }, 400);
       }
       current.remoteHashes = withCredential(current.remoteHashes, body.identityKey!, body.remoteHash!);
@@ -229,7 +229,7 @@ export class CaptionRoom {
     }
     if (!controllerMatches(current, body.controllerHash)) return controllerReplaced();
     if (action === "reader-rotate") {
-      if (!/^[a-f0-9]{64}$/u.test(body.readerHash ?? "")) return json({ error: "Invalid reader token." }, 400);
+      if (!HASH_HEX_PATTERN.test(body.readerHash ?? "")) return json({ error: "Invalid reader token." }, 400);
       current.readerHash = body.readerHash;
       await this.state.storage.put("configuration", current);
       return json({ serviceId: current.serviceId });
@@ -272,7 +272,7 @@ export class CaptionRoom {
     }
     if (url.pathname === "/internal/history/delete" && request.method === "POST") {
       const { id } = await request.json() as { id: string };
-      if (!/^[a-f0-9-]{36}$/u.test(id)) return json({ error: "Invalid archive." }, 400);
+      if (!UUID_PATTERN.test(id)) return json({ error: "Invalid archive." }, 400);
       const current = await this.state.storage.get<ChannelConfiguration>("configuration");
       if (current?.serviceId === id && isActive(current) && !serviceExpired(current)) return json({ error: "End the service first." }, 409);
       await this.state.storage.delete(`archive:${id}`);
@@ -1451,9 +1451,5 @@ export class CaptionRoom {
 }
 
 export async function captionTokenHash(token: string) {
-  const bytes = new TextEncoder().encode(token);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return [...new Uint8Array(digest)]
-    .map((value) => value.toString(16).padStart(2, "0"))
-    .join("");
+  return sha256Hex(token);
 }

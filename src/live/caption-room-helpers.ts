@@ -1,6 +1,8 @@
 import type { LlmSessionUsage, TranslationResult } from "@/ai/contracts";
 import { emptyLlmSessionUsage, normalizeLlmSessionUsage } from "@/ai/usage";
 import { isLanguageLocale } from "@/domain/languages";
+import { json } from "@/experience/contracts";
+import { CAPABILITY_TOKEN_PATTERN } from "@/http/tokens";
 import {
   MAX_SERVICE_OBSERVERS,
   MAX_TRANSCRIPTION_REQUESTS,
@@ -110,16 +112,7 @@ export type ViewerStreamEvent =
   | { type: "clear" }
   | { type: "state"; status: ChannelStatus; expiresAt: string | null };
 
-const JSON_HEADERS = {
-  "content-type": "application/json",
-  "cache-control": "no-store",
-};
 export const IDENTITY_KEY = /^operator:[a-f0-9]{64}$/u;
-const CAPABILITY_TOKEN = /^[A-Za-z0-9_-]{43}$/;
-
-export function json(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), { status, headers: JSON_HEADERS });
-}
 
 export function isActive(configuration: ChannelConfiguration) {
   return configuration.status === "live" || configuration.status === "paused";
@@ -254,7 +247,7 @@ export function websocketToken(request: Request, protocol: string) {
     .filter(Boolean);
   if (!protocols.includes(protocol)) return null;
   const token = protocols.find((value) => value !== protocol) ?? null;
-  return token && CAPABILITY_TOKEN.test(token) ? token : null;
+  return token && CAPABILITY_TOKEN_PATTERN.test(token) ? token : null;
 }
 
 export function validCaptionBody(body: Partial<PublicCaptionRequest>) {
