@@ -72,6 +72,7 @@ export function MasterControlsBar({
       <button
         className={anotherOperatorActive ? "dangerButton" : "primaryButton"}
         disabled={hasService || startDisabled}
+        aria-describedby="start-service-description"
         onClick={anotherOperatorActive ? onTakeOver : onStart}
       >
         {isStarting ? "Starting securely…" : anotherOperatorActive ? "Take over channel" : "Start captions"}

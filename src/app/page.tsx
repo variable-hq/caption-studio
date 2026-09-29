@@ -772,6 +772,7 @@ export default function OperatorDashboard() {
         }
         if (loaded.outputBufferDwellMs !== null && !hasServiceRef.current) {
           setOutputBufferDwellMs(loaded.outputBufferDwellMs);
+          setOutputBufferSavedMessage("Loaded your saved default.");
         }
       })
       .catch(() => {
