@@ -4,21 +4,13 @@ import type { ReactNode } from "react";
 
 import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
 import type { LiveSessionControlAction } from "@/live/contracts";
-import type { OutputBufferCount, OutputBufferQueueState } from "@/live/output-buffer";
+import type { OutputBufferCount } from "@/live/output-buffer";
 
 interface OutputBufferSectionProps {
   count: OutputBufferCount;
   onCountChange: (value: OutputBufferCount) => void;
   onSaveDefault: () => void;
   savedMessage: string;
-  queue: OutputBufferQueueState;
-  onPause: (id: string, paused: boolean) => void;
-  onClear: (id: string) => void;
-  onFastForward: (id: string) => void;
-  onBeginEdit: (id: string) => void;
-  onEditDraftChange: (id: string, text: string) => void;
-  onCancelEdit: (id: string) => void;
-  onSubmitEdit: (id: string) => void;
 }
 
 interface ObsOverlayProps {
@@ -85,15 +77,7 @@ export function LiveOutputsSection({
           onCountChange={outputBuffer.onCountChange}
           onSaveDefault={outputBuffer.onSaveDefault}
           savedMessage={outputBuffer.savedMessage}
-          queue={outputBuffer.queue}
           disabled={isBusy}
-          onPause={outputBuffer.onPause}
-          onClear={outputBuffer.onClear}
-          onFastForward={outputBuffer.onFastForward}
-          onBeginEdit={outputBuffer.onBeginEdit}
-          onEditDraftChange={outputBuffer.onEditDraftChange}
-          onCancelEdit={outputBuffer.onCancelEdit}
-          onSubmitEdit={outputBuffer.onSubmitEdit}
         />
         {anotherOperatorActive ? (
           <p className="privacyNote" role="status">

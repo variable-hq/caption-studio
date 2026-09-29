@@ -277,7 +277,11 @@ Distinct from the recording window above: the output buffer is an optional delay
 between a translated, moderated caption and its arrival on the public Live output (OBS and
 the mobile viewer). It lives only in the controlling operator's browser tab, applies
 immediately without a translation refresh, and is unrelated to the recording window
-duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md).
+duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md). The On/Off setting
+and its account default live in Live outputs; the queued caption itself and its controls
+are grouped under **Manual overrides** in Service controls, alongside Quick block and
+Manual caption, since acting on it is an override of what would otherwise publish, not
+output configuration.
 
 - **On/Off**, default Off (matching behavior before this feature existed). On holds each
   caption for 3 seconds before it advances to Live; there is no separate delay setting.

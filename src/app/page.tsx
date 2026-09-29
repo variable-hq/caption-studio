@@ -1618,14 +1618,6 @@ export default function OperatorDashboard() {
                       (accountPreferences && accountPreferences.outputBufferCount !== null
                         ? "Your account has a saved default for this."
                         : "Saves this choice to your account for new services."),
-                    queue: outputBufferQueue,
-                    onPause: setOutputBufferEntryPaused,
-                    onClear: clearOutputBufferEntry,
-                    onFastForward: fastForwardOutputBufferEntry,
-                    onBeginEdit: beginOutputBufferEdit,
-                    onEditDraftChange: updateOutputBufferEditDraft,
-                    onCancelEdit: cancelOutputBufferEdit,
-                    onSubmitEdit: submitOutputBufferEdit,
                   }}
                   obs={{
                     configured: Boolean(liveState.channel?.configured),
@@ -1781,6 +1773,17 @@ export default function OperatorDashboard() {
               controlBusy={controlAction !== null}
               manualCaptionBusy={controlAction === "manual"}
               onShowManualCaption={(text) => void showManualCaption(text)}
+              outputBuffer={{
+                show: outputBufferCount > 0,
+                queue: outputBufferQueue,
+                onPause: setOutputBufferEntryPaused,
+                onClear: clearOutputBufferEntry,
+                onFastForward: fastForwardOutputBufferEntry,
+                onBeginEdit: beginOutputBufferEdit,
+                onEditDraftChange: updateOutputBufferEditDraft,
+                onCancelEdit: cancelOutputBufferEdit,
+                onSubmitEdit: submitOutputBufferEdit,
+              }}
             />
             <details
               className="moreMenu"
