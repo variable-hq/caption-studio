@@ -2,12 +2,8 @@ import { authorizeOperatorIdentity, type LiveWorkerEnvironment } from "@/live/ap
 import { MAX_PREFERENCES_BYTES, operatorIdentityKey } from "./preferences";
 import { captionTokenHash } from "@/live/caption-room";
 import { InvalidRequestBodyError, RequestBodyTooLargeError, readJsonObject } from "@/http/request-body";
+import { CAPABILITY_TOKEN_PATTERN, UUID_PATTERN, randomToken } from "@/http/tokens";
 import { json, rpc } from "./contracts";
-
-const UUID = /^[a-f0-9-]{36}$/u;
-function token() {
-  return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
 
 export async function handleExperienceRequest(request: Request, env: LiveWorkerEnvironment) {
   const url = new URL(request.url);
@@ -17,7 +13,7 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
     if (publicReader) {
       if (request.method !== "GET") return json({ error: "Use GET." }, 405);
       const [id, reader] = (request.headers.get("x-caption-reader") ?? "").split(".");
-      if (!UUID.test(id ?? "") || !/^[A-Za-z0-9_-]{43}$/u.test(reader ?? "")) return json({ error: "Invalid reader link." }, 403);
+      if (!UUID_PATTERN.test(id ?? "") || !CAPABILITY_TOKEN_PATTERN.test(reader ?? "")) return json({ error: "Invalid reader link." }, 403);
       if (!env.SERMON_JOURNALS) return json({ error: "Reader is not configured." }, 503);
       const journal = env.SERMON_JOURNALS.get(env.SERMON_JOURNALS.idFromName(id));
       return journal.fetch(new Request(`https://internal/read?after=${Math.max(0, Number(url.searchParams.get("after")) || 0)}`, {
@@ -47,7 +43,7 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
     }
     if (operation === "history" && request.method === "GET") return rpc(env.CAPTION_ROOMS, "channel:main", "/internal/history");
     const parts = operation.split("/");
-    if (parts.length === 3 && parts[0] === "sermons" && UUID.test(parts[1] ?? "") &&
+    if (parts.length === 3 && parts[0] === "sermons" && UUID_PATTERN.test(parts[1] ?? "") &&
         ["archive", "summary", "remove", "correct", "delete"].includes(parts[2])) {
       if (!env.SERMON_JOURNALS) return json({ error: "Sermon archive is not configured." }, 503);
       if (parts[2] === "archive" && request.method === "GET") return rpc(env.SERMON_JOURNALS, parts[1],
@@ -71,7 +67,7 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
     const body = await readJsonObject(request, 32768);
     const controller = request.headers.get("x-caption-controller");
     const scoped = request.headers.get("x-caption-remote");
-    const issued = ["pair", "reader-rotate"].includes(operation) ? token() : undefined;
+    const issued = ["pair", "reader-rotate"].includes(operation) ? randomToken() : undefined;
     const payload = { ...body, controllerHash: controller ? await captionTokenHash(controller) : undefined,
       // Pairing is per signed-in operator, so four phones can control one service.
       identityKey: operation === "pair" ? await operatorIdentityKey(operator.identity) : undefined,

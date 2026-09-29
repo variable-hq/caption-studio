@@ -1,6 +1,7 @@
 import { mergeModerationRules, parseGlossaryInput, parseModerationInput } from "@/live/config";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { isLanguageLocale } from "@/domain/languages";
+import { HASH_HEX_PATTERN, UUID_PATTERN } from "@/http/tokens";
 import {
   DAY, HISTORY_RETENTION, MAX_JOURNAL_NOTES, READER_GRACE, READER_INTERVAL, SUMMARY_MODELS, json,
   type ExperienceEnvironment, type JournalState, type ReaderInput, type ReaderNote, type ReaderParagraph,
@@ -68,163 +69,185 @@ export class SermonJournal {
   private async dispatch(request: Request) {
     const url = new URL(request.url);
     const path = url.pathname;
-    if (path === "/sync" && request.method === "POST") {
-      const incoming = await request.json() as JournalState;
-      if (await this.state.storage.get("deleted")) return json({ error: "Sermon deleted." }, 410);
-      if (!/^[a-f0-9-]{36}$/u.test(incoming.id) || !/^[a-f0-9]{64}$/u.test(incoming.readerHash) ||
-          !Number.isSafeInteger(incoming.epoch) || incoming.epoch < 0 ||
-          !Number.isFinite(incoming.startedAt) || !Number.isFinite(incoming.expiresAt)) return json({ error: "Invalid journal." }, 400);
-      const old = await this.configuration();
-      if (await this.state.storage.get("deleted")) return json({ error: "Sermon expired." }, 410);
-      if (old && (old.id !== incoming.id || incoming.epoch < old.epoch || (old.endedAt && !incoming.endedAt))) return json({ ignored: true });
-      const current: JournalState = old ? { ...old, status: incoming.status, epoch: incoming.epoch,
-        readerHash: incoming.readerHash, endedAt: old.endedAt ?? incoming.endedAt,
-        revoked: old.revoked || incoming.revoked } : { ...incoming, revision: 0,
-        readerCalls: 0, summaryCalls: 0, incomplete: false };
-      if (old && old.epoch !== current.epoch) {
-        this.pending = [];
-        await this.state.storage.delete(["pending", "reader-flight"]);
-      }
-      await this.state.storage.put("state", current);
-      await this.schedule(current, current.endedAt ? 1000 : READER_INTERVAL);
-      return json({ synchronized: true });
-    }
+    if (path === "/sync" && request.method === "POST") return this.handleSync(request);
     const current = await this.configuration();
     if (!current) return json({ error: "Sermon unavailable or expired." }, 410);
-    if (path === "/delete" && request.method === "POST") {
-      if (!current.endedAt) return json({ error: "End the service before deleting its archive." }, 409);
-      await this.erase();
-      return json({ deleted: true });
-    }
-    if (path === "/source" && request.method === "POST") {
-      const body = await request.json() as SourceRecord;
-      if (!Number.isSafeInteger(body.id) || body.id < 1 || body.id > 900 ||
-          typeof body.text !== "string" || body.text.length > 4000 ||
-          !isLanguageLocale(body.language) || !Number.isSafeInteger(body.translationRevision)) return json({ error: "Invalid source segment." }, 400);
-      if (current.endedAt) return json({ error: "Source history is finalized." }, 409);
-      if (!current.saved) return json({ saved: false });
-      const sourceKey = key("source", body.id);
-      if (!await this.state.storage.get(sourceKey)) await this.state.storage.put(sourceKey, {
-        id: body.id, at: Date.now(), text: body.text, language: body.language,
-        epoch: current.epoch, translationRevision: body.translationRevision,
-        ...(typeof body.correction === "string" && body.correction.length <= 4000 ? { correction: body.correction } : {}),
-      } satisfies SourceRecord);
-      return json({ saved: true });
-    }
-    if (path === "/gap" && request.method === "POST") {
-      current.incomplete = true;
-      await this.state.storage.put("state", current);
-      return json({ recorded: true });
-    }
-    if (path === "/append" && request.method === "POST") {
-      const input = await request.json() as ReaderInput;
-      if (!Number.isSafeInteger(input.id) || input.id < 1 || input.id > 900 ||
-          typeof input.publicText !== "string" || input.publicText.length > 2000 ||
-          !isLanguageLocale(input.targetLanguage) || typeof input.filterText !== "string" || input.filterText.length > 4000 ||
-          typeof input.keywordText !== "string" || input.keywordText.length > 8000) return json({ error: "Invalid reader segment." }, 400);
-      if (current.endedAt || current.status !== "live" || input.epoch !== current.epoch) return json({ ignored: true });
-      const high = await this.state.storage.get<number>("accepted") ?? 0;
-      if (input.id <= high) return json({ duplicate: true });
-      await this.state.storage.put("accepted", input.id);
-      if (current.saved) this.pending = await this.state.storage.get<ReaderInput[]>("pending") ?? [];
-      // No processing across language/settings boundaries. A full buffer falls back unchanged.
-      if (this.pending.length && (this.pending[0].translationRevision !== input.translationRevision ||
-          this.pending[0].targetLanguage !== input.targetLanguage || this.pending.length >= 5)) {
-        await this.commitFallback(current, this.pending);
-        this.pending = [];
-      }
-      if (input.publicText.trim()) this.pending.push(input);
-      if (current.saved) await this.state.storage.put("pending", this.pending);
-      return json({ accepted: true });
-    }
-    if (path === "/note" && request.method === "POST") {
-      const input = await request.json() as { id: number; text: string; targetLanguage: string };
-      if (!Number.isSafeInteger(input.id) || input.id < 1 ||
-          typeof input.text !== "string" || !input.text.trim() || input.text.length > 2000 ||
-          !isLanguageLocale(input.targetLanguage)) return json({ error: "Invalid operator note." }, 400);
-      if (current.endedAt) return json({ ignored: true });
-      const high = await this.state.storage.get<number>("acceptedNote") ?? 0;
-      if (input.id <= high) return json({ duplicate: true });
-      if (current.saved && (await this.state.storage.list({ prefix: "note:", limit: MAX_JOURNAL_NOTES })).size >= MAX_JOURNAL_NOTES) {
-        return json({ error: "Operator note limit reached for this service." }, 409);
-      }
-      // Flush any already-spoken, not-yet-committed text first so its paragraph gets an
-      // earlier timestamp than this note, keeping the reader's timestamp-sorted order correct.
-      if (current.saved) this.pending = await this.state.storage.get<ReaderInput[]>("pending") ?? [];
-      if (this.pending.length) {
-        await this.commitFallback(current, this.pending);
-        this.pending = [];
-        if (current.saved) await this.state.storage.put("pending", this.pending);
-      }
-      await this.state.storage.put("acceptedNote", input.id);
-      const note: ReaderNote = { id: input.id, text: input.text.trim(), language: input.targetLanguage, at: Date.now() };
-      this.latestNote = note;
-      if (current.saved) await this.state.storage.put(key("note", note.id), note);
-      return json({ accepted: true });
-    }
-    if (path === "/read") {
-      if (request.headers.get("x-reader-hash") !== current.readerHash || current.revoked ||
-          (current.endedAt && Date.now() >= current.endedAt + READER_GRACE)) return json({ error: "Reader link expired or replaced." }, 403);
-      const after = Math.max(0, Number(url.searchParams.get("after")) || 0);
-      const entries = current.saved ? [...(await this.state.storage.list<ReaderParagraph>({ prefix: "paragraph:",
-        startAfter: key("paragraph", after), limit: 50 })).values()] : this.latest && this.latest.id > after ? [this.latest] : [];
-      const removed = await this.state.storage.get<number[]>("removed") ?? [];
-      return json({ status: current.status, saved: current.saved, paragraphs: entries,
-        removed, notes: await this.notes(current), revision: current.revision, more: entries.length === 50,
-        delaySeconds: READER_INTERVAL / 1000 });
-    }
-    if (path === "/archive") {
-      const after = Math.max(0, Number(url.searchParams.get("after")) || 0);
-      const paragraphAfter = Math.max(0, Number(url.searchParams.get("paragraphAfter")) || 0);
-      const sources = current.saved ? [...(await this.state.storage.list<SourceRecord>({ prefix: "source:", startAfter: key("source", after), limit: 50 })).values()] : [];
-      const paragraphs = current.saved ? [...(await this.state.storage.list<ReaderParagraph>({ prefix: "paragraph:", startAfter: key("paragraph", paragraphAfter), limit: 50 })).values()] : this.latest ? [this.latest] : [];
-      const details = { ...current, readerHash: undefined };
-      return json({ details, sources, paragraphs, notes: await this.notes(current), summary: await this.state.storage.get("summary") ?? null,
-        more: sources.length === 50, moreParagraphs: paragraphs.length === 50 });
-    }
-    if (path === "/remove" && request.method === "POST") {
-      const { id } = await request.json() as { id: number };
-      const paragraph = current.saved ? await this.state.storage.get<ReaderParagraph>(key("paragraph", id)) : this.latest?.id === id ? this.latest : null;
-      if (!paragraph) return json({ error: "Passage not found." }, 404);
-      paragraph.removed = true;
-      paragraph.text = "";
-      if (current.saved) {
-        await this.state.storage.put(key("paragraph", id), paragraph);
-        for (const sourceId of paragraph.sourceIds) {
-          const source = await this.state.storage.get<SourceRecord>(key("source", sourceId));
-          if (source) await this.state.storage.put(key("source", sourceId), { ...source, excluded: true });
-        }
-      }
-      const removed = await this.state.storage.get<number[]>("removed") ?? [];
-      await this.state.storage.put("removed", [...new Set([...removed, id])].slice(-900));
-      await this.invalidate(current);
-      return json({ removed: true, sourceIds: paragraph.sourceIds });
-    }
-    if (path === "/correct" && request.method === "POST") {
-      const body = await request.json() as { id: number; text: string };
-      if (!current.saved || typeof body.text !== "string" || !body.text.trim() || body.text.length > 4000) return json({ error: "Invalid correction." }, 400);
-      const source = await this.state.storage.get<SourceRecord>(key("source", body.id));
-      if (!source) return json({ error: "Source not found." }, 404);
-      await this.state.storage.put(key("source", body.id), { ...source, correction: body.text.trim() });
-      await this.invalidate(current);
-      return json({ corrected: true });
-    }
-    if (path === "/summary" && request.method === "POST") {
-      if (!current.saved || !current.endedAt) return json({ error: "End a service with saved history before generating a summary." }, 409);
-      const body = await request.json() as SummaryOptions & { requestId: string };
-      if (!SUMMARY_MODELS.includes(body.model) || !isLanguageLocale(body.language) ||
-          typeof body.guidance !== "string" || body.guidance.length > 2000 ||
-          !["short", "detailed"].includes(body.length) || !/^[a-zA-Z0-9-]{16,64}$/u.test(body.requestId)) return json({ error: "Invalid summary settings." }, 400);
-      const previous = await this.state.storage.get<SummaryJob>("summary");
-      if (previous && (previous.id === body.requestId || ["queued", "running"].includes(previous.status))) return json(previous);
-      const job: SummaryJob = { id: body.requestId, status: "queued", revision: current.revision,
-        options: { model: body.model, language: body.language, guidance: body.guidance, length: body.length },
-        cursor: 0, notes: [], promptVersion: "tb2-grounded-v1" };
-      await this.state.storage.put("summary", job);
-      await this.schedule(current, 1000);
-      return json(job, 202);
-    }
+    if (path === "/delete" && request.method === "POST") return this.handleDelete(current);
+    if (path === "/source" && request.method === "POST") return this.handleSource(request, current);
+    if (path === "/gap" && request.method === "POST") return this.handleGap(current);
+    if (path === "/append" && request.method === "POST") return this.handleAppend(request, current);
+    if (path === "/note" && request.method === "POST") return this.handleNote(request, current);
+    if (path === "/read") return this.handleRead(request, url, current);
+    if (path === "/archive") return this.handleArchive(url, current);
+    if (path === "/remove" && request.method === "POST") return this.handleRemove(request, current);
+    if (path === "/correct" && request.method === "POST") return this.handleCorrect(request, current);
+    if (path === "/summary" && request.method === "POST") return this.handleSummary(request, current);
     return json({ error: "Journal route not found." }, 404);
+  }
+
+  private async handleSync(request: Request) {
+    const incoming = await request.json() as JournalState;
+    if (await this.state.storage.get("deleted")) return json({ error: "Sermon deleted." }, 410);
+    if (!UUID_PATTERN.test(incoming.id) || !HASH_HEX_PATTERN.test(incoming.readerHash) ||
+        !Number.isSafeInteger(incoming.epoch) || incoming.epoch < 0 ||
+        !Number.isFinite(incoming.startedAt) || !Number.isFinite(incoming.expiresAt)) return json({ error: "Invalid journal." }, 400);
+    const old = await this.configuration();
+    if (await this.state.storage.get("deleted")) return json({ error: "Sermon expired." }, 410);
+    if (old && (old.id !== incoming.id || incoming.epoch < old.epoch || (old.endedAt && !incoming.endedAt))) return json({ ignored: true });
+    const current: JournalState = old ? { ...old, status: incoming.status, epoch: incoming.epoch,
+      readerHash: incoming.readerHash, endedAt: old.endedAt ?? incoming.endedAt,
+      revoked: old.revoked || incoming.revoked } : { ...incoming, revision: 0,
+      readerCalls: 0, summaryCalls: 0, incomplete: false };
+    if (old && old.epoch !== current.epoch) {
+      this.pending = [];
+      await this.state.storage.delete(["pending", "reader-flight"]);
+    }
+    await this.state.storage.put("state", current);
+    await this.schedule(current, current.endedAt ? 1000 : READER_INTERVAL);
+    return json({ synchronized: true });
+  }
+
+  private async handleDelete(current: JournalState) {
+    if (!current.endedAt) return json({ error: "End the service before deleting its archive." }, 409);
+    await this.erase();
+    return json({ deleted: true });
+  }
+
+  private async handleSource(request: Request, current: JournalState) {
+    const body = await request.json() as SourceRecord;
+    if (!Number.isSafeInteger(body.id) || body.id < 1 || body.id > 900 ||
+        typeof body.text !== "string" || body.text.length > 4000 ||
+        !isLanguageLocale(body.language) || !Number.isSafeInteger(body.translationRevision)) return json({ error: "Invalid source segment." }, 400);
+    if (current.endedAt) return json({ error: "Source history is finalized." }, 409);
+    if (!current.saved) return json({ saved: false });
+    const sourceKey = key("source", body.id);
+    if (!await this.state.storage.get(sourceKey)) await this.state.storage.put(sourceKey, {
+      id: body.id, at: Date.now(), text: body.text, language: body.language,
+      epoch: current.epoch, translationRevision: body.translationRevision,
+      ...(typeof body.correction === "string" && body.correction.length <= 4000 ? { correction: body.correction } : {}),
+    } satisfies SourceRecord);
+    return json({ saved: true });
+  }
+
+  private async handleGap(current: JournalState) {
+    current.incomplete = true;
+    await this.state.storage.put("state", current);
+    return json({ recorded: true });
+  }
+
+  private async handleAppend(request: Request, current: JournalState) {
+    const input = await request.json() as ReaderInput;
+    if (!Number.isSafeInteger(input.id) || input.id < 1 || input.id > 900 ||
+        typeof input.publicText !== "string" || input.publicText.length > 2000 ||
+        !isLanguageLocale(input.targetLanguage) || typeof input.filterText !== "string" || input.filterText.length > 4000 ||
+        typeof input.keywordText !== "string" || input.keywordText.length > 8000) return json({ error: "Invalid reader segment." }, 400);
+    if (current.endedAt || current.status !== "live" || input.epoch !== current.epoch) return json({ ignored: true });
+    const high = await this.state.storage.get<number>("accepted") ?? 0;
+    if (input.id <= high) return json({ duplicate: true });
+    await this.state.storage.put("accepted", input.id);
+    if (current.saved) this.pending = await this.state.storage.get<ReaderInput[]>("pending") ?? [];
+    // No processing across language/settings boundaries. A full buffer falls back unchanged.
+    if (this.pending.length && (this.pending[0].translationRevision !== input.translationRevision ||
+        this.pending[0].targetLanguage !== input.targetLanguage || this.pending.length >= 5)) {
+      await this.commitFallback(current, this.pending);
+      this.pending = [];
+    }
+    if (input.publicText.trim()) this.pending.push(input);
+    if (current.saved) await this.state.storage.put("pending", this.pending);
+    return json({ accepted: true });
+  }
+
+  private async handleNote(request: Request, current: JournalState) {
+    const input = await request.json() as { id: number; text: string; targetLanguage: string };
+    if (!Number.isSafeInteger(input.id) || input.id < 1 ||
+        typeof input.text !== "string" || !input.text.trim() || input.text.length > 2000 ||
+        !isLanguageLocale(input.targetLanguage)) return json({ error: "Invalid operator note." }, 400);
+    if (current.endedAt) return json({ ignored: true });
+    const high = await this.state.storage.get<number>("acceptedNote") ?? 0;
+    if (input.id <= high) return json({ duplicate: true });
+    if (current.saved && (await this.state.storage.list({ prefix: "note:", limit: MAX_JOURNAL_NOTES })).size >= MAX_JOURNAL_NOTES) {
+      return json({ error: "Operator note limit reached for this service." }, 409);
+    }
+    // Flush any already-spoken, not-yet-committed text first so its paragraph gets an
+    // earlier timestamp than this note, keeping the reader's timestamp-sorted order correct.
+    if (current.saved) this.pending = await this.state.storage.get<ReaderInput[]>("pending") ?? [];
+    if (this.pending.length) {
+      await this.commitFallback(current, this.pending);
+      this.pending = [];
+      if (current.saved) await this.state.storage.put("pending", this.pending);
+    }
+    await this.state.storage.put("acceptedNote", input.id);
+    const note: ReaderNote = { id: input.id, text: input.text.trim(), language: input.targetLanguage, at: Date.now() };
+    this.latestNote = note;
+    if (current.saved) await this.state.storage.put(key("note", note.id), note);
+    return json({ accepted: true });
+  }
+
+  private async handleRead(request: Request, url: URL, current: JournalState) {
+    if (request.headers.get("x-reader-hash") !== current.readerHash || current.revoked ||
+        (current.endedAt && Date.now() >= current.endedAt + READER_GRACE)) return json({ error: "Reader link expired or replaced." }, 403);
+    const after = Math.max(0, Number(url.searchParams.get("after")) || 0);
+    const entries = current.saved ? [...(await this.state.storage.list<ReaderParagraph>({ prefix: "paragraph:",
+      startAfter: key("paragraph", after), limit: 50 })).values()] : this.latest && this.latest.id > after ? [this.latest] : [];
+    const removed = await this.state.storage.get<number[]>("removed") ?? [];
+    return json({ status: current.status, saved: current.saved, paragraphs: entries,
+      removed, notes: await this.notes(current), revision: current.revision, more: entries.length === 50,
+      delaySeconds: READER_INTERVAL / 1000 });
+  }
+
+  private async handleArchive(url: URL, current: JournalState) {
+    const after = Math.max(0, Number(url.searchParams.get("after")) || 0);
+    const paragraphAfter = Math.max(0, Number(url.searchParams.get("paragraphAfter")) || 0);
+    const sources = current.saved ? [...(await this.state.storage.list<SourceRecord>({ prefix: "source:", startAfter: key("source", after), limit: 50 })).values()] : [];
+    const paragraphs = current.saved ? [...(await this.state.storage.list<ReaderParagraph>({ prefix: "paragraph:", startAfter: key("paragraph", paragraphAfter), limit: 50 })).values()] : this.latest ? [this.latest] : [];
+    const details = { ...current, readerHash: undefined };
+    return json({ details, sources, paragraphs, notes: await this.notes(current), summary: await this.state.storage.get("summary") ?? null,
+      more: sources.length === 50, moreParagraphs: paragraphs.length === 50 });
+  }
+
+  private async handleRemove(request: Request, current: JournalState) {
+    const { id } = await request.json() as { id: number };
+    const paragraph = current.saved ? await this.state.storage.get<ReaderParagraph>(key("paragraph", id)) : this.latest?.id === id ? this.latest : null;
+    if (!paragraph) return json({ error: "Passage not found." }, 404);
+    paragraph.removed = true;
+    paragraph.text = "";
+    if (current.saved) {
+      await this.state.storage.put(key("paragraph", id), paragraph);
+      for (const sourceId of paragraph.sourceIds) {
+        const source = await this.state.storage.get<SourceRecord>(key("source", sourceId));
+        if (source) await this.state.storage.put(key("source", sourceId), { ...source, excluded: true });
+      }
+    }
+    const removed = await this.state.storage.get<number[]>("removed") ?? [];
+    await this.state.storage.put("removed", [...new Set([...removed, id])].slice(-900));
+    await this.invalidate(current);
+    return json({ removed: true, sourceIds: paragraph.sourceIds });
+  }
+
+  private async handleCorrect(request: Request, current: JournalState) {
+    const body = await request.json() as { id: number; text: string };
+    if (!current.saved || typeof body.text !== "string" || !body.text.trim() || body.text.length > 4000) return json({ error: "Invalid correction." }, 400);
+    const source = await this.state.storage.get<SourceRecord>(key("source", body.id));
+    if (!source) return json({ error: "Source not found." }, 404);
+    await this.state.storage.put(key("source", body.id), { ...source, correction: body.text.trim() });
+    await this.invalidate(current);
+    return json({ corrected: true });
+  }
+
+  private async handleSummary(request: Request, current: JournalState) {
+    if (!current.saved || !current.endedAt) return json({ error: "End a service with saved history before generating a summary." }, 409);
+    const body = await request.json() as SummaryOptions & { requestId: string };
+    if (!SUMMARY_MODELS.includes(body.model) || !isLanguageLocale(body.language) ||
+        typeof body.guidance !== "string" || body.guidance.length > 2000 ||
+        !["short", "detailed"].includes(body.length) || !/^[a-zA-Z0-9-]{16,64}$/u.test(body.requestId)) return json({ error: "Invalid summary settings." }, 400);
+    const previous = await this.state.storage.get<SummaryJob>("summary");
+    if (previous && (previous.id === body.requestId || ["queued", "running"].includes(previous.status))) return json(previous);
+    const job: SummaryJob = { id: body.requestId, status: "queued", revision: current.revision,
+      options: { model: body.model, language: body.language, guidance: body.guidance, length: body.length },
+      cursor: 0, notes: [], promptVersion: "tb2-grounded-v1" };
+    await this.state.storage.put("summary", job);
+    await this.schedule(current, 1000);
+    return json(job, 202);
   }
 
   private async notes(current: JournalState): Promise<ReaderNote[]> {

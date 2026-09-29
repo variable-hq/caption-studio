@@ -1,3 +1,5 @@
+import { base64UrlDecode, base64UrlEncode } from "@/http/tokens";
+
 const MINIMUM_KEY_LENGTH = 32;
 
 export class ChannelEncryptionError extends Error {}
@@ -10,22 +12,6 @@ function requireSecret(secret?: string) {
     );
   }
   return value;
-}
-
-function base64UrlEncode(bytes: Uint8Array) {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary)
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/u, "");
-}
-
-function base64UrlDecode(value: string) {
-  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
-  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-  const binary = atob(padded);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
 async function encryptionKey(secret?: string) {

@@ -11,6 +11,7 @@ import {
   MAX_LIVE_SESSION_MS,
   MAX_TRANSCRIPTION_REQUESTS,
 } from "@/live/contracts";
+import { formatMinutesSeconds } from "@/components/operator/format-duration";
 
 interface AiUsageDashboardProps {
   active: boolean;
@@ -38,9 +39,7 @@ function formatCount(value: number) {
 
 function formatDuration(value: number) {
   const totalSeconds = Math.max(0, Math.floor(value / 1_000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+  return formatMinutesSeconds(Math.floor(totalSeconds / 60), totalSeconds % 60);
 }
 
 function UsageMetric({
