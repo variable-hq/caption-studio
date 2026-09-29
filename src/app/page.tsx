@@ -1232,6 +1232,7 @@ export default function OperatorDashboard() {
       endRetryRequired={endRetryRequired}
       endActionDisabled={endActionDisabled}
       startDisabled={startDisabled}
+      startDescription={startDescription}
       onPause={() => void pauseSession()}
       onResume={() => void resumeSession()}
       onClear={() => void clearCaption()}

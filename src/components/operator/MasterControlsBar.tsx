@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 interface MasterControlsBarProps {
   hasService: boolean;
   isPaused: boolean;
@@ -17,6 +19,7 @@ interface MasterControlsBarProps {
   endRetryRequired: boolean;
   endActionDisabled: boolean;
   startDisabled: boolean;
+  startDescription: string;
   onPause: () => void;
   onResume: () => void;
   onClear: () => void;
@@ -44,6 +47,7 @@ export function MasterControlsBar({
   endRetryRequired,
   endActionDisabled,
   startDisabled,
+  startDescription,
   onPause,
   onResume,
   onClear,
@@ -52,6 +56,7 @@ export function MasterControlsBar({
   onStart,
   onTakeOver,
 }: MasterControlsBarProps) {
+  const startDescriptionId = useId();
   const statusText = liveNeedsAttention
     ? "Capture needs attention"
     : isRefreshing
@@ -69,10 +74,15 @@ export function MasterControlsBar({
   return (
     <section className="masterControls" aria-label="Master controls">
       <span className="masterControlsState">{statusText}</span>
+      {/* Own accessible description rather than depending on page.tsx's start-service-description
+       * paragraph: this component renders in one of two mutually exclusive spots (docked outside
+       * Service Controls, or inside it), and that paragraph only exists inside the panel - a
+       * display:none subtree when docked, which contributes nothing to aria-describedby there. */}
+      <span id={startDescriptionId} className="visuallyHidden">{startDescription}</span>
       <button
         className={anotherOperatorActive ? "dangerButton" : "primaryButton"}
         disabled={hasService || startDisabled}
-        aria-describedby="start-service-description"
+        aria-describedby={startDescriptionId}
         onClick={anotherOperatorActive ? onTakeOver : onStart}
       >
         {isStarting ? "Starting securely…" : anotherOperatorActive ? "Take over channel" : "Start captions"}
