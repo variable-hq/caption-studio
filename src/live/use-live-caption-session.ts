@@ -19,7 +19,6 @@ import { addQuickBlockEntry, combineFilterText, removeQuickBlockEntry, type Quic
 import {
   DEFAULT_RECORDING_WINDOW_MS,
   MAX_LIVE_SESSION_MS,
-  MAX_MANUAL_CAPTION_CHARS,
   normalizeCaptionStyle,
   type CaptionStyle,
   type LiveServiceDetails,
@@ -29,21 +28,10 @@ import {
   type RecordingWindowMs,
 } from "@/live/contracts";
 import {
-  EMPTY_OUTPUT_BUFFER_QUEUE,
-  beginEdit as beginOutputBufferEntryEdit,
-  cancelEdit as cancelOutputBufferEntryEdit,
-  clearEntry as clearOutputBufferQueueEntry,
-  enqueueTranslation,
-  fastForwardEntry,
   outputBufferCapacity,
-  setManualPause,
-  submitEdit as submitOutputBufferEntryEdit,
-  tick as tickOutputBufferQueue,
-  updateEditDraft,
   type OutputBufferCount,
   type OutputBufferDwellMs,
   type OutputBufferEntry,
-  type OutputBufferQueueState,
 } from "@/live/output-buffer";
 import { LiveApiError, LiveSessionClient } from "@/live/session-client";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
@@ -59,6 +47,7 @@ import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { keywordHints } from "@/pipeline/glossary";
 import { experienceRequest } from "@/experience/client";
 import { startSerialPolling } from "@/live/serial-polling";
+import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
 import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
 
 interface LiveCaptionSettings extends TranslationSessionSettings {
@@ -153,8 +142,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const [translationRefreshRequired, setTranslationRefreshRequired] =
     useState(false);
   const [quickBlockEntries, setQuickBlockEntries] = useState<QuickBlockEntry[]>([]);
-  const [outputBufferQueue, setOutputBufferQueue] =
-    useState<OutputBufferQueueState>(EMPTY_OUTPUT_BUFFER_QUEUE);
 
   const settingsRef = useRef(settings);
   const endRetryRequiredRef = useRef(false);
@@ -164,12 +151,27 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const refreshShouldResumeRef = useRef(false);
   const translationRefreshRequestIdRef = useRef<string | null>(null);
   const quickBlockEntriesRef = useRef<QuickBlockEntry[]>([]);
-  const outputBufferQueueRef = useRef<OutputBufferQueueState>(EMPTY_OUTPUT_BUFFER_QUEUE);
-  // Bumped every time the buffer is discarded (pause/refresh/takeover/End), so an in-flight
-  // async flush of force-published entries (see the capacity-shrink effect) can tell that the
-  // session moved on mid-loop and stop, instead of publishing the rest of a stale backlog.
-  const outputBufferGenerationRef = useRef(0);
-  const previousOutputBufferCapacityRef = useRef(outputBufferCapacity(settings.outputBufferCount));
+  const publishBufferedEntryRef = useRef<(entry: OutputBufferEntry) => Promise<void>>(async () => {});
+  const {
+    queue: outputBufferQueue,
+    generationRef: outputBufferGenerationRef,
+    reset: resetOutputBuffer,
+    enqueue: enqueueOutputBufferEntry,
+    setEntryPaused: setOutputBufferEntryPaused,
+    clearEntry: clearOutputBufferEntry,
+    fastForwardOutputBufferEntry,
+    beginEdit: beginOutputBufferEdit,
+    updateEditDraft: updateOutputBufferEditDraft,
+    cancelEdit: cancelOutputBufferEdit,
+    submitEdit: submitOutputBufferEdit,
+  } = useOutputBufferQueue({
+    count: settings.outputBufferCount,
+    tickEnabled: liveState.status === "live",
+    settingsRef,
+    publishBufferedEntryRef,
+    activeTranslationSettingsRef,
+    quickBlockEntriesRef,
+  });
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -200,11 +202,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, [quickBlockEntries]);
 
 
-  const resetOutputBuffer = useCallback(() => {
-    outputBufferGenerationRef.current += 1;
-    outputBufferQueueRef.current = EMPTY_OUTPUT_BUFFER_QUEUE;
-    setOutputBufferQueue(EMPTY_OUTPUT_BUFFER_QUEUE);
-  }, []);
 
   const addQuickBlock = useCallback((term: string) => {
     setQuickBlockEntries((current) => addQuickBlockEntry(current, term));
@@ -615,8 +612,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         setLiveState((state) => ({ ...state, message }));
       }
     },
-    [endService, handleTakenOver, reconcileExternalTranslationRevision, resetOutputBuffer, stopCapture],
+    [endService, handleTakenOver, reconcileExternalTranslationRevision, outputBufferGenerationRef, resetOutputBuffer, stopCapture],
   );
+  publishBufferedEntryRef.current = publishBufferedEntry;
 
   const processChunk = useCallback(
     async (audio: Blob, generation: number) => {
@@ -776,8 +774,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         return;
       }
 
-      const outcome = enqueueTranslation(
-        outputBufferQueueRef.current,
+      const outcome = enqueueOutputBufferEntry(
         outputBufferCapacity(bufferCount),
         {
           id: crypto.randomUUID(),
@@ -788,10 +785,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           request: event,
         },
         Date.now(),
-        settingsRef.current.outputBufferDwellMs,
       );
-      outputBufferQueueRef.current = outcome.queue;
-      setOutputBufferQueue(outcome.queue);
       // Sequential, not concurrent, so force-advanced entries can't resolve out of order;
       // bails early if a mid-loop Pause/Clear/etc. already discarded the buffer.
       const forceAdvanceGeneration = outputBufferGenerationRef.current;
@@ -807,7 +801,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         lastLatencyMs: Math.round(performance.now() - startedAt),
       }));
     },
-    [publishBufferedEntry, reconcileExternalTranslationRevision],
+    [enqueueOutputBufferEntry, outputBufferGenerationRef, publishBufferedEntry, reconcileExternalTranslationRevision],
   );
 
   const drainQueue = useCallback(async () => {
@@ -1992,145 +1986,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     },
     [handleTakenOver, liveState.channel?.configured, liveState.status],
   );
-
-  useEffect(() => {
-    if (settings.outputBufferCount === 0 || liveState.status !== "live") return;
-    const id = window.setInterval(() => {
-      const outcome = tickOutputBufferQueue(
-        outputBufferQueueRef.current,
-        Date.now(),
-        settingsRef.current.outputBufferDwellMs,
-      );
-      if (outcome.queue !== outputBufferQueueRef.current) {
-        outputBufferQueueRef.current = outcome.queue;
-        setOutputBufferQueue(outcome.queue);
-      }
-      if (outcome.publish) void publishBufferedEntry(outcome.publish);
-    }, 200);
-    return () => window.clearInterval(id);
-  }, [settings.outputBufferCount, liveState.status, publishBufferedEntry]);
-
-  // Shrinking capacity can leave more entries queued than it now allows; enqueueTranslation
-  // only fixes that on the next arrival, which may never come. Flush the excess to Live now.
-  useEffect(() => {
-    const capacity = outputBufferCapacity(settings.outputBufferCount);
-    const previousCapacity = previousOutputBufferCapacityRef.current;
-    previousOutputBufferCapacityRef.current = capacity;
-    if (capacity >= previousCapacity) return;
-    const current = outputBufferQueueRef.current.entries;
-    const overflow = current.length - capacity;
-    if (overflow <= 0) return;
-    const excess = current.slice(0, overflow);
-    const kept = { entries: current.slice(overflow) };
-    outputBufferQueueRef.current = kept;
-    setOutputBufferQueue(kept);
-    void (async () => {
-      // If publishing one entry reveals the session paused/refreshed/ended (resetOutputBuffer
-      // runs as part of handling that), stop rather than keep force-publishing the rest of a
-      // backlog that no longer should exist.
-      const flushGeneration = outputBufferGenerationRef.current;
-      for (const entry of excess) {
-        if (outputBufferGenerationRef.current !== flushGeneration) return;
-        await publishBufferedEntry(entry);
-      }
-    })();
-  }, [settings.outputBufferCount, publishBufferedEntry]);
-
-  const setOutputBufferEntryPaused = useCallback((id: string, paused: boolean) => {
-    const next = setManualPause(
-      outputBufferQueueRef.current,
-      id,
-      paused,
-      Date.now(),
-      settingsRef.current.outputBufferDwellMs,
-    );
-    outputBufferQueueRef.current = next;
-    setOutputBufferQueue(next);
-  }, []);
-
-  const clearOutputBufferEntry = useCallback((id: string) => {
-    const next = clearOutputBufferQueueEntry(
-      outputBufferQueueRef.current,
-      id,
-      Date.now(),
-      settingsRef.current.outputBufferDwellMs,
-    );
-    outputBufferQueueRef.current = next;
-    setOutputBufferQueue(next);
-  }, []);
-
-  const fastForwardOutputBufferEntry = useCallback(
-    (id: string) => {
-      const outcome = fastForwardEntry(
-        outputBufferQueueRef.current,
-        id,
-        Date.now(),
-        settingsRef.current.outputBufferDwellMs,
-      );
-      outputBufferQueueRef.current = outcome.queue;
-      setOutputBufferQueue(outcome.queue);
-      if (outcome.publish) void publishBufferedEntry(outcome.publish);
-    },
-    [publishBufferedEntry],
-  );
-
-  const beginOutputBufferEdit = useCallback((id: string) => {
-    const next = beginOutputBufferEntryEdit(
-      outputBufferQueueRef.current,
-      id,
-      Date.now(),
-      settingsRef.current.outputBufferDwellMs,
-    );
-    outputBufferQueueRef.current = next;
-    setOutputBufferQueue(next);
-  }, []);
-
-  const updateOutputBufferEditDraft = useCallback((id: string, text: string) => {
-    const next = updateEditDraft(outputBufferQueueRef.current, id, text.slice(0, MAX_MANUAL_CAPTION_CHARS));
-    outputBufferQueueRef.current = next;
-    setOutputBufferQueue(next);
-  }, []);
-
-  const cancelOutputBufferEdit = useCallback((id: string) => {
-    const next = cancelOutputBufferEntryEdit(
-      outputBufferQueueRef.current,
-      id,
-      Date.now(),
-      settingsRef.current.outputBufferDwellMs,
-    );
-    outputBufferQueueRef.current = next;
-    setOutputBufferQueue(next);
-  }, []);
-
-  const submitOutputBufferEdit = useCallback((id: string) => {
-    const entry = outputBufferQueueRef.current.entries.find((item) => item.id === id);
-    if (!entry || entry.editedDraft === null) return;
-    // Re-moderates against the confirmed session settings, not the unconfirmed draft.
-    const current = activeTranslationSettingsRef.current ?? settingsRef.current;
-    const effectiveFilterText = combineFilterText(
-      quickBlockEntriesRef.current,
-      current.filterText,
-      MAX_FILTER_INPUT_CHARS,
-    );
-    // Same glossary + moderation pass every other caption gets, via prepareCaptionForms.
-    const forms = prepareCaptionForms({
-      sourceText: entry.sourceText,
-      translatedText: entry.editedDraft,
-      targetLanguage: current.targetLanguage,
-      glossary: parseGlossaryInput(current.keywordText, current.targetLanguage),
-      moderationRules: parseModerationInput(effectiveFilterText),
-    });
-    const next = submitOutputBufferEntryEdit(
-      outputBufferQueueRef.current,
-      id,
-      forms.publicText,
-      forms.hiddenFromPublicDisplay,
-      Date.now(),
-      settingsRef.current.outputBufferDwellMs,
-    );
-    outputBufferQueueRef.current = next;
-    setOutputBufferQueue(next);
-  }, []);
 
   useEffect(() => {
     const pauseForLifecycle = () => {
