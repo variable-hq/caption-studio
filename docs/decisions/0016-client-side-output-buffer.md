@@ -54,10 +54,11 @@ separate idea, not part of this feature.
   queue does not survive reload or takeover; both already clear it explicitly, consistent
   with how they already discard in-flight translation state.
 - **On/Off, default Off.** Off matches behavior before this feature existed exactly. On
-  holds each caption for one fixed 3-second dwell (`OUTPUT_BUFFER_DWELL_MS`) before it
-  advances to Live; there is no separate configurable delay. Pause already gives the
-  operator an on-demand, unbounded hold on any one caption, so a passive, pre-configured
-  delay would only add a setting without adding capability.
+  holds each caption for a fixed dwell before it advances to Live. **Superseded by
+  [ADR 0017](0017-configurable-output-buffer-dwell.md):** the dwell was originally a
+  single fixed 3-second value with no configurable delay, on the reasoning that Pause
+  already gives the operator an on-demand, unbounded hold on any one caption; ADR 0017
+  makes the dwell a configurable, saved-default setting instead.
 - **Backing capacity decouples from visibility.** An enabled buffer holds up to
   `OUTPUT_BUFFER_BACKING_CAPACITY` (4) entries internally, but only the front (next-up)
   entry is ever rendered or individually controllable (`OutputBufferPanel.tsx`). This is

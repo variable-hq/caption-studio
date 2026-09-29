@@ -45,6 +45,9 @@ records to establish release evidence.
 - [ADR 0016](decisions/0016-client-side-output-buffer.md) records why the new output
   buffer (a pre-publish delay queue, distinct from the recording window) lives
   client-side in the controlling operator's tab.
+- [ADR 0017](decisions/0017-configurable-output-buffer-dwell.md) records why the output
+  buffer's dwell duration became a configurable, saved-default setting, superseding the
+  fixed-3-second-dwell decision in ADR 0016.
 - [Caption policy](evaluation/CAPTION_POLICY_DECISION.md) describes completion and filtering.
 - [Indonesian→English review](evaluation/ID_EN_REVIEW.md) and its
   [synthetic fixtures](evaluation/id-en-synthetic.json) remain unscored.

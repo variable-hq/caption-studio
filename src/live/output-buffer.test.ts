@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { PublicCaptionRequest } from "@/live/contracts";
 import {
+  DEFAULT_OUTPUT_BUFFER_DWELL_MS,
   EMPTY_OUTPUT_BUFFER_QUEUE,
-  OUTPUT_BUFFER_DWELL_MS,
+  OUTPUT_BUFFER_DWELL_OPTIONS_MS,
   beginEdit,
   cancelEdit,
   clearEntry,
@@ -78,7 +79,7 @@ describe("enqueueTranslation", () => {
     expect(dropped).toBe(false);
     expect(publishNow).toEqual([]);
     expect(queue.entries).toHaveLength(1);
-    expect(queue.entries[0].dueAt).toBe(1_000 + OUTPUT_BUFFER_DWELL_MS);
+    expect(queue.entries[0].dueAt).toBe(1_000 + DEFAULT_OUTPUT_BUFFER_DWELL_MS);
   });
 
   it("force-advances the front entry to make room when the queue is full", () => {
@@ -135,38 +136,41 @@ describe("enqueueTranslation", () => {
     expect(enqueueTranslation(queue, capacity, candidate("overflow", "overflow"), 999).dropped).toBe(true);
   });
 
-  it("holds each caption for exactly the fixed dwell under sustained arrivals, with no growing lag", () => {
-    const capacity = outputBufferCapacity(1);
-    const arrivalIntervalMs = 6_000; // the fastest recording window
-    let queue = EMPTY_OUTPUT_BUFFER_QUEUE;
-    const lags: number[] = [];
+  it.each(OUTPUT_BUFFER_DWELL_OPTIONS_MS)(
+    "holds each caption for exactly the fixed dwell (%dms) under sustained arrivals, with no growing lag",
+    (dwellMs) => {
+      const capacity = outputBufferCapacity(1);
+      const arrivalIntervalMs = 6_000; // the fastest recording window
+      let queue = EMPTY_OUTPUT_BUFFER_QUEUE;
+      const lags: number[] = [];
 
-    for (let i = 0; i < 20; i += 1) {
-      const arrivedAt = i * arrivalIntervalMs;
-      queue = enqueueTranslation(queue, capacity, candidate(`c${i}`, `c${i}`), arrivedAt).queue;
-      for (let t = arrivedAt; t < arrivedAt + arrivalIntervalMs; t += 200) {
-        const result = tick(queue, t);
-        queue = result.queue;
-        if (result.publish) lags.push(t - arrivedAt);
+      for (let i = 0; i < 20; i += 1) {
+        const arrivedAt = i * arrivalIntervalMs;
+        queue = enqueueTranslation(queue, capacity, candidate(`c${i}`, `c${i}`), arrivedAt, dwellMs).queue;
+        for (let t = arrivedAt; t < arrivedAt + arrivalIntervalMs; t += 200) {
+          const result = tick(queue, t, dwellMs);
+          queue = result.queue;
+          if (result.publish) lags.push(t - arrivedAt);
+        }
       }
-    }
 
-    // The queue never backs up, because arrivals are far slower than the dwell.
-    expect(queue.entries.length).toBeLessThanOrEqual(1);
-    // Every one of the 20 captions published at (arrival + dwell), not later and later.
-    expect(lags).toHaveLength(20);
-    for (const lag of lags) {
-      expect(lag).toBeGreaterThanOrEqual(OUTPUT_BUFFER_DWELL_MS);
-      expect(lag).toBeLessThan(OUTPUT_BUFFER_DWELL_MS + 200); // tick granularity slack
-    }
-  });
+      // The queue never backs up, because arrivals are far slower than the dwell.
+      expect(queue.entries.length).toBeLessThanOrEqual(1);
+      // Every one of the 20 captions published at (arrival + dwell), not later and later.
+      expect(lags).toHaveLength(20);
+      for (const lag of lags) {
+        expect(lag).toBeGreaterThanOrEqual(dwellMs);
+        expect(lag).toBeLessThan(dwellMs + 200); // tick granularity slack
+      }
+    },
+  );
 });
 
 describe("tick", () => {
   it("publishes the front entry once its dwell time elapses", () => {
     const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
-    expect(tick(queue, OUTPUT_BUFFER_DWELL_MS - 1).publish).toBeNull();
-    const due = tick(queue, OUTPUT_BUFFER_DWELL_MS);
+    expect(tick(queue, DEFAULT_OUTPUT_BUFFER_DWELL_MS - 1).publish).toBeNull();
+    const due = tick(queue, DEFAULT_OUTPUT_BUFFER_DWELL_MS);
     expect(due.publish?.id).toBe("a");
     expect(due.queue.entries).toEqual([]);
   });
@@ -181,7 +185,7 @@ describe("tick", () => {
 describe("pause and resume", () => {
   it("freezes and restores the remaining dwell time", () => {
     const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
-    const paused = setManualPause(queue, "a", true, OUTPUT_BUFFER_DWELL_MS - 500);
+    const paused = setManualPause(queue, "a", true, DEFAULT_OUTPUT_BUFFER_DWELL_MS - 500);
     expect(isOutputBufferEntryPaused(paused.entries[0])).toBe(true);
     expect(paused.entries[0].dueAt).toBeNull();
     expect(paused.entries[0].remainingMs).toBe(500);
@@ -199,7 +203,7 @@ describe("edit lifecycle", () => {
     queue = beginEdit(queue, "b", 100);
     expect(isOutputBufferEntryPaused(queue.entries[1])).toBe(false);
 
-    const advanced = tick(queue, OUTPUT_BUFFER_DWELL_MS);
+    const advanced = tick(queue, DEFAULT_OUTPUT_BUFFER_DWELL_MS);
     expect(advanced.publish?.id).toBe("a");
     queue = advanced.queue;
     expect(queue.entries[0].id).toBe("b");

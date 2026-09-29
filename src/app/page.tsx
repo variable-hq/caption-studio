@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CloudProviderClient } from "@/ai/cloud-provider-client";
 import {
@@ -8,10 +8,13 @@ import {
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
 import { AiUsageDashboard } from "@/components/operator/AiUsageDashboard";
-import { ManualCaptionControl } from "@/components/operator/ManualCaptionControl";
+import { CaptionPreview } from "@/components/operator/CaptionPreview";
+import { LiveOutputsSection } from "@/components/operator/LiveOutputsSection";
+import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
+import { MasterControlsBar } from "@/components/operator/MasterControlsBar";
 import { OperatorTutorial } from "@/components/operator/OperatorTutorial";
 import { PromptEditor } from "@/components/operator/PromptEditor";
-import { QuickBlockControl } from "@/components/operator/QuickBlockControl";
+import { StyleEditor, type StyleEditorProps } from "@/components/operator/StyleEditor";
 import { SummarySettingsEditor } from "@/components/operator/SummarySettingsEditor";
 import type { SummaryOptions } from "@/experience/contracts";
 import {
@@ -51,9 +54,10 @@ import {
 } from "@/live/contracts";
 import {
   DEFAULT_OUTPUT_BUFFER_COUNT,
+  DEFAULT_OUTPUT_BUFFER_DWELL_MS,
   type OutputBufferCount,
+  type OutputBufferDwellMs,
 } from "@/live/output-buffer";
-import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { startSerialPolling } from "@/live/serial-polling";
 import { THEME_PREFERENCE_KEY, applyTheme, normalizeTheme, readStoredTheme, type ThemePreference } from "@/live/theme";
@@ -154,299 +158,6 @@ const CHANNEL_STATUS_LABELS: Record<ChannelStatus | "loading", string> = {
   paused: "Main channel · Paused",
 };
 
-const CAPTION_FONT_STACKS: Record<CaptionStyle["fontFamily"], string> = {
-  "sans-serif": "Arial, Helvetica, sans-serif",
-  serif: '"Times New Roman", Times, serif',
-  monospace: '"Courier New", Courier, monospace',
-};
-
-function transparentBackground(hex: string, transparency: number) {
-  const channels = hex.match(/[0-9a-f]{2}/gi)?.map((value) => parseInt(value, 16));
-  if (!channels || channels.length !== 3) return "transparent";
-  return `rgba(${channels.join(", ")}, ${(100 - transparency) / 100})`;
-}
-
-interface PreviewProps {
-  caption: string;
-  style: CaptionStyle;
-  badge: string;
-  live?: boolean;
-  sourceText?: string;
-  targetLanguage?: LanguageLocale;
-  sourceLanguage?: SourceLanguage;
-}
-
-const OBS_CANVAS_WIDTH = 1920;
-const OBS_CANVAS_HEIGHT = 1080;
-
-/**
- * Renders the caption on a real 1920 × 1080 stage and scales the stage to the card, so
- * line breaks, sizes and margins match the OBS Browser Source (src/live/overlay-document.ts)
- * instead of approximating them with responsive typography.
- */
-function CaptionPreview({
-  caption,
-  style,
-  badge,
-  live,
-  sourceText,
-  targetLanguage,
-  sourceLanguage,
-}: PreviewProps) {
-  const headingId = useId();
-  const frameRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.25);
-
-  useEffect(() => {
-    const frame = frameRef.current;
-    if (!frame || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(([entry]) => {
-      const width = entry?.contentRect.width ?? frame.clientWidth;
-      if (width > 0) setScale(width / OBS_CANVAS_WIDTH);
-    });
-    observer.observe(frame);
-    return () => observer.disconnect();
-  }, []);
-
-  // The overlay pads its stage in vh/vw of a 1080 × 1920 canvas; the same distances in px.
-  const marginY = `${Math.round((style.verticalMarginPercent / 100) * OBS_CANVAS_HEIGHT)}px`;
-  const marginX = `${Math.round((style.horizontalMarginPercent / 100) * OBS_CANVAS_WIDTH)}px`;
-
-  return (
-    <SpotlightCard className="previewCard" aria-labelledby={headingId}>
-      <div className="sectionHeading">
-        <div>
-          <h2 id={headingId}>Output monitor</h2>
-        </div>
-        <span className={`statusChip ${live ? "live" : ""}`}>{badge}</span>
-      </div>
-      <div className="videoFrame" ref={frameRef}>
-        <div
-          className="previewStage"
-          style={{
-            transform: `scale(${scale})`,
-            padding: `${marginY} ${marginX}`,
-            alignItems:
-              style.verticalAlign === "top"
-                ? "flex-start"
-                : style.verticalAlign === "middle"
-                  ? "center"
-                  : "flex-end",
-          }}
-        >
-          <div className="previewSafeArea" aria-hidden="true" style={{ inset: `${marginY} ${marginX}` }} />
-          <div
-            className="captionPreview"
-            data-testid="caption-preview"
-            lang={targetLanguage}
-            style={{
-              color: style.textColor,
-              fontFamily: CAPTION_FONT_STACKS[style.fontFamily],
-              fontSize: `${style.fontSize}px`,
-              textAlign: style.horizontalAlign,
-            }}
-          >
-            <span
-              className="captionPreviewText"
-              style={{
-                backgroundColor: caption
-                  ? transparentBackground(
-                      style.backgroundColor,
-                      style.backgroundTransparency,
-                    )
-                  : "transparent",
-              }}
-            >
-              {caption}
-            </span>
-          </div>
-        </div>
-        {!caption ? (
-          <p className="previewEmpty">
-            No public caption
-            <span>{live ? "Listening for the next caption" : "The caption canvas is clear"}</span>
-          </p>
-        ) : null}
-      </div>
-      <p className="previewHelp">Scaled copy of the 1920 × 1080 OBS canvas. Verify the actual Browser Source in OBS.</p>
-      {sourceText ? (
-        <div className="sourceTranscript">
-          <strong>Source · Operator only</strong>
-          <p lang={sourceLanguage === "auto" ? undefined : sourceLanguage}>{sourceText}</p>
-        </div>
-      ) : null}
-    </SpotlightCard>
-  );
-}
-
-interface StyleEditorProps {
-  style: CaptionStyle;
-  setFontSize: (value: number) => void;
-  setTextColor: (value: string) => void;
-  setBackgroundColor: (value: string) => void;
-  setBackgroundTransparency: (value: number) => void;
-  setHorizontalMarginPercent: (value: number) => void;
-  setVerticalMarginPercent: (value: number) => void;
-  setHorizontalAlign: (value: CaptionStyle["horizontalAlign"]) => void;
-  setVerticalAlign: (value: CaptionStyle["verticalAlign"]) => void;
-  setFontFamily: (value: CaptionStyle["fontFamily"]) => void;
-  onSave: () => void;
-  saving: boolean;
-  savedMessage: string;
-}
-
-function StyleEditor({
-  style,
-  setFontSize,
-  setTextColor,
-  setBackgroundColor,
-  setBackgroundTransparency,
-  setHorizontalMarginPercent,
-  setVerticalMarginPercent,
-  setHorizontalAlign,
-  setVerticalAlign,
-  setFontFamily,
-  onSave,
-  saving,
-  savedMessage,
-}: StyleEditorProps) {
-  return (
-    <div className="styleEditor">
-      <div className="fieldGrid">
-        <label className="rangeControl fullField">
-          <span>Text size <strong>{style.fontSize}px</strong></span>
-          <input
-            type="range"
-            min="10"
-            max="72"
-            value={style.fontSize}
-            aria-label={`Text size ${style.fontSize}px`}
-            onInput={(event) => setFontSize(Number(event.currentTarget.value))}
-          />
-        </label>
-        <label>
-          Font type
-          <select
-            value={style.fontFamily}
-            onChange={(event) =>
-              setFontFamily(event.target.value as CaptionStyle["fontFamily"])
-            }
-          >
-            <option value="sans-serif">Sans serif</option>
-            <option value="serif">Times serif</option>
-            <option value="monospace">Monospace</option>
-          </select>
-        </label>
-        <label>
-          Horizontal alignment
-          <select
-            value={style.horizontalAlign}
-            onChange={(event) =>
-              setHorizontalAlign(
-                event.target.value as CaptionStyle["horizontalAlign"],
-              )
-            }
-          >
-            <option value="left">Left</option>
-            <option value="center">Centre</option>
-            <option value="right">Right</option>
-          </select>
-        </label>
-        <label>
-          Vertical position
-          <select
-            value={style.verticalAlign}
-            onChange={(event) =>
-              setVerticalAlign(event.target.value as CaptionStyle["verticalAlign"])
-            }
-          >
-            <option value="top">Top</option>
-            <option value="middle">Middle</option>
-            <option value="bottom">Bottom</option>
-          </select>
-        </label>
-        <label>
-          Text colour
-          <span className="colorControl">
-            <input
-              type="color"
-              value={style.textColor}
-              aria-label={`Text colour ${style.textColor}`}
-              onInput={(event) => setTextColor(event.currentTarget.value)}
-            />
-            <code>{style.textColor}</code>
-          </span>
-        </label>
-        <label>
-          Caption highlight
-          <span className="colorControl">
-            <input
-              type="color"
-              value={style.backgroundColor}
-              aria-label={`Caption background ${style.backgroundColor}`}
-              onInput={(event) => setBackgroundColor(event.currentTarget.value)}
-            />
-            <code>{style.backgroundColor}</code>
-          </span>
-        </label>
-        <label className="rangeControl fullField">
-          <span>
-            Background transparency <strong>{style.backgroundTransparency}%</strong>
-          </span>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={style.backgroundTransparency}
-            aria-label={`Background transparency ${style.backgroundTransparency}%`}
-            onInput={(event) =>
-              setBackgroundTransparency(Number(event.currentTarget.value))
-            }
-          />
-        </label>
-        <label className="rangeControl fullField">
-          <span>
-            Horizontal safe margin <strong>{style.horizontalMarginPercent}%</strong>
-          </span>
-          <input
-            type="range"
-            min="0"
-            max="20"
-            value={style.horizontalMarginPercent}
-            aria-label={`Horizontal safe margin ${style.horizontalMarginPercent}%`}
-            onInput={(event) =>
-              setHorizontalMarginPercent(Number(event.currentTarget.value))
-            }
-          />
-        </label>
-        <label className="rangeControl fullField">
-          <span>
-            Vertical safe margin <strong>{style.verticalMarginPercent}%</strong>
-          </span>
-          <input
-            type="range"
-            min="0"
-            max="20"
-            value={style.verticalMarginPercent}
-            aria-label={`Vertical safe margin ${style.verticalMarginPercent}%`}
-            onInput={(event) =>
-              setVerticalMarginPercent(Number(event.currentTarget.value))
-            }
-          />
-        </label>
-      </div>
-      <div className="saveRow">
-        <button className="secondaryButton" type="button" onClick={onSave} disabled={saving}>
-          {saving ? "Saving…" : "Save as default"}
-        </button>
-        <p role="status" aria-live="polite" aria-atomic="true">
-          {savedMessage}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export default function OperatorDashboard() {
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>(
     DEFAULT_SOURCE_LANGUAGE,
@@ -483,6 +194,9 @@ export default function OperatorDashboard() {
   );
   const [outputBufferCount, setOutputBufferCount] = useState<OutputBufferCount>(
     DEFAULT_OUTPUT_BUFFER_COUNT,
+  );
+  const [outputBufferDwellMs, setOutputBufferDwellMs] = useState<OutputBufferDwellMs>(
+    DEFAULT_OUTPUT_BUFFER_DWELL_MS,
   );
   const [translationSystemPrompt, setTranslationSystemPrompt] = useState(
     DEFAULT_TRANSLATION_SYSTEM_PROMPT,
@@ -568,8 +282,9 @@ export default function OperatorDashboard() {
       style,
       saveHistory,
       outputBufferCount,
+      outputBufferDwellMs,
     }),
-    [draftTranslationSettings, style, saveHistory, outputBufferCount],
+    [draftTranslationSettings, style, saveHistory, outputBufferCount, outputBufferDwellMs],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {
@@ -1055,6 +770,10 @@ export default function OperatorDashboard() {
           setOutputBufferCount(loaded.outputBufferCount);
           setOutputBufferSavedMessage("Loaded your saved default.");
         }
+        if (loaded.outputBufferDwellMs !== null && !hasServiceRef.current) {
+          setOutputBufferDwellMs(loaded.outputBufferDwellMs);
+          setOutputBufferSavedMessage("Loaded your saved default.");
+        }
       })
       .catch(() => {
         if (!cancelled) setAccountPreferences(null);
@@ -1106,7 +825,7 @@ export default function OperatorDashboard() {
 
   const saveOutputBufferDefault = () => {
     setOutputBufferSavedMessage("Saving your default…");
-    void syncAccountPreferences({ outputBufferCount }).then((ok) =>
+    void syncAccountPreferences({ outputBufferCount, outputBufferDwellMs }).then((ok) =>
       setOutputBufferSavedMessage(
         ok
           ? "Saved as your default. New services start with the output buffer in this state."
@@ -1284,6 +1003,7 @@ export default function OperatorDashboard() {
     onSave: saveCaptionPreferences,
     saving: channelAction === "save-style",
     savedMessage: styleSavedMessage,
+    defaultStyle: accountPreferences?.captionStyle ?? null,
   };
 
   const promptSavedMessage =
@@ -1306,6 +1026,9 @@ export default function OperatorDashboard() {
       sourceLabel={sourceLabel ?? sourceLanguage}
       keywordCount={keywordCount}
       disabled={translationEditorDisabled}
+      defaultSourceLanguage={accountPreferences?.translationDefaults?.sourceLanguage ?? null}
+      defaultTargetLanguage={accountPreferences?.translationDefaults?.targetLanguage ?? null}
+      defaultRecordingWindowMs={accountPreferences?.translationDefaults?.recordingWindowMs ?? null}
       onSourceLanguageChange={setSourceLanguage}
       onTargetLanguageChange={setTargetLanguage}
       onKeywordTextChange={setKeywordText}
@@ -1426,56 +1149,6 @@ export default function OperatorDashboard() {
     </section>
   );
 
-  const captureControls = (
-    <>
-      {endRetryRequired ? (
-        <button
-          className="dangerButton"
-          disabled={endActionDisabled}
-          onClick={() => void stopSession()}
-        >
-          Retry End
-        </button>
-      ) : isPaused || liveState.status === "resuming" ? (
-        <button
-          className="primaryButton"
-          disabled={isBusy || controlAction !== null}
-          onClick={() => void resumeSession()}
-        >
-          {liveState.status === "resuming" ? "Resuming…" : "Resume"}
-        </button>
-      ) : (
-        <button
-          className="primaryButton"
-          disabled={isBusy || controlAction !== null}
-          onClick={() => void pauseSession()}
-        >
-          {liveState.status === "pausing" ? "Pausing…" : "Pause"}
-        </button>
-      )}
-      <button
-        className="secondaryButton compactButton"
-        disabled={isBusy || controlAction !== null}
-        title="Clear current captions from OBS and the mobile viewer without changing capture."
-        onClick={() => void clearCaption()}
-      >
-        {controlAction === "clear" ? "Clearing…" : "Clear live caption"}
-      </button>
-      <QuickBlockControl
-        entries={quickBlockEntries}
-        onAdd={addQuickBlock}
-        onRemove={removeQuickBlock}
-        disabled={isBusy}
-      />
-      {isPaused && (
-        <ManualCaptionControl
-          disabled={isBusy || controlAction !== null}
-          busy={controlAction === "manual"}
-          onShow={(text) => void showManualCaption(text)}
-        />
-      )}
-    </>
-  );
   // Watchers mirror the same public output, so the monitor shows one source of truth.
   const monitorCaption = anotherOperatorActive
     ? observed.latestPublicText
@@ -1540,6 +1213,38 @@ export default function OperatorDashboard() {
     />
   );
   const translationSection = currentWorkspaceSection === "translation" || currentWorkspaceSection === "prompt";
+  // Rendered outside when collapsed, inside the panel when expanded (never both) — the
+  // panel is a blocking <dialog> below 1280px, so an outside-only copy would be inert.
+  const masterControlsBar = (
+    <MasterControlsBar
+      hasService={hasService}
+      isPaused={isPaused}
+      isRefreshing={isRefreshing}
+      isPausing={liveState.status === "pausing"}
+      isResuming={liveState.status === "resuming"}
+      isStarting={liveState.status === "starting"}
+      liveNeedsAttention={liveNeedsAttention}
+      anotherOperatorActive={anotherOperatorActive}
+      runningOperator={runningOperator}
+      isBusy={isBusy}
+      controlBusy={controlAction !== null}
+      clearing={controlAction === "clear"}
+      endRetryRequired={endRetryRequired}
+      endActionDisabled={endActionDisabled}
+      startDisabled={startDisabled}
+      startDescription={startDescription}
+      onPause={() => void pauseSession()}
+      onResume={() => void resumeSession()}
+      onClear={() => void clearCaption()}
+      onRetryEnd={() => void stopSession()}
+      onEndService={() => endDialogRef.current?.showModal()}
+      onStart={() => void startSession()}
+      onTakeOver={() => {
+        setServicePanelOpen(true);
+        setConfirmTakeover(true);
+      }}
+    />
+  );
 
   return (
     <div className={`dashboardShell ${servicePanelOpen ? "servicePanelOpen" : ""}`}>
@@ -1606,12 +1311,7 @@ export default function OperatorDashboard() {
           </button>
       </header>
 
-      {hasService && !servicePanelOpen ? (
-        <section className="serviceQuickControls" aria-label="Quick live controls">
-          <span className="quickServiceState">{liveNeedsAttention ? "Capture needs attention" : isRefreshing ? "Refreshing" : isPaused ? "Paused" : "Capturing audio"}</span>
-          {captureControls}
-        </section>
-      ) : null}
+      {!servicePanelOpen ? masterControlsBar : null}
       <div className="dashboardContent">
       <section
         className={`statusBanner ${liveState.status} ${liveState.status !== "error" ? "visuallyHidden" : ""}`}
@@ -1915,250 +1615,55 @@ export default function OperatorDashboard() {
               ) : null}
 
               {currentWorkspaceSection === "outputs" ? (
-                <>
-                <section className="outputMonitorSection" aria-label="Output monitor">
-                  {outputMonitor}
-                  <p className="helpText">OBS and the latest viewer mirror this caption without extra AI calls. The reader appends shared paragraphs about 30 seconds later.</p>
-                  <OutputBufferPanel
-                    count={outputBufferCount}
-                    onCountChange={setOutputBufferCount}
-                    onSaveDefault={saveOutputBufferDefault}
-                    savedMessage={
+                <LiveOutputsSection
+                  hasService={hasService}
+                  isBusy={isBusy}
+                  anotherOperatorActive={anotherOperatorActive}
+                  runningOperator={runningOperator}
+                  observedMessage={observed.message}
+                  observedSaveHistory={observed.observer?.saveHistory}
+                  outputMonitor={outputMonitor}
+                  readerAndPhoneOutputs={readerAndPhoneOutputs}
+                  outputBuffer={{
+                    count: outputBufferCount,
+                    onCountChange: setOutputBufferCount,
+                    dwellMs: outputBufferDwellMs,
+                    onDwellChange: setOutputBufferDwellMs,
+                    onSaveDefault: saveOutputBufferDefault,
+                    savedMessage:
                       outputBufferSavedMessage ||
                       (accountPreferences && accountPreferences.outputBufferCount !== null
                         ? "Your account has a saved default for this."
-                        : "Saves this choice to your account for new services.")
-                    }
-                    queue={outputBufferQueue}
-                    disabled={isBusy}
-                    onPause={setOutputBufferEntryPaused}
-                    onClear={clearOutputBufferEntry}
-                    onFastForward={fastForwardOutputBufferEntry}
-                    onBeginEdit={beginOutputBufferEdit}
-                    onEditDraftChange={updateOutputBufferEditDraft}
-                    onCancelEdit={cancelOutputBufferEdit}
-                    onSubmitEdit={submitOutputBufferEdit}
-                  />
-                  {anotherOperatorActive ? (
-                    <p className="privacyNote" role="status">
-                      {runningOperator ? `${runningOperator} is running this service. ` : ""}
-                      {observed.message || "Connecting to the running service…"}
-                      {observed.observer && !observed.observer.saveHistory
-                        ? " This service does not save history, so the recognized source stays on the capture computer."
-                        : ""}
-                    </p>
-                  ) : null}
-                </section>
-                {hasService ? readerAndPhoneOutputs : null}
-                <details className="outputDestination" open>
-                  <summary>OBS overlay <span>Reusable browser source</span></summary>
-                <div className="obsSetupCard workspaceOutputCard">
-                  <div className="sectionHeading">
-                    <div>
-                      <h3>OBS Main channel</h3>
-                    </div>
-                    <span
-                      className={`statusChip ${
-                        liveState.channel?.configured ? "ready" : ""
-                      }`}
-                    >
-                      {liveState.channel?.configured ? "Reusable" : "Not created"}
-                    </span>
-                  </div>
-                  {!liveState.channel?.configured ? (
-                    <>
-                      <p>
-                        Create one encrypted Main channel URL. Paste it into OBS once
-                        and reuse it for future services.
-                      </p>
-                      <button
-                        className="primaryButton fullButton"
-                        disabled={channelAction !== null || isBusy}
-                        onClick={() => void createChannel()}
-                      >
-                        {channelAction === "create"
-                          ? "Creating securely…"
-                          : "Create OBS channel"}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        Use a 1920 × 1080 Browser Source. The canvas stays transparent
-                        between services.
-                      </p>
-                      <button
-                        className="primaryButton fullButton"
-                        onClick={() => void copyOverlayUrl()}
-                      >
-                        {copied ? "URL copied" : "Copy OBS URL"}
-                      </button>
-                      <p className="privacyNote">Keep this reusable URL private. Anyone holding it can read public captions.</p>
-                      <details className="credentialDisclosure">
-                        <summary>Reveal URL for manual copy</summary>
-                        {overlayUrlField}
-                      </details>
-                      {!hasService && <div className="buttonGrid">
-                        <button
-                          className="secondaryButton"
-                          disabled={controlAction !== null || anotherOperatorActive || isBusy}
-                          onClick={() => void showTestCaption()}
-                        >
-                          {controlAction === "show-test" ? "Showing…" : "Show test"}
-                        </button>
-                        <button
-                          className="secondaryButton"
-                          disabled={controlAction !== null || anotherOperatorActive || isBusy}
-                          onClick={() => void clearCaption()}
-                        >
-                          {controlAction === "clear" ? "Clearing…" : "Clear live caption"}
-                        </button>
-                      </div>}
-                      <p className="helpText">{hasService ? "Use the live controls to clear captions. Pause first to show a test caption from More." : anotherOperatorActive ? "Another operator controls this channel. Test and clear are available when the channel is idle." : "Show test sends synthetic text without microphone capture or AI calls. Confirm it appears in OBS, then clear it."}</p>
-                      <details className="advancedActions">
-                        <summary>Advanced link security</summary>
-                        <p>
-                          Rotate only if the URL was exposed. The old OBS source stops
-                          working immediately. End the service before rotating.
-                        </p>
-                        {confirmRotate ? (
-                          <div className="confirmationRow">
-                            <button
-                              className="secondaryButton"
-                              onClick={() => setConfirmRotate(false)}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              className="dangerButton"
-                              disabled={
-                                channelAction !== null || anotherOperatorActive || hasService
-                              }
-                              onClick={() => {
-                                setConfirmRotate(false);
-                                void rotateChannel();
-                              }}
-                            >
-                              {channelAction === "rotate"
-                                ? "Rotating…"
-                                : "Confirm rotation"}
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            className="dangerOutlineButton"
-                            disabled={anotherOperatorActive || hasService}
-                            onClick={() => setConfirmRotate(true)}
-                          >
-                            Rotate OBS link
-                          </button>
-                        )}
-                      </details>
-                    </>
-                  )}
-                </div>
-                </details>
-                </>
+                        : "Saves this choice to your account for new services."),
+                    defaultCount: accountPreferences?.outputBufferCount ?? null,
+                    defaultDwellMs: accountPreferences?.outputBufferDwellMs ?? null,
+                  }}
+                  obs={{
+                    configured: Boolean(liveState.channel?.configured),
+                    channelAction,
+                    onCreateChannel: () => void createChannel(),
+                    onCopyUrl: () => void copyOverlayUrl(),
+                    copied,
+                    urlField: overlayUrlField,
+                    controlAction,
+                    onShowTest: () => void showTestCaption(),
+                    onClearCaption: () => void clearCaption(),
+                    confirmRotate,
+                    onConfirmRotateChange: setConfirmRotate,
+                    onRotateChannel: () => void rotateChannel(),
+                  }}
+                  viewer={{
+                    url: viewerUrl,
+                    onCopy: () => void copyViewerUrl(),
+                    copied: viewerCopied,
+                    onOpenPreview: openViewerPreview,
+                    confirmReplace: confirmViewerReplace,
+                    onConfirmReplaceChange: setConfirmViewerReplace,
+                    viewerAction,
+                    onReplace: () => void replaceViewerLink(),
+                  }}
+                />
               ) : null}
-
-              {currentWorkspaceSection === "outputs" ? (
-                <details className="outputDestination">
-                  <summary>Mobile translation viewer <span>Latest caption · No extra AI</span></summary>
-                <div className="viewerLinkPanel">
-
-                  <p>
-                    Share this read-only link with intended viewers. It shows only the
-                    current moderated translation and expires when this service ends or
-                    another operator takes over.
-                  </p>
-                  {!hasService ? <p className="privacyNote">Start captions to create a mobile viewer link. This mirror uses no additional AI calls.</p> : viewerUrl ? (
-                    <>
-                      <div className="buttonGrid">
-                        <button
-                          className="primaryButton"
-                          type="button"
-                          onClick={() => void copyViewerUrl()}
-                        >
-                          {viewerCopied ? "Link copied" : "Copy mobile link"}
-                        </button>
-                        <button
-                          className="secondaryButton"
-                          type="button"
-                          onClick={openViewerPreview}
-                        >
-                          Open preview
-                        </button>
-                      </div>
-                      <details className="credentialDisclosure">
-                        <summary>Reveal mobile link for manual copy</summary>
-                        <label>
-                          Current mobile viewer link
-                          <input
-                            value={viewerUrl}
-                            readOnly
-                            autoComplete="off"
-                            spellCheck={false}
-                            aria-label="Mobile viewer URL"
-                          />
-                        </label>
-                      </details>
-                      <details className="advancedActions">
-                        <summary>Viewer link security</summary>
-                        <p>
-                          Replace the link if it was shared with the wrong person.
-                          Existing viewers disconnect immediately; OBS is unaffected.
-                        </p>
-                        {confirmViewerReplace ? (
-                          <div className="confirmationRow">
-                            <button
-                              className="secondaryButton"
-                              type="button"
-                              onClick={() => setConfirmViewerReplace(false)}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              className="dangerButton"
-                              type="button"
-                              disabled={viewerAction !== null || isBusy}
-                              onClick={() => {
-                                setConfirmViewerReplace(false);
-                                void replaceViewerLink();
-                              }}
-                            >
-                              {viewerAction === "replace"
-                                ? "Replacing…"
-                                : "Confirm replacement"}
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            className="dangerOutlineButton"
-                            type="button"
-                            disabled={viewerAction !== null || isBusy}
-                            onClick={() => setConfirmViewerReplace(true)}
-                          >
-                            Replace mobile link
-                          </button>
-                        )}
-                      </details>
-                    </>
-                  ) : (
-                    <button
-                      className="primaryButton"
-                      type="button"
-                      disabled={viewerAction !== null || isBusy}
-                      onClick={() => void replaceViewerLink()}
-                    >
-                      {viewerAction === "replace"
-                        ? "Creating link…"
-                        : "Create mobile viewer link"}
-                    </button>
-                  )}
-                </div>
-                </details>
-              ) : null}
-              {currentWorkspaceSection === "outputs" && !hasService ? readerAndPhoneOutputs : null}
             </div>
           </SpotlightCard>
         </BorderGlow>
@@ -2171,6 +1676,7 @@ export default function OperatorDashboard() {
       </div>
 
       <ServicePanel open={servicePanelOpen} onOpenChange={setServicePanelOpen} triggerRef={servicePanelTriggerRef}>
+        {masterControlsBar}
         {servicePanelOpen && liveState.status === "error" ? <p className="errorText" role="alert">{liveState.message}</p> : null}
         {servicePanelOpen && liveState.historyIncomplete ? <p className="privacyNote" role="alert">History saving failed for part of this service. Review transcript gaps before generating a summary.</p> : null}
         {!hasService ? (
@@ -2206,26 +1712,7 @@ export default function OperatorDashboard() {
                 Confirm takeover
               </button>
             </div>
-          ) : (
-            <button
-              className={
-                anotherOperatorActive ? "dangerButton" : "primaryButton"
-              }
-              aria-describedby="start-service-description"
-              disabled={startDisabled}
-              onClick={() =>
-                anotherOperatorActive
-                  ? setConfirmTakeover(true)
-                  : void startSession()
-              }
-            >
-              {liveState.status === "starting"
-                ? "Starting securely…"
-                : anotherOperatorActive
-                  ? "Take over channel"
-                  : "Start captions"}
-            </button>
-          )}</div>
+          ) : null}</div>
         </section>
       ) : null}
         {hasService ? (
@@ -2296,7 +1783,27 @@ export default function OperatorDashboard() {
             </div>
           </div>
           <div className="primaryControls">
-            {captureControls}
+            <ManualOverridesGroup
+              quickBlockEntries={quickBlockEntries}
+              onAddQuickBlock={addQuickBlock}
+              onRemoveQuickBlock={removeQuickBlock}
+              isPaused={isPaused}
+              isBusy={isBusy}
+              controlBusy={controlAction !== null}
+              manualCaptionBusy={controlAction === "manual"}
+              onShowManualCaption={(text) => void showManualCaption(text)}
+              outputBuffer={{
+                show: outputBufferCount > 0,
+                queue: outputBufferQueue,
+                onPause: setOutputBufferEntryPaused,
+                onClear: clearOutputBufferEntry,
+                onFastForward: fastForwardOutputBufferEntry,
+                onBeginEdit: beginOutputBufferEdit,
+                onEditDraftChange: updateOutputBufferEditDraft,
+                onCancelEdit: cancelOutputBufferEdit,
+                onSubmitEdit: submitOutputBufferEdit,
+              }}
+            />
             <details
               className="moreMenu"
               onKeyDown={(event) => {
@@ -2333,13 +1840,6 @@ export default function OperatorDashboard() {
                 </details>
               </div>
             </details>
-            <button
-              className="textButton endServiceButton"
-              disabled={endActionDisabled}
-              onClick={() => endDialogRef.current?.showModal()}
-            >
-              End service
-            </button>
           </div>
           <p className="liveControlHelp">Pause stops capture and clears the current caption. Clear live caption drops pending reader text; committed reader paragraphs remain. The 90-minute timer continues while paused.</p>
         </section>

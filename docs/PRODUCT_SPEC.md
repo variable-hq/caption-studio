@@ -277,10 +277,16 @@ Distinct from the recording window above: the output buffer is an optional delay
 between a translated, moderated caption and its arrival on the public Live output (OBS and
 the mobile viewer). It lives only in the controlling operator's browser tab, applies
 immediately without a translation refresh, and is unrelated to the recording window
-duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md).
+duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md) and
+[ADR 0017](decisions/0017-configurable-output-buffer-dwell.md). The On/Off setting, dwell
+duration, and their account defaults live in Live outputs; the queued caption itself and
+its controls are grouped under **Manual overrides** in Service controls, alongside Quick
+block and Manual caption, since acting on it is an override of what would otherwise
+publish, not output configuration.
 
 - **On/Off**, default Off (matching behavior before this feature existed). On holds each
-  caption for 3 seconds before it advances to Live; there is no separate delay setting.
+  caption for a **dwell duration** before it advances to Live: a fixed choice of 1/2/3/4/5
+  seconds, default 3 seconds, shown only while the buffer is On.
 - Only the next-up caption is ever shown or individually controllable. Internally, up to
   3 more translations can queue behind it out of sight, giving a paused or in-edit caption
   real headroom; once that backlog is full, a paused front drops any further arriving
@@ -294,8 +300,15 @@ duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md).
   (removed from the queue), or **fast-forwarded** (shown on Live immediately). These are
   separate from the quick block above: pausing the service, clearing the current Live
   caption, a translation refresh, takeover, and End all discard the whole buffer.
-- **Save as my default** stores the On/Off choice with the operator's account, the same
-  way the Translation page saves its default setup; new services start from it.
+- **Save as my default** stores the On/Off choice and dwell duration with the operator's
+  account, the same way the Translation page saves its default setup; new services start
+  from it.
+
+Discrete-choice controls with a saved account default (output buffer On/Off and dwell
+duration, recording window, source/target language, caption font/alignment) mark the
+matching option "· Your default" in its own dropdown, distinct from whatever is merely
+selected in the current session's draft. Free-text fields (terminology, filters, the
+system prompt) don't carry this marker.
 
 ### Caption display, OBS, and mobile viewing
 
@@ -346,12 +359,18 @@ duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md).
 - A skip link and workspace-heading focus support keyboard navigation. Opening a section
   always moves focus to its heading so a screen reader announces the new page, but the
   focus ring is drawn only when the section was opened from the keyboard; a click or tap
-  leaves the title unringed. When Service
-  controls is collapsed, a compact sticky bar keeps Pause/Resume and Clear reachable;
-  while paused, it also offers a Manual caption field.
-  End stays inside the service panel with a native confirmation dialog (**Confirm End**
-  or **Keep service open**); **Clear live caption** blanks OBS and the latest viewer,
-  while preserving committed reader paragraphs.
+  leaves the title unringed. A persistent **Master Controls** strip (Start captions or
+  Take over channel, Pause/Resume, Clear live caption, End) is reachable at every screen
+  width: it renders outside Service controls when collapsed and inside it when expanded,
+  since the panel is a blocking dialog below 1280px that would otherwise make an
+  outside-only copy unreachable while open. Each control is enabled only when applicable
+  to the current state, next to a status description (No service running, Capturing
+  audio, Paused, and so on). End opens the same native confirmation dialog
+  (**Confirm End** or **Keep service open**) regardless of where its trigger renders;
+  **Clear live caption** blanks OBS and the latest viewer, while preserving committed
+  reader paragraphs. Quick block and Manual caption (grouped as **Manual overrides**) are
+  reachable only inside the expanded panel, including while paused — never from the
+  collapsed strip, since Manual caption types text directly onto the live feed.
 - The output monitor carries each displayed caption's own `lang` attribute, including
   paused synthetic tests, without a visible label. Subsequent draft language edits do not
   relabel existing text.
