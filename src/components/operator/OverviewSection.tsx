@@ -1,6 +1,7 @@
 "use client";
 
 import { DashboardIcon } from "@/components/operator/DashboardNavigation";
+import { formatMinutesSeconds } from "@/components/operator/format-duration";
 import { WORKSPACE_NAME } from "@/domain/workspace";
 import type { RecordingWindowMs } from "@/live/contracts";
 
@@ -97,7 +98,7 @@ export function OverviewSection({
         </div>
         <div>
           <dt>{hasService ? "Elapsed / 90 min" : "Service window"}</dt>
-          <dd>{hasService ? `${elapsedMinutes}m ${elapsedSeconds.toString().padStart(2, "0")}s` : "90 minutes"}</dd>
+          <dd>{hasService ? formatMinutesSeconds(elapsedMinutes, elapsedSeconds) : "90 minutes"}</dd>
         </div>
         {hasService ? (
           <>

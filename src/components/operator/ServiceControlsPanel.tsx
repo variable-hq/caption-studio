@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { AudioLevelMeter } from "@/components/operator/AudioLevelMeter";
+import { formatMinutesSeconds } from "@/components/operator/format-duration";
 import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
 import { WORKSPACE_NAME } from "@/domain/workspace";
 import { MAX_TRANSCRIPTION_REQUESTS, type CloudState, type LiveSessionControlAction, type LiveSessionState, type RecordingWindowMs } from "@/live/contracts";
@@ -193,7 +194,7 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
           <div className="compactUsage">
             <div>
               <span>
-                {liveConsole.elapsedMinutes}m {liveConsole.elapsedSeconds.toString().padStart(2, "0")}s / 90m
+                {formatMinutesSeconds(liveConsole.elapsedMinutes, liveConsole.elapsedSeconds)} / 90m
               </span>
               <span>
                 {liveConsole.transcriptionRequests} / {MAX_TRANSCRIPTION_REQUESTS}{" "}
