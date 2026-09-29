@@ -83,7 +83,8 @@ try {
   await barClear('overview');
   const serviceToggle=page.getByRole('button',{name:'Service controls',exact:true});
   assert.equal(await serviceToggle.getAttribute('aria-expanded'),'false');
-  assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).count(),0);
+  // Master Controls is reachable even collapsed; Start is enabled once setup is ready.
+  assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).isEnabled(),true);
   assert.equal(await page.getByTestId('caption-preview').isVisible(),false);
   await openServicePanel(page);
   const servicePanel=page.getByRole('dialog',{name:'Service controls',exact:true});
@@ -119,7 +120,7 @@ try {
    await page.waitForFunction(()=>document.activeElement?.id==='workspace-panel-heading');
    await check(section);
    assert.equal(await serviceToggle.getAttribute('aria-expanded'),'false');
-   assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).count(),0);
+   assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).isEnabled(),true);
    if(section==='Appearance'){
     const range=page.locator('input[type=range]').first();
     await range.fill('64');

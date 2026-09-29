@@ -18,7 +18,9 @@ The operator dashboard now opens on a service overview with grouped sidebar navi
 On phones, the menu button (accessible name **Open navigation**) opens a drawer. Section links support bookmarks and browser
 Back/Forward; switching sections does not start capture or add AI calls.
 **Service controls** opens a collapsible right panel with Start, history consent and live
-controls. It starts closed; Pause/Resume and Clear remain in a compact bar during capture.
+controls. It starts closed; Master Controls (Start/Take over, Pause/Resume, Clear, End)
+stays reachable whether the panel is open or closed, each button enabled only when it
+applies to the current state.
 The **Output monitor**, a scaled copy of the 1920 × 1080 OBS canvas showing the caption
 currently published, sits at the top of **Live outputs**; Appearance keeps a sample preview
 beside its editor. **AI usage** loads the 30-day ledger of previous services on open.

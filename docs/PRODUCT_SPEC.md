@@ -346,12 +346,18 @@ duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md).
 - A skip link and workspace-heading focus support keyboard navigation. Opening a section
   always moves focus to its heading so a screen reader announces the new page, but the
   focus ring is drawn only when the section was opened from the keyboard; a click or tap
-  leaves the title unringed. When Service
-  controls is collapsed, a compact sticky bar keeps Pause/Resume and Clear reachable;
-  while paused, it also offers a Manual caption field.
-  End stays inside the service panel with a native confirmation dialog (**Confirm End**
-  or **Keep service open**); **Clear live caption** blanks OBS and the latest viewer,
-  while preserving committed reader paragraphs.
+  leaves the title unringed. A persistent **Master Controls** strip (Start captions or
+  Take over channel, Pause/Resume, Clear live caption, End) is reachable at every screen
+  width: it renders outside Service controls when collapsed and inside it when expanded,
+  since the panel is a blocking dialog below 1280px that would otherwise make an
+  outside-only copy unreachable while open. Each control is enabled only when applicable
+  to the current state, next to a status description (No service running, Capturing
+  audio, Paused, and so on). End opens the same native confirmation dialog
+  (**Confirm End** or **Keep service open**) regardless of where its trigger renders;
+  **Clear live caption** blanks OBS and the latest viewer, while preserving committed
+  reader paragraphs. Quick block and Manual caption (grouped as **Manual overrides**) are
+  reachable only inside the expanded panel, including while paused — never from the
+  collapsed strip, since Manual caption types text directly onto the live feed.
 - The output monitor carries each displayed caption's own `lang` attribute, including
   paused synthetic tests, without a visible label. Subsequent draft language edits do not
   relabel existing text.

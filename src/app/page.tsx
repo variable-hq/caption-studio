@@ -10,10 +10,10 @@ import {
 import { AiUsageDashboard } from "@/components/operator/AiUsageDashboard";
 import { CaptionPreview } from "@/components/operator/CaptionPreview";
 import { LiveOutputsSection } from "@/components/operator/LiveOutputsSection";
-import { ManualCaptionControl } from "@/components/operator/ManualCaptionControl";
+import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
+import { MasterControlsBar } from "@/components/operator/MasterControlsBar";
 import { OperatorTutorial } from "@/components/operator/OperatorTutorial";
 import { PromptEditor } from "@/components/operator/PromptEditor";
-import { QuickBlockControl } from "@/components/operator/QuickBlockControl";
 import { StyleEditor, type StyleEditorProps } from "@/components/operator/StyleEditor";
 import { SummarySettingsEditor } from "@/components/operator/SummarySettingsEditor";
 import type { SummaryOptions } from "@/experience/contracts";
@@ -1135,56 +1135,6 @@ export default function OperatorDashboard() {
     </section>
   );
 
-  const captureControls = (
-    <>
-      {endRetryRequired ? (
-        <button
-          className="dangerButton"
-          disabled={endActionDisabled}
-          onClick={() => void stopSession()}
-        >
-          Retry End
-        </button>
-      ) : isPaused || liveState.status === "resuming" ? (
-        <button
-          className="primaryButton"
-          disabled={isBusy || controlAction !== null}
-          onClick={() => void resumeSession()}
-        >
-          {liveState.status === "resuming" ? "Resuming…" : "Resume"}
-        </button>
-      ) : (
-        <button
-          className="primaryButton"
-          disabled={isBusy || controlAction !== null}
-          onClick={() => void pauseSession()}
-        >
-          {liveState.status === "pausing" ? "Pausing…" : "Pause"}
-        </button>
-      )}
-      <button
-        className="secondaryButton compactButton"
-        disabled={isBusy || controlAction !== null}
-        title="Clear current captions from OBS and the mobile viewer without changing capture."
-        onClick={() => void clearCaption()}
-      >
-        {controlAction === "clear" ? "Clearing…" : "Clear live caption"}
-      </button>
-      <QuickBlockControl
-        entries={quickBlockEntries}
-        onAdd={addQuickBlock}
-        onRemove={removeQuickBlock}
-        disabled={isBusy}
-      />
-      {isPaused && (
-        <ManualCaptionControl
-          disabled={isBusy || controlAction !== null}
-          busy={controlAction === "manual"}
-          onShow={(text) => void showManualCaption(text)}
-        />
-      )}
-    </>
-  );
   // Watchers mirror the same public output, so the monitor shows one source of truth.
   const monitorCaption = anotherOperatorActive
     ? observed.latestPublicText
@@ -1249,6 +1199,37 @@ export default function OperatorDashboard() {
     />
   );
   const translationSection = currentWorkspaceSection === "translation" || currentWorkspaceSection === "prompt";
+  // Rendered outside when collapsed, inside the panel when expanded (never both) — the
+  // panel is a blocking <dialog> below 1280px, so an outside-only copy would be inert.
+  const masterControlsBar = (
+    <MasterControlsBar
+      hasService={hasService}
+      isPaused={isPaused}
+      isRefreshing={isRefreshing}
+      isPausing={liveState.status === "pausing"}
+      isResuming={liveState.status === "resuming"}
+      isStarting={liveState.status === "starting"}
+      liveNeedsAttention={liveNeedsAttention}
+      anotherOperatorActive={anotherOperatorActive}
+      runningOperator={runningOperator}
+      isBusy={isBusy}
+      controlBusy={controlAction !== null}
+      clearing={controlAction === "clear"}
+      endRetryRequired={endRetryRequired}
+      endActionDisabled={endActionDisabled}
+      startDisabled={startDisabled}
+      onPause={() => void pauseSession()}
+      onResume={() => void resumeSession()}
+      onClear={() => void clearCaption()}
+      onRetryEnd={() => void stopSession()}
+      onEndService={() => endDialogRef.current?.showModal()}
+      onStart={() => void startSession()}
+      onTakeOver={() => {
+        setServicePanelOpen(true);
+        setConfirmTakeover(true);
+      }}
+    />
+  );
 
   return (
     <div className={`dashboardShell ${servicePanelOpen ? "servicePanelOpen" : ""}`}>
@@ -1315,12 +1296,7 @@ export default function OperatorDashboard() {
           </button>
       </header>
 
-      {hasService && !servicePanelOpen ? (
-        <section className="serviceQuickControls" aria-label="Quick live controls">
-          <span className="quickServiceState">{liveNeedsAttention ? "Capture needs attention" : isRefreshing ? "Refreshing" : isPaused ? "Paused" : "Capturing audio"}</span>
-          {captureControls}
-        </section>
-      ) : null}
+      {!servicePanelOpen ? masterControlsBar : null}
       <div className="dashboardContent">
       <section
         className={`statusBanner ${liveState.status} ${liveState.status !== "error" ? "visuallyHidden" : ""}`}
@@ -1689,6 +1665,7 @@ export default function OperatorDashboard() {
       </div>
 
       <ServicePanel open={servicePanelOpen} onOpenChange={setServicePanelOpen} triggerRef={servicePanelTriggerRef}>
+        {masterControlsBar}
         {servicePanelOpen && liveState.status === "error" ? <p className="errorText" role="alert">{liveState.message}</p> : null}
         {servicePanelOpen && liveState.historyIncomplete ? <p className="privacyNote" role="alert">History saving failed for part of this service. Review transcript gaps before generating a summary.</p> : null}
         {!hasService ? (
@@ -1724,26 +1701,7 @@ export default function OperatorDashboard() {
                 Confirm takeover
               </button>
             </div>
-          ) : (
-            <button
-              className={
-                anotherOperatorActive ? "dangerButton" : "primaryButton"
-              }
-              aria-describedby="start-service-description"
-              disabled={startDisabled}
-              onClick={() =>
-                anotherOperatorActive
-                  ? setConfirmTakeover(true)
-                  : void startSession()
-              }
-            >
-              {liveState.status === "starting"
-                ? "Starting securely…"
-                : anotherOperatorActive
-                  ? "Take over channel"
-                  : "Start captions"}
-            </button>
-          )}</div>
+          ) : null}</div>
         </section>
       ) : null}
         {hasService ? (
@@ -1814,7 +1772,16 @@ export default function OperatorDashboard() {
             </div>
           </div>
           <div className="primaryControls">
-            {captureControls}
+            <ManualOverridesGroup
+              quickBlockEntries={quickBlockEntries}
+              onAddQuickBlock={addQuickBlock}
+              onRemoveQuickBlock={removeQuickBlock}
+              isPaused={isPaused}
+              isBusy={isBusy}
+              controlBusy={controlAction !== null}
+              manualCaptionBusy={controlAction === "manual"}
+              onShowManualCaption={(text) => void showManualCaption(text)}
+            />
             <details
               className="moreMenu"
               onKeyDown={(event) => {
@@ -1851,13 +1818,6 @@ export default function OperatorDashboard() {
                 </details>
               </div>
             </details>
-            <button
-              className="textButton endServiceButton"
-              disabled={endActionDisabled}
-              onClick={() => endDialogRef.current?.showModal()}
-            >
-              End service
-            </button>
           </div>
           <p className="liveControlHelp">Pause stops capture and clears the current caption. Clear live caption drops pending reader text; committed reader paragraphs remain. The 90-minute timer continues while paused.</p>
         </section>
