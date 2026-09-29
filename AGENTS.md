@@ -18,6 +18,7 @@ don't read the full `docs/` tree unless the task is genuinely repo-wide.
 | Why a past decision was made | `docs/decisions/*.md` — check each file's own status, several are superseded |
 | What's already proposed, deferred, or a known gap | `docs/PILOT_IMPROVEMENTS.md`, `docs/ROADMAP.md`, `docs/GAP_ANALYSIS.md` |
 | Contribution / PR / validation workflow | `CONTRIBUTING.md` |
+| A file/component/hook is growing large, or you're deciding whether to split one | `CONTRIBUTING.md`'s "Code organization" section |
 | Anything not above | `docs/README.md` — the full human-facing index |
 
 ## Doc taxonomy — respect this when reading or writing

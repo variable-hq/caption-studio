@@ -126,6 +126,40 @@ the decision and tradeoffs in the issue, pull request, or an ADR.
 - Add failure and recovery tests for changes to live behavior.
 - Prefer deterministic post-processing for approved terms and public filtering.
 
+## Code organization
+
+A large file earns its size through genuine cohesion, not accumulation. Before adding to
+one, check whether the addition belongs to that file's single responsibility or is a new
+one that belongs beside it. Concrete precedent: `src/app/page.tsx` and
+`src/live/use-live-caption-session.ts` were split this way — see their git history for
+worked examples of every rule below.
+
+- **Extract a component when a JSX region is self-contained and nameable**: it renders one
+  clear thing with a bounded, typed prop interface. Group related props into a nested
+  object (`outputBuffer: {...}`, `startBar: {...}`) instead of flattening 15+ props onto
+  one component.
+- **Extract a hook only if the sub-concern doesn't need circular access back into its
+  caller.** If it does, resolve it with a ref the caller keeps current every render
+  (`publishBufferedEntryRef` in `use-output-buffer-queue.ts` is the worked example) —
+  don't pull more of the caller's state into the hook just to avoid the cycle. If the
+  coupling is fundamental (the concern can't act without calling back into several
+  caller-owned functions), it isn't actually separable; leave it inline rather than
+  forcing a seam that doesn't reduce real coupling.
+- **Never extract to hit a line-count target.** A 10-20 line cluster (a bit of state plus
+  one or two callbacks) is appropriately-sized inline code, not debt. A new file is a
+  lookup indirection every future reader pays for; that cost needs a real payoff — reuse,
+  independent testability, or a genuinely overloaded surrounding file — to be worth it.
+- **Build a node where it's rendered.** Don't thread a pre-built `ReactNode` through props
+  unless it's genuinely rendered from two or more mutually exclusive call sites (a
+  collapsed vs. expanded panel, e.g. `masterControlsBar`). If a shared node is down to one
+  caller after a refactor, inline it there instead of leaving the indirection behind.
+- **A structural refactor changes no behavior, full stop.** Never bundle a logic change
+  into a "move" commit. Verify every extraction with `typecheck:strict`, `lint`, the full
+  test suite, and `build`: a pure move typechecks clean and touches no test assertions.
+- Rough signal, not a gate: a component or hook past ~150-200 lines, or one file visibly
+  doing more than one nameable job, is worth a second look before growing it further —
+  not automatically worth splitting today.
+
 ## Review checklist
 
 - The change matches the documented scope or updates that scope explicitly.
@@ -143,6 +177,8 @@ the decision and tradeoffs in the issue, pull request, or an ADR.
 - Free-plan behavior fails visibly without silently switching to paid usage.
 - Documentation matches implemented behavior and distinguishes merged/deployed/rehearsed
   status. Preserve dated evidence as history; link current guides from [the index](docs/README.md).
+- New or grown files follow [Code organization](#code-organization) above; a large,
+  multi-responsibility file added or extended without comment is a finding, not a style nit.
 - Relevant automated and manual checks pass.
 
 ## Security reports
