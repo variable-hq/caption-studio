@@ -9,8 +9,9 @@ import {
   type OutputBufferCount,
 } from "@/live/output-buffer";
 
-function countLabel(value: OutputBufferCount): string {
-  return value === 0 ? "Off" : `On (${OUTPUT_BUFFER_DWELL_MS / 1_000}s delay)`;
+function countLabel(value: OutputBufferCount, isDefault: boolean): string {
+  const label = value === 0 ? "Off" : `On (${OUTPUT_BUFFER_DWELL_MS / 1_000}s delay)`;
+  return isDefault ? `${label} · Your default` : label;
 }
 
 interface OutputBufferPanelProps {
@@ -19,6 +20,7 @@ interface OutputBufferPanelProps {
   onSaveDefault: () => void;
   savedMessage: string;
   disabled?: boolean;
+  defaultCount?: OutputBufferCount | null;
 }
 
 /** The output buffer's On/Off setting and its account default — configuration, not a
@@ -30,6 +32,7 @@ export function OutputBufferPanel({
   onSaveDefault,
   savedMessage,
   disabled = false,
+  defaultCount = null,
 }: OutputBufferPanelProps) {
   const countHelpId = useId();
 
@@ -48,7 +51,7 @@ export function OutputBufferPanel({
         >
           {OUTPUT_BUFFER_COUNT_OPTIONS.map((value) => (
             <option value={value} key={value}>
-              {countLabel(value)}
+              {countLabel(value, defaultCount === value)}
             </option>
           ))}
         </select>

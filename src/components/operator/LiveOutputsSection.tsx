@@ -11,6 +11,7 @@ interface OutputBufferSectionProps {
   onCountChange: (value: OutputBufferCount) => void;
   onSaveDefault: () => void;
   savedMessage: string;
+  defaultCount: OutputBufferCount | null;
 }
 
 interface ObsOverlayProps {
@@ -78,6 +79,7 @@ export function LiveOutputsSection({
           onSaveDefault={outputBuffer.onSaveDefault}
           savedMessage={outputBuffer.savedMessage}
           disabled={isBusy}
+          defaultCount={outputBuffer.defaultCount}
         />
         {anotherOperatorActive ? (
           <p className="privacyNote" role="status">

@@ -301,6 +301,12 @@ output configuration.
 - **Save as my default** stores the On/Off choice with the operator's account, the same
   way the Translation page saves its default setup; new services start from it.
 
+Discrete-choice controls with a saved account default (output buffer On/Off, recording
+window, source/target language, caption font/alignment) mark the matching option
+"· Your default" in its own dropdown, distinct from whatever is merely selected in the
+current session's draft. Free-text fields (terminology, filters, the system prompt) don't
+carry this marker.
+
 ### Caption display, OBS, and mobile viewing
 
 - The operator console uses neutral light and dark palettes built from shared design

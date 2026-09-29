@@ -16,6 +16,8 @@ export interface StyleEditorProps {
   onSave: () => void;
   saving: boolean;
   savedMessage: string;
+  /** The operator's saved account default style, if any — badges matching options. */
+  defaultStyle?: CaptionStyle | null;
 }
 
 export function StyleEditor({
@@ -32,6 +34,7 @@ export function StyleEditor({
   onSave,
   saving,
   savedMessage,
+  defaultStyle = null,
 }: StyleEditorProps) {
   return (
     <div className="styleEditor">
@@ -55,9 +58,9 @@ export function StyleEditor({
               setFontFamily(event.target.value as CaptionStyle["fontFamily"])
             }
           >
-            <option value="sans-serif">Sans serif</option>
-            <option value="serif">Times serif</option>
-            <option value="monospace">Monospace</option>
+            <option value="sans-serif">Sans serif{defaultStyle?.fontFamily === "sans-serif" ? " · Your default" : ""}</option>
+            <option value="serif">Times serif{defaultStyle?.fontFamily === "serif" ? " · Your default" : ""}</option>
+            <option value="monospace">Monospace{defaultStyle?.fontFamily === "monospace" ? " · Your default" : ""}</option>
           </select>
         </label>
         <label>
@@ -70,9 +73,9 @@ export function StyleEditor({
               )
             }
           >
-            <option value="left">Left</option>
-            <option value="center">Centre</option>
-            <option value="right">Right</option>
+            <option value="left">Left{defaultStyle?.horizontalAlign === "left" ? " · Your default" : ""}</option>
+            <option value="center">Centre{defaultStyle?.horizontalAlign === "center" ? " · Your default" : ""}</option>
+            <option value="right">Right{defaultStyle?.horizontalAlign === "right" ? " · Your default" : ""}</option>
           </select>
         </label>
         <label>
@@ -83,9 +86,9 @@ export function StyleEditor({
               setVerticalAlign(event.target.value as CaptionStyle["verticalAlign"])
             }
           >
-            <option value="top">Top</option>
-            <option value="middle">Middle</option>
-            <option value="bottom">Bottom</option>
+            <option value="top">Top{defaultStyle?.verticalAlign === "top" ? " · Your default" : ""}</option>
+            <option value="middle">Middle{defaultStyle?.verticalAlign === "middle" ? " · Your default" : ""}</option>
+            <option value="bottom">Bottom{defaultStyle?.verticalAlign === "bottom" ? " · Your default" : ""}</option>
           </select>
         </label>
         <label>

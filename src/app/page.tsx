@@ -993,6 +993,7 @@ export default function OperatorDashboard() {
     onSave: saveCaptionPreferences,
     saving: channelAction === "save-style",
     savedMessage: styleSavedMessage,
+    defaultStyle: accountPreferences?.captionStyle ?? null,
   };
 
   const promptSavedMessage =
@@ -1015,6 +1016,9 @@ export default function OperatorDashboard() {
       sourceLabel={sourceLabel ?? sourceLanguage}
       keywordCount={keywordCount}
       disabled={translationEditorDisabled}
+      defaultSourceLanguage={accountPreferences?.translationDefaults?.sourceLanguage ?? null}
+      defaultTargetLanguage={accountPreferences?.translationDefaults?.targetLanguage ?? null}
+      defaultRecordingWindowMs={accountPreferences?.translationDefaults?.recordingWindowMs ?? null}
       onSourceLanguageChange={setSourceLanguage}
       onTargetLanguageChange={setTargetLanguage}
       onKeywordTextChange={setKeywordText}
@@ -1618,6 +1622,7 @@ export default function OperatorDashboard() {
                       (accountPreferences && accountPreferences.outputBufferCount !== null
                         ? "Your account has a saved default for this."
                         : "Saves this choice to your account for new services."),
+                    defaultCount: accountPreferences?.outputBufferCount ?? null,
                   }}
                   obs={{
                     configured: Boolean(liveState.channel?.configured),

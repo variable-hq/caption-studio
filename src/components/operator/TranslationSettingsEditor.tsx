@@ -35,6 +35,10 @@ interface TranslationSettingsEditorProps {
   sourceLabel: string;
   keywordCount: number;
   disabled?: boolean;
+  /** The operator's saved account defaults, if any — badges the matching option. */
+  defaultSourceLanguage?: SourceLanguage | null;
+  defaultTargetLanguage?: LanguageLocale | null;
+  defaultRecordingWindowMs?: RecordingWindowMs | null;
   onSourceLanguageChange: (value: SourceLanguage) => void;
   onTargetLanguageChange: (value: LanguageLocale) => void;
   onKeywordTextChange: (value: string) => void;
@@ -51,6 +55,9 @@ export function TranslationSettingsEditor({
   sourceLabel,
   keywordCount,
   disabled = false,
+  defaultSourceLanguage = null,
+  defaultTargetLanguage = null,
+  defaultRecordingWindowMs = null,
   onSourceLanguageChange,
   onTargetLanguageChange,
   onKeywordTextChange,
@@ -78,10 +85,10 @@ export function TranslationSettingsEditor({
               onSourceLanguageChange(event.target.value as SourceLanguage)
             }
           >
-            <option value="auto">Auto detect</option>
+            <option value="auto">Auto detect{defaultSourceLanguage === "auto" ? " · Your default" : ""}</option>
             {LANGUAGE_OPTIONS.map((language) => (
               <option value={language.locale} key={language.locale}>
-                {language.label}
+                {language.label}{defaultSourceLanguage === language.locale ? " · Your default" : ""}
               </option>
             ))}
           </select>
@@ -100,7 +107,7 @@ export function TranslationSettingsEditor({
           >
             {LANGUAGE_OPTIONS.map((language) => (
               <option value={language.locale} key={language.locale}>
-                {language.label}
+                {language.label}{defaultTargetLanguage === language.locale ? " · Your default" : ""}
               </option>
             ))}
           </select>
@@ -120,7 +127,7 @@ export function TranslationSettingsEditor({
           >
             {RECORDING_WINDOW_OPTIONS_MS.map((value) => (
               <option value={value} key={value}>
-                {RECORDING_WINDOW_LABELS[value]}
+                {RECORDING_WINDOW_LABELS[value]}{defaultRecordingWindowMs === value ? " · Your default" : ""}
               </option>
             ))}
           </select>
