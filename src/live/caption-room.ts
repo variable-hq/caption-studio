@@ -1,115 +1,52 @@
-import type { LlmSessionUsage, TranslationResult } from "@/ai/contracts";
-import {
-  accumulateLlmSessionUsage,
-  emptyLlmSessionUsage,
-  normalizeLlmSessionUsage,
-} from "@/ai/usage";
+import type { LlmSessionUsage } from "@/ai/contracts";
+import { accumulateLlmSessionUsage, emptyLlmSessionUsage } from "@/ai/usage";
 import { isLanguageLocale } from "@/domain/languages";
 import {
   MAX_CAPTION_EVENTS,
   MAX_LIVE_SESSION_MS,
   MAX_MANUAL_CAPTION_CHARS,
-  MAX_SERVICE_OBSERVERS,
   MAX_TRANSCRIPTION_REQUESTS,
   isLiveSessionControlAction,
   isTranslationRefreshRequestId,
   normalizeCaptionStyle,
-  normalizeTranslationRevision,
   type CaptionStyle,
-  type ChannelStatus,
   type LiveSessionControlRequest,
   type LiveSessionControlResponse,
   type PublicCaptionEvent,
   type PublicCaptionRequest,
 } from "@/live/contracts";
+import {
+  IDENTITY_KEY,
+  REMOTE_COMMAND_TIMEOUT_MS,
+  channelInUse,
+  channelNotConfigured,
+  controllerMatches,
+  controllerReplaced,
+  credentialMatches,
+  deactivate,
+  isActive,
+  json,
+  normalizeConfiguration,
+  publicConfiguration,
+  serviceExpired,
+  translationSessionRefreshed,
+  validCaptionBody,
+  validTranslationAttemptBody,
+  viewerCaption,
+  websocketToken,
+  withCredential,
+  type ArchiveEntry,
+  type ChannelConfiguration,
+  type MutationResult,
+  type RecordTranslationUsageRequest,
+  type RemoteCommand,
+  type StartServiceRequest,
+  type TranslationAttemptRequest,
+  type ViewerStreamEvent,
+} from "@/live/caption-room-helpers";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { rpc, type ExperienceEnvironment, type JournalState } from "@/experience/contracts";
 
-interface RemoteCommand {
-  id: string;
-  action: "pause" | "resume" | "clear";
-  status: "pending" | "confirmed" | "failed";
-  at: number;
-}
-/** A remote command the capture computer has not acknowledged by then is reported unconfirmed so the phone unlocks. */
-const REMOTE_COMMAND_TIMEOUT_MS = 45_000;
-interface ArchiveEntry { id: string; startedAt: number; expiresAt: number; saved: boolean }
-
-interface ChannelConfiguration {
-  serviceId?: string;
-  saveHistory?: boolean;
-  readerHash?: string;
-  captionEpoch?: number;
-  remoteHash?: string;
-  /** Paired operator phones for this service, keyed by hashed Access identity. */
-  remoteHashes?: Record<string, string>;
-  /** Read-only workspace watchers for this service, keyed by hashed Access identity. */
-  observers?: Record<string, string>;
-  heartbeatAt?: number;
-  remoteCommand?: RemoteCommand;
-  tokenHash: string;
-  encryptedToken: string;
-  style: CaptionStyle;
-  status: Exclude<ChannelStatus, "unconfigured">;
-  lastSequence: number;
-  serviceEventCount: number;
-  transcriptionRequests: number;
-  llmUsage: LlmSessionUsage;
-  claimedTranscriptionAttempts: number[];
-  claimedTranslationAttempts: number[];
-  recordedTranslationAttempts: number[];
-  inferenceAttemptFloor: number;
-  translationRevision: number;
-  lastTranslationRefreshRequestId?: string;
-  controllerHash?: string;
-  /** Access email of the operator who started the service, for the workspace rail. */
-  controllerLabel?: string;
-  viewerTokenHash?: string;
-  startedAt?: number;
-  expiresAt?: number;
-}
-
-interface StartServiceRequest {
-  readerHash?: string;
-  saveHistory?: boolean;
-  controllerHash: string;
-  controllerLabel?: string;
-  viewerTokenHash: string;
-  style: CaptionStyle;
-  takeover: boolean;
-}
-
-interface TranslationAttemptRequest {
-  controllerHash: string;
-  transcriptionAttempt: number;
-}
-
-interface RecordTranslationUsageRequest
-  extends TranslationAttemptRequest,
-    Pick<TranslationResult, "usage" | "rateLimit"> {}
-
-type MutationResult<T> =
-  | { kind: "caption-cleared" }
-  | { kind: "paused" }
-  | { kind: "ok"; value: T; clear?: boolean; revokeViewers?: boolean }
-  | { kind: "channel-not-configured" }
-  | { kind: "channel-in-use"; expiresAt?: number }
-  | { kind: "controller-replaced" }
-  | { kind: "transcription-limit" }
-  | { kind: "inference-attempt-used" }
-  | { kind: "translation-session-refreshed"; translationRevision: number }
-  | { kind: "inactive"; clear?: boolean }
-  | { kind: "invalid" };
-
-type ViewerStreamEvent =
-  | { type: "caption"; caption: PublicCaptionEvent }
-  | { type: "clear" }
-  | { type: "state"; status: ChannelStatus; expiresAt: string | null };
-
-const JSON_HEADERS = {
-  "content-type": "application/json",
-  "cache-control": "no-store",
-};
 const OVERLAY_PROTOCOL = "church-caption-v1";
 const VIEWER_PROTOCOL = "church-caption-viewer-v1";
 const OVERLAY_SOCKET_TAG = "overlay";
@@ -117,199 +54,6 @@ const VIEWER_SOCKET_TAG = "viewer";
 const OBSERVER_SOCKET_TAG = "observer";
 const MAX_VIEWER_CONNECTIONS = 250;
 const MAX_OBSERVER_CONNECTIONS = 32;
-const IDENTITY_KEY = /^operator:[a-f0-9]{64}$/u;
-const CAPABILITY_TOKEN = /^[A-Za-z0-9_-]{43}$/;
-
-function json(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), { status, headers: JSON_HEADERS });
-}
-
-function isActive(configuration: ChannelConfiguration) {
-  return configuration.status === "live" || configuration.status === "paused";
-}
-
-function normalizedAttempts(value: unknown): number[] {
-  return Array.isArray(value)
-    ? [...new Set(value.filter((attempt): attempt is number =>
-        Number.isSafeInteger(attempt) && attempt > 0 && attempt <= MAX_TRANSCRIPTION_REQUESTS,
-      ))].slice(0, MAX_TRANSCRIPTION_REQUESTS)
-    : [];
-}
-
-/**
- * Keeps at most `MAX_SERVICE_OBSERVERS` credentials, one per hashed Access
- * identity. Insertion order is preserved, so the oldest identity is dropped
- * first once the cap is full.
- */
-function normalizedCredentialMap(value: unknown): Record<string, string> | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([key, hash]) =>
-      IDENTITY_KEY.test(key) && typeof hash === "string" && /^[a-f0-9]{64}$/u.test(hash))
-    .slice(-MAX_SERVICE_OBSERVERS) as [string, string][];
-  return entries.length ? Object.fromEntries(entries) : undefined;
-}
-
-function withCredential(
-  existing: Record<string, string> | undefined,
-  identityKey: string,
-  hash: string,
-) {
-  const next = { ...(existing ?? {}) };
-  // Re-registering moves the identity to the end, so it is never evicted first.
-  delete next[identityKey];
-  next[identityKey] = hash;
-  const keys = Object.keys(next);
-  for (const stale of keys.slice(0, Math.max(0, keys.length - MAX_SERVICE_OBSERVERS))) {
-    delete next[stale];
-  }
-  return next;
-}
-
-function credentialMatches(map: Record<string, string> | undefined, hash: unknown) {
-  return (
-    typeof hash === "string" &&
-    hash.length === 64 &&
-    Object.values(map ?? {}).includes(hash)
-  );
-}
-
-function normalizeConfiguration(configuration: ChannelConfiguration) {
-  return {
-    ...configuration,
-    observers: normalizedCredentialMap(configuration.observers),
-    remoteHashes: normalizedCredentialMap(configuration.remoteHashes),
-    captionEpoch: normalizeTranslationRevision(configuration.captionEpoch),
-    style: normalizeCaptionStyle(configuration.style ?? {}),
-    status: ["idle", "live", "paused"].includes(configuration.status)
-      ? configuration.status
-      : "idle",
-    lastSequence: Number.isSafeInteger(configuration.lastSequence)
-      ? Math.max(0, configuration.lastSequence)
-      : 0,
-    serviceEventCount: Number.isSafeInteger(configuration.serviceEventCount)
-      ? Math.max(0, configuration.serviceEventCount)
-      : 0,
-    transcriptionRequests: Number.isSafeInteger(configuration.transcriptionRequests)
-      ? Math.max(0, configuration.transcriptionRequests)
-      : 0,
-    llmUsage: normalizeLlmSessionUsage(configuration.llmUsage),
-    claimedTranscriptionAttempts: normalizedAttempts(configuration.claimedTranscriptionAttempts),
-    inferenceAttemptFloor: Number.isSafeInteger(configuration.inferenceAttemptFloor)
-      ? Math.max(0, configuration.inferenceAttemptFloor)
-      // Pre-claim deployments cannot prove which older reservations already reached Groq.
-      : Math.max(0, configuration.transcriptionRequests || 0),
-    claimedTranslationAttempts: normalizedAttempts(configuration.claimedTranslationAttempts),
-    recordedTranslationAttempts: normalizedAttempts(configuration.recordedTranslationAttempts),
-    translationRevision: normalizeTranslationRevision(
-      configuration.translationRevision,
-    ),
-  } satisfies ChannelConfiguration;
-}
-
-function deactivate(configuration: ChannelConfiguration) {
-  const current = normalizeConfiguration(configuration);
-  current.status = "idle";
-  current.serviceEventCount = 0;
-  current.transcriptionRequests = 0;
-  current.llmUsage = emptyLlmSessionUsage();
-  current.claimedTranscriptionAttempts = [];
-  current.inferenceAttemptFloor = 0;
-  current.claimedTranslationAttempts = [];
-  current.recordedTranslationAttempts = [];
-  delete current.controllerHash;
-  delete current.controllerLabel;
-  delete current.viewerTokenHash;
-  delete current.startedAt;
-  delete current.expiresAt;
-  delete current.lastTranslationRefreshRequestId;
-  delete current.serviceId;
-  delete current.readerHash;
-  delete current.remoteHash;
-  delete current.remoteHashes;
-  delete current.observers;
-  delete current.remoteCommand;
-  delete current.heartbeatAt;
-  delete current.saveHistory;
-  return current;
-}
-
-function serviceExpired(configuration: ChannelConfiguration) {
-  return (
-    isActive(configuration) &&
-    typeof configuration.expiresAt === "number" &&
-    configuration.expiresAt <= Date.now()
-  );
-}
-
-function controllerMatches(configuration: ChannelConfiguration, hash: unknown) {
-  return (
-    typeof hash === "string" &&
-    hash.length === 64 &&
-    hash === configuration.controllerHash
-  );
-}
-
-function websocketToken(request: Request, protocol: string) {
-  const protocols = (request.headers.get("sec-websocket-protocol") ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  if (!protocols.includes(protocol)) return null;
-  const token = protocols.find((value) => value !== protocol) ?? null;
-  return token && CAPABILITY_TOKEN.test(token) ? token : null;
-}
-
-function validCaptionBody(body: Partial<PublicCaptionRequest>) {
-  return (
-    typeof body.publicText === "string" &&
-    body.publicText.length <= 2_000 &&
-    typeof body.targetLanguage === "string" &&
-    isLanguageLocale(body.targetLanguage) &&
-    Number.isSafeInteger(body.translationRevision) &&
-    Number(body.translationRevision) >= 0
-  );
-}
-
-function validTranslationAttemptBody<
-  T extends Partial<TranslationAttemptRequest>,
->(body: T): body is T & TranslationAttemptRequest {
-  return (
-    typeof body.controllerHash === "string" &&
-    body.controllerHash.length === 64 &&
-    Number.isSafeInteger(body.transcriptionAttempt) &&
-    Number(body.transcriptionAttempt) > 0 &&
-    Number(body.transcriptionAttempt) <= MAX_TRANSCRIPTION_REQUESTS
-  );
-}
-
-function publicConfiguration(configuration: ChannelConfiguration) {
-  const current = normalizeConfiguration(configuration);
-  return {
-    configured: true,
-    serviceId: current.serviceId,
-    saveHistory: current.saveHistory,
-    controllerLabel: current.controllerLabel,
-    encryptedToken: current.encryptedToken,
-    status: current.status,
-    style: current.style,
-    startedAt: current.startedAt ?? null,
-    expiresAt: current.expiresAt ?? null,
-    lastSequence: current.lastSequence,
-    transcriptionRequests: current.transcriptionRequests,
-    llmUsage: current.llmUsage,
-    translationRevision: current.translationRevision,
-  };
-}
-
-function viewerCaption(caption: PublicCaptionEvent) {
-  return {
-    sequence: caption.sequence,
-    publicText: caption.publicText,
-    targetLanguage: caption.targetLanguage,
-    publishedAt: caption.publishedAt,
-  };
-}
 
 export class CaptionRoom {
   constructor(private readonly state: DurableObjectState, private readonly env?: ExperienceEnvironment) {}
@@ -1704,46 +1448,6 @@ export class CaptionRoom {
     }
     catch { await this.state.storage.setAlarm(Date.now() + 10_000); }
   }
-}
-
-function channelNotConfigured() {
-  return json(
-    { error: "Create the Main OBS channel first.", code: "channel_not_configured" },
-    404,
-  );
-}
-
-function channelInUse(expiresAt?: number) {
-  return json(
-    {
-      error: "The Main channel is already controlled by another operator.",
-      code: "channel_in_use",
-      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-    },
-    409,
-  );
-}
-
-function controllerReplaced() {
-  return json(
-    {
-      error: "Control of the Main channel moved to another operator.",
-      code: "controller_replaced",
-    },
-    409,
-  );
-}
-
-function translationSessionRefreshed(translationRevision: number) {
-  return json(
-    {
-      error:
-        "The translation session was refreshed. Discard this caption and use the current translation settings.",
-      code: "translation_session_refreshed",
-      translationRevision,
-    },
-    409,
-  );
 }
 
 export async function captionTokenHash(token: string) {
