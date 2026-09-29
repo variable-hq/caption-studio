@@ -165,10 +165,13 @@ export function TranslationSettingsEditor({
         uses <code>Saul|swauf =&gt; Saul</code>. Review variants before adding them;
         these replace whole words in the source transcript.
       </p>
-      <button className="secondaryButton" type="button" disabled={disabled || targetLanguage !== "en" || !["id", "auto"].includes(sourceLanguage)}
-        onClick={() => onKeywordTextChange([keywordText, TB2_SERVICE_VOCABULARY].filter(Boolean).join(", "))}>
-        Add TB2 names for Indonesian to English
-      </button>
+      <details className="advancedActions">
+        <summary>More options</summary>
+        <button className="secondaryButton" type="button" disabled={disabled || targetLanguage !== "en" || !["id", "auto"].includes(sourceLanguage)}
+          onClick={() => onKeywordTextChange([keywordText, TB2_SERVICE_VOCABULARY].filter(Boolean).join(", "))}>
+          Add TB2 names for Indonesian to English
+        </button>
+      </details>
       <label>
         Public caption filter
         <input

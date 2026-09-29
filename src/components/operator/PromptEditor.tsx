@@ -67,23 +67,28 @@ export function PromptEditor({
         >
           Save to my account
         </button>
-        <button
-          className="secondaryButton"
-          type="button"
-          disabled={disabled || targetLanguage !== "en" || !["id", "auto"].includes(sourceLanguage)}
-          onClick={() => onChange([value, ID_EN_ADDRESS_TERM_GUIDANCE].filter(Boolean).join("\n\n"))}
-        >
-          Add Indonesian address-term guidance
-        </button>
-        <button
-          className="textButton"
-          type="button"
-          disabled={disabled}
-          onClick={onReset}
-        >
-          Reset to safe default
-        </button>
       </div>
+      <details className="advancedActions">
+        <summary>More options</summary>
+        <div className="promptActions">
+          <button
+            className="secondaryButton"
+            type="button"
+            disabled={disabled || targetLanguage !== "en" || !["id", "auto"].includes(sourceLanguage)}
+            onClick={() => onChange([value, ID_EN_ADDRESS_TERM_GUIDANCE].filter(Boolean).join("\n\n"))}
+          >
+            Add Indonesian address-term guidance
+          </button>
+          <button
+            className="textButton"
+            type="button"
+            disabled={disabled}
+            onClick={onReset}
+          >
+            Reset to safe default
+          </button>
+        </div>
+      </details>
       <p className="browserStorageNote">
         Saving stores the prompt with your signed-in operator account and keeps an
         unencrypted local copy in this browser. During a live

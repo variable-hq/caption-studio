@@ -100,10 +100,13 @@ export function SummarySettingsEditor({
         <button className="secondaryButton" type="button" onClick={onSaveBrowserDefault}>
           Save to my account
         </button>
+      </div>
+      <details className="advancedActions">
+        <summary>More options</summary>
         <button className="textButton" type="button" onClick={onReset}>
           Reset to defaults
         </button>
-      </div>
+      </details>
       <p className="browserStorageNote">
         Saving stores these defaults with your signed-in operator account and keeps an
         unencrypted local copy in this browser. Guidance may set
