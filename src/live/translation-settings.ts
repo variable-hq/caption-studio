@@ -1,4 +1,10 @@
 import {
+  DEFAULT_INFERENCE_LEVEL,
+  INFERENCE_LEVEL_OPTIONS,
+  normalizeInferenceLevel,
+  type InferenceLevel,
+} from "@/ai/contracts";
+import {
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
@@ -16,7 +22,7 @@ import {
   type RecordingWindowMs,
 } from "@/live/contracts";
 
-const TRANSLATION_SETTINGS_STORAGE_VERSION = 3;
+const TRANSLATION_SETTINGS_STORAGE_VERSION = 4;
 export const MAX_TERMINOLOGY_INPUT_CHARS = 8_000;
 export const MAX_FILTER_INPUT_CHARS = 4_000;
 
@@ -27,6 +33,7 @@ export interface TranslationSessionSettings {
   filterText: string;
   recordingWindowMs: RecordingWindowMs;
   translationSystemPrompt: string;
+  inferenceLevel: InferenceLevel;
 }
 
 interface TranslationSessionIdentity {
@@ -46,7 +53,8 @@ type TranslationSettingsChange =
   | "Recording window"
   | "Terminology"
   | "Public filter"
-  | "System prompt";
+  | "System prompt"
+  | "Inference level";
 
 function boundedText(value: unknown, maximum: number) {
   return typeof value === "string" ? value.slice(0, maximum) : "";
@@ -77,6 +85,9 @@ export function normalizeTranslationSessionSettings(
     ),
     translationSystemPrompt: normalizeTranslationSystemPrompt(
       input.translationSystemPrompt ?? DEFAULT_TRANSLATION_SYSTEM_PROMPT,
+    ),
+    inferenceLevel: normalizeInferenceLevel(
+      input.inferenceLevel ?? DEFAULT_INFERENCE_LEVEL,
     ),
   };
 }
@@ -112,6 +123,9 @@ export function translationSettingsChanges(
   }
   if (current.translationSystemPrompt !== next.translationSystemPrompt) {
     changes.push("System prompt");
+  }
+  if (current.inferenceLevel !== next.inferenceLevel) {
+    changes.push("Inference level");
   }
 
   return changes;
@@ -164,6 +178,7 @@ export function parseStoredTranslationSessionSettings(
         Number(settings.recordingWindowMs) as RecordingWindowMs,
       ) ||
       typeof settings.translationSystemPrompt !== "string" ||
+      !INFERENCE_LEVEL_OPTIONS.includes(settings.inferenceLevel as InferenceLevel) ||
       !validTranslationSessionIdentity(payload)
     ) {
       return null;
