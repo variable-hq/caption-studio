@@ -151,6 +151,80 @@ describe("Groq cloud provider prompts", () => {
     expect(messages[0].content).toContain("If a word was said but is unclear or mistranscribed");
   });
 
+  it("recognizes a scripture reading without permitting retrieval from memory", () => {
+    const messages = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+    });
+
+    expect(messages[0].content).toContain(
+      "If the speaker is reading or paraphrasing a Bible passage, use that recognition only to translate the words actually spoken more naturally and in context",
+    );
+    expect(messages[0].content).toContain(
+      "never substitute, complete, or correct it with scripture text recalled from memory",
+    );
+  });
+
+  it("recognizes the speaker's tone and register at every inference level", () => {
+    const messages = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+    });
+
+    expect(messages[0].content).toContain(
+      "informative, conversational, biblical, formal, or illustrative",
+    );
+  });
+
+  it("defaults to balanced inference and threads an explicit level into the envelope", () => {
+    const defaulted = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+    });
+    expect(defaulted[0].content).toContain("Inference level: BALANCED");
+
+    const low = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      inferenceLevel: "low",
+    });
+    expect(low[0].content).toContain("Inference level: LOW");
+    expect(low[0].content).toContain("do not rephrase for style");
+
+    const high = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      inferenceLevel: "high",
+    });
+    expect(high[0].content).toContain("Inference level: HIGH");
+    expect(high[0].content).toContain("Make bolder corrections, rephrasing, and paraphrasing");
+
+    const invalid = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      inferenceLevel: "extreme" as never,
+    });
+    expect(invalid[0].content).toContain("Inference level: BALANCED");
+  });
+
   it("requires leaving out profanity, slurs, or vulgar language rather than translating it", () => {
     const messages = buildTranslationMessages({
       text: "Grace and peace.",
