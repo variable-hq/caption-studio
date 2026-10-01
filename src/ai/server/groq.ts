@@ -1,4 +1,4 @@
-import { MAX_TRANSLATION_COMPLETION_TOKENS } from "@/ai/contracts";
+import { MAX_TRANSLATION_COMPLETION_TOKENS, normalizeInferenceLevel } from "@/ai/contracts";
 import type {
   LlmProviderRateLimitSnapshot,
   TranscriptSegment,
@@ -221,7 +221,12 @@ export function buildTranslationMessages(request: TranslationRequest) {
   return [
     buildEnvelopeSystemMessage(
       "SERVER TRANSLATION ENVELOPE",
-      buildTranslationEnvelopeRules(source, target, request.targetLanguage),
+      buildTranslationEnvelopeRules(
+        source,
+        target,
+        request.targetLanguage,
+        normalizeInferenceLevel(request.inferenceLevel),
+      ),
       { label: "OPERATOR TRANSLATION GUIDANCE", text: operatorGuidance },
     ),
     buildUntrustedDataMessage(
