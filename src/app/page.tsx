@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CloudProviderClient } from "@/ai/cloud-provider-client";
+import { DEFAULT_INFERENCE_LEVEL, type InferenceLevel } from "@/ai/contracts";
 import {
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   normalizeTranslationSystemPrompt,
@@ -197,6 +198,9 @@ export default function OperatorDashboard() {
   const [recordingWindowMs, setRecordingWindowMs] = useState<RecordingWindowMs>(
     DEFAULT_RECORDING_WINDOW_MS,
   );
+  const [inferenceLevel, setInferenceLevel] = useState<InferenceLevel>(
+    DEFAULT_INFERENCE_LEVEL,
+  );
   const [outputBufferCount, setOutputBufferCount] = useState<OutputBufferCount>(
     DEFAULT_OUTPUT_BUFFER_COUNT,
   );
@@ -271,9 +275,11 @@ export default function OperatorDashboard() {
         filterText,
         recordingWindowMs,
         translationSystemPrompt,
+        inferenceLevel,
       }),
     [
       filterText,
+      inferenceLevel,
       keywordText,
       sourceLanguage,
       recordingWindowMs,
@@ -380,6 +386,7 @@ export default function OperatorDashboard() {
       setFilterText(active.filterText);
       setRecordingWindowMs(active.recordingWindowMs);
       setTranslationSystemPrompt(active.translationSystemPrompt);
+      setInferenceLevel(active.inferenceLevel);
       setConfirmTranslationRefresh(false);
       setPromptStorageMessage("");
     }, 0);
@@ -769,6 +776,7 @@ export default function OperatorDashboard() {
           setKeywordText(defaults.keywordText);
           setFilterText(defaults.filterText);
           setRecordingWindowMs(defaults.recordingWindowMs);
+          setInferenceLevel(defaults.inferenceLevel);
           setTranslationDefaultsMessage("Loaded your saved default setup.");
         }
         if (loaded.outputBufferCount !== null && !hasServiceRef.current) {
@@ -818,11 +826,11 @@ export default function OperatorDashboard() {
   const saveTranslationDefaults = () => {
     setTranslationDefaultsMessage("Saving your default setup…");
     void syncAccountPreferences({
-      translationDefaults: { sourceLanguage, targetLanguage, keywordText, filterText, recordingWindowMs },
+      translationDefaults: { sourceLanguage, targetLanguage, keywordText, filterText, recordingWindowMs, inferenceLevel },
     }).then((ok) =>
       setTranslationDefaultsMessage(
         ok
-          ? "Saved as your default setup. New services start from these languages, recording window and terms."
+          ? "Saved as your default setup. New services start from these languages, recording window, inference level, and terms."
           : "Account sync is unavailable; the default setup was not saved.",
       ),
     );
@@ -948,6 +956,7 @@ export default function OperatorDashboard() {
     setFilterText(active.filterText);
     setRecordingWindowMs(active.recordingWindowMs);
     setTranslationSystemPrompt(active.translationSystemPrompt);
+    setInferenceLevel(active.inferenceLevel);
     setConfirmTranslationRefresh(false);
     setPromptStorageMessage(
       "Draft restored to the active session. Browser default unchanged.",
@@ -1028,17 +1037,20 @@ export default function OperatorDashboard() {
       keywordText={keywordText}
       filterText={filterText}
       recordingWindowMs={recordingWindowMs}
+      inferenceLevel={inferenceLevel}
       sourceLabel={sourceLabel ?? sourceLanguage}
       keywordCount={keywordCount}
       disabled={translationEditorDisabled}
       defaultSourceLanguage={accountPreferences?.translationDefaults?.sourceLanguage ?? null}
       defaultTargetLanguage={accountPreferences?.translationDefaults?.targetLanguage ?? null}
       defaultRecordingWindowMs={accountPreferences?.translationDefaults?.recordingWindowMs ?? null}
+      defaultInferenceLevel={accountPreferences?.translationDefaults?.inferenceLevel ?? null}
       onSourceLanguageChange={setSourceLanguage}
       onTargetLanguageChange={setTargetLanguage}
       onKeywordTextChange={setKeywordText}
       onFilterTextChange={setFilterText}
       onRecordingWindowChange={setRecordingWindowMs}
+      onInferenceLevelChange={setInferenceLevel}
     />
   );
 
@@ -1457,7 +1469,7 @@ export default function OperatorDashboard() {
                     translationDefaultsMessage ||
                     (accountPreferences?.translationDefaults
                       ? "Your account has a saved default setup for new services."
-                      : "Saves languages, recording window, terminology and filters to your account for new services.")
+                      : "Saves languages, recording window, inference level, terminology and filters to your account for new services.")
                   }
                   transcriptionModel={cloudModels?.transcription ?? cloudModelStatus}
                   translationModel={cloudModels?.translation ?? cloudModelStatus}
