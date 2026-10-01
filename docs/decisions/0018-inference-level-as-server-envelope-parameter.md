@@ -49,26 +49,19 @@ isolation.
 
 ### Reconciling the per-level rules with existing invariants
 
-The first implementation phrased the per-level rules the way the feature request
-described them: Low and Balanced said to "omit" a word that can't be determined, and
-High said to "omit" a highly ambiguous line. This was not a considered design choice —
-it was the literal wording carried over from the request, and it went in without being
-checked against the envelope's other rules.
-
-A later review found it directly contradicted two things already in place. The
-universal bracket rule says a word that's unclear or mistranscribed is "never ...
-omitted" — it must be bracketed as `[unclear]` instead — so Low and Balanced's "omit it"
-was the opposite instruction for the identical case, with no stated precedence between
-them. And High's line-level "omit it" asks for an empty completion, which
-`translateWithGroq` (`src/ai/server/groq.ts`) has no way to treat as intentional: an
-empty response is classified `incomplete` and skipped with the same operator-facing
-failure message as a real error.
-
-Both were corrected before this shipped: Low and Balanced now route into the same
-`[unclear]` bracket the universal rule defines, and High falls back to rendering the
-clearest partial caption instead of asking for nothing. The reason for the change is
-simply that the original wording was found not to hold up against rules already in the
-envelope, not a deeper intent the first version failed to express.
+The per-level rules are worded to stay consistent with two things the envelope and
+pipeline already guarantee, rather than define their own competing behavior. The
+universal bracket rule treats a word that's unclear or mistranscribed as something that
+must always surface as `[unclear]`, never silently dropped; Low and Balanced's handling
+of a word they can't determine routes into that same bracket instead of a separate
+"omit" outcome that would contradict it for the identical case. Separately,
+`translateWithGroq` (`src/ai/server/groq.ts`) has no way to represent an intentional
+"too ambiguous to caption" result — an empty completion is classified `incomplete` and
+skipped with the same operator-facing failure message as a real error. High's handling
+of a highly ambiguous line therefore falls back to the clearest partial caption from
+what was actually said, matching the operator prompt's existing muddled-speech
+convention, rather than asking for a response the pipeline would only ever read as a
+failure.
 
 ## Tradeoffs and verification
 
