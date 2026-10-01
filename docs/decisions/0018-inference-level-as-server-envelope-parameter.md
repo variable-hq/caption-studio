@@ -47,21 +47,29 @@ before a pilot. The new behavior is encoded as a clarifying clause appended to t
 existing never-invent rule, not as a standalone permission that could be read in
 isolation.
 
-### Reconciling the per-level rules with existing invariants
+### Final disposition of an indecipherable word is level-dependent
 
-The per-level rules are worded to stay consistent with two things the envelope and
-pipeline already guarantee, rather than define their own competing behavior. The
-universal bracket rule treats a word that's unclear or mistranscribed as something that
-must always surface as `[unclear]`, never silently dropped; Low and Balanced's handling
-of a word they can't determine routes into that same bracket instead of a separate
-"omit" outcome that would contradict it for the identical case. Separately,
-`translateWithGroq` (`src/ai/server/groq.ts`) has no way to represent an intentional
-"too ambiguous to caption" result — an empty completion is classified `incomplete` and
-skipped with the same operator-facing failure message as a real error. High's handling
-of a highly ambiguous line therefore falls back to the clearest partial caption from
-what was actually said, matching the operator prompt's existing muddled-speech
-convention, rather than asking for a response the pipeline would only ever read as a
-failure.
+The universal unclear-word rule corrects likely transcription errors and brackets a
+partial guess (e.g. `[name]`) where one is possible. For a word with no guess at all
+possible, it hands the final disposition to the active inference level's own rule
+rather than fixing one outcome for every level. Low, Balanced, and High may each omit
+that single word — the same shape as the existing profanity rule, which already leaves
+a word out while keeping the rest of the sentence natural and complete — instead of
+always falling back to `[unclear]`. Every level still brackets `[unclear]` in the one
+case where omitting would leave nothing at all: when the indecipherable word is the
+entire caption. This keeps the rule useful (word-level omission reads more naturally
+than a sentence stitched around a visible bracket) without ever producing an empty
+completion.
+
+A whole *line* that stays highly ambiguous even after High's bolder inference is a
+different case: `translateWithGroq` (`src/ai/server/groq.ts`) has no way to represent an
+intentional "too ambiguous to caption" result — an empty completion is classified
+`incomplete` and skipped with the same operator-facing failure message as a real error.
+High therefore renders the clearest partial caption from what was actually said in that
+case, matching the operator prompt's existing muddled-speech convention, rather than
+asking for a response the pipeline would only ever read as a failure. Omitting the line
+outright would need a way for the pipeline to tell that apart from a real failure, which
+doesn't exist yet.
 
 ## Tradeoffs and verification
 
@@ -74,8 +82,9 @@ failure.
   speaker's tone/register (informative, conversational, biblical, formal, illustrative).
 - `src/ai/server/groq.test.ts` asserts the envelope text differs by level (including the
   invalid-value fallback), that the scripture-recognition and tone-recognition clauses
-  are present regardless of level, and that no level's rule can reintroduce the
-  bracket-rule contradiction or an empty-caption instruction described above.
+  are present regardless of level, that every level can omit a single indecipherable
+  word, that none of them can produce an empty caption from doing so, and that High's
+  whole-line fallback renders a partial caption rather than an empty one.
 - Translation-quality impact (does Balanced still read naturally, does Low actually feel
   faster/more literal, does High's bolder rephrasing stay within guardrails) cannot be
   verified by unit tests and is pending a live/sample review, the same gate

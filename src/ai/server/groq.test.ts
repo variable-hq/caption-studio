@@ -120,7 +120,7 @@ describe("Groq cloud provider prompts", () => {
     );
   });
 
-  it("requires a bracketed guess or [unclear] for unclear words, never silent omission", () => {
+  it("hands off an indecipherable word's final disposition to the active inference level", () => {
     const messages = buildTranslationMessages({
       text: "Grace and peace.",
       sourceLanguage: "en",
@@ -129,9 +129,9 @@ describe("Groq cloud provider prompts", () => {
       preferredTerms: {},
     });
 
-    expect(messages[0].content).toContain("bracket your best guess");
-    expect(messages[0].content).toContain("[unclear] if none is possible");
-    expect(messages[0].content).toContain("never leave an unclear word untranslated, verbatim, or omitted");
+    expect(messages[0].content).toContain("If only a partial guess is possible, bracket it, e.g. [name]");
+    expect(messages[0].content).toContain("follow the active inference level's rule below for how to handle it");
+    expect(messages[0].content).toContain("Never leave an unclear word untranslated or verbatim");
     expect(messages[0].content).toContain("Never reconstruct scripture or lyrics from memory");
     expect(messages[0].content).toContain("keep it verbatim in quotation marks");
   });
@@ -182,11 +182,12 @@ describe("Groq cloud provider prompts", () => {
     );
   });
 
-  it("never tells an inference level to omit an unclear word, only the universal bracket rule does", () => {
-    // Regression: Low and Balanced previously said to "omit" a word that can't be
-    // determined, directly contradicting the bracket rule's "never ... omitted" for
-    // the identical case. Both must now funnel into the same [unclear] convention.
-    for (const inferenceLevel of ["low", "balanced"] as const) {
+  it("lets Low, Balanced, and High omit a single indecipherable word rather than bracket it", () => {
+    // Per the feature request: the universal bracket rule hands off an indecipherable
+    // word's final disposition to the active level, which may omit that one word
+    // (same shape as the existing profanity-omission rule — the rest of the caption
+    // stays natural and complete) rather than always falling back to [unclear].
+    for (const inferenceLevel of ["low", "balanced", "high"] as const) {
       const messages = buildTranslationMessages({
         text: "Grace and peace.",
         sourceLanguage: "en",
@@ -195,15 +196,33 @@ describe("Groq cloud provider prompts", () => {
         preferredTerms: {},
         inferenceLevel,
       });
-      expect(messages[0].content).toContain("bracket it as [unclear]");
+      expect(messages[0].content).toContain("omit that one word");
+      expect(messages[0].content).toContain("keeping the rest of the caption natural and complete");
     }
   });
 
-  it("never asks HIGH to produce an empty caption, which the pipeline would treat as a failure", () => {
+  it("never lets an inference level's word-omission produce an empty caption", () => {
+    // Regression: omitting the single indecipherable word must not be able to leave
+    // nothing at all — each level falls back to bracketing [unclear] specifically for
+    // the edge case where that word is the entire caption.
+    for (const inferenceLevel of ["low", "balanced", "high"] as const) {
+      const messages = buildTranslationMessages({
+        text: "Grace and peace.",
+        sourceLanguage: "en",
+        targetLanguage: "id",
+        recentContext: [],
+        preferredTerms: {},
+        inferenceLevel,
+      });
+      expect(messages[0].content).toContain("unless it is the only word in the caption, in which case bracket it as [unclear] instead");
+    }
+  });
+
+  it("never asks HIGH to produce an empty caption for a whole ambiguous line, which the pipeline would treat as a failure", () => {
     // Regression: an empty completion is classified `incomplete` and skipped with an
     // operator-facing failure message (see translateWithGroq's finish-reason check) —
-    // there is no "intentional omission" path, so HIGH must fall back to a partial
-    // caption instead of asking the model to omit the line outright.
+    // there is no "intentional omission" path, so a whole-line fallback must render a
+    // partial caption rather than ask the model to omit the line outright.
     const high = buildTranslationMessages({
       text: "Grace and peace.",
       sourceLanguage: "en",
@@ -212,7 +231,8 @@ describe("Groq cloud provider prompts", () => {
       preferredTerms: {},
       inferenceLevel: "high",
     });
-    expect(high[0].content).not.toContain("omit it");
+    expect(high[0].content).not.toContain("omit the line");
+    expect(high[0].content).not.toContain("omit it rather than guessing");
     expect(high[0].content).toContain("render the clearest partial caption");
   });
 
