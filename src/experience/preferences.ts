@@ -86,6 +86,7 @@ function normalizeTranslationDefaults(value: unknown): TranslationDefaults | nul
     keywordText: settings.keywordText,
     filterText: settings.filterText,
     recordingWindowMs: settings.recordingWindowMs,
+    inferenceLevel: settings.inferenceLevel,
   };
 }
 

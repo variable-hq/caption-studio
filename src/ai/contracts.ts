@@ -2,6 +2,16 @@ import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
 
 export const MAX_TRANSLATION_COMPLETION_TOKENS = 256;
 
+export const INFERENCE_LEVEL_OPTIONS = ["low", "balanced", "high"] as const;
+export type InferenceLevel = (typeof INFERENCE_LEVEL_OPTIONS)[number];
+export const DEFAULT_INFERENCE_LEVEL: InferenceLevel = "balanced";
+
+export function normalizeInferenceLevel(value: unknown): InferenceLevel {
+  return INFERENCE_LEVEL_OPTIONS.includes(value as InferenceLevel)
+    ? (value as InferenceLevel)
+    : DEFAULT_INFERENCE_LEVEL;
+}
+
 export interface TranscriptSegment {
   text: string;
   isFinal: boolean;
@@ -21,6 +31,7 @@ export interface TranslationRequest {
   recentContext: string[];
   preferredTerms: Readonly<Record<string, string>>;
   translationSystemPrompt?: string;
+  inferenceLevel?: InferenceLevel;
 }
 
 export interface LlmTokenUsage {

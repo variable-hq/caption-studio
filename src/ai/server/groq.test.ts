@@ -5,6 +5,7 @@ import {
   ID_EN_ADDRESS_TERM_GUIDANCE,
   InvalidTranslationSystemPromptError,
   MAX_TRANSLATION_SYSTEM_PROMPT_CHARS,
+  OMITTED_CONTENT_MARKER,
   isValidTranslationSystemPrompt,
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
@@ -120,7 +121,7 @@ describe("Groq cloud provider prompts", () => {
     );
   });
 
-  it("requires a bracketed guess or [unclear] for unclear words, never silent omission", () => {
+  it("hands off an indecipherable word's final disposition to the active inference level", () => {
     const messages = buildTranslationMessages({
       text: "Grace and peace.",
       sourceLanguage: "en",
@@ -129,9 +130,9 @@ describe("Groq cloud provider prompts", () => {
       preferredTerms: {},
     });
 
-    expect(messages[0].content).toContain("bracket your best guess");
-    expect(messages[0].content).toContain("[unclear] if none is possible");
-    expect(messages[0].content).toContain("never leave an unclear word untranslated, verbatim, or omitted");
+    expect(messages[0].content).toContain("If only a partial guess is possible, bracket it, e.g. [name]");
+    expect(messages[0].content).toContain("follow the active inference level's rule below for how to handle it");
+    expect(messages[0].content).toContain("Never leave an unclear word untranslated or verbatim");
     expect(messages[0].content).toContain("Never reconstruct scripture or lyrics from memory");
     expect(messages[0].content).toContain("keep it verbatim in quotation marks");
   });
@@ -151,7 +152,7 @@ describe("Groq cloud provider prompts", () => {
     expect(messages[0].content).toContain("If a word was said but is unclear or mistranscribed");
   });
 
-  it("requires leaving out profanity, slurs, or vulgar language rather than translating it", () => {
+  it("recognizes a scripture reading without permitting retrieval from memory", () => {
     const messages = buildTranslationMessages({
       text: "Grace and peace.",
       sourceLanguage: "en",
@@ -160,7 +161,135 @@ describe("Groq cloud provider prompts", () => {
       preferredTerms: {},
     });
 
-    expect(messages[0].content).toContain("If the speech contains profanity, slurs, or vulgar language, leave it out of the translation");
+    expect(messages[0].content).toContain(
+      "If the speaker is reading or paraphrasing a Bible passage, use that recognition only to translate the words actually spoken more naturally and in context",
+    );
+    expect(messages[0].content).toContain(
+      "never substitute, complete, or correct it with scripture text recalled from memory",
+    );
+  });
+
+  it("recognizes the speaker's tone and register at every inference level", () => {
+    const messages = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+    });
+
+    expect(messages[0].content).toContain(
+      "informative, conversational, biblical, formal, or illustrative",
+    );
+  });
+
+  it("lets Low, Balanced, and High omit a single indecipherable word rather than bracket it", () => {
+    // Per the feature request: the universal bracket rule hands off an indecipherable
+    // word's final disposition to the active level, which may omit that one word
+    // (same shape as the existing profanity-omission rule — the rest of the caption
+    // stays natural and complete) rather than always falling back to [...].
+    for (const inferenceLevel of ["low", "balanced", "high"] as const) {
+      const messages = buildTranslationMessages({
+        text: "Grace and peace.",
+        sourceLanguage: "en",
+        targetLanguage: "id",
+        recentContext: [],
+        preferredTerms: {},
+        inferenceLevel,
+      });
+      expect(messages[0].content).toContain("omit that one word");
+      expect(messages[0].content).toContain("keeping the rest of the caption natural and complete");
+    }
+  });
+
+  it("never lets an inference level's word-omission produce an empty caption", () => {
+    // Regression: omitting the single indecipherable word must not be able to leave
+    // nothing at all — each level falls back to marking it [...] specifically for
+    // the edge case where that word is the entire caption.
+    for (const inferenceLevel of ["low", "balanced", "high"] as const) {
+      const messages = buildTranslationMessages({
+        text: "Grace and peace.",
+        sourceLanguage: "en",
+        targetLanguage: "id",
+        recentContext: [],
+        preferredTerms: {},
+        inferenceLevel,
+      });
+      expect(messages[0].content).toContain(`unless it is the only word in the caption, in which case mark it as ${OMITTED_CONTENT_MARKER} instead`);
+    }
+  });
+
+  it("never asks HIGH to produce an empty caption for a whole ambiguous line, which the pipeline would treat as a failure", () => {
+    // Regression: an empty completion is classified `incomplete` and skipped with an
+    // operator-facing failure message (see translateWithGroq's finish-reason check) —
+    // there is no "intentional omission" path, so a whole-line fallback must render a
+    // partial caption rather than ask the model to omit the line outright.
+    const high = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      inferenceLevel: "high",
+    });
+    expect(high[0].content).not.toContain("omit the line");
+    expect(high[0].content).not.toContain("omit it rather than guessing");
+    expect(high[0].content).toContain("render the clearest partial caption");
+  });
+
+  it("defaults to balanced inference and threads an explicit level into the envelope", () => {
+    const defaulted = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+    });
+    expect(defaulted[0].content).toContain("Inference level: BALANCED");
+
+    const low = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      inferenceLevel: "low",
+    });
+    expect(low[0].content).toContain("Inference level: LOW");
+    expect(low[0].content).toContain("do not rephrase for style");
+
+    const high = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      inferenceLevel: "high",
+    });
+    expect(high[0].content).toContain("Inference level: HIGH");
+    expect(high[0].content).toContain("Make bolder corrections, rephrasing, and paraphrasing");
+
+    const invalid = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      inferenceLevel: "extreme" as never,
+    });
+    expect(invalid[0].content).toContain("Inference level: BALANCED");
+  });
+
+  it("requires marking profanity, slurs, or vulgar language as [...] rather than translating it", () => {
+    const messages = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+    });
+
+    expect(messages[0].content).toContain(`If the speech contains profanity, slurs, or vulgar language, mark it as ${OMITTED_CONTENT_MARKER} instead of translating it`);
     expect(messages[0].content).toContain("keeping the rest of the sentence natural and complete");
   });
 
@@ -173,7 +302,7 @@ describe("Groq cloud provider prompts", () => {
       preferredTerms: {},
     });
 
-    // Without this exemption, a model could read its own [unclear] or "term" markings
+    // Without this exemption, a model could read its own [...] or "term" markings
     // as the "labels" or "enclosing quotation marks" the output contract prohibits.
     expect(messages[0].content).toContain("using the bracket and quotation-mark conventions above where they apply");
     expect(messages[0].content).toContain("Add no other explanations, labels, alternatives, Markdown");

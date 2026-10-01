@@ -209,12 +209,31 @@ implemented.
   is instructed to prioritize it over conflicting custom text; this prompt ordering is
   risk reduction, not guaranteed enforcement. The request is one bounded model call
   rather than an agent.
+- An Inference Level setting (Low, Balanced — default, High) controls how aggressively the
+  model may infer meaning and rephrase versus sticking close to word-for-word. Low corrects
+  only clear transcription errors; Balanced permits conservative corrections so every
+  caption reads as complete, natural sentences; High allows bolder rephrasing and
+  paraphrasing, prioritizing coherence and continuity over literal fidelity, falling back
+  to the clearest partial caption for a whole line that's still too ambiguous even after
+  that. It is an immutable envelope parameter, not operator-editable text, and changing it
+  goes through the same translation refresh confirmation as language, terminology, filter,
+  and recording-window changes.
 - The model is instructed not to invent or complete Bible verses, songs, quotations,
-  doctrine, facts, missing words, or unsaid meaning. A word that was said but is unclear
-  or mistranscribed is rendered as a bracketed best guess, or `[unclear]` if none is
-  possible, rather than left untranslated; profanity, slurs, or vulgar language are left
-  out of the translation rather than rendered or invented. Neither behavior has been
-  confirmed against live model responses, only against constructed-prompt tests.
+  doctrine, facts, missing words, or unsaid meaning. Recognizing that a passage is a
+  scripture reading or paraphrase may only be used to translate the words actually spoken
+  more naturally — never to retrieve, insert, or complete scripture text from memory. A
+  word that was said but is unclear or mistranscribed is first resolved to the closest
+  plausible source-language word (correcting a likely transcription error) before being
+  translated; if only a partial guess is possible it's rendered in brackets (e.g.
+  `[name]`), and if no guess at all is possible, the active Inference Level decides the
+  final disposition — Low, Balanced, and High may each omit that one word and keep the
+  rest of the caption natural, falling back to the shared `[...]` marker only where
+  omitting would leave the caption empty. The model also recognizes the speaker's likely
+  tone and register (informative, conversational, biblical, formal, illustrative) and
+  adjusts phrasing and formality accordingly. Profanity, slurs, or vulgar language are
+  marked with that same `[...]` marker rather than translated, rendered, or invented. None
+  of this has been confirmed against live model responses, only against constructed-prompt
+  tests.
 - Current caption, approved terms, and recent context are structured as untrusted data.
   Context may resolve ambiguity but must not be translated, repeated, or summarized.
 - Publishable model output must be nonempty text with provider finish reason `stop`.
@@ -305,10 +324,10 @@ publish, not output configuration.
   from it.
 
 Discrete-choice controls with a saved account default (output buffer On/Off and dwell
-duration, recording window, source/target language, caption font/alignment) mark the
-matching option "· Your default" in its own dropdown, distinct from whatever is merely
-selected in the current session's draft. Free-text fields (terminology, filters, the
-system prompt) don't carry this marker.
+duration, recording window, source/target language, inference level, caption
+font/alignment) mark the matching option "· Your default" in its own dropdown, distinct
+from whatever is merely selected in the current session's draft. Free-text fields
+(terminology, filters, the system prompt) don't carry this marker.
 
 ### Caption display, OBS, and mobile viewing
 

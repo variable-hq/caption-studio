@@ -6,6 +6,7 @@ import {
   translateWithGroq,
 } from "@/ai/server/groq";
 import type { TranslationRequest } from "@/ai/contracts";
+import { normalizeInferenceLevel } from "@/ai/contracts";
 import {
   InvalidTranslationSystemPromptError,
   normalizeTranslationSystemPrompt,
@@ -110,6 +111,7 @@ export async function POST(request: Request) {
           : [],
         preferredTerms,
         translationSystemPrompt,
+        inferenceLevel: normalizeInferenceLevel(body.inferenceLevel),
       },
       request.signal,
       telemetry,

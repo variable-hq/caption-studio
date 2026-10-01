@@ -618,6 +618,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               recentContext: recentContextRef.current,
               preferredTerms: preferredTermMap(glossary, current.targetLanguage),
               translationSystemPrompt: current.translationSystemPrompt,
+              inferenceLevel: current.inferenceLevel,
             },
             inferenceContext,
             signal,

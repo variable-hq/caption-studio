@@ -48,13 +48,33 @@ describe("translation-session settings", () => {
         recordingWindowMs: 9_000,
         keywordText: "Bethlehem",
         translationSystemPrompt: "Prefer concise, natural captions.",
+        inferenceLevel: "high",
       }),
     ).toEqual([
       "Translation language",
       "Recording window",
       "Terminology",
       "System prompt",
+      "Inference level",
     ]);
+  });
+
+  it("falls back to balanced for a missing or invalid inference level", () => {
+    expect(
+      normalizeTranslationSessionSettings({ ...BASE_SETTINGS }).inferenceLevel,
+    ).toBe("balanced");
+    expect(
+      normalizeTranslationSessionSettings({
+        ...BASE_SETTINGS,
+        inferenceLevel: "extreme" as never,
+      }).inferenceLevel,
+    ).toBe("balanced");
+    expect(
+      normalizeTranslationSessionSettings({
+        ...BASE_SETTINGS,
+        inferenceLevel: "low",
+      }).inferenceLevel,
+    ).toBe("low");
   });
 
   it("creates stable fingerprints for equivalent normalized settings", () => {
@@ -97,7 +117,7 @@ describe("translation-session settings", () => {
     expect(
       parseStoredTranslationSessionSettings(
         JSON.stringify({
-          version: 3,
+          version: 4,
           settings: { targetLanguage: "id" },
           ...SERVICE_IDENTITY,
         }),
@@ -106,7 +126,16 @@ describe("translation-session settings", () => {
     expect(
       parseStoredTranslationSessionSettings(
         JSON.stringify({
-          version: 3,
+          version: 4,
+          settings: { ...BASE_SETTINGS, inferenceLevel: "extreme" },
+          ...SERVICE_IDENTITY,
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      parseStoredTranslationSessionSettings(
+        JSON.stringify({
+          version: 4,
           settings: BASE_SETTINGS,
           ...SERVICE_IDENTITY,
           translationRevision: "7",
