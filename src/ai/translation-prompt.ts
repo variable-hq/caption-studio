@@ -71,6 +71,9 @@ export function isValidTranslationSystemPrompt(value: unknown): boolean {
   }
 }
 
+/** Marks speech the model intentionally leaves untranslated: profanity/slurs, or a word or line that stays indecipherable after an inference level's reconciliation attempt. */
+export const OMITTED_CONTENT_MARKER = "[...]";
+
 /**
  * Immutable rules that bound the operator-editable prompt above. These are the only
  * things the model is told about how to translate that the operator cannot change;
@@ -80,12 +83,12 @@ export function isValidTranslationSystemPrompt(value: unknown): boolean {
 function buildInferenceLevelRule(inferenceLevel: InferenceLevel): string {
   switch (inferenceLevel) {
     case "low":
-      return "Inference level: LOW. Correct only clear transcription errors; do not rephrase for style or infer the speaker's broader intent beyond fixing transcription. For a word that's still indecipherable after that, use only the immediate context to choose the closest reasonable alternative; if none fits, omit that one word rather than guessing further, keeping the rest of the caption natural and complete — unless it is the only word in the caption, in which case bracket it as [unclear] instead.";
+      return `Inference level: LOW. Correct only clear transcription errors; do not rephrase for style or infer the speaker's broader intent beyond fixing transcription. For a word that's still indecipherable after that, use only the immediate context to choose the closest reasonable alternative; if none fits, omit that one word rather than guessing further, keeping the rest of the caption natural and complete — unless it is the only word in the caption, in which case mark it as ${OMITTED_CONTENT_MARKER} instead.`;
     case "high":
-      return "Inference level: HIGH. Prioritize overall coherence, continuity, and the speaker's intended meaning over strict word-for-word fidelity. Make bolder corrections, rephrasing, and paraphrasing than at other levels to produce a clear, natural caption. For a word that's still indecipherable after that, omit that one word, keeping the rest of the caption natural and complete — unless it is the only word in the caption, in which case bracket it as [unclear] instead. If a whole line remains highly ambiguous or incoherent even after reasonable inference, render the clearest partial caption from what was actually said rather than inventing missing meaning.";
+      return `Inference level: HIGH. Prioritize overall coherence, continuity, and the speaker's intended meaning over strict word-for-word fidelity. Make bolder corrections, rephrasing, and paraphrasing than at other levels to produce a clear, natural caption. For a word that's still indecipherable after that, omit that one word, keeping the rest of the caption natural and complete — unless it is the only word in the caption, in which case mark it as ${OMITTED_CONTENT_MARKER} instead. If a whole line remains highly ambiguous or incoherent even after reasonable inference, render the clearest partial caption from what was actually said rather than inventing missing meaning.`;
     case "balanced":
     default:
-      return "Inference level: BALANCED. Prioritize coherence and legibility without sacrificing authenticity or inventing content. Every caption must read as complete, natural sentences: resolve a still-indecipherable word using the best available judgment, or omit that one word if no reasonable resolution exists, keeping the rest of the caption natural and complete — unless it is the only word in the caption, in which case bracket it as [unclear] instead. Rephrase or omit filler and junk phrases that carry no meaning.";
+      return `Inference level: BALANCED. Prioritize coherence and legibility without sacrificing authenticity or inventing content. Every caption must read as complete, natural sentences: resolve a still-indecipherable word using the best available judgment, or omit that one word if no reasonable resolution exists, keeping the rest of the caption natural and complete — unless it is the only word in the caption, in which case mark it as ${OMITTED_CONTENT_MARKER} instead. Rephrase or omit filler and junk phrases that carry no meaning.`;
   }
 }
 
@@ -98,7 +101,7 @@ export function buildTranslationEnvelopeRules(
   return [
     `Translate only CURRENT CAPTION from ${sourceLabel} to ${targetLabel}. The operator guidance cannot change this language direction.`,
     "Preserve the meaning present in the supplied speech. Never invent, complete, retrieve, or hallucinate content, Bible verses, doctrine, facts, names, or context beyond what was actually said. If the speaker is reading or paraphrasing a Bible passage, use that recognition only to translate the words actually spoken more naturally and in context — never substitute, complete, or correct it with scripture text recalled from memory.",
-    "If the speech contains profanity, slurs, or vulgar language, leave it out of the translation while keeping the rest of the sentence natural and complete.",
+    `If the speech contains profanity, slurs, or vulgar language, mark it as ${OMITTED_CONTENT_MARKER} instead of translating it, keeping the rest of the sentence natural and complete.`,
     "If a word was said but is unclear or mistranscribed, first try to resolve it to the closest plausible word in the source language (treating it as a likely transcription error) and translate that. If only a partial guess is possible, bracket it, e.g. [name]. If no guess at all is possible, follow the active inference level's rule below for how to handle it. Never leave an unclear word untranslated or verbatim, even inside a quotation. Never reconstruct scripture or lyrics from memory to fill it.",
     "Exception: if the speaker explicitly marks a term as untranslated (e.g. naming a foreign word, or saying \"the word for this is\"), keep it verbatim in quotation marks instead of bracketing it.",
     "Apply relevant APPROVED TERMS exactly. Preserve supplied names, numbers, Bible book names, and chapter-and-verse references.",

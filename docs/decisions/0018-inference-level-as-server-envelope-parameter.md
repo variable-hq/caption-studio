@@ -53,13 +53,14 @@ The universal unclear-word rule corrects likely transcription errors and bracket
 partial guess (e.g. `[name]`) where one is possible. For a word with no guess at all
 possible, it hands the final disposition to the active inference level's own rule
 rather than fixing one outcome for every level. Low, Balanced, and High may each omit
-that single word — the same shape as the existing profanity rule, which already leaves
-a word out while keeping the rest of the sentence natural and complete — instead of
-always falling back to `[unclear]`. Every level still brackets `[unclear]` in the one
-case where omitting would leave nothing at all: when the indecipherable word is the
-entire caption. This keeps the rule useful (word-level omission reads more naturally
-than a sentence stitched around a visible bracket) without ever producing an empty
-completion.
+that single word, keeping the rest of the sentence natural and complete, instead of
+always falling back to a visible marker. Every level still marks the word as
+`OMITTED_CONTENT_MARKER` (`[...]`, `src/ai/translation-prompt.ts`) in the one case where
+omitting would leave nothing at all: when the indecipherable word is the entire caption.
+This keeps the rule useful (word-level omission reads more naturally than a sentence
+stitched around a visible marker) without ever producing an empty completion. The same
+marker is reused for profanity/slurs, so the model has one consistent way to signal
+"intentionally not shown" instead of a different convention per case.
 
 A whole *line* that stays highly ambiguous even after High's bolder inference is a
 different case: `translateWithGroq` (`src/ai/server/groq.ts`) has no way to represent an

@@ -5,6 +5,7 @@ import {
   ID_EN_ADDRESS_TERM_GUIDANCE,
   InvalidTranslationSystemPromptError,
   MAX_TRANSLATION_SYSTEM_PROMPT_CHARS,
+  OMITTED_CONTENT_MARKER,
   isValidTranslationSystemPrompt,
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
@@ -186,7 +187,7 @@ describe("Groq cloud provider prompts", () => {
     // Per the feature request: the universal bracket rule hands off an indecipherable
     // word's final disposition to the active level, which may omit that one word
     // (same shape as the existing profanity-omission rule — the rest of the caption
-    // stays natural and complete) rather than always falling back to [unclear].
+    // stays natural and complete) rather than always falling back to [...].
     for (const inferenceLevel of ["low", "balanced", "high"] as const) {
       const messages = buildTranslationMessages({
         text: "Grace and peace.",
@@ -203,7 +204,7 @@ describe("Groq cloud provider prompts", () => {
 
   it("never lets an inference level's word-omission produce an empty caption", () => {
     // Regression: omitting the single indecipherable word must not be able to leave
-    // nothing at all — each level falls back to bracketing [unclear] specifically for
+    // nothing at all — each level falls back to marking it [...] specifically for
     // the edge case where that word is the entire caption.
     for (const inferenceLevel of ["low", "balanced", "high"] as const) {
       const messages = buildTranslationMessages({
@@ -214,7 +215,7 @@ describe("Groq cloud provider prompts", () => {
         preferredTerms: {},
         inferenceLevel,
       });
-      expect(messages[0].content).toContain("unless it is the only word in the caption, in which case bracket it as [unclear] instead");
+      expect(messages[0].content).toContain(`unless it is the only word in the caption, in which case mark it as ${OMITTED_CONTENT_MARKER} instead`);
     }
   });
 
@@ -279,7 +280,7 @@ describe("Groq cloud provider prompts", () => {
     expect(invalid[0].content).toContain("Inference level: BALANCED");
   });
 
-  it("requires leaving out profanity, slurs, or vulgar language rather than translating it", () => {
+  it("requires marking profanity, slurs, or vulgar language as [...] rather than translating it", () => {
     const messages = buildTranslationMessages({
       text: "Grace and peace.",
       sourceLanguage: "en",
@@ -288,7 +289,7 @@ describe("Groq cloud provider prompts", () => {
       preferredTerms: {},
     });
 
-    expect(messages[0].content).toContain("If the speech contains profanity, slurs, or vulgar language, leave it out of the translation");
+    expect(messages[0].content).toContain(`If the speech contains profanity, slurs, or vulgar language, mark it as ${OMITTED_CONTENT_MARKER} instead of translating it`);
     expect(messages[0].content).toContain("keeping the rest of the sentence natural and complete");
   });
 
@@ -301,7 +302,7 @@ describe("Groq cloud provider prompts", () => {
       preferredTerms: {},
     });
 
-    // Without this exemption, a model could read its own [unclear] or "term" markings
+    // Without this exemption, a model could read its own [...] or "term" markings
     // as the "labels" or "enclosing quotation marks" the output contract prohibits.
     expect(messages[0].content).toContain("using the bracket and quotation-mark conventions above where they apply");
     expect(messages[0].content).toContain("Add no other explanations, labels, alternatives, Markdown");
