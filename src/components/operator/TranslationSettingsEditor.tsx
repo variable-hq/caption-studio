@@ -179,7 +179,7 @@ export function TranslationSettingsEditor({
         Refreshing discards the unfinished audio window and recent translation context.
       </p>
       <p className="helpText" id={inferenceHelpId}>
-        Low stays close to word-for-word with minimal corrections — fastest. Balanced
+        Low stays close to word-for-word with minimal corrections. Balanced
         (default) keeps captions coherent without changing meaning. High favors natural
         coherence over literal accuracy, allowing bolder rewording.
       </p>
