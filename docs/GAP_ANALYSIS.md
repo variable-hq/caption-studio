@@ -44,6 +44,12 @@ numbers, references, accents and chunk boundaries. The operator must approve the
 set and ordinary-error threshold; no unresolved invented scripture, reversed meaning or
 critical name/number error may be averaged away. Add reader/summary grounding and prompt
 injection cases before enabling optional AI. No exact TB2 passage source is authorized.
+Also include Inference Level's compounding edge cases, not just its common case: multiple
+unclear words in one caption, an unclear word that is also profane, and the
+single-indecipherable-word-caption fallback landing at each of Low/Balanced/High — the
+unclear-word handling is now a multi-step cascade running at `reasoning_effort: "low"`
+on a 20B model (`src/ai/server/groq.ts`), and these are the scenarios most likely to
+silently drop a step rather than fail loudly.
 
 ### G04 — P1: queue and audience latency
 

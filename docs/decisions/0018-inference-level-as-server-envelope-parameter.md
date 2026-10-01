@@ -86,7 +86,17 @@ doesn't exist yet.
   are present regardless of level, that every level can omit a single indecipherable
   word, that none of them can produce an empty caption from doing so, and that High's
   whole-line fallback renders a partial caption rather than an empty one.
-- Translation-quality impact (does Balanced still read naturally, does Low actually feel
-  faster/more literal, does High's bolder rephrasing stay within guardrails) cannot be
-  verified by unit tests and is pending a live/sample review, the same gate
-  `docs/GAP_ANALYSIS.md` G03 calls for before a quality-affecting prompt change ships.
+- Translation-quality impact cannot be verified by unit tests and is pending a
+  live/sample review, the same gate `docs/GAP_ANALYSIS.md` G03 calls for before a
+  quality-affecting prompt change ships. That review should cover the compounding edge
+  cases, not just the common case: multiple unclear words in one caption, an unclear
+  word that's also profane, and the single-indecipherable-word-caption fallback landing
+  at each level — the unclear-word handling is now a multi-step cascade running at
+  `reasoning_effort: "low"` on a 20B model (`src/ai/server/groq.ts`), which is more
+  likely to silently drop a step under compounding ambiguity than to fail loudly.
+- Profanity/slur suppression is enforced only through the prompt instruction above, with
+  no deterministic runtime backstop — unlike the glossary/filter pipeline
+  (`src/pipeline/moderation.ts`), which is enforced after translation regardless of
+  model behavior. A model that doesn't apply the rule would publish the term with
+  nothing else in the codebase to catch it. Acknowledged as a defense-in-depth gap for a
+  future pass, not addressed in this change.
