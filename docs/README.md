@@ -48,6 +48,10 @@ records to establish release evidence.
 - [ADR 0017](decisions/0017-configurable-output-buffer-dwell.md) records why the output
   buffer's dwell duration became a configurable, saved-default setting, superseding the
   fixed-3-second-dwell decision in ADR 0016.
+- [ADR 0018](decisions/0018-inference-level-as-server-envelope-parameter.md) records why
+  the Inference Level toggle (Low/Balanced/High) is a parameter to the immutable server
+  translation envelope rather than the operator-editable system prompt, and the safety
+  boundary for recognizing scripture readings without retrieving text from memory.
 - [Caption policy](evaluation/CAPTION_POLICY_DECISION.md) describes completion and filtering.
 - [Indonesian→English review](evaluation/ID_EN_REVIEW.md) and its
   [synthetic fixtures](evaluation/id-en-synthetic.json) remain unscored.

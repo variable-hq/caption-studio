@@ -206,7 +206,10 @@ approved whole-word recognition variants are deterministic corrections, not trai
 
 Translation receives current source, at most four retained source captions, relevant
 glossary mappings, an immutable server envelope, and up to 4,000 characters of editable
-guidance. Completion is capped at 256 tokens; GPT-OSS uses low reasoning effort.
+guidance. The envelope also carries the operator's chosen inference level (Low, Balanced,
+High), which governs how aggressively the model may infer meaning and rephrase; it is a
+fixed envelope parameter, not part of the editable guidance. Completion is capped at 256
+tokens; GPT-OSS uses low reasoning effort.
 Only nonempty text with finish reason `stop` is publishable. Incomplete output is
 stripped but available usage retained; missing usage acknowledgement stops capture.
 There is no automatic source-language fallback.
