@@ -47,6 +47,29 @@ before a pilot. The new behavior is encoded as a clarifying clause appended to t
 existing never-invent rule, not as a standalone permission that could be read in
 isolation.
 
+### Reconciling the per-level rules with existing invariants
+
+The first implementation phrased the per-level rules the way the feature request
+described them: Low and Balanced said to "omit" a word that can't be determined, and
+High said to "omit" a highly ambiguous line. This was not a considered design choice —
+it was the literal wording carried over from the request, and it went in without being
+checked against the envelope's other rules.
+
+A later review found it directly contradicted two things already in place. The
+universal bracket rule says a word that's unclear or mistranscribed is "never ...
+omitted" — it must be bracketed as `[unclear]` instead — so Low and Balanced's "omit it"
+was the opposite instruction for the identical case, with no stated precedence between
+them. And High's line-level "omit it" asks for an empty completion, which
+`translateWithGroq` (`src/ai/server/groq.ts`) has no way to treat as intentional: an
+empty response is classified `incomplete` and skipped with the same operator-facing
+failure message as a real error.
+
+Both were corrected before this shipped: Low and Balanced now route into the same
+`[unclear]` bracket the universal rule defines, and High falls back to rendering the
+clearest partial caption instead of asking for nothing. The reason for the change is
+simply that the original wording was found not to hold up against rules already in the
+envelope, not a deeper intent the first version failed to express.
+
 ## Tradeoffs and verification
 
 - `buildInferenceLevelRule` (`src/ai/translation-prompt.ts`) is a simple switch over the
@@ -56,20 +79,10 @@ isolation.
 - Two base-prompt rules apply at every inference level, not gated behind the parameter:
   a two-step resolve-before-bracketing rule for unclear words, and recognition of the
   speaker's tone/register (informative, conversational, biblical, formal, illustrative).
-- The per-level rules never tell the model to omit a word or line outright. Low and
-  Balanced both funnel an undeterminable word into the same `[unclear]` bracket the
-  universal unclear-word rule already defines, rather than a level-specific "omit"
-  that would contradict that rule's "never ... omitted" for the identical case. High
-  falls back to rendering the clearest partial caption from what was actually said,
-  matching the operator prompt's existing muddled-speech convention, rather than
-  asking for an empty completion — `translateWithGroq` (`src/ai/server/groq.ts`)
-  classifies an empty response as `incomplete` and skips it with the same
-  operator-facing failure message as a real error, with no "intentional omission"
-  path to distinguish the two.
 - `src/ai/server/groq.test.ts` asserts the envelope text differs by level (including the
   invalid-value fallback), that the scripture-recognition and tone-recognition clauses
-  are present regardless of level, and that no level's rule can produce the
-  bracket-rule contradiction or an empty-caption instruction above.
+  are present regardless of level, and that no level's rule can reintroduce the
+  bracket-rule contradiction or an empty-caption instruction described above.
 - Translation-quality impact (does Balanced still read naturally, does Low actually feel
   faster/more literal, does High's bolder rephrasing stay within guardrails) cannot be
   verified by unit tests and is pending a live/sample review, the same gate
