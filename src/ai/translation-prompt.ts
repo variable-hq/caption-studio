@@ -80,12 +80,12 @@ export function isValidTranslationSystemPrompt(value: unknown): boolean {
 function buildInferenceLevelRule(inferenceLevel: InferenceLevel): string {
   switch (inferenceLevel) {
     case "low":
-      return "Inference level: LOW. Correct only clear transcription errors and resolve or omit words that cannot be determined; do not rephrase for style or infer the speaker's broader intent beyond fixing transcription. Reconcile an ambiguous or indecipherable word using only the immediate context, choosing the closest reasonable alternative; if none fits, omit it rather than guessing further.";
+      return "Inference level: LOW. Correct only clear transcription errors; do not rephrase for style or infer the speaker's broader intent beyond fixing transcription. For an ambiguous or indecipherable word, use only the immediate context to choose the closest reasonable alternative; if none fits, bracket it as [unclear] rather than guessing further.";
     case "high":
-      return "Inference level: HIGH. Prioritize overall coherence, continuity, and the speaker's intended meaning over strict word-for-word fidelity. Make bolder corrections, rephrasing, and paraphrasing than at other levels to produce a clear, natural caption. If a line remains highly ambiguous or incoherent even after reasonable inference, omit it rather than guessing.";
+      return "Inference level: HIGH. Prioritize overall coherence, continuity, and the speaker's intended meaning over strict word-for-word fidelity. Make bolder corrections, rephrasing, and paraphrasing than at other levels to produce a clear, natural caption. If a line remains highly ambiguous or incoherent even after reasonable inference, render the clearest partial caption from what was actually said rather than inventing missing meaning.";
     case "balanced":
     default:
-      return "Inference level: BALANCED. Prioritize coherence and legibility without sacrificing authenticity or inventing content. Every caption must read as complete, natural sentences: resolve any word that would otherwise stay untranslated using the best available judgment, or omit it if no reasonable resolution exists. Rephrase or omit filler and junk phrases that carry no meaning.";
+      return "Inference level: BALANCED. Prioritize coherence and legibility without sacrificing authenticity or inventing content. Every caption must read as complete, natural sentences: resolve any word that would otherwise stay untranslated using the best available judgment, or bracket it as [unclear] if no reasonable resolution exists. Rephrase or omit filler and junk phrases that carry no meaning.";
   }
 }
 

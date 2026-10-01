@@ -182,6 +182,40 @@ describe("Groq cloud provider prompts", () => {
     );
   });
 
+  it("never tells an inference level to omit an unclear word, only the universal bracket rule does", () => {
+    // Regression: Low and Balanced previously said to "omit" a word that can't be
+    // determined, directly contradicting the bracket rule's "never ... omitted" for
+    // the identical case. Both must now funnel into the same [unclear] convention.
+    for (const inferenceLevel of ["low", "balanced"] as const) {
+      const messages = buildTranslationMessages({
+        text: "Grace and peace.",
+        sourceLanguage: "en",
+        targetLanguage: "id",
+        recentContext: [],
+        preferredTerms: {},
+        inferenceLevel,
+      });
+      expect(messages[0].content).toContain("bracket it as [unclear]");
+    }
+  });
+
+  it("never asks HIGH to produce an empty caption, which the pipeline would treat as a failure", () => {
+    // Regression: an empty completion is classified `incomplete` and skipped with an
+    // operator-facing failure message (see translateWithGroq's finish-reason check) —
+    // there is no "intentional omission" path, so HIGH must fall back to a partial
+    // caption instead of asking the model to omit the line outright.
+    const high = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      inferenceLevel: "high",
+    });
+    expect(high[0].content).not.toContain("omit it");
+    expect(high[0].content).toContain("render the clearest partial caption");
+  });
+
   it("defaults to balanced inference and threads an explicit level into the envelope", () => {
     const defaulted = buildTranslationMessages({
       text: "Grace and peace.",
