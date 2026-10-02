@@ -2,104 +2,119 @@
 
 Cloud-hosted transcription and translation for church services, with fast OBS captions,
 a latest-caption phone viewer, an appending reader, and a paired operator remote.
+Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
+[ADR 0002](docs/decisions/0002-free-cloud-first-ai.md).
 
-## Status
+- [Overview](#overview)
+- [Get Started](#get-started)
+- [Languages and quality](#languages-and-quality)
+- [Core Features](#core-features)
+- [Not yet implemented](#not-yet-implemented)
+- [AI usage and limits](#ai-usage-and-limits)
+- [Architecture](#architecture)
+- [Development and QA](#development-and-qa)
+- [Documentation](#documentation)
+- [Project status](#project-status)
 
-Reviewed against merged [PR #33](https://github.com/lukaskawira/church-live-caption/pull/33) (`abae57b`), 14 September 2026. Plan 1 is implemented in
-source. Its first Cloudflare deployment of `20597d8` failed after compilation; the deploy
-command was corrected and the retry **deployed successfully on 13 September at 08:05 UTC**.
-The four later merges (#28 docs and deploy guard, #30 dashboard navigation, #32 service
-panel, #33 export hygiene) have no recorded build ID or Worker version yet. See the
-[deployment runbook](docs/DEPLOYMENT.md) for the fix, commands and remaining rehearsal gates.
-A 14 September [export audit](docs/EXPORT_HYGIENE_QA.md) found no orphan file or unused
-dependency and removed the remaining dead exports.
+## Overview
 
-The operator dashboard now opens on a service overview with grouped sidebar navigation.
-On phones, the menu button (accessible name **Open navigation**) opens a drawer. Section links support bookmarks and browser
-Back/Forward; switching sections does not start capture or add AI calls.
-**Service controls** opens a collapsible right panel with Start, history consent and live
-controls. It starts closed; Master Controls (Start/Take over, Pause/Resume, Clear, End)
-stays reachable whether the panel is open or closed, each button enabled only when it
-applies to the current state. Quick block and Manual caption, grouped as **Manual
-overrides** alongside the output buffer's queued-caption controls, are reachable only
-inside the expanded panel.
-The **Output monitor**, a scaled copy of the 1920 × 1080 OBS canvas showing the caption
-currently published, sits at the top of **Live outputs**; Appearance keeps a sample preview
-beside its editor. **AI usage** loads the 30-day ledger of previous services on open.
-The navigation rail (and the phone drawer) holds **How to use** and the **Theme** choice
-(System, Light, Dark); the header keeps only **Service controls**, and the cloud and
-Main-channel status pills sit in a bar docked at the bottom of the workspace. The
-desktop sidebar is resizable; theme and width follow the operator's account. Styles use shared
-design tokens and one control system; see the [design system](docs/DESIGN_SYSTEM.md).
-Settings hold **AI instructions** (translation prompt) and **AI summary** (default
-summary model, language, length and guidance). **Save to my account** stores each with
-the signed-in operator; Translation offers **Save as my default setup** for languages,
-recording window, inference level, terminology and filters. Discrete-choice controls with
-a saved default (recording window, inference level, output buffer, languages, caption
-style) mark that option "· Your default" in their own dropdown.
-See the [service-panel design and QA record](docs/SERVICE_PANEL_UX_QA.md) and the
-[earlier dashboard review](docs/DASHBOARD_UI_QA.md).
+- **Capture and transcription**: browser-based microphone selection with a level meter, a
+  6-step first-run setup guide, and a 6- to 18-second recording window transcribed by Groq
+  Whisper with bounded biblical/church-name hints and approved recognition aliases.
+- **Translation**: GPT-OSS 20B translates through an immutable safety envelope, approved
+  terminology, and an operator-selectable **Inference Level** (Low/Balanced/High) governing
+  how literally vs. coherently it translates. Public captions support configurable
+  masking, replacement, or hiding of filtered words.
+- **Live delivery**: moderated captions reach a reusable OBS Browser Source, a per-service
+  mobile viewer, and an appending reader, with an instant quick-block for unanticipated
+  words and an optional pre-publish output buffer (configurable dwell; pause, edit, clear,
+  or fast-forward the next-up caption).
+- **Operator dashboard**: a persistent Master Controls strip (Start/Take over, Pause/
+  Resume, Clear, End) reachable at every screen width; Manual overrides and buffer
+  controls in an expandable Service controls panel; a resizable, bookmarkable sidebar;
+  and "· Your default" indicators on every saved discrete-choice setting. Full behavior
+  and visuals: [Product specification](docs/PRODUCT_SPEC.md) and
+  [Design system](docs/DESIGN_SYSTEM.md).
+- **Service history**: optional per-operator private archives, corrections, exclusions,
+  and AI-generated summaries, retained seven days after End.
 
-Implemented: browser audio selection and meter; six-step setup guide; 6- to 18-second
-capture; Groq Whisper transcription and contextual GPT-OSS 20B translation; a
-three-level Inference Level control (Low/Balanced/High) for translation literalness vs.
-coherence; biblical name hints, approved recognition aliases, preferred translations and
-configurable public filtering (mask, replace, or hide); an instant quick-block for
-unanticipated words; editable translation settings; an optional output buffer (On/Off,
-configurable dwell) with pause, edit, clear, and fast-forward on the next-up caption; OBS
-styles and safe margins; and the service features below.
+## Get Started
 
-AI runs in the cloud; the browser captures audio. No application audio storage,
-paid fallback, simultaneous target languages, live caption correction editor, shared
-church profiles, tenant roles, or authorized TB2 passage corpus is implemented.
-The [iOS experiment](ios/README.md) is deferred research under
-[ADR 0003](docs/decisions/0003-defer-apple-distribution.md).
+- **For operators** running a live service: sign-in and surface details are right
+  below, followed by the six-step setup guide.
+- **For contributors** working on the codebase: skip to
+  [Development and QA](#development-and-qa) for local setup and validation, and
+  [Contributing](CONTRIBUTING.md) for the branch/PR workflow.
 
-## Operator and audience surfaces
+The app runs behind Cloudflare Access: ask whoever manages your team's Access policy to
+add your account, then open the deployed URL (`/`) and sign in to reach the operator
+dashboard. Audience-facing links (`/overlay`, `/view`, `/read`) are separate,
+token-scoped URLs generated per service and shared directly — they don't need Access or
+a sign-in.
 
-| Surface | Purpose | Extra AI from opening it |
-| --- | --- | --- |
-| `/` | Access-protected capture computer, setup, archives and usage | Capture invokes the live pipeline |
-| `/operator/mobile` | Access-protected, paired Pause/Resume/Clear remote; microphone stays on the computer | None |
-| `/overlay` | Reusable read-only OBS Browser Source, latest public caption and style | None |
-| `/view` | Separate per-service link, latest moderated translation and status | None |
-| `/read` | Separate service link, appending translated paragraphs and local text sizing | None per viewer; optional shared phrasing job |
+| Surface | Purpose |
+| --- | --- |
+| `/` | Capture computer: setup, live controls, archives, usage |
+| `/operator/mobile` | Paired Pause/Resume/Clear remote (Access-protected) |
+| `/overlay` | Reusable OBS Browser Source |
+| `/view` | Per-service latest-caption viewer link |
+| `/read` | Per-service appending reader link |
 
-The reader batches up to five moderated translation chunks about every 30 seconds.
-With optional AI disabled or unavailable, it joins existing translations. With AI enabled,
-it can improve punctuation and phrasing, then reapplies glossary/filter rules. More phones
-do not create more model calls. Reading delay is additional to the fast caption delay.
-Manual captions shown while paused appear on the reader too, as separate operator notes
-alongside — not merged into — the translated paragraphs.
+First-time setup is covered by an interactive six-step guide in the dashboard
+(**How to use**, reopenable anytime):
 
-The remote reports microphone actions as confirmed only after the capture computer
-acknowledges them. Server-side Pause blocks new inference claims immediately. Resume
-requires the capture computer to be connected and able to capture.
+1. **Overview** — the two-computer setup (capture computer + separate OBS computer) and
+   where each audience output comes from.
+2. **Audio** — connect the microphone/interface and confirm the input meter follows it.
+3. **Languages** — choose the spoken and audience languages, recording window, and any
+   terminology or public filters.
+4. **OBS** — style the caption overlay, then paste the reusable Browser Source URL into
+   a 1920 × 1080 OBS source.
+5. **Audience** — start captions, verify a test phrase reaches OBS, then share the
+   mobile viewer/reader links and pair the operator phone.
+6. **Controls** — Pause/Resume/Clear behavior, watching AI usage, and ending the
+   service.
 
-Use **Live outputs** for OBS, the latest-caption viewer, reader links, and phone pairing,
-both before and during a service; expand the destination you need. Use **Sermon history** for private archives and summaries,
-and **AI usage** for service counters and rolling usage history.
+## Languages and quality
 
-## Service history, summaries, and controls
+Selectable source/target languages: English, Indonesian, Japanese, Korean, Tagalog,
+Simplified Chinese, Traditional Chinese, and Vietnamese (Chinese assumes Mandarin).
+Availability is not quality certification — evaluation is ongoing; see the
+[ID→EN review](docs/evaluation/ID_EN_REVIEW.md), [remaining gaps](docs/GAP_ANALYSIS.md),
+and [rehearsal gates](docs/STAKEHOLDER_TEST_GUIDE.md).
 
-**History saving is off by default and must be enabled before Start.** The choice cannot
-change during that service. With saving enabled, the private journal retains recognized
-source, separate corrections/exclusions, reader paragraphs, and summary drafts for seven
-days after End or expiry. Authorized operators share the app's archives; ownership is
-not separated by email. Operator configuration (prompt, summary defaults, caption style,
-default translation setup, theme, tutorial dismissal) is saved per signed-in Access email
-and follows the operator between browsers. No audio is stored.
+## Core Features
 
-With saving off, source is not archived and reader text lives in object/browser memory.
-Object eviction can lose unreceived paragraphs; durable reload recovery is not promised.
+**Live captioning.** Moderated captions publish to a reusable OBS Browser Source, a
+per-service mobile viewer, and an appending reader, with an optional output buffer
+holding the next caption for a configurable 1-5 second dwell (default 3) before it
+publishes — Pause, refresh, takeover, or End discard it; Clear live caption leaves it
+queued. See [ADR 0016](docs/decisions/0016-client-side-output-buffer.md) and
+[ADR 0017](docs/decisions/0017-configurable-output-buffer-dwell.md).
 
-After End, an operator can review/correct source, remove passages, export the private
-transcript as JSON, or manually generate a summary. Generation requires optional Workers
-AI to be enabled. Operators choose an allowlisted model, language, length, and up to 2,000
-characters of guidance, prefilled from the AI summary settings; server-owned TB2
-grounding rules stay fixed. Summary points cite
-source IDs. Review is required before JSON export. Exact TB2 passages are not retrieved
-or reconstructed. Long jobs can stop at context, call, or daily budget limits.
+**Appending reader.** Batches up to five moderated translation chunks about every 30
+seconds. With optional AI enabled it can improve punctuation/phrasing before reapplying
+glossary/filter rules; with it disabled, chunks join as-is. More phones don't create
+more model calls. Manual captions shown while paused appear here too, as separate
+operator notes alongside the translated paragraphs.
+
+**Paired operator remote.** `/operator/mobile` offers a Pause/Resume/Clear remote; the
+microphone always stays on the capture computer, and actions report as confirmed only
+after it acknowledges them. Server-side Pause blocks new inference immediately; Resume
+requires the capture computer to still be connected.
+
+**Live settings and drafts.** Language, vocabulary, filters, recording window,
+inference level, and prompt edits stay drafts until a confirmed translation refresh,
+which preserves the service clock, controller, links, and usage. OBS link rotation is
+a separate idle action.
+
+**Service history.** History saving is off by default, must be enabled before Start,
+and can't change mid-service. When on, the private journal keeps recognized source,
+corrections, reader paragraphs, and summary drafts for seven days after End, shared by
+every signed-in operator. After End, an operator can correct source, remove passages,
+export the transcript as JSON, or generate a summary (requires optional Workers AI,
+grounded to approved church content). Full behavior:
+[Product specification](docs/PRODUCT_SPEC.md#after-the-service).
 
 | Action | OBS and latest viewer | Appending reader | Private history and usage |
 | --- | --- | --- | --- |
@@ -114,19 +129,17 @@ or reconstructed. Long jobs can stop at context, call, or daily budget limits.
 | Remove passage | Clear current caption if its source belongs to the removed passage | Remove selected paragraph on refresh/poll | Preserve original source, exclude its IDs from summaries, invalidate drafts |
 | Delete saved sermon | Available after End | Revoke reader and remove history on its next successful poll | Delete sermon content; numeric usage retained |
 
-Live language, vocabulary, filters, recording window, inference level and prompt edits
-stay drafts until confirmed translation refresh. It preserves the service clock, controller, links and usage.
-OBS rotation is a separate idle action and requires updating the Browser Source URL.
-Removing/deleting content cannot recall an export, screenshot, or text already read.
+Use **Live outputs** for OBS, the mobile viewer, reader links, and phone pairing;
+**Sermon history** for private archives and summaries; and **AI usage** for service
+counters and rolling usage history.
 
-An optional output buffer sits between translation and the OBS/latest-viewer column above:
-when On, the next moderated caption is held for a configurable dwell (1-5 seconds, default
-3) instead of publishing immediately — Pause, refresh, takeover, or End above all discard
-the buffer; Clear live caption leaves it queued. It never reaches the reader or archive
-until it is actually shown on Live. See
-[Output buffer](docs/PRODUCT_SPEC.md#output-buffer),
-[ADR 0016](docs/decisions/0016-client-side-output-buffer.md), and
-[ADR 0017](docs/decisions/0017-configurable-output-buffer-dwell.md).
+## Not yet implemented
+
+Application audio storage, a paid AI fallback, simultaneous target languages, a live
+caption correction editor, shared church profiles, tenant roles, and an authorized TB2
+passage corpus. The [iOS experiment](ios/README.md) is deferred research
+([ADR 0003](docs/decisions/0003-defer-apple-distribution.md)). See
+[Roadmap](docs/ROADMAP.md) and [remaining gaps](docs/GAP_ANALYSIS.md) for planned work.
 
 ## AI usage and limits
 
@@ -176,19 +189,6 @@ four SQLite Durable Objects. `wrangler.jsonc` declares `CAPTION_ROOMS`,
 migrations.
 GitHub provides source review; Cloudflare Workers Builds publishes merges to `main`.
 There is no GitHub Actions workflow. See [Architecture](docs/ARCHITECTURE.md).
-
-## Languages and quality
-
-Selectable source/target languages: English, Indonesian, Japanese, Korean, Tagalog,
-Simplified Chinese, Traditional Chinese, and Vietnamese. Chinese speech assumes Mandarin;
-Cantonese is a separate future decision. Availability is not quality certification.
-
-The first Indonesian→English [30-sample review](docs/evaluation/ID_EN_REVIEW.md) still
-awaits human scoring. Approved audio is needed to locate the reported `swauf` → `Saul`
-error by stage. Operators can explicitly approve `Saul|swauf => Saul`; it is not
-silently enabled or an identity-resolution rule. TB2 vocabulary contains names only.
-Physical microphone/OBS, cloud alarms, full-service endurance, and semantic summary/reader
-quality remain [rehearsal gates](docs/STAKEHOLDER_TEST_GUIDE.md).
 
 ## Development and QA
 
@@ -253,6 +253,14 @@ pending evaluation, and dated evidence. Start with:
   [Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md).
 - [Cleanup and deployment QA](docs/CLEANUP_DEPLOY_QA.md) and
   [export hygiene QA](docs/EXPORT_HYGIENE_QA.md).
+
+## Project status
+
+One successful Cloudflare deployment is on record (13 September 2026); merges since then
+have no recorded build ID yet. See the [deployment runbook](docs/DEPLOYMENT.md) for
+build/Worker IDs, the fix that unblocked the first deploy, and remaining rehearsal gates.
+
+<sub>This document reviewed 2 October 2026 against merged [PR #57](https://github.com/lukaskawira/church-live-caption/pull/57) (`09244e8`).</sub>
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).
