@@ -20,7 +20,9 @@ Back/Forward; switching sections does not start capture or add AI calls.
 **Service controls** opens a collapsible right panel with Start, history consent and live
 controls. It starts closed; Master Controls (Start/Take over, Pause/Resume, Clear, End)
 stays reachable whether the panel is open or closed, each button enabled only when it
-applies to the current state.
+applies to the current state. Quick block and Manual caption, grouped as **Manual
+overrides** alongside the output buffer's queued-caption controls, are reachable only
+inside the expanded panel.
 The **Output monitor**, a scaled copy of the 1920 × 1080 OBS canvas showing the caption
 currently published, sits at the top of **Live outputs**; Appearance keeps a sample preview
 beside its editor. **AI usage** loads the 30-day ledger of previous services on open.
@@ -32,17 +34,20 @@ design tokens and one control system; see the [design system](docs/DESIGN_SYSTEM
 Settings hold **AI instructions** (translation prompt) and **AI summary** (default
 summary model, language, length and guidance). **Save to my account** stores each with
 the signed-in operator; Translation offers **Save as my default setup** for languages,
-recording window, terminology and filters.
+recording window, inference level, terminology and filters. Discrete-choice controls with
+a saved default (recording window, inference level, output buffer, languages, caption
+style) mark that option "· Your default" in their own dropdown.
 See the [service-panel design and QA record](docs/SERVICE_PANEL_UX_QA.md) and the
 [earlier dashboard review](docs/DASHBOARD_UI_QA.md).
 
 Implemented: browser audio selection and meter; six-step setup guide; 6- to 18-second
-capture; Groq Whisper transcription and contextual GPT-OSS 20B translation; biblical
-name hints, approved recognition aliases, preferred translations and configurable public
-filtering (mask, replace, or hide); an instant quick-block for unanticipated words;
-editable translation settings; an optional output buffer (On/Off) with pause, edit,
-clear, and fast-forward on the next-up caption; OBS styles and safe margins; and the
-service features below.
+capture; Groq Whisper transcription and contextual GPT-OSS 20B translation; a
+three-level Inference Level control (Low/Balanced/High) for translation literalness vs.
+coherence; biblical name hints, approved recognition aliases, preferred translations and
+configurable public filtering (mask, replace, or hide); an instant quick-block for
+unanticipated words; editable translation settings; an optional output buffer (On/Off,
+configurable dwell) with pause, edit, clear, and fast-forward on the next-up caption; OBS
+styles and safe margins; and the service features below.
 
 AI runs in the cloud; the browser captures audio. No application audio storage,
 paid fallback, simultaneous target languages, live caption correction editor, shared
@@ -109,17 +114,19 @@ or reconstructed. Long jobs can stop at context, call, or daily budget limits.
 | Remove passage | Clear current caption if its source belongs to the removed passage | Remove selected paragraph on refresh/poll | Preserve original source, exclude its IDs from summaries, invalidate drafts |
 | Delete saved sermon | Available after End | Revoke reader and remove history on its next successful poll | Delete sermon content; numeric usage retained |
 
-Live language, vocabulary, filters, recording window and prompt edits stay drafts until confirmed
-translation refresh. It preserves the service clock, controller, links and usage.
+Live language, vocabulary, filters, recording window, inference level and prompt edits
+stay drafts until confirmed translation refresh. It preserves the service clock, controller, links and usage.
 OBS rotation is a separate idle action and requires updating the Browser Source URL.
 Removing/deleting content cannot recall an export, screenshot, or text already read.
 
 An optional output buffer sits between translation and the OBS/latest-viewer column above:
-when On, the next moderated caption is held briefly (Pause, refresh, takeover, or End above
-all discard the buffer; Clear live caption leaves it queued) instead of publishing
-immediately. It never reaches the reader or archive until it is actually shown on Live. See
-[Output buffer](docs/PRODUCT_SPEC.md#output-buffer) and
-[ADR 0016](docs/decisions/0016-client-side-output-buffer.md).
+when On, the next moderated caption is held for a configurable dwell (1-5 seconds, default
+3) instead of publishing immediately — Pause, refresh, takeover, or End above all discard
+the buffer; Clear live caption leaves it queued. It never reaches the reader or archive
+until it is actually shown on Live. See
+[Output buffer](docs/PRODUCT_SPEC.md#output-buffer),
+[ADR 0016](docs/decisions/0016-client-side-output-buffer.md), and
+[ADR 0017](docs/decisions/0017-configurable-output-buffer-dwell.md).
 
 ## AI usage and limits
 
@@ -207,8 +214,9 @@ npm audit --omit=dev
 npm audit
 ```
 
-Validation runs tests with one worker, strict TypeScript, ESLint, both production builds,
-a non-publishing deployment dry run, and whitespace checks sequentially. Run
+Validation checks for duplicate ADR numbers, then runs tests with one worker, strict
+TypeScript, ESLint, both production builds, and a non-publishing deployment dry run,
+finishing with a whitespace check, sequentially. Run
 `npm run cf-typegen` after binding changes.
 
 Browser and runtime QA scripts are separate from validation. The browser scripts load
