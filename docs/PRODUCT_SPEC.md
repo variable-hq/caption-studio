@@ -362,7 +362,8 @@ from whatever is merely selected in the current session's draft. Free-text field
   Its live view shows identity status, the output monitor, and an always-visible Output
   sub-section (Copy OBS URL, Copy mobile viewer link, Show test caption and Reveal OBS
   URL for manual copy), followed by the configuration snapshot and, last, this service's
-  own usage totals.
+  own usage totals. The output monitor is skipped here while viewing Live outputs, which
+  already shows it, so the panel never duplicates the same preview on screen.
 - Only Appearance keeps an inline output preview. Other pages have the optional monitor
   in Service controls. Active settings remain distinct from unapplied drafts; detailed
   translation-refresh controls appear in Translation, AI Behavior and Manual override,

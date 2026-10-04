@@ -67,7 +67,7 @@ First-time setup is covered by an interactive six-step guide in the dashboard
    where each audience output comes from.
 2. **Audio** — connect the microphone/interface and confirm the input meter follows it.
 3. **Languages** — choose the spoken and audience languages, recording window, and any
-   terminology or public filters.
+   terminology (the public caption filter lives in Manual override).
 4. **OBS** — style the caption overlay, then paste the reusable Browser Source URL into
    a 1920 × 1080 OBS source.
 5. **Audience** — start captions, verify a test phrase reaches OBS, then share the

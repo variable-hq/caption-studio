@@ -35,6 +35,7 @@ interface LiveConsoleProps {
   lastLatencyMs: number | null;
   saveHistory: boolean | undefined;
   level: number;
+  /** Null while viewing Live outputs, which already shows this — avoids a duplicate. */
   outputMonitor: ReactNode;
   output: {
     onCopyOverlayUrl: () => void;
@@ -78,6 +79,10 @@ interface ServiceControlsPanelProps {
  * from `page.tsx`, since `masterControlsBar` is a shared node also rendered outside the
  * panel when collapsed. Manual overrides (Quick block, Manual caption, the output-buffer
  * queue) live in the "Manual override" workspace section instead of this panel.
+ *
+ * `liveConsole.outputMonitor` is `null` while the operator is on Live outputs, which
+ * already renders the same node — the panel docks open (not modal) from 1280px, so
+ * without this the identical caption preview would show twice on screen at once.
  */
 export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapshot, usage }: ServiceControlsPanelProps) {
   const timePercent = consumptionPercent(usage.elapsedServiceMs, MAX_LIVE_SESSION_MS);

@@ -136,7 +136,7 @@ const WORKSPACE_SECTION_COPY: Record<
   usage: {
     title: "Consumption and limits",
     description:
-      "Monitor this service and the latest quota headroom reported by the translation provider.",
+      "Review the translation provider's quota headroom and usage recorded across past services. This service's own live usage is in Service controls.",
   },
   prompt: {
     title: "AI behavior and instructions",
@@ -1620,7 +1620,8 @@ export default function OperatorDashboard() {
           lastLatencyMs: liveState.lastLatencyMs,
           saveHistory: liveState.service?.saveHistory,
           level,
-          outputMonitor,
+          // Live outputs already shows this; skip it there so the panel never duplicates it.
+          outputMonitor: currentWorkspaceSection === "outputs" ? null : outputMonitor,
           output: {
             onCopyOverlayUrl: () => void copyOverlayUrl(),
             copied,
