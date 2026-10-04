@@ -2,13 +2,27 @@
 
 import { useId } from "react";
 
+import {
+  INFERENCE_LEVEL_OPTIONS,
+  normalizeInferenceLevel,
+  type InferenceLevel,
+} from "@/ai/contracts";
 import { ID_EN_ADDRESS_TERM_GUIDANCE, MAX_TRANSLATION_SYSTEM_PROMPT_CHARS } from "@/ai/translation-prompt";
+
+const INFERENCE_LEVEL_LABELS: Record<InferenceLevel, string> = {
+  low: "Low",
+  balanced: "Balanced",
+  high: "High",
+};
 
 interface PromptEditorProps {
   value: string;
   sourceLanguage: string;
   targetLanguage: string;
+  inferenceLevel: InferenceLevel;
+  defaultInferenceLevel?: InferenceLevel | null;
   onChange: (value: string) => void;
+  onInferenceLevelChange: (value: InferenceLevel) => void;
   onSaveBrowserDefault: () => void;
   onReset: () => void;
   savedMessage: string;
@@ -19,7 +33,10 @@ export function PromptEditor({
   value,
   sourceLanguage,
   targetLanguage,
+  inferenceLevel,
+  defaultInferenceLevel = null,
   onChange,
+  onInferenceLevelChange,
   onSaveBrowserDefault,
   onReset,
   savedMessage,
@@ -27,6 +44,7 @@ export function PromptEditor({
 }: PromptEditorProps) {
   const helpId = useId();
   const statusId = useId();
+  const inferenceHelpId = useId();
 
   return (
     <div className="promptEditor">
@@ -58,6 +76,31 @@ export function PromptEditor({
           onChange={(event) => onChange(event.target.value)}
         />
       </label>
+      <label className="fullField">
+        Inference level
+        <select
+          name="inferenceLevel"
+          autoComplete="off"
+          data-testid="inference-level"
+          value={inferenceLevel}
+          aria-describedby={inferenceHelpId}
+          disabled={disabled}
+          onChange={(event) =>
+            onInferenceLevelChange(normalizeInferenceLevel(event.target.value))
+          }
+        >
+          {INFERENCE_LEVEL_OPTIONS.map((level) => (
+            <option value={level} key={level}>
+              {INFERENCE_LEVEL_LABELS[level]}{defaultInferenceLevel === level ? " · Your default" : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="helpText" id={inferenceHelpId}>
+        Low stays close to word-for-word with minimal corrections. Balanced
+        (default) keeps captions coherent without changing meaning. High favors natural
+        coherence over literal accuracy, allowing bolder rewording.
+      </p>
       <div className="promptActions">
         <button
           className="secondaryButton"

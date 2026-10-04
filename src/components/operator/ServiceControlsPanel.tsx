@@ -3,12 +3,11 @@
 import type { ReactNode } from "react";
 
 import { AudioLevelMeter } from "@/components/operator/AudioLevelMeter";
-import { formatMinutesSeconds } from "@/components/operator/format-duration";
-import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
+import { formatCount, formatDuration, UsageMetric } from "@/components/operator/UsageMetric";
 import { WORKSPACE_NAME } from "@/domain/workspace";
-import { MAX_TRANSCRIPTION_REQUESTS, type CloudState, type LiveSessionControlAction, type LiveSessionState, type RecordingWindowMs } from "@/live/contracts";
-import type { OutputBufferCount, OutputBufferQueueState } from "@/live/output-buffer";
-import type { QuickBlockEntry } from "@/live/quick-block";
+import { consumptionPercent, consumptionStatus } from "@/ai/usage";
+import type { LlmSessionUsage } from "@/ai/contracts";
+import { MAX_LIVE_SESSION_MS, MAX_TRANSCRIPTION_REQUESTS, type CloudState, type LiveSessionControlAction, type LiveSessionState, type RecordingWindowMs } from "@/live/contracts";
 
 interface StartBarProps {
   anotherOperatorActive: boolean;
@@ -36,34 +35,8 @@ interface LiveConsoleProps {
   lastLatencyMs: number | null;
   saveHistory: boolean | undefined;
   level: number;
-  usage: {
-    elapsedMinutes: number;
-    elapsedSeconds: number;
-    transcriptionRequests: number;
-    translationRequests: number;
-    totalTokens: number;
-    usagePercent: number;
-    onViewUsage: () => void;
-  };
-  manualOverrides: {
-    quickBlockEntries: readonly QuickBlockEntry[];
-    onAddQuickBlock: (term: string) => void;
-    onRemoveQuickBlock: (id: string) => void;
-    isBusy: boolean;
-    controlBusy: boolean;
-    manualCaptionBusy: boolean;
-    onShowManualCaption: (text: string) => void;
-    outputBufferCount: OutputBufferCount;
-    outputBufferQueue: OutputBufferQueueState;
-    onOutputBufferPause: (id: string, paused: boolean) => void;
-    onOutputBufferClear: (id: string) => void;
-    onOutputBufferFastForward: (id: string) => void;
-    onOutputBufferBeginEdit: (id: string) => void;
-    onOutputBufferEditDraftChange: (id: string, text: string) => void;
-    onOutputBufferCancelEdit: (id: string) => void;
-    onOutputBufferSubmitEdit: (id: string) => void;
-  };
-  moreMenu: {
+  outputMonitor: ReactNode;
+  output: {
     onCopyOverlayUrl: () => void;
     copied: boolean;
     viewerUrl: string | null;
@@ -83,21 +56,33 @@ interface ServiceSnapshotProps {
   hasPendingTranslationChanges: boolean;
 }
 
+interface ServiceUsageProps {
+  elapsedServiceMs: number;
+  transcriptionRequests: number;
+  llmUsage: Pick<LlmSessionUsage, "translationRequests" | "totalTokens" | "promptTokens" | "completionTokens">;
+}
+
 interface ServiceControlsPanelProps {
   hasService: boolean;
   startBar: StartBarProps;
   liveConsole: LiveConsoleProps;
   snapshot: ServiceSnapshotProps;
+  usage: ServiceUsageProps;
 }
 
 /**
  * The expanded Service Controls panel's body: the pre-service Start/Take-over bar, the
- * live console (status, usage, Manual overrides, the "More" convenience menu) once a
- * service exists, and the always-present configuration snapshot. Master Controls and the
- * panel's own error/history banners render alongside this from `page.tsx`, since
- * `masterControlsBar` is a shared node also rendered outside the panel when collapsed.
+ * live console (status, the output monitor, and the Output sub-section) once a service
+ * exists, the always-present configuration snapshot, and — last — this live service's
+ * usage. Master Controls and the panel's own error/history banners render alongside this
+ * from `page.tsx`, since `masterControlsBar` is a shared node also rendered outside the
+ * panel when collapsed. Manual overrides (Quick block, Manual caption, the output-buffer
+ * queue) live in the "Manual override" workspace section instead of this panel.
  */
-export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapshot }: ServiceControlsPanelProps) {
+export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapshot, usage }: ServiceControlsPanelProps) {
+  const timePercent = consumptionPercent(usage.elapsedServiceMs, MAX_LIVE_SESSION_MS);
+  const transcriptionPercent = consumptionPercent(usage.transcriptionRequests, MAX_TRANSCRIPTION_REQUESTS);
+
   return (
     <>
       {!hasService ? (
@@ -194,84 +179,33 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
               <div className="liveInputMeter"><AudioLevelMeter level={liveConsole.level} /></div>
             </div>
           </div>
-          <div className="compactUsage">
-            <div>
-              <span>
-                {formatMinutesSeconds(liveConsole.usage.elapsedMinutes, liveConsole.usage.elapsedSeconds)} / 90m
-              </span>
-              <span>
-                {liveConsole.usage.transcriptionRequests} / {MAX_TRANSCRIPTION_REQUESTS}{" "}
-                attempts · {liveConsole.usage.translationRequests} translations
-              </span>
-              <button className="usageDetailsButton" type="button" onClick={liveConsole.usage.onViewUsage}>
-                View usage
+          {liveConsole.outputMonitor}
+          <div className="obsSetupCard">
+            <div className="sectionHeading">
+              <h3>Output</h3>
+            </div>
+            <div className="buttonGrid">
+              <button className="secondaryButton" type="button" onClick={liveConsole.output.onCopyOverlayUrl}>
+                {liveConsole.output.copied ? "Copied" : "Copy OBS URL"}
+              </button>
+              {liveConsole.output.viewerUrl ? (
+                <button className="secondaryButton" type="button" onClick={liveConsole.output.onCopyViewerUrl}>
+                  {liveConsole.output.viewerCopied ? "Mobile link copied" : "Copy mobile viewer link"}
+                </button>
+              ) : null}
+              <button
+                className="secondaryButton"
+                type="button"
+                disabled={!liveConsole.isPaused || liveConsole.output.controlAction !== null}
+                onClick={liveConsole.output.onShowTestCaption}
+              >
+                {liveConsole.output.controlAction === "show-test" ? "Showing test…" : "Show test caption"}
               </button>
             </div>
-            <div
-              className="usageProgress"
-              role="progressbar"
-              aria-label="Live service usage"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={liveConsole.usage.usagePercent}
-              aria-valuetext={`${liveConsole.usage.elapsedMinutes} minutes ${liveConsole.usage.elapsedSeconds} seconds elapsed; ${liveConsole.usage.transcriptionRequests} of ${MAX_TRANSCRIPTION_REQUESTS} transcription attempts used; ${liveConsole.usage.translationRequests} translation calls and ${liveConsole.usage.totalTokens} translation tokens`}
-            >
-              <span style={{ width: `${liveConsole.usage.usagePercent}%` }} />
-            </div>
-          </div>
-          <div className="primaryControls">
-            <ManualOverridesGroup
-              quickBlockEntries={liveConsole.manualOverrides.quickBlockEntries}
-              onAddQuickBlock={liveConsole.manualOverrides.onAddQuickBlock}
-              onRemoveQuickBlock={liveConsole.manualOverrides.onRemoveQuickBlock}
-              isPaused={liveConsole.isPaused}
-              isBusy={liveConsole.manualOverrides.isBusy}
-              controlBusy={liveConsole.manualOverrides.controlBusy}
-              manualCaptionBusy={liveConsole.manualOverrides.manualCaptionBusy}
-              onShowManualCaption={liveConsole.manualOverrides.onShowManualCaption}
-              outputBuffer={{
-                show: liveConsole.manualOverrides.outputBufferCount > 0,
-                queue: liveConsole.manualOverrides.outputBufferQueue,
-                onPause: liveConsole.manualOverrides.onOutputBufferPause,
-                onClear: liveConsole.manualOverrides.onOutputBufferClear,
-                onFastForward: liveConsole.manualOverrides.onOutputBufferFastForward,
-                onBeginEdit: liveConsole.manualOverrides.onOutputBufferBeginEdit,
-                onEditDraftChange: liveConsole.manualOverrides.onOutputBufferEditDraftChange,
-                onCancelEdit: liveConsole.manualOverrides.onOutputBufferCancelEdit,
-                onSubmitEdit: liveConsole.manualOverrides.onOutputBufferSubmitEdit,
-              }}
-            />
-            <details
-              className="moreMenu"
-              onKeyDown={(event) => {
-                if (event.key !== "Escape") return;
-                event.preventDefault();
-                event.currentTarget.open = false;
-                event.currentTarget.querySelector("summary")?.focus();
-              }}
-            >
-              <summary>More</summary>
-              <div>
-                <button onClick={liveConsole.moreMenu.onCopyOverlayUrl}>
-                  {liveConsole.moreMenu.copied ? "Copied" : "Copy OBS URL"}
-                </button>
-                {liveConsole.moreMenu.viewerUrl ? (
-                  <button onClick={liveConsole.moreMenu.onCopyViewerUrl}>
-                    {liveConsole.moreMenu.viewerCopied ? "Mobile link copied" : "Copy mobile viewer link"}
-                  </button>
-                ) : null}
-                <button
-                  disabled={!liveConsole.isPaused || liveConsole.moreMenu.controlAction !== null}
-                  onClick={liveConsole.moreMenu.onShowTestCaption}
-                >
-                  {liveConsole.moreMenu.controlAction === "show-test" ? "Showing test…" : "Show test caption"}
-                </button>
-                <details className="credentialDisclosure">
-                  <summary>Reveal OBS URL for manual copy</summary>
-                  <p className="helpText">Keep this reusable credential private.</p>
-                  {liveConsole.moreMenu.overlayUrlField}
-                </details>
-              </div>
+            <details className="credentialDisclosure">
+              <summary>Reveal OBS URL for manual copy</summary>
+              <p className="helpText">Keep this reusable credential private.</p>
+              {liveConsole.output.overlayUrlField}
             </details>
           </div>
           <p className="liveControlHelp">
@@ -301,6 +235,53 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
           <p className="helpText">Draft changes are not active until you confirm a refresh.</p>
         ) : null}
       </details>
+      {hasService ? (
+        <section className="usageSection" aria-labelledby="service-usage-heading">
+          <div className="usageSectionHeading">
+            <div>
+              <h3 id="service-usage-heading">Usage</h3>
+            </div>
+          </div>
+          <div className="usageSummaryGrid">
+            <UsageMetric
+              label="Service window"
+              value={`${formatDuration(usage.elapsedServiceMs)} / 90m`}
+              detail="The timer continues while the live service is paused."
+              status={consumptionStatus(usage.elapsedServiceMs, MAX_LIVE_SESSION_MS)}
+              percent={timePercent}
+              ariaValueText={`${formatDuration(usage.elapsedServiceMs)} used of 90 minutes`}
+            />
+            <UsageMetric
+              label="Transcription attempts"
+              value={`${formatCount(usage.transcriptionRequests)} / ${formatCount(
+                MAX_TRANSCRIPTION_REQUESTS,
+              )}`}
+              detail="Reserved before each audio request; silence and failed calls can still count."
+              status={consumptionStatus(usage.transcriptionRequests, MAX_TRANSCRIPTION_REQUESTS)}
+              percent={transcriptionPercent}
+              ariaValueText={`${formatCount(
+                usage.transcriptionRequests,
+              )} attempts used of ${formatCount(MAX_TRANSCRIPTION_REQUESTS)}`}
+            />
+            <UsageMetric
+              label="Translation calls"
+              value={formatCount(usage.llmUsage.translationRequests)}
+              detail="Responses with recorded usage, including skipped incomplete output. Same-language captions bypass translation."
+            />
+            <UsageMetric
+              label="Translation tokens"
+              value={formatCount(usage.llmUsage.totalTokens)}
+              detail={`${formatCount(usage.llmUsage.promptTokens)} prompt · ${formatCount(
+                usage.llmUsage.completionTokens,
+              )} completion`}
+            />
+          </div>
+          <p className="usageScopeNote">
+            These totals belong to this service and survive an operator-page refresh.
+            They are not billing totals for the whole Groq account.
+          </p>
+        </section>
+      ) : null}
     </>
   );
 }

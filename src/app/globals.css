@@ -376,8 +376,7 @@ code {
 .fieldHeading,
 .saveRow,
 .confirmationRow,
-.liveIdentity,
-.primaryControls {
+.liveIdentity {
   display: flex;
   align-items: center;
 }
@@ -798,8 +797,7 @@ input[type="color"] {
   background: var(--track);
 }
 
-.meter span,
-.usageProgress span {
+.meter span {
   display: block;
   height: 100%;
   border-radius: inherit;
@@ -1153,12 +1151,7 @@ input[type="color"] {
 }
 
 .liveConsole {
-  position: sticky;
-  z-index: 10;
-  top: 10px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(230px, 1fr) auto;
-  align-items: center;
   gap: var(--gap-lg);
   margin: var(--gap-lg) 0;
   border: 1px solid var(--accent);
@@ -1166,11 +1159,9 @@ input[type="color"] {
   background: color-mix(in srgb, var(--card) 96%, transparent);
   padding: var(--gap-md) var(--space-2);
   box-shadow: var(--shadow-elevated);
-  backdrop-filter: blur(10px);
 }
 
 .liveControlHelp {
-  grid-column: 1 / -1;
   border-top: 1px solid var(--line);
   padding-top: var(--space-1);
   color: var(--muted);
@@ -1212,99 +1203,6 @@ input[type="color"] {
   margin-top: var(--space-0);
   color: var(--muted);
   font-size: var(--text-sm);
-}
-
-.compactUsage {
-  display: grid;
-  gap: var(--gap-sm);
-}
-
-.compactUsage > div:first-child {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--gap-md);
-  color: var(--muted);
-  font: var(--weight-bold) var(--text-xs) var(--font-mono);
-}
-
-.usageDetailsButton {
-  min-height: var(--control-height);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  color: var(--ink);
-  background: var(--card);
-  padding: var(--space-0) var(--space-1);
-  font: var(--weight-bold) var(--text-xs) var(--font-sans);
-  white-space: nowrap;
-}
-
-.usageDetailsButton:hover {
-  background: var(--surface-muted);
-}
-
-.usageProgress {
-  height: 7px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: var(--track);
-}
-
-.primaryControls {
-  justify-content: flex-end;
-  gap: var(--gap-sm);
-}
-
-.moreMenu {
-  position: relative;
-}
-
-.moreMenu > summary {
-  min-height: var(--control-height);
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  padding: 0 var(--gap-md);
-  color: var(--ink);
-  background: var(--card);
-  font-size: var(--text-base);
-  font-weight: var(--weight-bold);
-  list-style: none;
-}
-
-.moreMenu > summary::-webkit-details-marker {
-  display: none;
-}
-
-.moreMenu > div {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 220px;
-  display: grid;
-  gap: 5px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--card);
-  padding: var(--space-1);
-  box-shadow: var(--shadow-elevated);
-}
-
-.moreMenu button {
-  min-height: var(--control-height);
-  border: 0;
-  border-radius: var(--radius-sm);
-  padding: var(--space-1);
-  color: var(--ink);
-  background: var(--surface-muted);
-  text-align: left;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-}
-
-.moreMenu .confirmationRow {
-  align-items: stretch;
 }
 
 .statusChip.pending {
@@ -1799,8 +1697,7 @@ html:has(.tutorialDialog[open]) {
   gap: var(--gap-lg);
 }
 
-.usageSectionHeading h3,
-.usageGuardrails h3 {
+.usageSectionHeading h3 {
   font-size: var(--text-lg);
 }
 
@@ -1884,41 +1781,6 @@ html:has(.tutorialDialog[open]) {
   padding: var(--space-2);
 }
 
-.usageGuardrails dl {
-  display: grid;
-  gap: 0;
-  margin: 0;
-  border-top: 1px solid var(--line);
-}
-
-.usageGuardrails dl > div {
-  display: grid;
-  grid-template-columns: minmax(120px, 0.4fr) minmax(0, 1fr);
-  gap: var(--gap-md);
-  border-bottom: 1px solid var(--line);
-  padding: var(--space-1) 0;
-}
-
-.usageGuardrails dt {
-  color: var(--muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-}
-
-.usageGuardrails dd {
-  margin: 0;
-  font-size: var(--text-sm);
-}
-
-.usageGuardrails a {
-  width: fit-content;
-  color: var(--ink);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  text-underline-offset: 3px;
-}
-
 .workspaceOutputCard {
   border: 0;
   border-radius: 0;
@@ -1951,17 +1813,6 @@ html:has(.tutorialDialog[open]) {
   .workspacePreview {
     position: static;
     grid-column: 2;
-  }
-}
-
-@media (max-width: 1280px) {
-  .liveConsole {
-    grid-template-columns: auto 1fr;
-  }
-
-  .primaryControls {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
   }
 }
 
@@ -2141,31 +1992,8 @@ html:has(.tutorialDialog[open]) {
   }
 
   .liveConsole {
-    position: static;
-    grid-template-columns: 1fr;
     gap: var(--gap-md);
     padding: var(--gap-md);
-  }
-
-  .primaryControls {
-    grid-column: auto;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .primaryControls .primaryButton,
-  .primaryControls .secondaryButton {
-    min-width: 0;
-  }
-
-  .compactUsage > div:first-child {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
-  }
-
-  .usageDetailsButton {
-    margin-top: var(--space-0);
   }
 
   .usageSummaryGrid {
@@ -2182,22 +2010,6 @@ html:has(.tutorialDialog[open]) {
     text-align: left;
   }
 
-  .usageGuardrails dl > div {
-    grid-template-columns: 1fr;
-    gap: 3px;
-  }
-
-  .moreMenu[open] {
-    grid-column: 1 / -1;
-  }
-
-  .moreMenu > div {
-    position: static;
-    width: 100%;
-    margin-top: var(--space-1);
-    box-shadow: none;
-  }
-
   .confirmationDialog {
     padding: var(--gap-lg);
   }
@@ -2206,14 +2018,6 @@ html:has(.tutorialDialog[open]) {
 @media (max-width: 380px) {
   .headerStatuses {
     grid-template-columns: 1fr;
-  }
-
-  .primaryControls {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .moreMenu > summary {
-    width: 100%;
   }
 
   .workspacePanelHeader,
@@ -2229,7 +2033,6 @@ html:has(.tutorialDialog[open]) {
 }
 
 @media (max-width: 980px) and (max-height: 600px) {
-  .liveConsole,
   .startBar {
     position: static;
   }

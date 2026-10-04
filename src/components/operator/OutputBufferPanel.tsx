@@ -36,8 +36,8 @@ interface OutputBufferPanelProps {
 
 /** The output buffer's On/Off setting, dwell duration, and account default —
  * configuration, not a live control. See OutputBufferQueueControl for the
- * operator-facing queue itself, grouped under Manual overrides since it's an
- * override, not connectivity config. */
+ * operator-facing queue itself, co-located in the same Manual override section
+ * since it's an override, not connectivity config. */
 export function OutputBufferPanel({
   count,
   onCountChange,
@@ -73,12 +73,10 @@ export function OutputBufferPanel({
         </select>
       </label>
       <p className="helpText" id={countHelpId}>
-        Off shows each translation live immediately, with no delay. On holds the next
-        caption so you can pause, correct, or drop it before it reaches OBS and the mobile
-        viewer. If you leave one paused or being edited while more speech comes in,
-        captions keep queuing up behind it out of sight; once that backlog is full, any
-        further caption is dropped rather than shown or queued. Use Manual overrides in
-        Service controls to act on the queued caption.
+        Off shows each translation immediately. On holds the next caption so you can
+        pause, correct, or drop it before it reaches OBS and the mobile viewer; once the
+        queue backlog fills, further captions are dropped. Use Manual override to act on
+        a queued caption.
       </p>
       {count > 0 ? (
         <>

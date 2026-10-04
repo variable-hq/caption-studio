@@ -298,10 +298,10 @@ the mobile viewer). It lives only in the controlling operator's browser tab, app
 immediately without a translation refresh, and is unrelated to the recording window
 duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md) and
 [ADR 0017](decisions/0017-configurable-output-buffer-dwell.md). The On/Off setting, dwell
-duration, and their account defaults live in Live outputs; the queued caption itself and
-its controls are grouped under **Manual overrides** in Service controls, alongside Quick
-block and Manual caption, since acting on it is an override of what would otherwise
-publish, not output configuration.
+duration, and their account defaults, plus the queued caption itself and its controls,
+all live together in the **Manual override** workspace section, alongside the public
+caption filter, Quick block and Manual caption, since the whole section groups every
+control that overrides or configures what reaches the audience.
 
 - **On/Off**, default Off (matching behavior before this feature existed). On holds each
   caption for a **dwell duration** before it advances to Live: a fixed choice of 1/2/3/4/5
@@ -339,8 +339,9 @@ from whatever is merely selected in the current session's draft. Free-text field
   restrained hierarchy and feedback without a runtime package dependency; reduced-motion,
   keyboard, coarse-pointer, and touch behavior remain explicit.
 - Setup opens on Overview. A fixed desktop sidebar lists Overview, Audio input,
-  Translation, Appearance, Live outputs, Sermon history, AI usage, AI instructions and
-  AI summary under the headings Workspace, Setup, Service and Settings; Arrow, Home and End keys
+  Translation, Appearance, Live outputs, Manual override, Sermon history, AI summary, AI
+  Behavior and AI usage under the headings Workspace, Setup, Service and Settings; Arrow,
+  Home and End keys
   move between links. A **Resize navigation** handle on the rail's edge sets the sidebar
   width between 200 and 420px by drag, arrow keys, Home/End, or double-click to reset;
   the width is cached locally and saved with the operator's account.
@@ -357,18 +358,19 @@ from whatever is merely selected in the current session's draft. Free-text field
   actions, configuration details and an expandable caption monitor. It docks from 1280px
   and becomes a modal drawer below that width. Escape returns focus to the trigger;
   crossing the breakpoint closes it and restores scrolling. Toggling it does not affect
-  capture or consent. A deliberately opened desktop panel stays open during navigation;
-  **View usage** inside it is the exception, closing the panel and opening AI usage.
-  Its More menu offers Copy OBS URL, Copy mobile viewer link, Show test caption and
-  Reveal OBS URL for manual copy.
+  capture or consent. A deliberately opened desktop panel stays open during navigation.
+  Its live view shows identity status, the output monitor, and an always-visible Output
+  sub-section (Copy OBS URL, Copy mobile viewer link, Show test caption and Reveal OBS
+  URL for manual copy), followed by the configuration snapshot and, last, this service's
+  own usage totals.
 - Only Appearance keeps an inline output preview. Other pages have the optional monitor
   in Service controls. Active settings remain distinct from unapplied drafts; detailed
-  translation-refresh controls appear in Translation and AI instructions, with a compact
-  review link on other pages.
+  translation-refresh controls appear in Translation, AI Behavior and Manual override,
+  with a compact review link on other pages.
 - Live outputs groups OBS, latest-viewer and reader/phone sharing into expandable sections.
   Sermon history contains the workspace's saved archives, corrections and summaries;
   the panel states that every signed-in operator sees them and the audience does not. OBS link rotation
-  stays disabled during a service; paused test captions remain under More.
+  stays disabled during a service.
 - A status bar docked at the bottom of the workspace (beside the sidebar on desktop,
   full width on phones) holds two pills. They read Checking cloud AI, Cloud AI configured, Cloud setup needed or
   Cloud AI unavailable, and Checking Main channel, Channel not created or Main channel ·
@@ -387,15 +389,16 @@ from whatever is merely selected in the current session's draft. Free-text field
   audio, Paused, and so on). End opens the same native confirmation dialog
   (**Confirm End** or **Keep service open**) regardless of where its trigger renders;
   **Clear live caption** blanks OBS and the latest viewer, while preserving committed
-  reader paragraphs. Quick block and Manual caption (grouped as **Manual overrides**) are
-  reachable only inside the expanded panel, including while paused — never from the
-  collapsed strip, since Manual caption types text directly onto the live feed.
+  reader paragraphs. Quick block and Manual caption (grouped under **Manual override**)
+  are reachable only from that workspace section while a service is live, including
+  while paused — never from the collapsed strip, since Manual caption types text
+  directly onto the live feed.
 - The output monitor carries each displayed caption's own `lang` attribute, including
   paused synthetic tests, without a visible label. Subsequent draft language edits do not
   relabel existing text.
 - Failed clipboard actions have hidden-by-default manual-copy recovery: OBS in Live
-  outputs or More during a service, and the latest audience link in Live outputs.
-  More closes with Escape and expands inline on mobile without covering later controls.
+  outputs or in Service controls' Output sub-section during a service, and the latest
+  audience link in Live outputs.
 - Form labels remain readable, action targets are at least 44px high, and mobile inputs
   use a zoom-safe text size.
 - Layout gutters scale continuously and the same logical order reflows without horizontal
@@ -505,9 +508,10 @@ Code-level acceptance:
 - An operator can select an input, source, target, and 6- to 18-second recording window. During
   live or paused operation, language, terminology, filter, recording window, and custom-prompt edits
   stay draft until an explicit confirmed translation refresh.
-- The AI usage section separates service time, reserved transcription attempts,
-  acknowledged translation calls/tokens, and provider headroom; it remains truthful when
-  provider headers are unavailable and never claims account-wide consumption.
+- Service controls' Usage section separates service time, reserved transcription
+  attempts, and acknowledged translation calls/tokens for the live service; AI usage
+  separates that from Groq's provider headroom, which remains truthful when provider
+  headers are unavailable and never claims account-wide consumption.
 - A refresh applies all drafts, clears unfinished audio/context/current output, rejects a
   stale-revision publish, and preserves service identity/timer, usage, controller, viewer,
   OBS URL, and live/paused state.
@@ -531,7 +535,8 @@ Code-level acceptance:
 - Appearance controls update the dashboard design preview continuously before Save.
 - Setup separates navigation and the selected settings page from collapsible service
   controls. The output monitor renders the real 1920 × 1080 canvas scaled to the card and
-  shows the published caption under Live outputs; Appearance keeps a sample beside its editor.
+  shows the published caption under Live outputs and, during a live service, in Service
+  controls; Appearance keeps a sample beside its editor.
 - The primary operator viewport is 1920 × 1080, with dashboard content capped at a
   readable 1160px rather than stretched across the full display.
 - The Setup layout reflows without horizontal scrolling from 320px through desktop
