@@ -2,20 +2,7 @@
 
 import type { ReactNode } from "react";
 
-import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
 import type { LiveSessionControlAction } from "@/live/contracts";
-import type { OutputBufferCount, OutputBufferDwellMs } from "@/live/output-buffer";
-
-interface OutputBufferSectionProps {
-  count: OutputBufferCount;
-  onCountChange: (value: OutputBufferCount) => void;
-  dwellMs: OutputBufferDwellMs;
-  onDwellChange: (value: OutputBufferDwellMs) => void;
-  onSaveDefault: () => void;
-  savedMessage: string;
-  defaultCount: OutputBufferCount | null;
-  defaultDwellMs: OutputBufferDwellMs | null;
-}
 
 interface ObsOverlayProps {
   configured: boolean;
@@ -52,7 +39,6 @@ interface LiveOutputsSectionProps {
   observedSaveHistory: boolean | undefined;
   outputMonitor: ReactNode;
   readerAndPhoneOutputs: ReactNode;
-  outputBuffer: OutputBufferSectionProps;
   obs: ObsOverlayProps;
   viewer: MobileViewerProps;
 }
@@ -67,7 +53,6 @@ export function LiveOutputsSection({
   observedSaveHistory,
   outputMonitor,
   readerAndPhoneOutputs,
-  outputBuffer,
   obs,
   viewer,
 }: LiveOutputsSectionProps) {
@@ -76,17 +61,6 @@ export function LiveOutputsSection({
       <section className="outputMonitorSection" aria-label="Output monitor">
         {outputMonitor}
         <p className="helpText">OBS and the latest viewer mirror this caption without extra AI calls. The reader appends shared paragraphs about 30 seconds later.</p>
-        <OutputBufferPanel
-          count={outputBuffer.count}
-          onCountChange={outputBuffer.onCountChange}
-          dwellMs={outputBuffer.dwellMs}
-          onDwellChange={outputBuffer.onDwellChange}
-          onSaveDefault={outputBuffer.onSaveDefault}
-          savedMessage={outputBuffer.savedMessage}
-          disabled={isBusy}
-          defaultCount={outputBuffer.defaultCount}
-          defaultDwellMs={outputBuffer.defaultDwellMs}
-        />
         {anotherOperatorActive ? (
           <p className="privacyNote" role="status">
             {runningOperator ? `${runningOperator} is running this service. ` : ""}

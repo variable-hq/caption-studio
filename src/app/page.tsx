@@ -12,6 +12,7 @@ import { AiUsageDashboard } from "@/components/operator/AiUsageDashboard";
 import { AudioInputSection } from "@/components/operator/AudioInputSection";
 import { CaptionPreview } from "@/components/operator/CaptionPreview";
 import { LiveOutputsSection } from "@/components/operator/LiveOutputsSection";
+import { ManualOverrideSection } from "@/components/operator/ManualOverrideSection";
 import { MasterControlsBar } from "@/components/operator/MasterControlsBar";
 import { OperatorTutorial } from "@/components/operator/OperatorTutorial";
 import { OverviewSection } from "@/components/operator/OverviewSection";
@@ -49,7 +50,6 @@ import { parseGlossaryInput } from "@/live/config";
 import {
   DEFAULT_RECORDING_WINDOW_MS,
   MAX_LIVE_SESSION_MS,
-  MAX_TRANSCRIPTION_REQUESTS,
   normalizeCaptionStyle,
   type CaptionStyle,
   type ChannelStatus,
@@ -102,6 +102,7 @@ export type WorkspaceSectionId =
   | "summary"
   | "appearance"
   | "outputs"
+  | "manualOverride"
   | "overview";
 
 const WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
@@ -110,10 +111,11 @@ const WORKSPACE_ITEMS: readonly LineSidebarItem[] = [
   { id: "translation", href: "#workspace=translation", label: "Translation", group: "Setup", icon: <DashboardIcon name="translation" /> },
   { id: "appearance", href: "#workspace=appearance", label: "Appearance", group: "Setup", icon: <DashboardIcon name="appearance" /> },
   { id: "outputs", href: "#workspace=outputs", label: "Live outputs", group: "Service", icon: <DashboardIcon name="outputs" /> },
+  { id: "manualOverride", href: "#workspace=manualOverride", label: "Manual override", group: "Service", icon: <DashboardIcon name="override" /> },
   { id: "history", href: "#workspace=history", label: "Sermon history", group: "Service", icon: <DashboardIcon name="history" /> },
-  { id: "usage", href: "#workspace=usage", label: "AI usage", group: "Service", icon: <DashboardIcon name="usage" /> },
-  { id: "prompt", href: "#workspace=prompt", label: "AI instructions", group: "Settings", icon: <DashboardIcon name="prompt" /> },
-  { id: "summary", href: "#workspace=summary", label: "AI summary", group: "Settings", icon: <DashboardIcon name="summary" /> },
+  { id: "summary", href: "#workspace=summary", label: "AI summary", group: "Service", icon: <DashboardIcon name="summary" /> },
+  { id: "prompt", href: "#workspace=prompt", label: "AI Behavior", group: "Settings", icon: <DashboardIcon name="prompt" /> },
+  { id: "usage", href: "#workspace=usage", label: "AI usage", group: "Settings", icon: <DashboardIcon name="usage" /> },
 ];
 
 const WORKSPACE_SECTION_COPY: Record<
@@ -134,12 +136,12 @@ const WORKSPACE_SECTION_COPY: Record<
   usage: {
     title: "Consumption and limits",
     description:
-      "Monitor this service and the latest quota headroom reported by the translation provider.",
+      "Review the translation provider's quota headroom and usage recorded across past services. This service's own live usage is in Service controls.",
   },
   prompt: {
-    title: "Translation system prompt",
+    title: "AI behavior and instructions",
     description:
-      "Review the safe default or tailor how the translator handles context, tone and ambiguity.",
+      "Review the safe default prompt, tailor how the translator handles context, tone and ambiguity, and choose how boldly it's allowed to act on that guidance.",
   },
   summary: {
     title: "Summary configuration",
@@ -153,6 +155,11 @@ const WORKSPACE_SECTION_COPY: Record<
   outputs: {
     title: "Live outputs",
     description: "Connect OBS, share audience captions, and pair your operator phone.",
+  },
+  manualOverride: {
+    title: "Manual override",
+    description:
+      "Hold, filter, or hand-correct what reaches the audience without touching the live translation call.",
   },
 };
 
@@ -560,15 +567,6 @@ export default function OperatorDashboard() {
     : 0;
   const elapsedMinutes = Math.floor(elapsedServiceMs / 60_000);
   const elapsedSeconds = Math.floor((elapsedServiceMs % 60_000) / 1_000);
-  const usagePercent = Math.min(
-    100,
-    Math.ceil(
-      Math.max(
-        elapsedServiceMs / MAX_LIVE_SESSION_MS,
-        liveState.transcriptionRequests / MAX_TRANSCRIPTION_REQUESTS,
-      ) * 100,
-    ),
-  );
   const cloudModelStatus =
     cloudState === "checking"
       ? "Checking configured model…"
@@ -1035,22 +1033,17 @@ export default function OperatorDashboard() {
       sourceLanguage={sourceLanguage}
       targetLanguage={targetLanguage}
       keywordText={keywordText}
-      filterText={filterText}
       recordingWindowMs={recordingWindowMs}
-      inferenceLevel={inferenceLevel}
       sourceLabel={sourceLabel ?? sourceLanguage}
       keywordCount={keywordCount}
       disabled={translationEditorDisabled}
       defaultSourceLanguage={accountPreferences?.translationDefaults?.sourceLanguage ?? null}
       defaultTargetLanguage={accountPreferences?.translationDefaults?.targetLanguage ?? null}
       defaultRecordingWindowMs={accountPreferences?.translationDefaults?.recordingWindowMs ?? null}
-      defaultInferenceLevel={accountPreferences?.translationDefaults?.inferenceLevel ?? null}
       onSourceLanguageChange={setSourceLanguage}
       onTargetLanguageChange={setTargetLanguage}
       onKeywordTextChange={setKeywordText}
-      onFilterTextChange={setFilterText}
       onRecordingWindowChange={setRecordingWindowMs}
-      onInferenceLevelChange={setInferenceLevel}
     />
   );
 
@@ -1059,7 +1052,10 @@ export default function OperatorDashboard() {
       value={translationSystemPrompt}
       sourceLanguage={sourceLanguage}
       targetLanguage={targetLanguage}
+      inferenceLevel={inferenceLevel}
+      defaultInferenceLevel={accountPreferences?.translationDefaults?.inferenceLevel ?? null}
       onChange={updateTranslationSystemPrompt}
+      onInferenceLevelChange={setInferenceLevel}
       onSaveBrowserDefault={savePromptBrowserDefault}
       onReset={resetPromptToSafeDefault}
       savedMessage={promptSavedMessage}
@@ -1153,7 +1149,10 @@ export default function OperatorDashboard() {
       live={monitorLive}
     />
   );
-  const translationSection = currentWorkspaceSection === "translation" || currentWorkspaceSection === "prompt";
+  const translationSection =
+    currentWorkspaceSection === "translation" ||
+    currentWorkspaceSection === "prompt" ||
+    currentWorkspaceSection === "manualOverride";
   // Rendered outside when collapsed, inside the panel when expanded (never both) — the
   // panel is a blocking <dialog> below 1280px, so an outside-only copy would be inert.
   const masterControlsBar = (
@@ -1479,16 +1478,6 @@ export default function OperatorDashboard() {
               {currentWorkspaceSection === "usage" ? (
                 <>
                 <AiUsageDashboard
-                  active={hasService || anotherOperatorActive}
-                  statusLabel={
-                    hasService
-                      ? "Service active"
-                      : anotherOperatorActive
-                        ? "Another operator active"
-                        : "Starts at zero"
-                  }
-                  elapsedServiceMs={elapsedServiceMs}
-                  transcriptionRequests={liveState.transcriptionRequests}
                   llmUsage={liveState.llmUsage}
                   translationModel={
                     cloudModels?.translation ?? "Configured translation model"
@@ -1520,20 +1509,6 @@ export default function OperatorDashboard() {
                   observedSaveHistory={observed.observer?.saveHistory}
                   outputMonitor={outputMonitor}
                   readerAndPhoneOutputs={readerAndPhoneOutputs}
-                  outputBuffer={{
-                    count: outputBufferCount,
-                    onCountChange: setOutputBufferCount,
-                    dwellMs: outputBufferDwellMs,
-                    onDwellChange: setOutputBufferDwellMs,
-                    onSaveDefault: saveOutputBufferDefault,
-                    savedMessage:
-                      outputBufferSavedMessage ||
-                      (accountPreferences && accountPreferences.outputBufferCount !== null
-                        ? "Your account has a saved default for this."
-                        : "Saves this choice to your account for new services."),
-                    defaultCount: accountPreferences?.outputBufferCount ?? null,
-                    defaultDwellMs: accountPreferences?.outputBufferDwellMs ?? null,
-                  }}
                   obs={{
                     configured: Boolean(liveState.channel?.configured),
                     channelAction,
@@ -1557,6 +1532,49 @@ export default function OperatorDashboard() {
                     onConfirmReplaceChange: setConfirmViewerReplace,
                     viewerAction,
                     onReplace: () => void replaceViewerLink(),
+                  }}
+                />
+              ) : null}
+
+              {currentWorkspaceSection === "manualOverride" ? (
+                <ManualOverrideSection
+                  isBusy={isBusy}
+                  hasService={hasService}
+                  filterText={filterText}
+                  onFilterTextChange={setFilterText}
+                  filterDisabled={translationEditorDisabled}
+                  outputBuffer={{
+                    count: outputBufferCount,
+                    onCountChange: setOutputBufferCount,
+                    dwellMs: outputBufferDwellMs,
+                    onDwellChange: setOutputBufferDwellMs,
+                    onSaveDefault: saveOutputBufferDefault,
+                    savedMessage:
+                      outputBufferSavedMessage ||
+                      (accountPreferences && accountPreferences.outputBufferCount !== null
+                        ? "Your account has a saved default for this."
+                        : "Saves this choice to your account for new services."),
+                    defaultCount: accountPreferences?.outputBufferCount ?? null,
+                    defaultDwellMs: accountPreferences?.outputBufferDwellMs ?? null,
+                  }}
+                  manualOverrides={{
+                    quickBlockEntries,
+                    onAddQuickBlock: addQuickBlock,
+                    onRemoveQuickBlock: removeQuickBlock,
+                    isPaused,
+                    isBusy,
+                    controlBusy: controlAction !== null,
+                    manualCaptionBusy: controlAction === "manual",
+                    onShowManualCaption: (text) => void showManualCaption(text),
+                    outputBufferCount,
+                    outputBufferQueue,
+                    onOutputBufferPause: setOutputBufferEntryPaused,
+                    onOutputBufferClear: clearOutputBufferEntry,
+                    onOutputBufferFastForward: fastForwardOutputBufferEntry,
+                    onOutputBufferBeginEdit: beginOutputBufferEdit,
+                    onOutputBufferEditDraftChange: updateOutputBufferEditDraft,
+                    onOutputBufferCancelEdit: cancelOutputBufferEdit,
+                    onOutputBufferSubmitEdit: submitOutputBufferEdit,
                   }}
                 />
               ) : null}
@@ -1602,34 +1620,9 @@ export default function OperatorDashboard() {
           lastLatencyMs: liveState.lastLatencyMs,
           saveHistory: liveState.service?.saveHistory,
           level,
-          usage: {
-            elapsedMinutes,
-            elapsedSeconds,
-            transcriptionRequests: liveState.transcriptionRequests,
-            translationRequests: liveState.llmUsage.translationRequests,
-            totalTokens: liveState.llmUsage.totalTokens,
-            usagePercent,
-            onViewUsage: () => { setServicePanelOpen(false); openWorkspaceSection("usage"); },
-          },
-          manualOverrides: {
-            quickBlockEntries,
-            onAddQuickBlock: addQuickBlock,
-            onRemoveQuickBlock: removeQuickBlock,
-            isBusy,
-            controlBusy: controlAction !== null,
-            manualCaptionBusy: controlAction === "manual",
-            onShowManualCaption: (text) => void showManualCaption(text),
-            outputBufferCount,
-            outputBufferQueue,
-            onOutputBufferPause: setOutputBufferEntryPaused,
-            onOutputBufferClear: clearOutputBufferEntry,
-            onOutputBufferFastForward: fastForwardOutputBufferEntry,
-            onOutputBufferBeginEdit: beginOutputBufferEdit,
-            onOutputBufferEditDraftChange: updateOutputBufferEditDraft,
-            onOutputBufferCancelEdit: cancelOutputBufferEdit,
-            onOutputBufferSubmitEdit: submitOutputBufferEdit,
-          },
-          moreMenu: {
+          // Live outputs already shows this; skip it there so the panel never duplicates it.
+          outputMonitor: currentWorkspaceSection === "outputs" ? null : outputMonitor,
+          output: {
             onCopyOverlayUrl: () => void copyOverlayUrl(),
             copied,
             viewerUrl,
@@ -1646,6 +1639,11 @@ export default function OperatorDashboard() {
           activeRecordingWindowMs,
           recordingWindowMs,
           hasPendingTranslationChanges,
+        }}
+        usage={{
+          elapsedServiceMs,
+          transcriptionRequests: liveState.transcriptionRequests,
+          llmUsage: liveState.llmUsage,
         }}
       />
       </ServicePanel>

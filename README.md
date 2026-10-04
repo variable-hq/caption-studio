@@ -30,8 +30,8 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
   words and an optional pre-publish output buffer (configurable dwell; pause, edit, clear,
   or fast-forward the next-up caption).
 - **Operator dashboard**: a persistent Master Controls strip (Start/Take over, Pause/
-  Resume, Clear, End) reachable at every screen width; Manual overrides and buffer
-  controls in an expandable Service controls panel; a resizable, bookmarkable sidebar;
+  Resume, Clear, End) reachable at every screen width; Manual override and buffer
+  controls in a dedicated sidebar section; a resizable, bookmarkable sidebar;
   and "· Your default" indicators on every saved discrete-choice setting. Full behavior
   and visuals: [Product specification](docs/PRODUCT_SPEC.md) and
   [Design system](docs/DESIGN_SYSTEM.md).
@@ -67,7 +67,7 @@ First-time setup is covered by an interactive six-step guide in the dashboard
    where each audience output comes from.
 2. **Audio** — connect the microphone/interface and confirm the input meter follows it.
 3. **Languages** — choose the spoken and audience languages, recording window, and any
-   terminology or public filters.
+   terminology (the public caption filter lives in Manual override).
 4. **OBS** — style the caption overlay, then paste the reusable Browser Source URL into
    a 1920 × 1080 OBS source.
 5. **Audience** — start captions, verify a test phrase reaches OBS, then share the

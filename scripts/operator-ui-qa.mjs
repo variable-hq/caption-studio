@@ -115,7 +115,7 @@ try {
   await closeServicePanel(page);
   await page.evaluate(()=>{document.activeElement?.blur();window.scrollTo(0,0)});
   await page.screenshot({path:output+`/operator-setup-${width}.png`,fullPage:true});
-  for(const section of ['Audio input','Translation','Appearance','Live outputs','Sermon history','AI usage','AI instructions','AI summary']){
+  for(const section of ['Audio input','Translation','Appearance','Live outputs','Manual override','Sermon history','AI summary','AI Behavior','AI usage']){
    await openDashboardSection(page, section);
    await page.waitForFunction(()=>document.activeElement?.id==='workspace-panel-heading');
    await check(section);
@@ -189,10 +189,8 @@ try {
   assert.equal(await page.getByRole('button',{name:'Pause',exact:true}).isVisible(),true);
   const controlsBeforeToggle=controls.length;
   await openServicePanel(page);
-  await page.getByText('More',{exact:true}).click();
-  await page.keyboard.press('Escape');
+  assert.equal(await page.getByRole('heading',{name:'Output',exact:true}).isVisible(),true);
   assert.equal(await serviceToggle.getAttribute('aria-expanded'),'true');
-  assert.equal(await page.locator('.moreMenu').getAttribute('open'),null);
   await closeServicePanel(page);
   assert.equal(controls.length,controlsBeforeToggle,'Opening and closing service controls must not pause or clear capture');
   assert.equal(status,'live');
@@ -207,6 +205,9 @@ try {
    const rect=element.getBoundingClientRect();
    return document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2)===element;
   }), 'Live controls must not cover the destination heading');
+  await openServicePanel(page);
+  assert.equal(await page.getByTestId('caption-preview').count(),1,'Live outputs already shows the output monitor; the panel must not duplicate it');
+  await closeServicePanel(page);
   if(width===1920){
    // A modified-click tab must not inherit the controller and pause the host.
    const controlsBefore=controls.length;

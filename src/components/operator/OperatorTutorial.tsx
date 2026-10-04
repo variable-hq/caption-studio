@@ -44,7 +44,7 @@ const STEPS = [
     location: "Translation",
     instructions: [
       "For this rehearsal, select Indonesian as spoken and English as audience language. Check the selections yourself.",
-      "Choose a 6- to 18-second recording window. Longer windows add delay. Add approved terminology and public filter terms if needed.",
+      "Choose a 6- to 18-second recording window. Longer windows add delay. Add approved terminology here; the public caption filter lives in Manual override.",
       "During a service, choose Review refresh and Confirm refresh to apply draft changes. Check names, numbers, references, and meaning.",
     ],
     section: "translation",

@@ -114,20 +114,6 @@
   box-shadow: none;
 }
 
-.servicePanel .compactUsage > div:first-child {
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.servicePanel .primaryControls {
-  display: grid;
-  grid-template-columns: 1fr;
-}
-
-.servicePanel .primaryControls button {
-  min-width: 0;
-}
-
 .manualOverrides {
   display: flex;
   flex-direction: column;
@@ -144,17 +130,6 @@
   font-weight: var(--weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.02em;
-}
-
-.servicePanel .moreMenu[open] {
-  grid-column: 1 / -1;
-}
-
-.servicePanel .moreMenu > div {
-  position: static;
-  width: 100%;
-  margin-top: var(--space-1);
-  box-shadow: none;
 }
 
 .servicePanel .liveControlHelp {
