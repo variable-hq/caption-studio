@@ -69,7 +69,9 @@ Confirm keyboard focus, reachable controls, no horizontal overflow, and continuo
 preview updates while appearance ranges or colours are being changed. Test `/view` at
 both mobile widths when latest-viewer behavior changes; run `npm run qa:experience`
 for reader, remote, archive or usage UI changes. The `qa:*` scripts need
-`CAPTION_QA_TOOLS_DIR` and a local server as described in [Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md). Use only synthetic caption text
+`CAPTION_QA_TOOLS_DIR` and a local server as described in [Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md).
+Run `npm run qa:all` for the bootstrapped mocked browser suites; `npm run qa:runtime`
+remains a separate local Wrangler rehearsal. Use only synthetic caption text
 in screenshots or recordings.
 
 ## Branch and commit workflow
