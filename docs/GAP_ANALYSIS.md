@@ -94,9 +94,8 @@ Estimate full-service usage from observations, not a monthly multiplication alon
 
 ### G09 — P1: human usability and accessibility
 
-Synthetic browser/Axe checks pass at 1920, 1200 and 390px for operator, tutorial, remote,
-reader, archives and usage. The shared suite no longer covers 320px; it remains a manual
-minimum-width check per the design system. Physical Safari/phones, actual browser zoom,
+Synthetic browser/Axe checks pass at 1920, 1200, 390 and 320px for operator, tutorial,
+remote, reader, archives and usage. Physical Safari/phones, actual browser zoom,
 screen readers and volunteer comprehension remain unverified. Have representative
 operators configure a service and explain the difference between Clear, Remove and Delete.
 Verify that pending phone commands cannot be mistaken for physical microphone confirmation.

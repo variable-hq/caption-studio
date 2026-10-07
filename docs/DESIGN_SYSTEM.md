@@ -90,5 +90,5 @@ Text selection, the caret and the scrollbars are themed from the palette
 - Draw icons and markers; no Unicode glyph or emoji stands in for an icon.
 - Use the shared button, input, chip and card classes instead of new one-off rules.
 - Check every visible change in both themes at 1920, 1200, 390 and 320px. `npm run qa`
-  automates 1920, 1200 and 390px; retain 320px as a manual minimum-width check.
+  automates all four widths, including the 320px minimum where a prior regression was found.
 - Keep class names, `data-testid` values and labels that `scripts/qa/*.mjs` reference.
