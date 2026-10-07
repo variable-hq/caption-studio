@@ -290,6 +290,24 @@ try {
   assert.equal(await page.getByTestId('target-language').inputValue(),'ja');
   await page.getByRole('button',{name:'Clear live caption',exact:true}).click();
   assert.ok(controls.includes('clear'));
+  await openServicePanel(page);
+  const endServiceButton=page.getByRole('button',{name:'End service',exact:true});
+  // The side panel can overlap the pointer hit target; keyboard activation tests the dialog flow without hit-testing the covered pixels.
+  await endServiceButton.press('Enter');
+  await page.getByRole('dialog',{name:'End captions for everyone?',exact:true}).waitFor();
+  await check('end-dialog');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.getByRole('dialog',{name:'End captions for everyone?',exact:true}).isVisible(),false);
+  assert.equal(await page.locator(':focus').innerText(),'End service');
+  await endServiceButton.press('Enter');
+  await page.getByRole('button',{name:'Confirm End',exact:true}).click();
+  await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
+  assert.equal(status,'idle');
+  // Re-start only after the original service lifecycle regression checks have finished.
+  await openDashboardSection(page,'Overview');
+  await openServicePanel(page);
+  await page.getByRole('button',{name:'Start captions',exact:true}).click();
+  await page.getByRole('button',{name:'Pause',exact:true}).waitFor();
   await closeServicePanel(page);
   await openDashboardSection(page,'AI Behavior');
   await page.getByTestId('inference-level').selectOption('high');
@@ -314,7 +332,7 @@ try {
    await closeServicePanel(page);
   }
   assert.equal(inferenceCalls,0,'Dashboard state checks must not invoke inference');
-  results.push({width,errors,violations,checks:'collapsed service panel across pages, modal/docked focus and resizing, consent persistence, quick live controls, contextual preview and settings notices, dashboard reorg sidebar grouping, Manual override states, AI Behavior pending notice, output-monitor deduplication across sections, output disclosures, overview, linked destinations and Back/Forward/reload, navigation without inference, mobile drawer and focus/resize, history consent preservation, sharing/archive separation, setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear, draft isolation, responsive overflow'});
+  results.push({width,errors,violations,checks:'collapsed service panel across pages, modal/docked focus and resizing, consent persistence, quick live controls, contextual preview and settings notices, dashboard reorg sidebar grouping, Manual override states, AI Behavior pending notice, output-monitor deduplication across sections, output disclosures, overview, linked destinations and Back/Forward/reload, navigation without inference, mobile drawer and focus/resize, history consent preservation, sharing/archive separation, setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear/end, draft isolation, responsive overflow'});
   await context.close();
  }
  await fs.writeFile(output+'/operator-results.json',JSON.stringify(results,null,2));
