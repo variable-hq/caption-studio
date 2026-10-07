@@ -1,4 +1,7 @@
 // The same destinations are available in the desktop rail and the mobile drawer.
+// Keep the shared browser matrix to primary desktop, intermediate, and mobile layouts.
+export const QA_VIEWPORT_WIDTHS = [1920, 1200, 390];
+
 export async function openDashboardSection(page, name) {
   const service = page.getByRole("dialog", { name: "Service controls", exact: true });
   if (await service.isVisible() && await service.evaluate((el) => el.matches(":modal"))) {

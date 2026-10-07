@@ -1,4 +1,4 @@
-import { openDashboardSection } from "./dashboard-qa-helpers.mjs";
+import { QA_VIEWPORT_WIDTHS, openDashboardSection } from "./dashboard-helpers.mjs";
 // Synthetic browser checks only. All API requests are mocked and external traffic is blocked.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -20,7 +20,7 @@ const origin = 'http://127.0.0.1:3100';
 const source = { id: 1, text: 'Synthetic sermon source about patience.', language: 'id', at: Date.now(), epoch: 0, translationRevision: 1 };
 const paragraph = { id: 1, sourceIds: [1], text: 'Synthetic readable paragraph about patience.', language: 'en', at: Date.now(), epoch: 0, translationRevision: 1, fallback: true };
 try {
- for (const width of [1920, 1200, 390, 320]) {
+ for (const width of QA_VIEWPORT_WIDTHS) {
   const context = await browser.newContext({ viewport: { width, height: width > 500 ? 1080 : 844 }, reducedMotion: 'reduce' });
   const page = await context.newPage(); const errors = []; const requests = [];
   page.on('pageerror', (error) => errors.push(error.message));

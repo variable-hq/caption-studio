@@ -46,7 +46,7 @@ try {
   });
   await waitForServer();
 
-  const bootstrap = spawnSync(process.execPath, ["scripts/qa/qa-bootstrap.mjs"], { stdio: "inherit", env });
+  const bootstrap = spawnSync(process.execPath, ["scripts/qa/bootstrap.mjs"], { stdio: "inherit", env });
   if (bootstrap.error) throw bootstrap.error;
   if (bootstrap.status !== 0) throw new Error(`QA bootstrap failed (exit ${bootstrap.status}).`);
 

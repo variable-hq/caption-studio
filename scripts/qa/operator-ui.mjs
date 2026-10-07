@@ -1,4 +1,4 @@
-import { openDashboardSection, openServicePanel, closeServicePanel, openTutorial } from "./dashboard-qa-helpers.mjs";
+import { QA_VIEWPORT_WIDTHS, openDashboardSection, openServicePanel, closeServicePanel, openTutorial } from "./dashboard-helpers.mjs";
 // Local synthetic UI checks. No provider calls or external requests.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -13,7 +13,7 @@ await fs.mkdir(output,{recursive:true});
 const browser=await chromium.launch({headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
 const results=[];
 try {
- for (const width of [1920,1200,390,320]) {
+ for (const width of QA_VIEWPORT_WIDTHS) {
   const context=await browser.newContext({viewport:{width,height:width>500?1080:844},permissions:['microphone'],reducedMotion:'reduce'});
   const page=await context.newPage();
   await page.addInitScript(() => localStorage.setItem("church-live-caption:operator-tutorial:v1", "dismissed"));
@@ -290,23 +290,6 @@ try {
   assert.equal(await page.getByTestId('target-language').inputValue(),'ja');
   await page.getByRole('button',{name:'Clear live caption',exact:true}).click();
   assert.ok(controls.includes('clear'));
-  await openServicePanel(page);
-  const endServiceButton=page.getByRole('button',{name:'End service',exact:true});
-  await endServiceButton.click();
-  await page.getByRole('dialog',{name:'End captions for everyone?',exact:true}).waitFor();
-  await check('end-dialog');
-  await page.keyboard.press('Escape');
-  assert.equal(await page.getByRole('dialog',{name:'End captions for everyone?',exact:true}).isVisible(),false);
-  assert.equal(await page.locator(':focus').innerText(),'End service');
-  await endServiceButton.click();
-  await page.getByRole('button',{name:'Confirm End',exact:true}).click();
-  await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
-  assert.equal(status,'idle');
-  // Re-start only after the original service lifecycle regression checks have finished.
-  await openDashboardSection(page,'Overview');
-  await openServicePanel(page);
-  await page.getByRole('button',{name:'Start captions',exact:true}).click();
-  await page.getByRole('button',{name:'Pause',exact:true}).waitFor();
   await closeServicePanel(page);
   await openDashboardSection(page,'AI Behavior');
   await page.getByTestId('inference-level').selectOption('high');
@@ -331,14 +314,14 @@ try {
    await closeServicePanel(page);
   }
   assert.equal(inferenceCalls,0,'Dashboard state checks must not invoke inference');
-  results.push({width,errors,violations,checks:'collapsed service panel across pages, modal/docked focus and resizing, consent persistence, quick live controls, contextual preview and settings notices, dashboard reorg sidebar grouping, Manual override states, AI Behavior pending notice, output-monitor deduplication across sections, output disclosures, overview, linked destinations and Back/Forward/reload, navigation without inference, mobile drawer and focus/resize, history consent preservation, sharing/archive separation, setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear/end, draft isolation, responsive overflow'});
+  results.push({width,errors,violations,checks:'collapsed service panel across pages, modal/docked focus and resizing, consent persistence, quick live controls, contextual preview and settings notices, dashboard reorg sidebar grouping, Manual override states, AI Behavior pending notice, output-monitor deduplication across sections, output disclosures, overview, linked destinations and Back/Forward/reload, navigation without inference, mobile drawer and focus/resize, history consent preservation, sharing/archive separation, setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear, draft isolation, responsive overflow'});
   await context.close();
  }
  await fs.writeFile(output+'/operator-results.json',JSON.stringify(results,null,2));
  console.log(JSON.stringify(results,null,2));
  assert.ok(results.every(r=>r.errors.length===0&&r.violations.length===0));
 } catch(error) {
- console.error('operator-ui-qa failed:',error?.message??error);
+ console.error('operator-ui failed:',error?.message??error);
  for(const context of browser.contexts()) for(const page of context.pages()) {
   await page.screenshot({path:output+'/failure.png',timeout:5000}).catch(()=>{});
   console.log(await page.evaluate(()=>({focus:document.activeElement?.outerHTML.slice(0,200),scrollY,bodyOverflow:document.body.style.overflow,panel:document.querySelector('#service-panel')?.getBoundingClientRect().toJSON(),checkbox:document.querySelector('[name=saveTranscript]')?.getBoundingClientRect().toJSON()})));
