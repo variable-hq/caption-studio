@@ -31,7 +31,7 @@ rules.
 | Repository browser QA, including axe at 1920/1200/390/320 px | `scripts/operator-ui-qa.mjs`, `scripts/tutorial-qa.mjs`, `scripts/experience-ui-qa.mjs` | Pass, 0 axe violations, 0 page errors |
 | Mechanical design detector | `impeccable detect` over the changed UI files | 5 findings before, 0 after |
 | Measured pass | Computed contrast, target size, overflow and type at 1440/390/320 px, light and dark | No text below 6.4:1, no target under 44 px, no horizontal overflow |
-| Visual pass | 19 captures per run, before and after, at 1440 and 390 px in both themes plus a live dark run | [Committed captures](../review-assets/2026-09-20/README.md) |
+| Visual pass | 19 captures per run, before and after, at 1440 and 390 px in both themes plus a live dark run | [Committed captures](review-assets/2026-09-20/README.md) |
 
 Two regressions from the merged watcher work were found by the repository's own QA during
 this pass and fixed here: **Pair operator phone** stayed disabled whenever a start

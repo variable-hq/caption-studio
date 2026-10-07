@@ -62,6 +62,7 @@ records to establish release evidence.
 
 | Record | Scope |
 | --- | --- |
+| [Operator UI pass QA](OPERATOR_UI_PASS_QA.md) and [screenshots](review-assets/2026-09-20/README.md) | 20 September operator dashboard interaction and visual review |
 | [Docked status bar QA](DOCK_STATUS_BAR_QA.md) | 15 September dark theme, keyboard, zoom, real-runtime audience surfaces; fixes for bar overlap, theme flash and copy |
 | [Service-panel UI and QA](SERVICE_PANEL_UX_QA.md) and [screenshots](review-assets/2026-09-13-service-panel/README.md) | 13 September collapsible right controls, focused workspace pages and responsive validation |
 | [Dashboard UI and QA](DASHBOARD_UI_QA.md) and [screenshots](review-assets/2026-09-13/README.md) | 13 September dashboard navigation, market references and responsive validation |
