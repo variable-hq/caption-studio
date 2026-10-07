@@ -221,11 +221,13 @@ finishing with a whitespace check, sequentially. Run
 
 Browser and runtime QA scripts are separate from validation. The browser scripts load
 Playwright and Axe from an isolated directory so that no test dependency enters the
-product, and they expect a dev server on port 3100 with every API request mocked:
+product. Run `npm run qa:all` to install that isolated tooling and Chromium when needed,
+start the local server, and run the three mocked browser suites in sequence. Every API
+request is mocked:
 
 ```sh
 npm run dev -- --hostname 127.0.0.1 --port 3100
-# In another terminal; the directory must contain playwright and @axe-core/playwright.
+# Individual scripts remain available when the server and tooling are already running.
 CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:tutorial
 CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:operator
 CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:experience

@@ -63,6 +63,30 @@ try {
    violations.push(...axe.violations.map(x=>({section,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
   };
   await check('overview');
+  // Dashboard sections reorganized in PR #60: assert the rendered group runs, not only link presence.
+  const navMenu=page.getByRole('button',{name:'Open navigation',exact:true});
+  if(await navMenu.isVisible()) await navMenu.click();
+  const sidebarGroups = (await page.getByRole('navigation', { name: 'Main navigation', exact: true })
+   .locator('.rb-line-sidebar__group').evaluateAll(headers => headers.map(header => {
+    const items=[];
+    const first=header.closest('li');
+    let item=first;
+    while(item){
+     if(item!==first && item.querySelector('.rb-line-sidebar__group')) break;
+     const link=item.querySelector('a');
+     if(link) items.push(link.textContent.trim());
+     item=item.nextElementSibling;
+    }
+    return {name:header.textContent.trim(),items};
+   }))).filter(group => group.name === 'Service' || group.name === 'Settings');
+  assert.deepEqual(sidebarGroups, [
+   {name:'Service',items:['Live outputs','Manual override','Sermon history','AI summary']},
+   {name:'Settings',items:['AI Behavior','AI usage']},
+  ]);
+  if(await navMenu.count() && await navMenu.getAttribute('aria-expanded')==='true'){
+   await page.keyboard.press('Escape');
+   await page.getByRole('dialog',{name:'Workspace navigation'}).waitFor({state:'hidden'});
+  }
   const barClear=async section=>{
    await page.evaluate(()=>{
     const controls=[...document.querySelectorAll('.dashboardContent button, .dashboardContent a, .dashboardContent select')].filter(el=>el.getClientRects().length&&!el.closest('details:not([open]) > :not(summary)'));
@@ -131,6 +155,19 @@ try {
    }
    if(section==='Live outputs')assert.equal(await page.getByLabel('Reusable OBS browser-source URL').isVisible(),false);
   }
+  await openDashboardSection(page,'Manual override');
+  assert.equal(await page.getByTestId('output-buffer-count').isVisible(),true);
+  assert.equal(await page.getByTestId('output-buffer-count').isEnabled(),true);
+  assert.equal(await page.locator('input[name="publicFilter"]').isVisible(),true);
+  assert.equal(await page.locator('input[name="publicFilter"]').isEnabled(),true);
+  assert.equal(await page.getByText('Start captions to use quick block, manual caption, or the output-buffer queue.',{exact:true}).isVisible(),true);
+  assert.equal(await page.getByPlaceholder('Word to block now…').count(),0);
+  await openDashboardSection(page,'AI usage');
+  assert.equal(await page.getByText('Groq quota headroom',{exact:true}).isVisible(),true);
+  assert.equal(await page.getByText('Current live service',{exact:true}).count(),0);
+  await openDashboardSection(page,'AI Behavior');
+  assert.equal(await page.getByTestId('inference-level').isVisible(),true);
+  assert.equal(await page.locator('textarea[name="translationGuidance"]').isVisible(),true);
   // Drawer is modal, dismissible, and returns focus. Resizing unlocks the document.
   if(width < 981) {
    const menu=page.getByRole('button',{name:'Open navigation',exact:true});
@@ -254,17 +291,47 @@ try {
   await page.getByRole('button',{name:'Clear live caption',exact:true}).click();
   assert.ok(controls.includes('clear'));
   await openServicePanel(page);
-  await page.getByRole('button',{name:'End service',exact:true}).click();
+  const endServiceButton=page.getByRole('button',{name:'End service',exact:true});
+  await endServiceButton.click();
   await page.getByRole('dialog',{name:'End captions for everyone?',exact:true}).waitFor();
   await check('end-dialog');
   await page.keyboard.press('Escape');
   assert.equal(await page.getByRole('dialog',{name:'End captions for everyone?',exact:true}).isVisible(),false);
   assert.equal(await page.locator(':focus').innerText(),'End service');
-  await page.getByRole('button',{name:'End service',exact:true}).click();
+  await endServiceButton.click();
   await page.getByRole('button',{name:'Confirm End',exact:true}).click();
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(status,'idle');
-  results.push({width,errors,violations,checks:'collapsed service panel across pages, modal/docked focus and resizing, consent persistence, quick live controls, contextual preview and settings notices, output disclosures, overview, linked destinations and Back/Forward/reload, navigation without inference, mobile drawer and focus/resize, history consent preservation, sharing/archive separation, setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear/end, draft isolation, responsive overflow'});
+  // Re-start only after the original service lifecycle regression checks have finished.
+  await openDashboardSection(page,'Overview');
+  await openServicePanel(page);
+  await page.getByRole('button',{name:'Start captions',exact:true}).click();
+  await page.getByRole('button',{name:'Pause',exact:true}).waitFor();
+  await closeServicePanel(page);
+  await openDashboardSection(page,'AI Behavior');
+  await page.getByTestId('inference-level').selectOption('high');
+  assert.equal(await page.locator('.translationRefreshNotice').isVisible(),true,'Changing inference level during a service must mark AI Behavior pending');
+  await openDashboardSection(page,'Manual override');
+  await page.locator('input[name="publicFilter"]').fill('synthetic filter');
+  assert.equal(await page.locator('.translationRefreshNotice').isVisible(),true,'Manual override must show its own translation pending review UI');
+  await page.locator('input[name="quickBlockTerm"]').fill('synthetic-block-term');
+  await page.getByRole('button',{name:'Block now',exact:true}).click();
+  assert.equal(await page.getByText('synthetic-block-term',{exact:true}).isVisible(),true);
+  await page.getByRole('button',{name:'Remove',exact:true}).click();
+  assert.equal(await page.getByText('synthetic-block-term',{exact:true}).count(),0);
+  for(const section of ['Live outputs','Manual override','Sermon history','AI summary','AI Behavior','AI usage']){
+   await openDashboardSection(page,section);
+   await openServicePanel(page);
+   assert.equal(await page.getByTestId('caption-preview').count(),1,`${section}: output monitor must appear exactly once`);
+   assert.equal(await page.getByRole('heading',{name:'Output',exact:true}).isVisible(),true);
+   const usage=page.getByRole('heading',{name:'Usage',exact:true});
+   assert.equal(await usage.isVisible(),true);
+   assert.equal(await usage.locator('xpath=ancestor::section[1]').evaluate(el=>el.parentElement.lastElementChild===el),true,'Usage must be the final service panel section');
+   assert.equal(await page.locator('.usageSummaryGrid .usageMetricCard').count(),4);
+   await closeServicePanel(page);
+  }
+  assert.equal(inferenceCalls,0,'Dashboard state checks must not invoke inference');
+  results.push({width,errors,violations,checks:'collapsed service panel across pages, modal/docked focus and resizing, consent persistence, quick live controls, contextual preview and settings notices, dashboard reorg sidebar grouping, Manual override states, AI Behavior pending notice, output-monitor deduplication across sections, output disclosures, overview, linked destinations and Back/Forward/reload, navigation without inference, mobile drawer and focus/resize, history consent preservation, sharing/archive separation, setup sections, immediate appearance preview, hidden OBS token, focus, start/pause/clear/end, draft isolation, responsive overflow'});
   await context.close();
  }
  await fs.writeFile(output+'/operator-results.json',JSON.stringify(results,null,2));

@@ -28,6 +28,7 @@
     "qa:operator": "node scripts/operator-ui-qa.mjs",
     "qa:experience": "node scripts/experience-ui-qa.mjs",
     "qa:runtime": "node scripts/experience-runtime-qa.mjs",
+    "qa:all": "node scripts/qa-runner.mjs",
     "validate": "npm run check:adrs && npm test -- --maxWorkers=1 && npm run typecheck:strict && npm run lint && npm run build && npm run build:cloudflare && npm run deploy:check && git diff --check"
   },
   "dependencies": {
