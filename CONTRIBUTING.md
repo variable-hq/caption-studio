@@ -64,7 +64,7 @@ For visible operator-console changes, use the tokens and shared control classes 
 [design system](docs/DESIGN_SYSTEM.md); do not add hard-coded colours or one-off button
 styles. Test in both the light and dark themes at the primary 1920 × 1080 operator
 viewport, then at a 1200px intermediate width and 390px and 320px mobile widths in a
-real browser.
+real browser. `npm run qa` automates 1920, 1200 and 390px; keep 320px in the manual check.
 Confirm keyboard focus, reachable controls, no horizontal overflow, and continuous
 preview updates while appearance ranges or colours are being changed. Test `/view` at
 both mobile widths when latest-viewer behavior changes; run `npm run qa:experience`
