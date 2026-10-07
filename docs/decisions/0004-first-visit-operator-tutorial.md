@@ -32,7 +32,7 @@ operator on the same profile can use **How to use**; a different browser may sho
 guide again. Native dialog behavior supplies modal interaction and keyboard handling
 without a tour dependency. The guide does not assert successful setup or certification.
 
-The [browser check](../../scripts/tutorial-qa.mjs) verifies all steps, responsive layout,
+The [browser check](../../scripts/qa/tutorial.mjs) verifies all steps, responsive layout,
 keyboard behavior, dismissal/replay, storage failure, active-service suppression,
 unchanged language selections, and absence of audio/service-control requests. See the
 [validation report](../VALIDATION_REPORT.md) for local results and remaining deployment gates.

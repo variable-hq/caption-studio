@@ -64,15 +64,15 @@ For visible operator-console changes, use the tokens and shared control classes 
 [design system](docs/DESIGN_SYSTEM.md); do not add hard-coded colours or one-off button
 styles. Test in both the light and dark themes at the primary 1920 × 1080 operator
 viewport, then at a 1200px intermediate width and 390px and 320px mobile widths in a
-real browser.
+real browser. `npm run qa` automates all four widths: 1920, 1200, 390 and 320px.
 Confirm keyboard focus, reachable controls, no horizontal overflow, and continuous
 preview updates while appearance ranges or colours are being changed. Test `/view` at
 both mobile widths when latest-viewer behavior changes; run `npm run qa:experience`
 for reader, remote, archive or usage UI changes. The `qa:*` scripts need
 `CAPTION_QA_TOOLS_DIR` and a local server as described in [Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md).
-Run `npm run qa:all` for the bootstrapped mocked browser suites; `npm run qa:runtime`
-remains a separate local Wrangler rehearsal. Use only synthetic caption text
-in screenshots or recordings.
+Run `npm run qa` (alias for `npm run qa:all`) for the bootstrapped mocked browser suites;
+`npm run qa:runtime` remains a separate local Wrangler rehearsal. Use only synthetic
+caption text in screenshots or recordings.
 
 ## Branch and commit workflow
 

@@ -1,4 +1,4 @@
-import { openDashboardSection, openTutorial, tutorialFocusReturned } from "./dashboard-qa-helpers.mjs";
+import { QA_VIEWPORT_WIDTHS, openDashboardSection, openTutorial, tutorialFocusReturned } from "./dashboard-helpers.mjs";
 // Start `npm run dev -- --hostname 127.0.0.1 --port 3100`. Set CAPTION_QA_TOOLS_DIR to an isolated directory
 // containing node_modules/playwright and node_modules/@axe-core/playwright.
 import assert from "node:assert/strict";
@@ -93,7 +93,7 @@ async function goToStep(page, step) {
 }
 
 try {
-  for (const width of [1920, 1200, 390, 320]) {
+  for (const width of QA_VIEWPORT_WIDTHS) {
     const { context, page, errors, mutations } = await fixture(width);
     const dialog = page.locator(".tutorialDialog");
     await dialog.waitFor({ state: "visible" });

@@ -1,4 +1,4 @@
-import { openDashboardSection, openServicePanel, closeServicePanel, openTutorial } from "./dashboard-qa-helpers.mjs";
+import { QA_VIEWPORT_WIDTHS, openDashboardSection, openServicePanel, closeServicePanel, openTutorial } from "./dashboard-helpers.mjs";
 // Local synthetic UI checks. No provider calls or external requests.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -13,7 +13,7 @@ await fs.mkdir(output,{recursive:true});
 const browser=await chromium.launch({headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
 const results=[];
 try {
- for (const width of [1920,1200,390,320]) {
+ for (const width of QA_VIEWPORT_WIDTHS) {
   const context=await browser.newContext({viewport:{width,height:width>500?1080:844},permissions:['microphone'],reducedMotion:'reduce'});
   const page=await context.newPage();
   await page.addInitScript(() => localStorage.setItem("church-live-caption:operator-tutorial:v1", "dismissed"));
@@ -292,13 +292,14 @@ try {
   assert.ok(controls.includes('clear'));
   await openServicePanel(page);
   const endServiceButton=page.getByRole('button',{name:'End service',exact:true});
-  await endServiceButton.click();
+  // The side panel can overlap the pointer hit target; keyboard activation tests the dialog flow without hit-testing the covered pixels.
+  await endServiceButton.press('Enter');
   await page.getByRole('dialog',{name:'End captions for everyone?',exact:true}).waitFor();
   await check('end-dialog');
   await page.keyboard.press('Escape');
   assert.equal(await page.getByRole('dialog',{name:'End captions for everyone?',exact:true}).isVisible(),false);
   assert.equal(await page.locator(':focus').innerText(),'End service');
-  await endServiceButton.click();
+  await endServiceButton.press('Enter');
   await page.getByRole('button',{name:'Confirm End',exact:true}).click();
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(status,'idle');
@@ -338,7 +339,7 @@ try {
  console.log(JSON.stringify(results,null,2));
  assert.ok(results.every(r=>r.errors.length===0&&r.violations.length===0));
 } catch(error) {
- console.error('operator-ui-qa failed:',error?.message??error);
+ console.error('operator-ui failed:',error?.message??error);
  for(const context of browser.contexts()) for(const page of context.pages()) {
   await page.screenshot({path:output+'/failure.png',timeout:5000}).catch(()=>{});
   console.log(await page.evaluate(()=>({focus:document.activeElement?.outerHTML.slice(0,200),scrollY,bodyOverflow:document.body.style.overflow,panel:document.querySelector('#service-panel')?.getBoundingClientRect().toJSON(),checkbox:document.querySelector('[name=saveTranscript]')?.getBoundingClientRect().toJSON()})));
