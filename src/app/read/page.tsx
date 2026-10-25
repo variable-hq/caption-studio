@@ -76,7 +76,7 @@ export default function ReaderPage() {
   items.sort((a, b) => a.at - b.at);
   return <main className="experiencePage readerPage">
     <a className="skipLink" href="#reader-text">Skip to sermon text</a>
-    <header className="experienceHeader"><p className="eyebrow">Church Live Caption</p><h1>Sermon reader</h1>
+    <header className="experienceHeader"><p className="eyebrow">Caption Studio</p><h1>Sermon reader</h1>
       <p role="status" aria-live="polite">{status}</p>
       <label>Text size<select name="readerTextSize" value={size} onChange={(event) => setSize(event.target.value)}>
         <option value="comfortable">Comfortable</option><option value="large">Large</option><option value="extra">Extra large</option>

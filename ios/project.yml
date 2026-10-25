@@ -30,11 +30,11 @@ targets:
     info:
       path: ChurchLiveCaption/Info.plist
       properties:
-        CFBundleDisplayName: Church Live Caption
+        CFBundleDisplayName: Caption Studio
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         AppBaseURL: $(APP_BASE_URL)
-        NSMicrophoneUsageDescription: Church Live Caption uses your microphone during an audio test or live service to transcribe and translate speech into captions.
+        NSMicrophoneUsageDescription: Caption Studio uses your microphone during an audio test or live service to transcribe and translate speech into captions.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

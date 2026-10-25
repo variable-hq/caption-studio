@@ -40,7 +40,7 @@ private struct PrivacyPreflightView: View {
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Church Live Caption")
+                    Text("Caption Studio")
                         .font(.largeTitle.bold())
                     Text("Internal TestFlight preflight")
                         .font(.headline)

@@ -6,7 +6,7 @@ labels:
 body:
   - type: markdown
     attributes:
-      value: Thank you for helping improve Church Live Caption. Use synthetic or approved data only.
+      value: Thank you for helping improve Caption Studio. Use synthetic or approved data only.
   - type: textarea
     id: summary
     attributes:
