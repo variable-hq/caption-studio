@@ -8,6 +8,7 @@ import { handleExperienceRequest } from "./api";
 import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
 import { parseGlossaryInput } from "@/live/config";
 import { buildTranscriptionPrompt } from "@/ai/server/groq";
+import { queueAutoSummary } from "./auto-summary";
 
 class Storage {
   values = new Map<string, unknown>();
@@ -499,5 +500,69 @@ describe("experience recovery", () => {
     // The next request resolves the old lifecycle before accepting more work.
     expect((await room.fetch(request("/internal/channel"))).status).toBe(200);
     expect(await storage.get("journal-sync")).toBeUndefined();
+  });
+});
+
+describe("automatic summary", () => {
+  const summaryRun = () => vi.fn(async () => ({ response: JSON.stringify({ points: [{ text: "Synthetic supported point", sourceIds: [1] }] }),
+    usage: { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 } }));
+  const autoRequest = { options: { model: SUMMARY_MODELS[1], language: "id", length: "short", guidance: "" } };
+  async function savedWithSource(env: ExperienceEnvironment) {
+    const created = await fixture(true, env);
+    await created.journal.fetch(request("/source", { id: 1, text: "Synthetic source", language: "id", translationRevision: 1 }));
+    return created;
+  }
+
+  it("waits for the journal's End before generating the summary", async () => {
+    const run = summaryRun();
+    const { journal, initial, storage } = await savedWithSource(optionalEnvironment(run));
+    expect((await journal.fetch(request("/auto-summary", autoRequest))).status).toBe(202);
+    await journal.alarm();
+    expect(run).not.toHaveBeenCalled();
+    expect(await storage.get("summary")).toBeUndefined();
+
+    await journal.fetch(request("/sync", { ...initial, endedAt: Date.now(), status: "ended" }));
+    await journal.alarm(); await journal.alarm(); await journal.alarm();
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(await storage.get("summary")).toMatchObject({ status: "completed", automatic: true, result: [{ sourceIds: [1] }] });
+    expect(await storage.get("auto-summary")).toBeUndefined();
+  });
+
+  it("keeps a summary the operator already started instead of generating a second", async () => {
+    const run = summaryRun();
+    const { journal, initial, storage } = await savedWithSource(optionalEnvironment(run));
+    await journal.fetch(request("/sync", { ...initial, endedAt: Date.now(), status: "ended" }));
+    await journal.fetch(request("/summary", summaryOptions));
+    await journal.fetch(request("/auto-summary", autoRequest));
+    await journal.alarm(); await journal.alarm(); await journal.alarm();
+    expect(run).toHaveBeenCalledTimes(2);
+    const job = await storage.get<{ id: string; automatic?: boolean }>("summary");
+    expect(job?.id).toBe(summaryOptions.requestId);
+    expect(job?.automatic).toBeUndefined();
+  });
+
+  it("ignores unsaved services and rejects malformed requests", async () => {
+    const unsaved = await fixture(false);
+    expect(await (await unsaved.journal.fetch(request("/auto-summary", autoRequest))).json()).toEqual({ saved: false });
+    const saved = await fixture(true);
+    expect((await saved.journal.fetch(request("/auto-summary", { options: { ...autoRequest.options, model: "unknown" } }))).status).toBe(400);
+    expect((await saved.journal.fetch(request("/auto-summary", {}))).status).toBe(400);
+  });
+
+  it("queues only for operators who opted in, using their saved summary defaults", async () => {
+    const journalFetch = vi.fn(async () => Response.json({ queued: true }, { status: 202 }));
+    const env = (autoSummary: boolean, enabled = "true"): ExperienceEnvironment => ({
+      CAPTION_OPTIONAL_AI_ENABLED: enabled,
+      OPERATOR_PREFERENCES: { idFromName: (name: string) => name, get: () => ({ fetch: async () =>
+        Response.json({ autoSummary, summaryDefaults: { model: SUMMARY_MODELS[0], language: "en", length: "detailed", guidance: "" } }) }) },
+      SERMON_JOURNALS: { idFromName: (name: string) => name, get: () => ({ fetch: journalFetch }) },
+    });
+    await queueAutoSummary(env(false), id, "operator@example.org");
+    await queueAutoSummary(env(true, "false"), id, "operator@example.org");
+    expect(journalFetch).not.toHaveBeenCalled();
+    await queueAutoSummary(env(true), id, "operator@example.org");
+    const sent = journalFetch.mock.calls[0] as unknown as [Request];
+    expect(new URL(sent[0].url).pathname).toBe("/auto-summary");
+    expect(await sent[0].json()).toEqual({ options: { model: SUMMARY_MODELS[0], language: "en", length: "detailed", guidance: "" } });
   });
 });

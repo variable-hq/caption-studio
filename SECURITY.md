@@ -176,7 +176,8 @@ Current behavior:
   or operator-typed manual caption occupies that same slot instead, unmoderated, since
   neither is transcribed audience speech;
 - caption-style preferences, a custom operator prompt, default summary configuration, a
-  default translation setup, theme and tutorial dismissal explicitly saved by the operator
+  default translation setup, a history-saving default, the automatic-summary opt-in, theme
+  and tutorial dismissal explicitly saved by the operator
   are stored with the operator's account in the `OperatorPreferences` Durable Object,
   addressed by the SHA-256 of the lower-cased Access email (the email itself is not
   stored) and retained until the operator resets or deletes them; the same values keep an
@@ -348,3 +349,8 @@ Deletion and source revisions invalidate pending jobs; persistent tombstones pre
 late responses from recreating deleted content. No exact TB2 reference corpus is present.
 Complete the protected rehearsal and approved content evaluation before enabling this
 workflow for real sermons.
+
+An operator who opts in to automatic summaries ([ADR 0019](docs/decisions/0019-automatic-post-service-summary.md))
+gets the same Workers AI summary job queued when they end a saved service, from their
+account's saved defaults. It uses the same ledger and caps, stays in the private archive,
+and still requires review before export. No new processor or recipient is involved.

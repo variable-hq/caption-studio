@@ -84,6 +84,8 @@ Required runtime variables: `CLOUDFLARE_ACCESS_AUD` and
 `CLOUDFLARE_ACCESS_TEAM_DOMAIN`. Optional model overrides and the disabled-by-default
 `CAPTION_OPTIONAL_AI_ENABLED` switch are documented in [the environment template](../.env.example).
 `keep_vars: true` preserves dashboard-managed variables; it does not configure them.
+Manual and automatic summaries ([ADR 0019](decisions/0019-automatic-post-service-summary.md))
+both need `CAPTION_OPTIONAL_AI_ENABLED=true`; without it, End queues nothing.
 Never deploy `CAPTION_LOCAL_AUTH_BYPASS`.
 
 ## Access paths

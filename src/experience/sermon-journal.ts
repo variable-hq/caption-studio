@@ -4,7 +4,7 @@ import { isLanguageLocale } from "@/domain/languages";
 import { HASH_HEX_PATTERN, UUID_PATTERN } from "@/http/tokens";
 import {
   DAY, HISTORY_RETENTION, MAX_JOURNAL_NOTES, READER_GRACE, READER_INTERVAL, SUMMARY_MODELS, json,
-  type ExperienceEnvironment, type JournalState, type ReaderInput, type ReaderNote, type ReaderParagraph,
+  type AutoSummaryRequest, type ExperienceEnvironment, type JournalState, type ReaderInput, type ReaderNote, type ReaderParagraph,
   type SourceRecord, type SummaryJob, type SummaryOptions, type SummaryPoint,
 } from "./contracts";
 import { optionalInference } from "./provider";
@@ -13,6 +13,9 @@ import { outputLooksUnsafe } from "@/ai/output-guard";
 
 const key = (prefix: string, id: number) => `${prefix}:${String(id).padStart(6, "0")}`;
 const byteLength = (text: string) => new TextEncoder().encode(text).length;
+const validSummaryOptions = (body: Partial<SummaryOptions>) =>
+  SUMMARY_MODELS.includes(body.model!) && isLanguageLocale(body.language ?? "") &&
+  typeof body.guidance === "string" && body.guidance.length <= 2000 && ["short", "detailed"].includes(body.length ?? "");
 
 export function parseSummary(text: string, allowedIds: Set<number>): SummaryPoint[] {
   const value = JSON.parse(text) as { points?: SummaryPoint[] };
@@ -82,6 +85,7 @@ export class SermonJournal {
     if (path === "/remove" && request.method === "POST") return this.handleRemove(request, current);
     if (path === "/correct" && request.method === "POST") return this.handleCorrect(request, current);
     if (path === "/summary" && request.method === "POST") return this.handleSummary(request, current);
+    if (path === "/auto-summary" && request.method === "POST") return this.handleAutoSummary(request, current);
     return json({ error: "Journal route not found." }, 404);
   }
 
@@ -237,9 +241,7 @@ export class SermonJournal {
   private async handleSummary(request: Request, current: JournalState) {
     if (!current.saved || !current.endedAt) return json({ error: "End a service with saved history before generating a summary." }, 409);
     const body = await request.json() as SummaryOptions & { requestId: string };
-    if (!SUMMARY_MODELS.includes(body.model) || !isLanguageLocale(body.language) ||
-        typeof body.guidance !== "string" || body.guidance.length > 2000 ||
-        !["short", "detailed"].includes(body.length) || !/^[a-zA-Z0-9-]{16,64}$/u.test(body.requestId)) return json({ error: "Invalid summary settings." }, 400);
+    if (!validSummaryOptions(body) || !/^[a-zA-Z0-9-]{16,64}$/u.test(body.requestId)) return json({ error: "Invalid summary settings." }, 400);
     const previous = await this.state.storage.get<SummaryJob>("summary");
     if (previous && (previous.id === body.requestId || ["queued", "running"].includes(previous.status))) return json(previous);
     const job: SummaryJob = { id: body.requestId, status: "queued", revision: current.revision,
@@ -248,6 +250,31 @@ export class SermonJournal {
     await this.state.storage.put("summary", job);
     await this.schedule(current, 1000);
     return json(job, 202);
+  }
+
+  /** Held until the room's End reaches this journal; the alarm then promotes it to a job. */
+  private async handleAutoSummary(request: Request, current: JournalState) {
+    if (!current.saved) return json({ saved: false });
+    const body = await request.json() as Partial<AutoSummaryRequest>;
+    if (!body.options || !validSummaryOptions(body.options)) return json({ error: "Invalid automatic summary request." }, 400);
+    const { model, language, guidance, length } = body.options;
+    await this.state.storage.put("auto-summary", { options: { model, language, guidance, length } } satisfies AutoSummaryRequest);
+    await this.schedule(current, 1000);
+    return json({ queued: true }, 202);
+  }
+
+  private async promoteAutoSummary(current: JournalState) {
+    if (!current.endedAt || !current.saved) return;
+    await this.state.blockConcurrencyWhile(async () => {
+      const request = await this.state.storage.get<AutoSummaryRequest>("auto-summary");
+      if (!request) return;
+      await this.state.storage.delete("auto-summary");
+      // A summary the operator already started or finished is kept instead of a second one.
+      if (await this.state.storage.get<SummaryJob>("summary")) return;
+      await this.state.storage.put("summary", { id: `auto-${crypto.randomUUID()}`, status: "queued",
+        revision: current.revision, options: request.options, cursor: 0, notes: [],
+        promptVersion: "tb2-grounded-v1", automatic: true } satisfies SummaryJob);
+    });
   }
 
   private async notes(current: JournalState): Promise<ReaderNote[]> {
@@ -343,6 +370,7 @@ export class SermonJournal {
       }
       current = await this.configuration();
       if (!current) return;
+      await this.promoteAutoSummary(current);
       const job = await this.state.storage.get<SummaryJob>("summary");
       const interrupted = await this.state.storage.get<{ id: string }>("summary-flight");
       if (job && interrupted?.id === job.id) {

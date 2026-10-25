@@ -55,7 +55,10 @@ The default OpenNext config has no configured incremental/tag cache or skew prot
    moderated translations. `GET /api/live/reader` polls existing output; no poll starts AI.
 8. `DELETE /api/live/channel/service` ends capture, finalizes history and starts reader
    grace. An Access-protected manual summary request can then queue bounded journal work.
-   Every model stage admits/reconciles usage independently.
+   Every model stage admits/reconciles usage independently. If the ending operator opted
+   in to automatic summaries and saving was on, the Worker also asks the journal to queue
+   the same summary job from that operator's saved defaults once its End sync arrives
+   ([ADR 0019](decisions/0019-automatic-post-service-summary.md)). This never blocks End.
 
 Canonical inference POST paths are required. Encoded, repeated-slash, trailing-slash and
 unsupported `/_next/data/*` aliases cannot bypass claims. Access verification checks
@@ -177,7 +180,7 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | --- | --- |
 | Raw audio and queued chunks | Browser/request memory only; never archived |
 | Draft translation settings | Page memory; active snapshot in tab sessionStorage for recovery |
-| Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, theme, sidebar width, tutorial dismissal | `OperatorPreferences` object keyed by the SHA-256 of the lower-cased Access email, kept until the operator clears it; a browser copy remains in unencrypted localStorage as a fallback, and the shared channel style also persists |
+| Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, history-saving default, automatic-summary opt-in, theme, sidebar width, tutorial dismissal | `OperatorPreferences` object keyed by the SHA-256 of the lower-cased Access email, kept until the operator clears it; a browser copy remains in unencrypted localStorage as a fallback, and the shared channel style also persists |
 | OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
 | Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
 | Latest public caption | Main live state; cleared by controls and End/expiry |
@@ -187,7 +190,8 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | Numeric usage and deduplication entries | Separate usage object; each expires 30 days after its original attempt |
 | Archive index / deletion tombstones | Content-free lifecycle records; expired index entries cleaned, tombstones reject late writes |
 
-Saving is default-off, explicit before Start, and immutable for that service. All
+Saving is default-off unless the operator saved an on default (which only pre-ticks the
+visible checkbox), explicit before Start, and immutable for that service. All
 Access-approved operators share archives; there is no per-email tenancy. Read-time expiry
 checks deny access even if alarms run late. Application deletion does not promise
 immediate physical erasure of provider recovery copies or recall of exported content.

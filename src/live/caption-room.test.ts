@@ -1129,6 +1129,9 @@ describe("reusable caption channel", () => {
       ),
     );
     expect(response.status).toBe(204);
+    // Internal hint for the Worker's automatic summary; never forwarded to the browser.
+    expect(response.headers.get("x-ended-service")).toEqual(expect.any(String));
+    expect(response.headers.get("x-ended-saved")).toMatch(/^[01]$/u);
     await expect(storage.get("configuration")).resolves.toMatchObject({
       tokenHash: TOKEN_A,
       encryptedToken: "encrypted-a",
