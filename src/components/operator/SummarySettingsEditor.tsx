@@ -12,6 +12,11 @@ interface SummarySettingsEditorProps {
   onSaveBrowserDefault: () => void;
   onReset: () => void;
   savedMessage: string;
+  autoSummary: boolean;
+  /** False when the account record is unavailable, since this setting is account-only. */
+  autoSummaryAvailable: boolean;
+  onAutoSummaryChange: (enabled: boolean) => void;
+  autoSummaryMessage: string;
 }
 
 export const SUMMARY_MODEL_LABELS: Record<SummaryModel, string> = {
@@ -25,6 +30,10 @@ export function SummarySettingsEditor({
   onSaveBrowserDefault,
   onReset,
   savedMessage,
+  autoSummary,
+  autoSummaryAvailable,
+  onAutoSummaryChange,
+  autoSummaryMessage,
 }: SummarySettingsEditorProps) {
   const helpId = useId();
   const statusId = useId();
@@ -38,7 +47,8 @@ export function SummarySettingsEditor({
             These defaults prefill the Summary assistant in Sermon history. Each
             summary request still shows and sends its own values, and generation
             only happens when optional Workers AI is enabled and you choose
-            Generate summary. Server-owned grounding rules stay fixed.
+            Generate summary, or when automatic summaries below are on. Server-owned
+            grounding rules stay fixed.
           </p>
         </div>
         <span className="characterCount" aria-label={`${value.guidance.length} guidance characters`}>
@@ -115,6 +125,24 @@ export function SummarySettingsEditor({
       </p>
       <p id={statusId} className="promptSaveStatus" role="status" aria-live="polite">
         {savedMessage}
+      </p>
+      <label className="checkLabel">
+        <input
+          type="checkbox"
+          name="autoSummary"
+          checked={autoSummary}
+          disabled={!autoSummaryAvailable}
+          onChange={(event) => onAutoSummaryChange(event.target.checked)}
+        />
+        Generate a summary automatically after each service I end
+      </label>
+      <p className="helpText">
+        Uses the defaults above as saved to your account, and only for services with
+        transcript saving on. The draft appears in Sermon history; review it against the
+        transcript before sharing. It uses the same daily AI budget as Generate summary.
+      </p>
+      <p className="promptSaveStatus" role="status" aria-live="polite">
+        {autoSummaryMessage}
       </p>
     </div>
   );

@@ -14,6 +14,10 @@ interface StartBarProps {
   saveHistoryActive: boolean | undefined;
   saveHistory: boolean;
   onSaveHistoryChange: (checked: boolean) => void;
+  /** The operator's saved account default, or null when none is saved. */
+  saveHistoryDefault: boolean | null;
+  onSaveHistoryDefault: () => void;
+  saveHistoryDefaultMessage: string;
   heading: string;
   description: string;
   confirmTakeover: boolean;
@@ -105,6 +109,7 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
                 onChange={(event) => startBar.onSaveHistoryChange(event.target.checked)}
               />
               Save transcript history for this service
+              {!hasService && startBar.saveHistoryDefault === startBar.saveHistory ? " · Your default" : ""}
             </label>
             <p className="helpText">
               {hasService
@@ -113,6 +118,12 @@ export function ServiceControlsPanel({ hasService, startBar, liveConsole, snapsh
                   : "History saving is off for this service."
                 : "Choose before Start and tell participants when saving is enabled. History deletes 7 days after End; numeric AI usage is retained separately for 30 days."}
             </p>
+            {!hasService && startBar.saveHistoryDefault !== startBar.saveHistory ? (
+              <button className="textButton" type="button" disabled={startBar.isBusy} onClick={startBar.onSaveHistoryDefault}>
+                Make this my default
+              </button>
+            ) : null}
+            <p className="promptSaveStatus" role="status" aria-live="polite">{startBar.saveHistoryDefaultMessage}</p>
           </section>
           <div className="startBarActions">
             <div>

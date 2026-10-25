@@ -34,6 +34,7 @@ import {
 import { CAPABILITY_TOKEN_PATTERN, randomToken } from "@/http/tokens";
 import { viewerDocumentResponse } from "@/live/viewer-document";
 import { operatorIdentityKey } from "@/experience/preferences";
+import { queueAutoSummary } from "@/experience/auto-summary";
 import { json, type ExperienceEnvironment } from "@/experience/contracts";
 
 interface DurableObjectStubLike {
@@ -468,14 +469,21 @@ async function replaceViewerLink(
 }
 
 async function endService(request: Request, env: LiveWorkerEnvironment) {
-  await requireOperator(request, env);
-  return channelRoom(env).fetch(
+  const { email } = await requireOperator(request, env);
+  const response = await channelRoom(env).fetch(
     new Request("https://caption-room/internal/service", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ controllerHash: await controllerHash(request) }),
     }),
   );
+  if (response.status !== 204) return response;
+  const serviceId = response.headers.get("x-ended-service");
+  if (serviceId && response.headers.get("x-ended-saved") === "1") {
+    // End has already succeeded; an automatic summary problem must never turn it into a failure.
+    await queueAutoSummary(env, serviceId, email ?? "local").catch(() => {});
+  }
+  return new Response(null, { status: 204 });
 }
 
 async function publishCaption(request: Request, env: LiveWorkerEnvironment) {

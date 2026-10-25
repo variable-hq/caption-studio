@@ -52,6 +52,9 @@ records to establish release evidence.
   the Inference Level toggle (Low/Balanced/High) is a parameter to the immutable server
   translation envelope rather than the operator-editable system prompt, and the safety
   boundary for recognizing scripture readings without retrieving text from memory.
+- [ADR 0019](decisions/0019-automatic-post-service-summary.md) records the per-operator
+  history-saving default and the opt-in summary generated automatically when that
+  operator ends a saved service.
 - [Caption policy](evaluation/CAPTION_POLICY_DECISION.md) describes completion and filtering.
 - [Indonesian→English review](evaluation/ID_EN_REVIEW.md) and its
   [synthetic fixtures](evaluation/id-en-synthetic.json) remain unscored.

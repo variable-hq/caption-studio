@@ -107,6 +107,12 @@ export interface SummaryJob {
   result?: SummaryPoint[];
   error?: string;
   promptVersion: "tb2-grounded-v1";
+  /** Queued by End for an operator who opted in, rather than by Generate summary. */
+  automatic?: boolean;
+}
+/** Queued at End for the ending operator; promoted to a summary job once the journal has ended. */
+export interface AutoSummaryRequest {
+  options: SummaryOptions;
 }
 export function rpc(namespace: Namespace, id: string, path: string, body?: unknown) {
   return namespace.get(namespace.idFromName(id)).fetch(new Request(`https://internal${path}`, {

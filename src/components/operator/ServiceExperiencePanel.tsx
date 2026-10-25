@@ -149,7 +149,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
           summaryRequestRef.current = null;
           await load(archive.details.id);
         })}>Generate summary</button>
-      {archive.summary && <div className="summaryDraft"><p role="status">Summary: {archive.summary.status}. {archive.summary.error}</p>
+      {archive.summary && <div className="summaryDraft"><p role="status">Summary: {archive.summary.status}. {archive.summary.error}{archive.summary.automatic ? " Generated automatically when the service ended." : ""}</p>
         {archive.summary.result?.map((point, index) => <p key={index}>{point.text} <small>Sources: {point.sourceIds.map((id) => <button key={id} className="textButton" onClick={() => void perform(async () => {
           const sources = archive.sources.some((source) => source.id === id) ? archive.sources : await allSources(archive.details.id);
           setArchive({ ...archive, sources });

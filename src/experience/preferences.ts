@@ -31,6 +31,10 @@ export interface OperatorPreferences {
   translationDefaults: TranslationDefaults | null;
   outputBufferCount: OutputBufferCount | null;
   outputBufferDwellMs: OutputBufferDwellMs | null;
+  /** Pre-ticks "Save transcript history" at Start; the choice stays visible and changeable. */
+  saveHistoryDefault: boolean | null;
+  /** Generates an AI summary draft after each saved service this operator ends. */
+  autoSummary: boolean;
   tutorialDismissed: boolean;
   updatedAt: number | null;
 }
@@ -45,6 +49,8 @@ export const EMPTY_PREFERENCES: OperatorPreferences = {
   translationDefaults: null,
   outputBufferCount: null,
   outputBufferDwellMs: null,
+  saveHistoryDefault: null,
+  autoSummary: false,
   tutorialDismissed: false,
   updatedAt: null,
 };
@@ -113,6 +119,8 @@ export function mergeOperatorPreferences(
     translationDefaults: pick("translationDefaults", base.translationDefaults, normalizeTranslationDefaults),
     outputBufferCount: pick("outputBufferCount", base.outputBufferCount, normalizeOutputBufferCount),
     outputBufferDwellMs: pick("outputBufferDwellMs", base.outputBufferDwellMs, normalizeOutputBufferDwellMs),
+    saveHistoryDefault: pick("saveHistoryDefault", base.saveHistoryDefault, (value) => value === true),
+    autoSummary: "autoSummary" in input ? input.autoSummary === true : base.autoSummary,
     tutorialDismissed: "tutorialDismissed" in input ? input.tutorialDismissed === true : base.tutorialDismissed,
     updatedAt: at,
   };

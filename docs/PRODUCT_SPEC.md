@@ -607,7 +607,9 @@ timestamp for display but stored independently of paragraphs; they are not batch
 reprocessed by optional AI phrasing, or reapplied against glossary/filter rules, since
 the operator already typed final text.
 
-History saving is off by default and cannot be enabled after Start. Saved records expire
+History saving is off by default and cannot be enabled after Start. An operator can choose
+**Make this my default** beside the checkbox to have it pre-ticked (or cleared) at each
+Start; it stays visible and changeable until Start. Saved records expire
 seven days after End/expiry. Archive pages expose private original source, separate
 corrections, source-linked reader paragraphs, and any operator notes. Confirmed Remove
 passage excludes its source IDs and invalidates summaries without deleting originals. If
@@ -636,6 +638,12 @@ source sections and final synthesis produce points linked to source IDs; failure
 context, call or daily budgets are visible. Source membership validation is not semantic
 proof. Operators must review the private draft before JSON export. Transcript JSON export
 is also available; generating or regenerating never extends retention.
+
+The same settings page has **Generate a summary automatically after each service I end**
+(off by default, account-only). When on, ending a service with saving on queues the same
+summary job from the operator's saved defaults; it appears in Sermon history marked as
+generated automatically, still needs review before export, and is skipped if a summary
+already exists. See [ADR 0019](decisions/0019-automatic-post-service-summary.md).
 
 Exact TB2 text, licensed retrieval, an editable structured summary, section-selection UI,
 workspace roles, multiple providers and autonomous agent tools are not implemented.

@@ -674,7 +674,7 @@ export class CaptionRoom {
 
   private async endService(request: Request) {
     const body = (await request.json()) as { controllerHash?: string };
-    const result = await this.state.storage.transaction<MutationResult<null>>(
+    const result = await this.state.storage.transaction<MutationResult<{ serviceId?: string; saved: boolean } | null>>(
       async (transaction) => {
         const stored = await transaction.get<ChannelConfiguration>("configuration");
         if (!stored) return { kind: "channel-not-configured" };
@@ -690,12 +690,13 @@ export class CaptionRoom {
         if (!controllerMatches(configuration, body.controllerHash)) {
           return { kind: "controller-replaced" };
         }
+        const ended = { serviceId: configuration.serviceId, saved: configuration.saveHistory === true };
         configuration = deactivate(configuration);
         await Promise.all([
           transaction.put("configuration", configuration),
           transaction.delete("latest"),
         ]);
-        return { kind: "ok", value: null, clear: true };
+        return { kind: "ok", value: ended, clear: true };
       },
     );
 
@@ -705,7 +706,14 @@ export class CaptionRoom {
     this.broadcastPublic({ type: "clear" });
     this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
     this.closeViewerSockets(4002, "Live service ended.");
-    return new Response(null, { status: 204 });
+    const ended = result.kind === "ok" ? result.value : null;
+    // Internal only: the Worker strips these before answering the operator.
+    return new Response(null, {
+      status: 204,
+      headers: ended?.serviceId
+        ? { "x-ended-service": ended.serviceId, "x-ended-saved": ended.saved ? "1" : "0" }
+        : undefined,
+    });
   }
 
   private async publishCaption(request: Request) {

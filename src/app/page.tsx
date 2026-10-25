@@ -199,6 +199,8 @@ export default function OperatorDashboard() {
   );
   const [filterText, setFilterText] = useState("");
   const [saveHistory, setSaveHistory] = useState(false);
+  const [saveHistoryDefaultMessage, setSaveHistoryDefaultMessage] = useState("");
+  const [autoSummaryMessage, setAutoSummaryMessage] = useState("");
   const [servicePanelOpen, setServicePanelOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>("system");
   const servicePanelTriggerRef = useRef<HTMLButtonElement>(null);
@@ -777,6 +779,9 @@ export default function OperatorDashboard() {
           setInferenceLevel(defaults.inferenceLevel);
           setTranslationDefaultsMessage("Loaded your saved default setup.");
         }
+        if (loaded.saveHistoryDefault !== null && !hasServiceRef.current) {
+          setSaveHistory(loaded.saveHistoryDefault);
+        }
         if (loaded.outputBufferCount !== null && !hasServiceRef.current) {
           setOutputBufferCount(loaded.outputBufferCount);
           setOutputBufferSavedMessage("Loaded your saved default.");
@@ -874,6 +879,30 @@ export default function OperatorDashboard() {
     } catch {
       setSummaryStorageMessage("The summary configuration could not be saved in this browser.");
     }
+  };
+
+  const saveHistoryAsDefault = () => {
+    setSaveHistoryDefaultMessage("Saving your default…");
+    void syncAccountPreferences({ saveHistoryDefault: saveHistory }).then((ok) =>
+      setSaveHistoryDefaultMessage(
+        ok
+          ? `Saved. New services start with transcript saving ${saveHistory ? "on" : "off"}; you can still change it before Start.`
+          : "Account sync is unavailable; the default was not saved.",
+      ),
+    );
+  };
+
+  const changeAutoSummary = (enabled: boolean) => {
+    setAutoSummaryMessage("Saving…");
+    void syncAccountPreferences({ autoSummary: enabled }).then((ok) =>
+      setAutoSummaryMessage(
+        ok
+          ? enabled
+            ? "On. After you end a service with transcript saving, its summary draft appears in Sermon history."
+            : "Off. Summaries are only generated when you choose Generate summary."
+          : "Account sync is unavailable; the setting was not saved.",
+      ),
+    );
   };
 
   const resetSummaryDefaults = () => {
@@ -1070,6 +1099,10 @@ export default function OperatorDashboard() {
       onSaveBrowserDefault={saveSummaryBrowserDefault}
       onReset={resetSummaryDefaults}
       savedMessage={summarySavedMessage}
+      autoSummary={accountPreferences?.autoSummary ?? false}
+      autoSummaryAvailable={accountPreferences !== null}
+      onAutoSummaryChange={changeAutoSummary}
+      autoSummaryMessage={autoSummaryMessage}
     />
   );
 
@@ -1600,6 +1633,9 @@ export default function OperatorDashboard() {
           saveHistoryActive: liveState.service?.saveHistory,
           saveHistory,
           onSaveHistoryChange: setSaveHistory,
+          saveHistoryDefault: accountPreferences?.saveHistoryDefault ?? null,
+          onSaveHistoryDefault: saveHistoryAsDefault,
+          saveHistoryDefaultMessage,
           heading: startHeading,
           description: startDescription,
           confirmTakeover,
