@@ -20,7 +20,7 @@ church-approved quality require separate evidence.
 
 ## Plan 1 — merged and deployed, runtime and semantic acceptance pending
 
-[PR #26](https://github.com/lukaskawira/church-live-caption/pull/26) merged on
+[PR #26](https://github.com/variable-hq/caption-studio/pull/26) merged on
 13 September at `20597d8`. The initial deploy failed after a successful build; the
 corrected deploy command completed at 08:05 UTC. [Deployment](DEPLOYMENT.md) records the fix.
 

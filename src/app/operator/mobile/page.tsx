@@ -47,7 +47,7 @@ export default function OperatorMobilePage() {
   }
   const pending = state?.command?.status === "pending";
   return <main className="experiencePage">
-    <header className="experienceHeader"><p className="eyebrow">Church Live Caption</p><h1>Operator remote</h1>
+    <header className="experienceHeader"><p className="eyebrow">Caption Studio</p><h1>Operator remote</h1>
       <p>This phone controls the microphone on the capture computer.</p></header>
     <section className="experienceCard" aria-label="Remote capture controls">
       <p role="status" aria-live="polite">{message || (state?.connected ? `Capture computer connected · ${state.status}` : "Capture computer disconnected")}</p>

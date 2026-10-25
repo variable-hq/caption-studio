@@ -172,7 +172,7 @@ export function DashboardNavigation({ items, activeId, onSelect, tools, channelS
     <>
       <div className="dashboardBrand" translate="no">
         <span className="brandMark" aria-hidden="true">CC</span>
-        <span>Church Live Caption<small>{WORKSPACE_NAME}</small></span>
+        <span>Caption Studio<small>{WORKSPACE_NAME}</small></span>
       </div>
       <a
         className="dashboardChannel"

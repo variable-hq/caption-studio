@@ -4,7 +4,7 @@ Reviewed 14 September 2026 against merged PR #33 (`abae57b`). The 13 September d
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
-Church Live Caption is a pre-release prototype. Security fixes are supported only on
+Caption Studio is a pre-release prototype. Security fixes are supported only on
 the current `main` branch; no production security or availability SLA is offered.
 
 ## Report a vulnerability

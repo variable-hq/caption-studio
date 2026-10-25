@@ -1,4 +1,4 @@
-# Church Live Caption: gap analysis and improvement plan
+# Caption Studio: gap analysis and improvement plan
 
 Reviewed 14 September 2026 against merged PR #33 (`abae57b`). Plan 1 (`20597d8`) deployed
 successfully after the Access proxy fix; later merges have no recorded deployment. Deployment identity and commands are in [Deployment](DEPLOYMENT.md).

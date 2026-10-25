@@ -1,4 +1,4 @@
-# Church Live Caption
+# Caption Studio
 
 Cloud-hosted transcription and translation for church services, with fast OBS captions,
 a latest-caption phone viewer, an appending reader, and a paired operator remote.
@@ -262,7 +262,7 @@ One successful Cloudflare deployment is on record (13 September 2026); merges si
 have no recorded build ID yet. See the [deployment runbook](docs/DEPLOYMENT.md) for
 build/Worker IDs, the fix that unblocked the first deploy, and remaining rehearsal gates.
 
-<sub>This document reviewed 2 October 2026 against merged [PR #57](https://github.com/lukaskawira/church-live-caption/pull/57) (`09244e8`).</sub>
+<sub>This document reviewed 2 October 2026 against merged [PR #57](https://github.com/variable-hq/caption-studio/pull/57) (`09244e8`).</sub>
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).

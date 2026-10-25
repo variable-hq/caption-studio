@@ -25,7 +25,7 @@ const VIEWER_DOCUMENT = `<!doctype html>
 <body>
   <main class="shell">
     <header class="topbar">
-      <div><p class="eyebrow">Church Live Caption</p><h1>Live translation</h1></div>
+      <div><p class="eyebrow">Caption Studio</p><h1>Live translation</h1></div>
       <p class="status" role="status" aria-live="polite">Connecting</p>
     </header>
     <section class="captionStage" aria-label="Current translated caption">

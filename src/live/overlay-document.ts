@@ -3,7 +3,7 @@ const OVERLAY_DOCUMENT = `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Church Live Caption Overlay</title>
+  <title>Caption Studio Overlay</title>
   <style>
     *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:Arial,Helvetica,sans-serif}.stage{display:flex;align-items:flex-end;justify-content:center;width:100%;height:100%;padding:6vh 4vw}.caption{width:min(1500px,100%);padding:10px 18px 14px;text-align:center;font-size:48px;font-weight:750;line-height:1.18;text-wrap:balance;text-shadow:0 2px 5px rgba(0,0,0,.68)}.captionText{border-radius:.18em;padding:.12em .3em .16em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
   </style>

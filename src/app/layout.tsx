@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   referrer: "no-referrer",
   robots: { index: false, follow: false },
-  title: "Church Live Caption",
+  title: "Caption Studio",
   description: "Cloud-hosted multilingual church captions for OBS",
 };
 export const viewport: Viewport = {

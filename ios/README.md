@@ -6,7 +6,7 @@
 > product and release path.
 
 This directory contains an internal iPhone/iPad TestFlight feasibility shell for the
-Cloudflare-hosted Church Live Caption operator dashboard. It is not a standalone native
+Cloudflare-hosted Caption Studio operator dashboard. It is not a standalone native
 caption engine: Cloudflare Access, AI routes, the Durable Objects, and OBS delivery remain
 on the protected web backend.
 
@@ -62,11 +62,11 @@ machine-wide `xcode-select` setting.
 
 ## Historical internal TestFlight proposal
 
-- App name: **Church Live Caption**
+- App name: **Caption Studio**
 - Version/build: **0.1.0 (1)**
 - Category: **Utilities**
 - Distribution: **TestFlight Internal Only** for the first feasibility build
-- Test group: **Internal — Church Live Caption**
+- Test group: **Internal — Caption Studio**
 
 After `npm run ios:archive` succeeds, use Xcode Organizer to validate and upload the
 fresh signed archive. No App Store Connect API key, Fastlane, or Transporter automation

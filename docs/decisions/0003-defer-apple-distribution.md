@@ -4,7 +4,7 @@ Date: 10 August 2026. Status: accepted for the current phase.
 
 ## Context
 
-The Church Live Caption product already runs as a protected browser application backed
+The Caption Studio product already runs as a protected browser application backed
 by Cloudflare and Groq. A native iPhone/iPad feasibility shell was explored, but signing
 and TestFlight distribution require paid Apple Developer Program participation plus a
 separate privacy, device-testing, and release workflow.

@@ -1,4 +1,4 @@
-# Agent instructions for church-live-caption
+# Agent instructions for Caption Studio
 
 Reviewed 21 September 2026 against merged PR #49 (`d7a3db4`).
 
