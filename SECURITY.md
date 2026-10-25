@@ -304,6 +304,13 @@ Wrangler 4.125.0, Miniflare 5.20260820.0-alpha, and Undici 7.29.0. Continue to a
 findings before updates and never apply `npm audit fix --force` without a compatibility
 review.
 
+On 25 October 2026, compatible updates (Next.js 16.4.3, the `sharp` override raised to
+0.35.5, Wrangler 4.152.0, OpenNext 1.20.13 and transitive patches) brought
+`npm audit --omit=dev` back to zero. The full audit still reports seven development-only
+findings with no compatible fix: Undici inside Miniflare's local simulator (the offered
+fix downgrades Wrangler to 4.35, a breaking change) and `glob` inside a build-time
+minifier, whose advisory concerns only its CLI flags. Neither ships in the deployed Worker.
+
 ## Incident response
 
 If a secret or token is exposed:
