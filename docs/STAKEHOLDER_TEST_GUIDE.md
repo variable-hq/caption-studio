@@ -11,8 +11,7 @@ OBS runs on a separate computer using the hosted reusable Browser Source URL.
 Use a signed-in paired phone for the operator remote and separate signed-out audience
 phones for `/view` and `/read`. Device models and physical signal routing remain untested.
 
-The browser is the sole active client. The [iOS experiment](../ios/README.md) is deferred
-and its native/signing checklists are not web release gates.
+The browser is the sole client; there are no native/signing checklists.
 
 ## Before the test
 

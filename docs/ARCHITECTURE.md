@@ -19,8 +19,8 @@ physical-device, provider-output or semantic acceptance.
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
 | Workers AI | Optional shared reader phrasing and bounded manual summaries |
 
-The browser is the sole active client platform. The [native shell](../ios/README.md)
-is a deferred experiment, not an alternative live AI pipeline. There is no audio object
+The browser is the sole client platform; the deferred iOS shell was removed
+([ADR 0020](decisions/0020-remove-ios-shell.md)). There is no audio object
 store, D1, Queues, Supabase, analytics SDK, local model runtime or paid fallback.
 
 GitHub handles source review. Cloudflare Workers Builds builds OpenNext and deploys

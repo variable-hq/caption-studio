@@ -27,8 +27,8 @@ records to establish release evidence.
   identify delivered choices and remaining extensions.
 - [ADR 0002](decisions/0002-free-cloud-first-ai.md) records the cloud-first live pipeline.
   [ADR 0001](decisions/0001-free-local-first-ai.md) is superseded historical context.
-- [ADR 0003](decisions/0003-defer-apple-distribution.md) retains the
-  [iOS experiment](../ios/README.md) as deferred research.
+- [ADR 0003](decisions/0003-defer-apple-distribution.md) deferred Apple distribution;
+  [ADR 0020](decisions/0020-remove-ios-shell.md) then removed the unused iOS shell.
 - [ADR 0004](decisions/0004-first-visit-operator-tutorial.md) describes the operator guide.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator instead of the deterministic filter alone.
@@ -55,6 +55,8 @@ records to establish release evidence.
 - [ADR 0019](decisions/0019-automatic-post-service-summary.md) records the per-operator
   history-saving default and the opt-in summary generated automatically when that
   operator ends a saved service.
+- [ADR 0020](decisions/0020-remove-ios-shell.md) records the removal of the deferred iOS
+  shell that ADR 0003 had retained.
 - [Caption policy](evaluation/CAPTION_POLICY_DECISION.md) describes completion and filtering.
 - [Indonesian→English review](evaluation/ID_EN_REVIEW.md) and its
   [synthetic fixtures](evaluation/id-en-synthetic.json) remain unscored.

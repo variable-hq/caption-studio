@@ -130,5 +130,5 @@ backups and participant notice need explicit operational review.
 5. Record an owner go/no-go decision with language, consent, latency, quality, budget and
    stop criteria. Feature expansion does not substitute for these gates.
 
-The [roadmap](ROADMAP.md) carries deferred work. The preserved iOS experiment remains
-outside web release gates under [ADR 0003](decisions/0003-defer-apple-distribution.md).
+The [roadmap](ROADMAP.md) carries deferred work. The iOS experiment was removed under
+[ADR 0020](decisions/0020-remove-ios-shell.md).
