@@ -36,9 +36,8 @@ the human reviewer outside the app. [All 30 prepared samples](evaluation/ID_EN_R
 still await review; no language-quality gate has passed. This is not a new application
 role or approval queue.
 
-The repository retains a deferred iPhone/iPad feasibility shell for the operator. It is
-not part of the current product scope, active acceptance, or release plan. The browser is
-the sole active client. See [`ios/README.md`](../ios/README.md).
+The browser is the sole client. The deferred iPhone/iPad shell was removed
+([ADR 0020](decisions/0020-remove-ios-shell.md)).
 
 ## Implemented service journey
 
@@ -142,32 +141,6 @@ speech recognition and differ in output-script instruction. The Phase 1 assumpti
 Mandarin; Cantonese requires a separate language and model-quality decision.
 
 ## Current functional requirements
-
-### Deferred iOS feasibility client
-
-This section records the preserved experiment, not a current functional requirement.
-
-- The shell targets iPhone and iPad on iOS 17 or newer and uses SwiftUI plus `WKWebView`.
-- A native preflight explains cloud processing, requests microphone permission explicitly,
-  and allows view-only access when the microphone is unavailable or declined.
-- `APP_BASE_URL` must be HTTPS and must not contain embedded credentials.
-- WebKit microphone permission is granted only to the exact configured dashboard origin;
-  other media types, frames, and origins are denied. In-app navigation is limited to the
-  dashboard and Cloudflare Access, and the native state bridge accepts only bounded
-  messages from the dashboard main frame.
-- The shell hosts the existing web Setup and Live journeys. Cloudflare Access, inference,
-  Durable Object state, OBS delivery, limits, and retention behavior remain unchanged.
-- Background audio is not enabled. Becoming inactive stops capture and requests a server
-  pause; foregrounding reloads the authoritative channel into a safe paused state. This
-  code compiled during a simulator build attempt, but complete simulator and
-  physical-device lifecycle validation is still pending.
-- No Cloudflare, Groq, OBS, Apple, controller, or signing credential is embedded in the
-  target.
-
-Version 0.1.0 build 1 and the candidate bundle identifier
-`com.lukaskawira.churchlivecaption` are preserved experiment metadata only. The owner
-deferred paid Apple distribution on 10 August 2026. No signing, TestFlight, or App Store
-work belongs to the current phase.
 
 ### Audio and transcription
 
@@ -561,12 +534,6 @@ Code-level acceptance:
 - Audio is never persisted. Source/history is saved only with immutable pre-service opt-in;
   content expires seven days after End/expiry and numeric usage separately after 30 days.
 
-Local iOS-shell acceptance currently proves only that the pre-hardening generated Swift
-project built without signing for the simulator, three configuration tests passed on an
-iPhone 17 simulator, and Xcode produced a pre-hardening unsigned arm64 archive. The
-hardened sources compile, but a complete current build, four-test run, and archive remain
-pending because sandboxed CoreSimulator access blocked the follow-up build.
-
 Pilot acceptance still requires evidence from synthetic or explicitly approved tests:
 
 - acceptable accuracy for every supported language and agreed accents;
@@ -576,10 +543,6 @@ Pilot acceptance still requires evidence from synthetic or explicitly approved t
 - safe behavior for network loss, provider timeout, quota exhaustion, device loss,
   Access expiry, token revocation, and Worker-limit exhaustion; and
 - confirmed provider usage within the active account's Free-plan envelope.
-
-If native distribution is explicitly reopened, its acceptance criteria must be defined in
-a new decision. No iOS/TestFlight result contributes to current web-application
-acceptance.
 
 The 20 July 2026 production smoke test exercised the legacy disposable-room,
 four-second, pre-GPT-OSS cloud/OBS journey, style updates, reconnect, revocation, and
@@ -678,5 +641,5 @@ settings, availability and approved semantic quality before enabling it for serm
 9. What provider-account monitoring or external hard cap is required beyond the
    service counters, 30-day deployment ledger and optional-AI reservation guards?
 
-Apple distribution is deferred. Reopening it would require a new owner decision covering
+A native app is out of scope. Building one would require a new owner decision covering
 cost, publisher, signing, privacy, export compliance, testing, and distribution scope.

@@ -75,10 +75,9 @@ Local tests and screenshots do not constitute these deployment, hardware or qual
   library search, human interpreter handoff and Cantonese input.
 - Paid/realtime providers only after comparable approved tests and explicit spending controls.
 
-## Deferred native experiment
+## Native app
 
-The browser is the only active client/release path. [ADR 0003](decisions/0003-defer-apple-distribution.md)
-retains the [iOS shell](../ios/README.md) as research and excludes Apple signing,
-TestFlight and native builds from current gates. Reopening needs a new owner decision.
-Historical unsigned evidence remains in the [validation record](VALIDATION_REPORT.md);
-it does not establish current backend compatibility.
+The browser is the only client/release path. [ADR 0003](decisions/0003-defer-apple-distribution.md)
+deferred Apple distribution and [ADR 0020](decisions/0020-remove-ios-shell.md) removed the iOS shell; it remains
+recoverable from git history. Building a native app needs a new owner decision.
+Historical unsigned evidence remains in the [validation record](VALIDATION_REPORT.md).

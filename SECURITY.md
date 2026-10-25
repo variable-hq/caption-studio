@@ -59,35 +59,6 @@ Current deployment identity is in the [runbook](docs/DEPLOYMENT.md); physical re
 account-plan/data controls and exact public route behavior still require verification.
 Successful packaging/deployment is not an application-auth or semantic-quality test.
 
-## Deferred iOS feasibility shell
-
-Paid Apple distribution was removed from the current scope on 10 August 2026. The native
-files remain as inactive research; the security boundary below applies only if they are
-revisited.
-
-The [`ios/` shell](ios/README.md) is an internal SwiftUI and `WKWebView` feasibility
-client for the same dashboard. It contains no Groq key, Cloudflare credential, OBS token,
-caption model, or alternate API. It accepts only an HTTPS `APP_BASE_URL`, grants WebKit
-microphone capture only to that exact configured main-frame origin, and denies other
-media types, frames, and origins. In-app navigation is limited to the configured
-dashboard and Cloudflare Access; native bridge messages require the exact dashboard
-origin and main frame. When the app becomes inactive, the lifecycle bridge stops
-capture, requests a server pause, and reconciles state on foreground. Background capture
-is not enabled.
-
-The default project configuration currently names the existing Worker, whose deployed
-revision may not match this working tree. Before any signed build, point the shell at an
-isolated Cloudflare Access-protected demo Worker and verify its revision, routes, secrets,
-and tester allowlist. Never weaken Access, add a client-side bypass, or embed credentials
-to make App Review or TestFlight sign-in easier.
-
-The included Apple privacy manifest declares the native shell's app-local preference
-access only. It is not an App Store Connect privacy answer for audio, captions, Access
-identity, Worker observability, Groq processing, or TestFlight feedback. The 4 August
-simulator build and generic-device archive were unsigned and predate the final origin and
-lifecycle hardening. They do not establish a current complete archive, Apple signing,
-upload, installation, physical-device behavior, or backend compatibility.
-
 ## Overlay credential model
 
 - The single Main channel receives a cryptographically random 256-bit OBS token.
@@ -236,10 +207,6 @@ into the response, before the response is trusted. It is a heuristic safety net,
 guarantee: only its construction has been tested, not its effectiveness against a live
 model, and a sufficiently subtle prompt-injection attempt could still pass both checks.
 
-The native shell stores only the operator's acknowledgement of the processing notice in
-app-local preferences. Web content loaded inside it retains the same browser-memory,
-`localStorage`, `sessionStorage`, backend, and provider boundaries described above.
-
 Groq Zero Data Retention must be enabled before approved real-sermon testing. Groq's
 published policy says non-content usage metadata is still retained. Verify the active
 organization's Data Controls rather than assuming a key inherits another account's ZDR
@@ -274,13 +241,6 @@ setting.
   250-viewer socket ceiling, malformed channel IDs,
   cross-protocol tokens, invalid origins, oversized bodies, and provider failures with
   synthetic data before a live pilot.
-- If Apple distribution is explicitly reopened, confirm the legal publisher and bundle
-  identifier; use an enrolled Apple team and provisioning profile; complete
-  export-compliance and App Store privacy answers; and validate a signed archive without
-  placing certificates, profiles, API keys, or reviewer credentials in the repository.
-- In that future case, keep TestFlight feedback free of captions, audio, Access tokens,
-  and OBS URLs. Test the signed build on a physical device against an isolated demo
-  backend before allowing any approved real-sermon use.
 
 ## Dependency and code hygiene
 

@@ -1,6 +1,7 @@
 # ADR 0003: defer Apple distribution
 
-Date: 10 August 2026. Status: accepted for the current phase.
+Date: 10 August 2026. Status: accepted; the decision to retain `ios/` is superseded by
+[ADR 0020](0020-remove-ios-shell.md), which removed it.
 
 ## Context
 

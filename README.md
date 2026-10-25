@@ -136,9 +136,9 @@ counters and rolling usage history.
 ## Not yet implemented
 
 Application audio storage, a paid AI fallback, simultaneous target languages, a live
-caption correction editor, shared church profiles, tenant roles, and an authorized TB2
-passage corpus. The [iOS experiment](ios/README.md) is deferred research
-([ADR 0003](docs/decisions/0003-defer-apple-distribution.md)). See
+caption correction editor, shared church profiles, tenant roles, an authorized TB2
+passage corpus, and a native app (the deferred iOS shell was removed in
+[ADR 0020](docs/decisions/0020-remove-ios-shell.md)). See
 [Roadmap](docs/ROADMAP.md) and [remaining gaps](docs/GAP_ANALYSIS.md) for planned work.
 
 ## AI usage and limits
