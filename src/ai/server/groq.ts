@@ -190,15 +190,42 @@ function detectedLocale(
   return match?.locale;
 }
 
-export function buildTranscriptionPrompt(keywordHints: readonly string[], language: SourceLanguage = "auto") {
+const TRANSCRIPTION_PROMPT_BYTES = 224;
+const PREVIOUS_TRANSCRIPT_PROMPT_BYTES = 96;
+
+function utf8Bytes(value: string) {
+  return new TextEncoder().encode(value).length;
+}
+
+// Whisper reads its prompt as the speech that came just before this chunk, so the
+// tail of the previous chunk's transcript carries continuity across chunk boundaries.
+function previousTranscriptTail(previousTranscript: string) {
+  const words = previousTranscript.trim().split(/\s+/u).filter(Boolean);
+  let tail = "";
+  for (let index = words.length - 1; index >= 0; index -= 1) {
+    const candidate = tail ? `${words[index]} ${tail}` : words[index];
+    if (utf8Bytes(candidate) > PREVIOUS_TRANSCRIPT_PROMPT_BYTES) break;
+    tail = candidate;
+  }
+  return tail;
+}
+
+export function buildTranscriptionPrompt(
+  keywordHints: readonly string[],
+  language: SourceLanguage = "auto",
+  previousTranscript = "",
+) {
+  const tail = previousTranscriptTail(previousTranscript);
+  // Conservative byte budget also handles multi-byte source-language spellings.
+  const hintBudget = TRANSCRIPTION_PROMPT_BYTES - (tail ? utf8Bytes(tail) + 1 : 0);
   let prompt = language === "id" ? "Khotbah gereja. Nama dan ejaan: " : "Church service or sermon. Preserve biblical names: ";
   for (const term of keywordHints.map((value) => value.trim()).filter(Boolean).slice(0, 40)) {
     const candidate = prompt + term + ", ";
-    // Conservative byte budget also handles multi-byte source-language spellings.
-    if (new TextEncoder().encode(candidate).length > 224) continue;
+    if (utf8Bytes(candidate) > hintBudget) continue;
     prompt = candidate;
   }
-  return prompt.trim().replace(/,$/u, "");
+  prompt = prompt.trim().replace(/,$/u, "");
+  return tail ? `${prompt} ${tail}` : prompt;
 }
 
 export function buildTranslationMessages(request: TranslationRequest) {
@@ -241,6 +268,7 @@ export async function transcribeWithGroq(input: {
   audio: Blob;
   sourceLanguage: SourceLanguage;
   keywordHints: string[];
+  previousTranscript?: string;
   signal?: AbortSignal;
 }): Promise<TranscriptSegment[]> {
   const form = new FormData();
@@ -251,7 +279,10 @@ export async function transcribeWithGroq(input: {
   );
   form.append("response_format", "verbose_json");
   form.append("temperature", "0");
-  form.append("prompt", buildTranscriptionPrompt(input.keywordHints, input.sourceLanguage));
+  form.append(
+    "prompt",
+    buildTranscriptionPrompt(input.keywordHints, input.sourceLanguage, input.previousTranscript),
+  );
 
   if (input.sourceLanguage !== "auto") {
     const speechCode = findLanguage(input.sourceLanguage)?.speechCode;

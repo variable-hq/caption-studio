@@ -144,6 +144,7 @@ export class CloudProviderClient
     form.append("audio", request.audio, `caption-audio.${extension}`);
     form.append("sourceLanguage", request.sourceLanguage);
     form.append("keywordHints", JSON.stringify(request.keywordHints));
+    if (request.previousTranscript) form.append("previousTranscript", request.previousTranscript);
 
     const response = await fetch("/api/ai/transcribe", {
       method: "POST",

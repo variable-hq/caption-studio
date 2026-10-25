@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     const audio = form.get("audio");
     const sourceLanguage = String(form.get("sourceLanguage") ?? "auto");
     const keywordHintsValue = String(form.get("keywordHints") ?? "[]");
+    const previousTranscript = String(form.get("previousTranscript") ?? "").slice(-1_000);
 
     if (!(audio instanceof Blob) || audio.size === 0) {
       return NextResponse.json({ error: "An audio chunk is required." }, { status: 400 });
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
       audio,
       sourceLanguage: sourceLanguage as SourceLanguage,
       keywordHints,
+      previousTranscript,
       signal: request.signal,
       telemetry,
     }));

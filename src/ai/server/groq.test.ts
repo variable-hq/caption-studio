@@ -34,6 +34,33 @@ describe("Groq cloud provider prompts", () => {
     expect(prompt.length).toBeLessThanOrEqual(900);
   });
 
+  it("ends the transcription prompt with the tail of the previous transcript", () => {
+    const previous = `${"kata ".repeat(60)}dan Yesus berkata kepada murid-murid-Nya`;
+    const prompt = buildTranscriptionPrompt(["Yohanes", "Korintus"], "id", previous);
+    const bytes = new TextEncoder().encode(prompt).length;
+
+    expect(prompt.startsWith("Khotbah gereja.")).toBe(true);
+    expect(prompt).toContain("Yohanes");
+    expect(prompt.endsWith("dan Yesus berkata kepada murid-murid-Nya")).toBe(true);
+    expect(prompt).not.toContain("kata kata kata kata kata kata kata kata kata kata kata kata kata kata kata kata kata kata");
+    expect(bytes).toBeLessThanOrEqual(224);
+  });
+
+  it("keeps the whole transcription prompt within budget when hints and context compete", () => {
+    const hints = Array.from({ length: 40 }, (_, index) => `Nama${index}`);
+    const prompt = buildTranscriptionPrompt(hints, "id", "Roh Kudus menyertai kita semua");
+
+    expect(new TextEncoder().encode(prompt).length).toBeLessThanOrEqual(224);
+    expect(prompt.endsWith("Roh Kudus menyertai kita semua")).toBe(true);
+    expect(prompt).toContain("Nama0");
+  });
+
+  it("leaves the transcription prompt unchanged without a previous transcript", () => {
+    expect(buildTranscriptionPrompt(["Yohanes"], "id", "  ")).toBe(
+      buildTranscriptionPrompt(["Yohanes"], "id"),
+    );
+  });
+
   it("provides the reviewed idiomatic prompt when customization is omitted or blank", () => {
     expect(normalizeTranslationSystemPrompt(undefined)).toBe(
       DEFAULT_TRANSLATION_SYSTEM_PROMPT,

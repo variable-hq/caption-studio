@@ -76,7 +76,8 @@ translation setting, requests no microphone permission, and never starts a servi
 ### During the service
 
 1. The browser records the active 6- to 18-second window at a time.
-2. The protected API transcribes the chunk with bounded church/biblical hints.
+2. The protected API transcribes the chunk with bounded church/biblical hints and the end
+   of the previous chunk's transcript as continuity context.
 3. If source and target differ, the protected API translates with an immutable server
    safety/output envelope, the active bounded operator prompt, up to four recent source
    captions, and approved mappings.
