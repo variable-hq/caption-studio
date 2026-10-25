@@ -200,8 +200,12 @@ Readiness verifies configured model availability. Stale `llama-3.1-8b-instant`
 overrides resolve to the migrated translation default. Other explicit overrides require
 normal readiness and quality review.
 
-Transcription accepts WebM/Ogg/MP4, at most 3 MB of audio, and bounded hints. The provider
-prompt uses a conservative 224 UTF-8-byte budget. Only canonical names enter ASR hints;
+Transcription accepts WebM/Ogg/MP4, at most 3 MB of audio, bounded hints and the previous
+chunk's corrected transcript (at most 1,000 characters accepted). The provider prompt uses a
+conservative 224 UTF-8-byte budget: when a previous transcript exists, its last whole words
+(at most 96 bytes) end the prompt as Whisper's preceding-speech context and hints fill the
+rest. Start, translation refresh and Clear reset it together with the translation context. Only
+canonical names enter ASR hints;
 approved whole-word recognition variants are deterministic corrections, not training.
 
 Translation receives current source, at most four retained source captions, relevant

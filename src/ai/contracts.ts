@@ -22,6 +22,7 @@ export interface TranscriptionRequest {
   audio: Blob;
   sourceLanguage: SourceLanguage;
   keywordHints: string[];
+  previousTranscript?: string;
 }
 
 export interface TranslationRequest {

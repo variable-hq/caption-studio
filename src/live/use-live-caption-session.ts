@@ -576,6 +576,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           audio,
           sourceLanguage: current.sourceLanguage,
           keywordHints: keywordHints(glossary.map((entry) => ({ ...entry, variants: [] }))),
+          previousTranscript: recentContextRef.current.at(-1),
         },
         inferenceContext,
         signal,
