@@ -94,7 +94,7 @@ Estimate full-service usage from observations, not a monthly multiplication alon
 
 ### G09 — P1: human usability and accessibility
 
-Synthetic browser/Axe checks pass at 1920, 1200, 390 and 320px for operator, tutorial,
+Synthetic browser/Axe checks pass at 1920, 1200, 390 and 320px for operator,
 remote, reader, archives and usage. Physical Safari/phones, actual browser zoom,
 screen readers and volunteer comprehension remain unverified. Have representative
 operators configure a service and explain the difference between Clear, Remove and Delete.

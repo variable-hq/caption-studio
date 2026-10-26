@@ -20,7 +20,6 @@
     "test": "vitest run",
     "check:adrs": "node scripts/check-adr-numbers.mjs",
     "qa": "npm run qa:all",
-    "qa:tutorial": "node scripts/qa/tutorial.mjs",
     "qa:operator": "node scripts/qa/operator-ui.mjs",
     "qa:experience": "node scripts/qa/experience-ui.mjs",
     "qa:runtime": "node scripts/qa/experience-runtime.mjs",

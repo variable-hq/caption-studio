@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 
-import { SpotlightCard } from "@/components/reactbits";
 import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
 import type { CaptionStyle } from "@/live/contracts";
 
@@ -65,10 +64,10 @@ export function CaptionPreview({
   const marginX = `${Math.round((style.horizontalMarginPercent / 100) * OBS_CANVAS_WIDTH)}px`;
 
   return (
-    <SpotlightCard className="previewCard" aria-labelledby={headingId}>
+    <section className="previewCard" aria-labelledby={headingId}>
       <div className="sectionHeading">
         <div>
-          <h2 id={headingId}>Output monitor</h2>
+          <h2 id={headingId}>Preview</h2>
         </div>
         <span className={`statusChip ${live ? "live" : ""}`}>{badge}</span>
       </div>
@@ -115,18 +114,18 @@ export function CaptionPreview({
         </div>
         {!caption ? (
           <p className="previewEmpty">
-            No public caption
-            <span>{live ? "Listening for the next caption" : "The caption canvas is clear"}</span>
+            Nothing on screen
+            <span>{live ? "Listening for the next caption" : "The screen is clear"}</span>
           </p>
         ) : null}
       </div>
-      <p className="previewHelp">Scaled copy of the 1920 × 1080 OBS canvas. Verify the actual Browser Source in OBS.</p>
+      <p className="previewHelp">A scaled copy of the 1920 × 1080 OBS screen. Check the real Browser Source in OBS.</p>
       {sourceText ? (
         <div className="sourceTranscript">
-          <strong>Source · Operator only</strong>
+          <strong>Heard · only you see this</strong>
           <p lang={sourceLanguage === "auto" ? undefined : sourceLanguage}>{sourceText}</p>
         </div>
       ) : null}
-    </SpotlightCard>
+    </section>
   );
 }

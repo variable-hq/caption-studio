@@ -43,13 +43,13 @@ export function StatusBanner({
         <strong>
           {hasService
             ? liveNeedsAttention
-              ? "Live service needs attention"
+              ? "The service needs attention"
               : isRefreshing
-                ? "Refreshing translation session"
+                ? "Applying your changes"
               : isPaused
-                ? "Live service paused"
-                : "Live operator console"
-            : "Service setup"}
+                ? "Paused"
+                : "Live"
+            : "Can’t start yet"}
         </strong>
         <p>{message}</p>
       </div>

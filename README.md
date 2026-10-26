@@ -29,12 +29,12 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
   mobile viewer, and an appending reader, with an instant quick-block for unanticipated
   words and an optional pre-publish output buffer (configurable dwell; pause, edit, clear,
   or fast-forward the next-up caption).
-- **Operator dashboard**: a persistent Master Controls strip (Start/Take over, Pause/
-  Resume, Clear, End) reachable at every screen width; Manual override and buffer
-  controls in a dedicated sidebar section; a resizable, bookmarkable sidebar;
-  and "· Your default" indicators on every saved discrete-choice setting. Full behavior
-  and visuals: [Product specification](docs/PRODUCT_SPEC.md) and
-  [Design system](docs/DESIGN_SYSTEM.md).
+- **Operator dashboard**: three screens, **Live**, **Sermons** and **Settings**, built
+  for volunteers. Live shows what was heard beside what the audience sees, a readiness
+  checklist that links to each fix, and, during a service, Pause, Clear screen and End
+  service pinned to the bottom of the screen. Every screen has its own bookmarkable
+  address. Full behavior and visuals: [Product specification](docs/PRODUCT_SPEC.md),
+  [Brand guidelines](docs/BRAND_GUIDELINES.md) and [Design system](docs/DESIGN_SYSTEM.md).
 - **Service history**: optional per-operator private archives, corrections, exclusions,
   and AI-generated summaries, retained seven days after End.
 
@@ -60,20 +60,19 @@ a sign-in.
 | `/view` | Per-service latest-caption viewer link |
 | `/read` | Per-service appending reader link |
 
-First-time setup is covered by an interactive six-step guide in the dashboard
-(**How to use**, reopenable anytime):
+First-time setup follows the Live screen's checklist; the **Help** page (the **?** button)
+lists the same steps:
 
-1. **Overview** — the two-computer setup (capture computer + separate OBS computer) and
-   where each audience output comes from.
-2. **Audio** — connect the microphone/interface and confirm the input meter follows it.
-3. **Languages** — choose the spoken and audience languages, recording window, and any
-   terminology (the public caption filter lives in Manual override).
-4. **OBS** — style the caption overlay, then paste the reusable Browser Source URL into
-   a 1920 × 1080 OBS source.
-5. **Audience** — start captions, verify a test phrase reaches OBS, then share the
-   mobile viewer/reader links and pair the operator phone.
-6. **Controls** — Pause/Resume/Clear behavior, watching AI usage, and ending the
-   service.
+1. **Settings › OBS & links** — create the OBS link once and paste it into a 1920 × 1080
+   OBS Browser Source on the separate OBS computer.
+2. **Settings › This computer** — choose the microphone or audio interface and check the
+   level.
+3. **Settings › Languages & timing** and **Words** — choose the spoken and caption
+   languages, caption speed, names and terms, and words never to show.
+4. **Settings › Caption look** — style the captions.
+5. **Live** — tick whether to save the transcript, press **Start captions**, check a test
+   phrase reaches OBS, then share the phone viewer and reader links and pair a phone as a
+   remote. Pause, Clear screen and End service stay at the bottom of the screen.
 
 ## Languages and quality
 
@@ -88,7 +87,7 @@ and [rehearsal gates](docs/STAKEHOLDER_TEST_GUIDE.md).
 **Live captioning.** Moderated captions publish to a reusable OBS Browser Source, a
 per-service mobile viewer, and an appending reader, with an optional output buffer
 holding the next caption for a configurable 1-5 second dwell (default 3) before it
-publishes — Pause, refresh, takeover, or End discard it; Clear live caption leaves it
+publishes — Pause, refresh, takeover, or End discard it; Clear screen leaves it
 queued. See [ADR 0016](docs/decisions/0016-client-side-output-buffer.md) and
 [ADR 0017](docs/decisions/0017-configurable-output-buffer-dwell.md).
 
@@ -118,7 +117,7 @@ grounded to approved church content). Full behavior:
 
 | Action | OBS and latest viewer | Appending reader | Private history and usage |
 | --- | --- | --- | --- |
-| Clear live caption | Blank; capture continues | Keep committed paragraphs, discard pending work | Preserved |
+| Clear screen | Blank; capture continues | Keep committed paragraphs, discard pending work | Preserved |
 | Quick block a word | Hides any caption containing it immediately, without a settings refresh | Same caption hidden in the reader/archive too | Preserved |
 | Pause | Blank; capture stops | Keep committed paragraphs, mark boundary | Preserved |
 | Manual caption (while paused) | Show operator-typed text (240 characters max) in place of the hidden translation | Not appended to paragraphs; recorded as a separate operator note | Note saved if history saving is on |
@@ -127,11 +126,11 @@ grounded to approved church content). Full behavior:
 | End or 90-minute expiry | Blank; latest-viewer link revoked; OBS URL retained | Bounded finalization, then 30-minute reading grace | Saved content expires seven days later; usage keeps its own expiry |
 | Takeover | Replace controller and latest-viewer link | Revoke previous reader and remote | Prior saved service retained until expiry |
 | Remove passage | Clear current caption if its source belongs to the removed passage | Remove selected paragraph on refresh/poll | Preserve original source, exclude its IDs from summaries, invalidate drafts |
-| Delete saved sermon | Available after End | Revoke reader and remove history on its next successful poll | Delete sermon content; numeric usage retained |
+| Delete sermon | Available after End | Revoke reader and remove history on its next successful poll | Delete sermon content; numeric usage retained |
 
-Use **Live outputs** for OBS, the mobile viewer, reader links, and phone pairing;
-**Sermon history** for private archives and summaries; and **AI usage** for service
-counters and rolling usage history.
+Use **Live** for the phone viewer, reader link and phone pairing during a service;
+**Settings › OBS & links** for the OBS link and replacing links; **Sermons** for private
+archives and summaries; and **Settings › Usage** for rolling usage history.
 
 ## Not yet implemented
 
@@ -222,16 +221,19 @@ finishing with a whitespace check, sequentially. Run
 Browser and runtime QA scripts are separate from validation. The browser scripts load
 Playwright and Axe from an isolated directory so that no test dependency enters the
 product. Run `npm run qa` (or `npm run qa:all`) to install that isolated tooling and
-Chromium when needed, start the local server, and run the three mocked browser suites in
+Chromium when needed, start the local server, and run the two mocked browser suites in
 sequence. Every API request is mocked:
 
 ```sh
 npm run dev -- --hostname 127.0.0.1 --port 3100
 # Individual scripts remain available when the server and tooling are already running.
-CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:tutorial
 CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:operator
 CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:experience
 ```
+
+If headless Chromium's fake microphone never resolves on your machine (the operator suite
+then times out at **Start captions**), set `CAPTION_QA_STUB_MIC=1` to substitute a
+synthetic tone for the microphone in the operator suite. It is off by default.
 
 `npm run qa:runtime` exercises the real local Durable Objects against an isolated
 Wrangler preview on port 8787 with AI disabled; follow

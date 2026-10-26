@@ -73,14 +73,14 @@ export function LiveOutputsSection({
       </section>
       {hasService ? readerAndPhoneOutputs : null}
       <details className="outputDestination" open>
-        <summary>OBS overlay <span>Reusable browser source</span></summary>
+        <summary>OBS <span>Same link every week</span></summary>
         <div className="obsSetupCard workspaceOutputCard">
           <div className="sectionHeading">
             <div>
-              <h3>OBS Main channel</h3>
+              <h3>OBS link</h3>
             </div>
             <span className={`statusChip ${obs.configured ? "ready" : ""}`}>
-              {obs.configured ? "Reusable" : "Not created"}
+              {obs.configured ? "Set up" : "Not set up yet"}
             </span>
           </div>
           {!obs.configured ? (
@@ -94,7 +94,7 @@ export function LiveOutputsSection({
                 disabled={obs.channelAction !== null || isBusy}
                 onClick={() => obs.onCreateChannel()}
               >
-                {obs.channelAction === "create" ? "Creating securely…" : "Create OBS channel"}
+                {obs.channelAction === "create" ? "Creating…" : "Create OBS link"}
               </button>
             </>
           ) : (
@@ -104,11 +104,11 @@ export function LiveOutputsSection({
                 between services.
               </p>
               <button className="primaryButton fullButton" onClick={() => obs.onCopyUrl()}>
-                {obs.copied ? "URL copied" : "Copy OBS URL"}
+                {obs.copied ? "Copied" : "Copy OBS link"}
               </button>
               <p className="privacyNote">Keep this reusable URL private. Anyone holding it can read public captions.</p>
               <details className="credentialDisclosure">
-                <summary>Reveal URL for manual copy</summary>
+                <summary>Show the link to copy by hand</summary>
                 {obs.urlField}
               </details>
               {!hasService && (
@@ -118,20 +118,20 @@ export function LiveOutputsSection({
                     disabled={obs.controlAction !== null || anotherOperatorActive || isBusy}
                     onClick={() => obs.onShowTest()}
                   >
-                    {obs.controlAction === "show-test" ? "Showing…" : "Show test"}
+                    {obs.controlAction === "show-test" ? "Showing…" : "Show a test caption"}
                   </button>
                   <button
                     className="secondaryButton"
                     disabled={obs.controlAction !== null || anotherOperatorActive || isBusy}
                     onClick={() => obs.onClearCaption()}
                   >
-                    {obs.controlAction === "clear" ? "Clearing…" : "Clear live caption"}
+                    {obs.controlAction === "clear" ? "Clearing…" : "Clear screen"}
                   </button>
                 </div>
               )}
               <p className="helpText">{hasService ? "Use the live controls to clear captions. Pause first to show a test caption from More." : anotherOperatorActive ? "Another operator controls this channel. Test and clear are available when the channel is idle." : "Show test sends synthetic text without microphone capture or AI calls. Confirm it appears in OBS, then clear it."}</p>
               <details className="advancedActions">
-                <summary>Advanced link security</summary>
+                <summary>OBS link shared by mistake?</summary>
                 <p>
                   Rotate only if the URL was exposed. The old OBS source stops
                   working immediately. End the service before rotating.
@@ -149,7 +149,7 @@ export function LiveOutputsSection({
                         obs.onRotateChannel();
                       }}
                     >
-                      {obs.channelAction === "rotate" ? "Rotating…" : "Confirm rotation"}
+                      {obs.channelAction === "rotate" ? "Replacing…" : "Replace OBS link"}
                     </button>
                   </div>
                 ) : (
@@ -167,7 +167,7 @@ export function LiveOutputsSection({
         </div>
       </details>
       <details className="outputDestination">
-        <summary>Mobile translation viewer <span>Latest caption · No extra AI</span></summary>
+        <summary>Phone viewer <span>New link for each service</span></summary>
         <div className="viewerLinkPanel">
           <p>
             Share this read-only link with intended viewers. It shows only the
@@ -180,14 +180,14 @@ export function LiveOutputsSection({
             <>
               <div className="buttonGrid">
                 <button className="primaryButton" type="button" onClick={() => viewer.onCopy()}>
-                  {viewer.copied ? "Link copied" : "Copy mobile link"}
+                  {viewer.copied ? "Copied" : "Copy link"}
                 </button>
                 <button className="secondaryButton" type="button" onClick={() => viewer.onOpenPreview()}>
                   Open preview
                 </button>
               </div>
               <details className="credentialDisclosure">
-                <summary>Reveal mobile link for manual copy</summary>
+                <summary>Show the link to copy by hand</summary>
                 <label>
                   Current mobile viewer link
                   <input
@@ -200,7 +200,7 @@ export function LiveOutputsSection({
                 </label>
               </details>
               <details className="advancedActions">
-                <summary>Viewer link security</summary>
+                <summary>Phone viewer link shared by mistake?</summary>
                 <p>
                   Replace the link if it was shared with the wrong person.
                   Existing viewers disconnect immediately; OBS is unaffected.
@@ -223,7 +223,7 @@ export function LiveOutputsSection({
                         viewer.onReplace();
                       }}
                     >
-                      {viewer.viewerAction === "replace" ? "Replacing…" : "Confirm replacement"}
+                      {viewer.viewerAction === "replace" ? "Replacing…" : "Replace link"}
                     </button>
                   </div>
                 ) : (
@@ -245,7 +245,7 @@ export function LiveOutputsSection({
               disabled={viewer.viewerAction !== null || isBusy}
               onClick={() => viewer.onReplace()}
             >
-              {viewer.viewerAction === "replace" ? "Creating link…" : "Create mobile viewer link"}
+              {viewer.viewerAction === "replace" ? "Creating link…" : "Create phone viewer link"}
             </button>
           )}
         </div>

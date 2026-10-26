@@ -40,7 +40,7 @@ export function ManualCaptionControl({
             maxLength={MAX_MANUAL_CAPTION_CHARS}
             disabled={disabled}
             aria-describedby={helpId}
-            placeholder="Text to show instead of the live translation…"
+            placeholder="e.g. Please silence your phones…"
             onChange={(event) => setText(event.target.value)}
           />
         </label>

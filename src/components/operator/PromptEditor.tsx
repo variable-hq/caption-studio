@@ -50,7 +50,7 @@ export function PromptEditor({
     <div className="promptEditor">
       <div className="promptHeading">
         <div>
-          <strong>Translation system prompt</strong>
+          <strong>Instructions for the translator</strong>
           <p id={helpId}>
             These operator instructions are sent to Groq with every translated
             caption. The application-owned envelope remains fixed in the request,

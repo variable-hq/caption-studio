@@ -30,7 +30,9 @@ records to establish release evidence.
   [ADR 0001](decisions/0001-free-local-first-ai.md) is superseded historical context.
 - [ADR 0003](decisions/0003-defer-apple-distribution.md) deferred Apple distribution;
   [ADR 0020](decisions/0020-remove-ios-shell.md) then removed the unused iOS shell.
-- [ADR 0004](decisions/0004-first-visit-operator-tutorial.md) describes the operator guide.
+- [ADR 0004](decisions/0004-first-visit-operator-tutorial.md) described the first-visit
+  operator guide; [ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)
+  superseded it with the Live, Sermons and Settings layout.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator instead of the deterministic filter alone.
 - [ADR 0013](decisions/0013-manual-caption-archived-as-operator-notes.md) records why a

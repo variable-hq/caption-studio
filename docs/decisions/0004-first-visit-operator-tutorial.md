@@ -1,7 +1,8 @@
 # ADR 0004: first-visit operator tutorial
 
-Date: 12 September 2026. Status: implemented and merged. Current deployment evidence
-is in [Deployment](../DEPLOYMENT.md); the original local UI results remain dated evidence.
+Date: 12 September 2026. Status: superseded by
+[ADR 0021](0021-live-sermons-settings-operator-layout.md), which replaced the tutorial with
+a Help page and a readiness checklist. The original local UI results remain dated evidence.
 
 ## Decision
 

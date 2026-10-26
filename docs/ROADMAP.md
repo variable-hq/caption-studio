@@ -13,8 +13,9 @@ church-approved quality require separate evidence.
 - Reusable OBS channel, latest-caption viewer, shared styles, safe margins, explicit
   refresh, Pause/Resume/Clear/End, a paused manual-caption override archived as a
   separate reader/archive note, takeover, recovery and link rotation.
-- Overview-first dashboard with grouped sidebar navigation, hash-addressable sections,
-  a phone drawer, and a collapsible right service panel with a compact live bar.
+- Live, Sermons and Settings dashboard for volunteer operators, with a readiness
+  checklist, a pinned live control bar and bookmarkable screens
+  ([ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)).
 - Repository deploy guard (`OPEN_NEXT_DEPLOY=true`), deployment dry run in validation,
   file- and export-level hygiene audits, and `npm run qa:*` wrappers.
 
