@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  --font-sans: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-inter, Inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   /* Colour */

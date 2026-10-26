@@ -89,8 +89,8 @@
   height: 34px;
   flex: 0 0 34px;
   border-radius: var(--radius-md);
-  background: var(--ok-ink);
-  color: var(--card);
+  background: var(--accent);
+  color: var(--on-accent);
   font-size: var(--text-sm);
 }
 

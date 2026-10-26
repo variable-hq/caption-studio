@@ -4,9 +4,14 @@
 `src/app/dashboard.css`, `src/app/service-panel.css` and the React Bits adaptations.
 No CSS framework or runtime dependency is involved.
 
+[Brand guidelines](BRAND_GUIDELINES.md) set the rules for using these tokens and classes:
+voice, colour roles, type and spacing roles, and component behaviour.
+
 ## Tokens
 
 All colour, type, spacing and size values come from custom properties on `:root`.
+`--font-sans` resolves to Inter, self-hosted at build time by `next/font` in
+`src/app/layout.tsx` (`--font-inter`), with system fallbacks after it.
 
 | Group | Tokens |
 | --- | --- |

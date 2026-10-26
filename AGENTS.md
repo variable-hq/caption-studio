@@ -14,7 +14,7 @@ don't read the full `docs/` tree unless the task is genuinely repo-wide.
 | Live caption / transcription / translation / moderation behavior | `docs/PRODUCT_SPEC.md`, `docs/ARCHITECTURE.md` |
 | Credentials, tokens, Access, retention, data handling | `SECURITY.md` |
 | Build, deploy, bindings, secrets, DB migrations | `docs/DEPLOYMENT.md` |
-| UI visuals, tokens, theming, shared controls | `docs/DESIGN_SYSTEM.md`; run a UI change past `.agents/skills/web-design-guidelines/SKILL.md` |
+| UI visuals, copy, tokens, theming, shared controls | `docs/BRAND_GUIDELINES.md` (the rules every UI change follows), then `docs/DESIGN_SYSTEM.md` for token values and classes; run a UI change past `.agents/skills/web-design-guidelines/SKILL.md` |
 | Why a past decision was made | `docs/decisions/*.md` — check each file's own status, several are superseded |
 | What's already proposed, deferred, or a known gap | `docs/PILOT_IMPROVEMENTS.md`, `docs/ROADMAP.md`, `docs/GAP_ANALYSIS.md` |
 | Contribution / PR / validation workflow | `CONTRIBUTING.md` |
