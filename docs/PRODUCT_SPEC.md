@@ -43,15 +43,11 @@ The browser is the sole client. The deferred iPhone/iPad shell was removed
 
 ### Before the service
 
-On a browser's first visit, a six-step modal guide explains the setup, USB audio
-interface, languages, separate OBS computer, audience link, and live controls. Users
-can move between steps, skip with a button or Escape, and reopen it with **How to use**
-in the navigation rail or phone drawer; the header holds only **Service controls**.
-A step shortcut opens its related panel and focuses the panel heading. Reopening returns
-to the same step until page reload. Phones use a compact, labelled step selector.
-It opens automatically only after channel loading settles and no service is active.
-Manual replay during a service states that the service continues. The guide changes no
-translation setting, requests no microphone permission, and never starts a service.
+The dashboard opens on **Live** ([ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)).
+Its readiness checklist (caption service, microphone, languages, words, OBS) shows a tick
+or a red item with a **Fix** or **Set up** button that opens the matching Settings
+section. A **Help** page, one click from every screen, lists the steps of a service in
+plain words. Nothing opens automatically.
 
 1. The operator signs in through Cloudflare Access.
 2. The operator chooses a browser-visible microphone or audio interface and confirms its
@@ -101,8 +97,9 @@ translation setting, requests no microphone permission, and never starts a servi
     from the chosen text size down to 18 px so it fits one screen. Confirmed replacement revokes that link
     without changing OBS.
 11. Source/target language, terminology, public filters, recording window, and operator
-    prompt remain editable as drafts. The operator selects **Review refresh**, then
-    **Confirm refresh**, to apply them together; **Undo draft changes** discards them. Refresh clears unfinished audio, recent
+    prompt remain editable as drafts. A banner on Live and on the affected Settings
+    sections offers **Apply now**, which applies them together, and **Undo changes**,
+    which discards them. Applying clears unfinished audio, recent
     translation context, current output, and any queued buffer content, but does not end or
     extend the service, change
     live/paused state, replace controller ownership, or rotate the mobile/OBS links. Output
@@ -221,11 +218,8 @@ Bible retrieval corpus. Output can still be inaccurate and needs validation by t
 church for important names, references, and theological terms.
 
 Translation drafts stay in React/page memory. A custom prompt enters unencrypted browser
-`localStorage` only when the operator explicitly saves it. Caption style and the tutorial
-dismissal flag are also local preferences. Dismissing or completing the tutorial stores
-only `dismissed`; no step history, identity, or content is retained. If storage is blocked,
-the guide remains usable but may reappear after reload. Clearing site data resets this
-first-visit behavior. During a service, the full active language, terminology, filter, recording window,
+`localStorage` only when the operator explicitly saves it. Caption style is also a local
+preference. During a service, the full active language, terminology, filter, recording window,
 and prompt snapshot is held in that tab's unencrypted `sessionStorage` solely for same-tab
 recovery and removed on End, takeover, or idle cleanup. The active prompt is sent through
 the protected inference path to Groq, but the live translation prompt is not sent to OBS/viewer clients or stored in the room.
@@ -273,9 +267,9 @@ immediately without a translation refresh, and is unrelated to the recording win
 duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md) and
 [ADR 0017](decisions/0017-configurable-output-buffer-dwell.md). The On/Off setting, dwell
 duration, and their account defaults, plus the queued caption itself and its controls,
-all live together in the **Manual override** workspace section, alongside the public
-caption filter, Quick block and Manual caption, since the whole section groups every
-control that overrides or configures what reaches the audience.
+sit under **Check captions before they show** on the Live screen, both before Start and
+during a service; the queued captions and their controls appear in Live's **Quick fixes**
+with Quick block and Manual caption. The public caption filter lives in Settings › Words.
 
 - **On/Off**, default Off (matching behavior before this feature existed). On holds each
   caption for a **dwell duration** before it advances to Live: a fixed choice of 1/2/3/4/5
@@ -305,75 +299,55 @@ from whatever is merely selected in the current session's draft. Free-text field
 
 ### Caption display, OBS, and mobile viewing
 
-- The operator console uses neutral light and dark palettes built from shared design
-  tokens (see [Design system](DESIGN_SYSTEM.md)); the navigation **Theme** select offers
-  System, Light and Dark, and the choice is saved with the operator's account. Status
-  text and control labels do not depend on colour alone.
-- Locally adapted React Bits navigation, spotlight, and pending-state glow components add
-  restrained hierarchy and feedback without a runtime package dependency; reduced-motion,
-  keyboard, coarse-pointer, and touch behavior remain explicit.
-- Setup opens on Overview. A fixed desktop sidebar lists Overview, Audio input,
-  Translation, Appearance, Live outputs, Manual override, Sermon history, AI summary, AI
-  Behavior and AI usage under the headings Workspace, Setup, Service and Settings; Arrow,
-  Home and End keys
-  move between links. A **Resize navigation** handle on the rail's edge sets the sidebar
-  width between 200 and 420px by drag, arrow keys, Home/End, or double-click to reset;
-  the width is cached locally and saved with the operator's account.
-  Destinations keep the same order during a service. Below 981px a native modal drawer
-  provides the same links, Escape dismissal and focus return; desktop resizing closes it.
-- Section-only URL fragments support direct links, reload and browser Back/Forward.
-  In-page navigation keeps translation drafts and the before-Start history choice.
-  Reload preserves the destination, not unsaved drafts. Links never include credentials.
-- The overview shows spoken/audience language and the service window or elapsed time,
-  three "Before you go live" checks for audio, language and actual OBS verification, a
-  history-consent reminder, and **Review service setup** / **Open service controls**
-  actions. Service controls
-  opens an initially collapsed right panel grouping history consent with Start, live
-  actions, configuration details and an expandable caption monitor. It docks from 1280px
-  and becomes a modal drawer below that width. Escape returns focus to the trigger;
-  crossing the breakpoint closes it and restores scrolling. Toggling it does not affect
-  capture or consent. A deliberately opened desktop panel stays open during navigation.
-  Its live view shows identity status, the output monitor, and an always-visible Output
-  sub-section (Copy OBS URL, Copy mobile viewer link, Show test caption and Reveal OBS
-  URL for manual copy), followed by the configuration snapshot and, last, this service's
-  own usage totals. The output monitor is skipped here while viewing Live outputs, which
-  already shows it, so the panel never duplicates the same preview on screen.
-- Only Appearance keeps an inline output preview. Other pages have the optional monitor
-  in Service controls. Active settings remain distinct from unapplied drafts; detailed
-  translation-refresh controls appear in Translation, AI Behavior and Manual override,
-  with a compact review link on other pages.
-- Live outputs groups OBS, latest-viewer and reader/phone sharing into expandable sections.
-  Sermon history contains the workspace's saved archives, corrections and summaries;
-  the panel states that every signed-in operator sees them and the audience does not. OBS link rotation
-  stays disabled during a service.
-- A status bar docked at the bottom of the workspace (beside the sidebar on desktop,
-  full width on phones) holds two pills. They read Checking cloud AI, Cloud AI configured, Cloud setup needed or
-  Cloud AI unavailable, and Checking Main channel, Channel not created or Main channel ·
-  Idle/Live/Paused. They describe configuration and the server room, not observed OBS
-  connectivity or measured translation quality. Channel errors offer **Retry channel**
-  or, when the OBS credential must be rebuilt, **Rotate and recover**.
-- A skip link and workspace-heading focus support keyboard navigation. Opening a section
-  always moves focus to its heading so a screen reader announces the new page, but the
-  focus ring is drawn only when the section was opened from the keyboard; a click or tap
-  leaves the title unringed. A persistent **Master Controls** strip (Start captions or
-  Take over channel, Pause/Resume, Clear live caption, End) is reachable at every screen
-  width: it renders outside Service controls when collapsed and inside it when expanded,
-  since the panel is a blocking dialog below 1280px that would otherwise make an
-  outside-only copy unreachable while open. Each control is enabled only when applicable
-  to the current state, next to a status description (No service running, Capturing
-  audio, Paused, and so on). End opens the same native confirmation dialog
-  (**Confirm End** or **Keep service open**) regardless of where its trigger renders;
-  **Clear live caption** blanks OBS and the latest viewer, while preserving committed
-  reader paragraphs. Quick block and Manual caption (grouped under **Manual override**)
-  are reachable only from that workspace section while a service is live, including
-  while paused — never from the collapsed strip, since Manual caption types text
-  directly onto the live feed.
+- The operator console follows [Brand guidelines](BRAND_GUIDELINES.md) and uses neutral
+  light and dark palettes built from shared design tokens (see [Design system](DESIGN_SYSTEM.md)).
+  **Settings › This computer › Appearance** offers Match this computer, Light and Dark, and
+  the choice is saved with the operator's account. Status text and control labels do not
+  depend on colour alone.
+- A top bar holds the brand, one status pill (Ready, Checking…, Not ready, Live, Paused,
+  Applying changes…, Live on another computer, Ending…) and the **Live**, **Sermons** and
+  **Settings** tabs plus **Help**. Each screen has its own address (`#live`, `#sermons`,
+  `#settings=<section>`, `#help`), so links, reload and browser Back/Forward work; old
+  `#workspace=…` links land on the matching screen. Moving between screens keeps
+  translation drafts and the before-Start transcript choice; reload preserves the screen,
+  not unsaved drafts. Links never include credentials. The status pill announces state
+  changes to screen readers; the running clock beside it is not announced.
+- **Live** shows **Heard** (the source text, operator only) beside **Audience sees** (a
+  scaled copy of the OBS screen in the channel's saved style) and the microphone level.
+  Before Start it holds one Start card: **Start captions**, **Show a test caption**, a line
+  saying what to do next or what blocks Start, the transcript-saving choice, and the output
+  buffer under **Check captions before they show**. The side column holds the readiness
+  checklist, **Share** (phone viewer link, sermon reader link, pairing a phone as a remote,
+  and replacing a reader link shared by mistake) and, during a service, **This service**
+  (time left, transcript saving, and under Details the delay after speech, dropped audio
+  chunks, transcription and translation counts, tokens, and model names).
+- During a service a bar pinned to the bottom of Live holds **Pause**/**Resume**, **Clear
+  screen** and **End service** (or **Try End again** when End could not be confirmed); the
+  page reserves scroll space so the bar never covers a focused control. **Quick fixes**
+  replaces the Start card: Quick block, Manual caption while paused, the queued captions,
+  and a test caption while paused. End and Take over open native confirmation dialogs
+  (**End this service?**: Keep going / End service; **Take over captions?**: Keep watching
+  / Take over). **Clear screen** blanks OBS and the latest viewer while preserving
+  committed reader paragraphs.
+- When another operator's service is running, Live names them, mirrors their output
+  read-only and offers **Take over**; Start stays disabled.
+- **Settings** lists its sections beside the selected one: This computer (microphone,
+  level test, appearance), Languages & timing, Words (names and terms, the public caption
+  filter, and the TB2 import), Caption look (with a preview), OBS & links (OBS link,
+  phone viewer link and their replacement), AI translator, AI summary and Usage. Channel
+  errors offer **Retry channel** or, when the OBS credential must be rebuilt, **Rotate and
+  recover**, in a banner at the top of Live.
+- **Sermons** loads the workspace's saved sermons on opening, states that every signed-in
+  operator sees them and the audience does not, and shows each sermon's transcript,
+  reader passages, operator messages and AI summary. OBS link replacement stays disabled
+  during a service.
+- A skip link leads to the main content. Moving between screens with the keyboard moves
+  focus to the new screen's heading.
 - The output monitor carries each displayed caption's own `lang` attribute, including
   paused synthetic tests, without a visible label. Subsequent draft language edits do not
   relabel existing text.
-- Failed clipboard actions have hidden-by-default manual-copy recovery: OBS in Live
-  outputs or in Service controls' Output sub-section during a service, and the latest
-  audience link in Live outputs.
+- Failed clipboard actions have hidden-by-default manual-copy recovery in Settings › OBS &
+  links for both the OBS link and the phone viewer link.
 - Form labels remain readable, action targets are at least 44px high, and mobile inputs
   use a zoom-safe text size.
 - Layout gutters scale continuously and the same logical order reflows without horizontal
@@ -406,8 +380,7 @@ from whatever is merely selected in the current session's draft. Free-text field
   (`caption-studio:caption-style:v1`), beside the explicitly saved prompt
   (`caption-studio:translation-system-prompt:v1`), the explicitly saved summary
   defaults (`caption-studio:summary-defaults:v1`), the theme
-  (`caption-studio:theme:v1`), the sidebar width
-  (`caption-studio:sidebar-width:v1`) and the tutorial flag. Account
+  (`caption-studio:theme:v1`). Account
   values load first on each visit and win over the browser copy; the browser copy is
   used only when the account store is unavailable. Neither storage holds the OBS token. The tab's `sessionStorage` holds
   the controller token, the current mobile viewer link and the active translation
@@ -485,10 +458,10 @@ Code-level acceptance:
 
 - An operator can select an input, source, target, and 6- to 18-second recording window. During
   live or paused operation, language, terminology, filter, recording window, and custom-prompt edits
-  stay draft until an explicit confirmed translation refresh.
-- Service controls' Usage section separates service time, reserved transcription
-  attempts, and acknowledged translation calls/tokens for the live service; AI usage
-  separates that from Groq's provider headroom, which remains truthful when provider
+  stay draft until the operator presses **Apply now**.
+- Live's **This service** card separates service time, reserved transcription
+  attempts, and acknowledged translation calls/tokens for the live service; Settings ›
+  Usage separates that from Groq's provider headroom, which remains truthful when provider
   headers are unavailable and never claims account-wide consumption.
 - A refresh applies all drafts, clears unfinished audio/context/current output, rejects a
   stale-revision publish, and preserves service identity/timer, usage, controller, viewer,
@@ -511,16 +484,14 @@ Code-level acceptance:
   removes only it; Fast-forward publishes it immediately. Editing cannot reach Live
   unmoderated, and auto-resumes on Submit.
 - Appearance controls update the dashboard design preview continuously before Save.
-- Setup separates navigation and the selected settings page from collapsible service
-  controls. The output monitor renders the real 1920 × 1080 canvas scaled to the card and
-  shows the published caption under Live outputs and, during a live service, in Service
-  controls; Appearance keeps a sample beside its editor.
+- The output monitor renders the real 1920 × 1080 canvas scaled to the card and shows the
+  published caption on Live; Settings › Caption look keeps a sample above its editor.
 - The primary operator viewport is 1920 × 1080, with dashboard content capped at a
   readable 1160px rather than stretched across the full display.
-- The Setup layout reflows without horizontal scrolling from 320px through desktop
+- Every screen reflows without horizontal scrolling from 320px through desktop
   widths, including the 680px, 980px and 1280px layout boundaries.
-- The mobile service drawer keeps Start, blocking/takeover context and its close action
-  reachable. Closing it restores the focused workspace and does not change the service.
+- On phones the Live screen stacks into one column; the pinned control bar keeps Pause,
+  Clear screen and End service reachable and drops its hint text to save space.
 - The dashboard theme does not override the independently configured OBS caption colour
   or highlight.
 - Pause stops AI requests, clears OBS, and Resume retains the reusable URL and expiry.
@@ -588,18 +559,18 @@ The paired `/operator/mobile` remote offers **Pause captions**, **Resume caption
 **Clear live caption**; Resume stays disabled while the capture computer is disconnected,
 and each action reads as pending until the capture computer acknowledges it. The remote
 stays scoped to those live commands: saved transcripts and sermons are reviewed on the
-dashboard's Sermon history page, which any signed-in operator may open on any device.
+dashboard's Sermons screen, which any signed-in operator may open on any device.
 
 Up to 32 Access identities may hold a watcher credential for one service, and up to 32 may
 hold a paired-phone credential, matching the 32 watcher sockets the room accepts. Past
 that ceiling the oldest identity is dropped and must register again.
 
-Manual summaries use opted-in, ended history with a frozen source revision. Operators
-select an allowlisted Workers AI model, output language, short/detailed length and up to
-2,000 characters of guidance. The **AI summary** settings page holds account
-defaults for those four fields; **Save to my account** stores them explicitly, and
-each Summary assistant request is prefilled from them but still shows and sends its own
-values. The AI usage history disclosures explain that nothing is listed until usage is
+Manual summaries use opted-in, ended history with a frozen source revision. Settings › AI
+summary holds account defaults for the allowlisted Workers AI model, output language,
+short/detailed length and up to 2,000 characters of guidance; **Save to my account**
+stores them explicitly. **Generate summary** on a sermon sends those defaults and names
+them with a **Change defaults** link; it has no per-request overrides. The Usage history
+disclosures explain that nothing is listed until usage is
 loaded. Server-owned TB2 grounding rules cannot be edited. Bounded
 source sections and final synthesis produce points linked to source IDs; failures at
 context, call or daily budgets are visible. Source membership validation is not semantic
@@ -608,7 +579,7 @@ is also available; generating or regenerating never extends retention.
 
 The same settings page has **Generate a summary automatically after each service I end**
 (off by default, account-only). When on, ending a service with saving on queues the same
-summary job from the operator's saved defaults; it appears in Sermon history marked as
+summary job from the operator's saved defaults; it appears in Sermons marked as
 generated automatically, still needs review before export, and is skipped if a summary
 already exists. See [ADR 0019](decisions/0019-automatic-post-service-summary.md).
 

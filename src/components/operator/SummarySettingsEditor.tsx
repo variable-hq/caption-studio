@@ -42,7 +42,7 @@ export function SummarySettingsEditor({
     <div className="promptEditor summarySettingsEditor">
       <div className="promptHeading">
         <div>
-          <strong>Default summary configuration</strong>
+          <strong>Summary defaults</strong>
           <p id={helpId}>
             These defaults prefill the Summary assistant in Sermon history. Each
             summary request still shows and sends its own values, and generation
@@ -102,7 +102,7 @@ export function SummarySettingsEditor({
           maxLength={MAX_SUMMARY_GUIDANCE_CHARS}
           value={value.guidance}
           spellCheck
-          placeholder="Emphasize main points and speaker-stated applications…"
+          placeholder="e.g. Main points and how to apply them…"
           onChange={(event) => onChange({ ...value, guidance: event.target.value })}
         />
       </label>

@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardIcon } from "@/components/operator/DashboardNavigation";
+import { DashboardIcon } from "@/components/operator/DashboardIcon";
 import { BorderGlow } from "@/components/reactbits";
 import {
   OUTPUT_BUFFER_BACKING_CAPACITY,
@@ -49,7 +49,7 @@ export function OutputBufferQueueControl({
     <div className="outputBufferQueue" aria-label="Output buffer">
       <div className="outputBufferQueueHeader">
         <span>
-          {!front ? "Buffer empty" : "Next up"} · {queue.entries.length}/{OUTPUT_BUFFER_BACKING_CAPACITY} queued
+          {!front ? "Nothing waiting" : "Next up"} · {queue.entries.length}/{OUTPUT_BUFFER_BACKING_CAPACITY} queued
         </span>
       </div>
       {atCapacity && frontHeld ? (
@@ -129,7 +129,7 @@ export function OutputBufferQueueControl({
                   <button
                     type="button"
                     className="secondaryButton compactButton"
-                    title="Fast-forward to Live"
+                    title="Show now"
                     aria-label="Fast-forward this queued caption to Live"
                     disabled={disabled}
                     onClick={() => onFastForward(front.id)}

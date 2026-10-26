@@ -51,7 +51,7 @@ export function StyleEditor({
           />
         </label>
         <label>
-          Font type
+          Font
           <select
             value={style.fontFamily}
             onChange={(event) =>
@@ -64,7 +64,7 @@ export function StyleEditor({
           </select>
         </label>
         <label>
-          Horizontal alignment
+          Line alignment
           <select
             value={style.horizontalAlign}
             onChange={(event) =>
@@ -79,7 +79,7 @@ export function StyleEditor({
           </select>
         </label>
         <label>
-          Vertical position
+          Position
           <select
             value={style.verticalAlign}
             onChange={(event) =>
@@ -104,7 +104,7 @@ export function StyleEditor({
           </span>
         </label>
         <label>
-          Caption highlight
+          Band colour
           <span className="colorControl">
             <input
               type="color"
@@ -117,14 +117,14 @@ export function StyleEditor({
         </label>
         <label className="rangeControl fullField">
           <span>
-            Background transparency <strong>{style.backgroundTransparency}%</strong>
+            Band transparency <strong>{style.backgroundTransparency}%</strong>
           </span>
           <input
             type="range"
             min="0"
             max="100"
             value={style.backgroundTransparency}
-            aria-label={`Background transparency ${style.backgroundTransparency}%`}
+            aria-label={`Band transparency ${style.backgroundTransparency}%`}
             onInput={(event) =>
               setBackgroundTransparency(Number(event.currentTarget.value))
             }
@@ -132,14 +132,14 @@ export function StyleEditor({
         </label>
         <label className="rangeControl fullField">
           <span>
-            Horizontal safe margin <strong>{style.horizontalMarginPercent}%</strong>
+            Side margin <strong>{style.horizontalMarginPercent}%</strong>
           </span>
           <input
             type="range"
             min="0"
             max="20"
             value={style.horizontalMarginPercent}
-            aria-label={`Horizontal safe margin ${style.horizontalMarginPercent}%`}
+            aria-label={`Side margin ${style.horizontalMarginPercent}%`}
             onInput={(event) =>
               setHorizontalMarginPercent(Number(event.currentTarget.value))
             }
@@ -147,14 +147,14 @@ export function StyleEditor({
         </label>
         <label className="rangeControl fullField">
           <span>
-            Vertical safe margin <strong>{style.verticalMarginPercent}%</strong>
+            Top and bottom margin <strong>{style.verticalMarginPercent}%</strong>
           </span>
           <input
             type="range"
             min="0"
             max="20"
             value={style.verticalMarginPercent}
-            aria-label={`Vertical safe margin ${style.verticalMarginPercent}%`}
+            aria-label={`Top and bottom margin ${style.verticalMarginPercent}%`}
             onInput={(event) =>
               setVerticalMarginPercent(Number(event.currentTarget.value))
             }
@@ -163,7 +163,7 @@ export function StyleEditor({
       </div>
       <div className="saveRow">
         <button className="secondaryButton" type="button" onClick={onSave} disabled={saving}>
-          {saving ? "Saving…" : "Save as default"}
+          {saving ? "Saving…" : "Save for next week"}
         </button>
         <p role="status" aria-live="polite" aria-atomic="true">
           {savedMessage}

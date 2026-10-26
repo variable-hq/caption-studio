@@ -1,7 +1,8 @@
 # Design system
 
-15 September 2026. Describes the tokens and shared rules in `src/app/globals.css`,
-`src/app/dashboard.css`, `src/app/service-panel.css` and the React Bits adaptations.
+26 October 2026. Describes the tokens and shared rules in `src/app/globals.css`,
+`src/app/operator-shell.css`, `src/app/dashboard.css`, `src/app/service-panel.css` and the
+React Bits `BorderGlow` adaptation.
 No CSS framework or runtime dependency is involved.
 
 [Brand guidelines](BRAND_GUIDELINES.md) set the rules for using these tokens and classes:
@@ -33,7 +34,8 @@ The light palette is the default. A dark palette is declared twice: under
 `color-scheme` follows the palette. Dark body text measures about 17:1 against the page
 and muted text at least 6.9:1 against cards.
 
-The navigation rail and phone drawer hold a **Theme** select (System, Light, Dark) under the links. The choice is
+**Settings › This computer** holds an **Appearance** select (Match this computer, Light,
+Dark). The choice is
 applied to `<html data-theme>`, cached in `localStorage` under
 `caption-studio:theme:v1`, and saved with the operator's account through the
 preferences record, so it follows the operator between browsers. The paired operator
@@ -67,22 +69,32 @@ The dashboard theme never changes the configured OBS caption colours.
 - Breakpoints stay at 680, 980/981 and 1280px; the 320px minimum has no horizontal
   overflow; interactive targets stay at least 44px.
 
-## Resizable navigation
+## Operator shell
 
-On desktop (981px and wider) a vertical handle on the rail's right edge
-(`role="separator"`, label "Resize navigation") resizes the sidebar between 200 and
-420px by pointer drag, ArrowLeft/ArrowRight (16px), Home/End, or double-click to reset
-to 264px. The width is written to `--sidebar-width` on the dashboard shell, cached in
-`localStorage` under `caption-studio:sidebar-width:v1`, and saved with the
-operator's account after resizing settles. Rail labels truncate with an ellipsis at
-narrow widths. The handle and rail are hidden below 981px, where the drawer is used.
+`src/app/operator-shell.css` lays out the dashboard described in
+[ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md):
+
+- `.operatorTopBar`: brand, `.topStatus` pill (`data-tone` ok, live, warn, bad or muted,
+  per the colour roles in the brand guidelines) and the `.operatorTab` links, the current
+  one marked `aria-current="page"`.
+- `.operatorScreen`: one screen, capped at `--content-max`, with `--space-3` gutters
+  (`--space-2` at 680px and narrower). `.operatorColumns` wraps a `.operatorMainColumn`
+  and an `.operatorSideColumn` into one column on narrow screens.
+- `.operatorCard`: the screen's cards (border, `--radius-lg`, `--shadow`, `--space-3`
+  padding). `.operatorBanner` (`data-tone` warn or bad) sits above the content it concerns.
+- `.liveControlBar`: pinned to the bottom of Live while a service runs; `.operatorShell`
+  reserves matching `scroll-padding-bottom` so the bar never hides a focused control.
+  `.largeButton` is the bar's and Start's taller button.
+- `.settingsNav`: the Settings section links, current one marked `aria-current="page"`.
+
+`--sidebar-width` and the rail rules in `dashboard.css` are no longer used by the dashboard.
 
 ## Headings and browser surfaces
 
 Headings stand on their own. No kicker, eyebrow or label sits above a heading to name the
-section it is already in; the rail, the breadcrumb and the heading carry that. `.eyebrow`
-remains for labels that carry their own information, such as the guide's step counter and
-a reader paragraph's language and section.
+section it is already in; the tabs and the heading carry that. `.eyebrow`
+remains for labels that carry their own information, such as a reader paragraph's
+language and section.
 
 Text selection, the caret and the scrollbars are themed from the palette
 (`::selection`, `caret-color`, `scrollbar-color` and the `::-webkit-scrollbar` rules in

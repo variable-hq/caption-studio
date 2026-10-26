@@ -35,7 +35,7 @@ export function QuickBlockControl({
         }}
       >
         <label>
-          Quick block
+          Hide any caption containing a word
           <input
             name="quickBlockTerm"
             autoComplete="off"
@@ -43,17 +43,17 @@ export function QuickBlockControl({
             maxLength={MAX_QUICK_BLOCK_TERM_CHARS}
             disabled={disabled}
             aria-describedby={helpId}
-            placeholder="Word to block now…"
+            placeholder="e.g. a name that shouldn’t appear…"
             onChange={(event) => setTerm(event.target.value)}
           />
         </label>
         <button className="primaryButton" type="submit" disabled={disabled || !term.trim()}>
-          Block now
+          Hide captions with it
         </button>
       </form>
       <p className="privacyNote" id={helpId}>
-        Hides the whole caption immediately if this word is said again, without a settings
-        refresh. For ongoing masking or a milder response, use the public caption filter instead.
+        Hides the whole caption straight away whenever this word is said. To hide only the
+        word, add it under Settings › Words.
       </p>
       {entries.length > 0 && (
         <ul className="quickBlockList">

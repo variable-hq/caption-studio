@@ -246,14 +246,14 @@ On top of the rules above:
 
 ## Known differences in the current UI
 
-These predate this guide. Fix them when the screen is next changed (the planned
-operator redesign covers most of them); don't copy them into new work.
+These predate this guide. Fix them when the screen is next changed; don't copy them into
+new work.
 
-- Some labels use Title Case or system words: "AI Behavior", "Live outputs", "Manual
-  override", "Clear live caption", "Mobile translation viewer", "Output buffer".
-- `SpotlightCard` adds a decorative hover spotlight to the workspace panel.
-  (`BorderGlow` marks pending changes and stays.)
-- The first-visit tutorial opens as a modal before the operator can act.
+- The operator phone remote (`/operator/mobile`) still says "Clear live caption" and
+  "Pause captions"; the glossary says "Clear screen" and "Pause".
+- The word lists use typed syntax (`word => translation`, `word=>!hide`) and saved
+  settings are per operator ("Save as my default"). One Words list with an action per
+  word, and one shared church setup, are planned as separate decisions.
 
 ## Checklist for every UI change
 

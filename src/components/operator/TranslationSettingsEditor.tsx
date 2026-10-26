@@ -16,11 +16,11 @@ import {
 import { MAX_TERMINOLOGY_INPUT_CHARS } from "@/live/translation-settings";
 
 const RECORDING_WINDOW_LABELS: Record<RecordingWindowMs, string> = {
-  6000: "6 sec · Fast",
-  9000: "9 sec · Balanced",
-  12000: "12 sec · More context",
-  15000: "15 sec · Longer phrases",
-  18000: "18 sec · Longest context",
+  6000: "Fastest: listens 6 seconds at a time",
+  9000: "Balanced: listens 9 seconds at a time",
+  12000: "Smooth: listens 12 seconds at a time",
+  15000: "Smoother: listens 15 seconds at a time",
+  18000: "Smoothest: listens 18 seconds at a time",
 };
 
 interface TranslationSettingsEditorProps {
@@ -39,6 +39,8 @@ interface TranslationSettingsEditorProps {
   onTargetLanguageChange: (value: LanguageLocale) => void;
   onKeywordTextChange: (value: string) => void;
   onRecordingWindowChange: (value: RecordingWindowMs) => void;
+  /** Settings shows languages and words as separate sections; omit to render both. */
+  part?: "languages" | "words";
 }
 
 export function TranslationSettingsEditor({
@@ -52,6 +54,7 @@ export function TranslationSettingsEditor({
   defaultSourceLanguage = null,
   defaultTargetLanguage = null,
   defaultRecordingWindowMs = null,
+  part,
   onSourceLanguageChange,
   onTargetLanguageChange,
   onKeywordTextChange,
@@ -61,109 +64,122 @@ export function TranslationSettingsEditor({
   const windowHelpId = useId();
   const glossaryHelpId = useId();
 
+  const showLanguages = part !== "words";
+  const showWords = part !== "languages";
+
   return (
     <div className="translationSettingsEditor">
-      <div className="fieldGrid">
-        <label>
-          Spoken language
-          <select
-            name="sourceLanguage"
-            autoComplete="off"
-            data-testid="source-language"
-            value={sourceLanguage}
-            disabled={disabled}
-            aria-describedby={sourceHelpId}
-            onChange={(event) =>
-              onSourceLanguageChange(event.target.value as SourceLanguage)
-            }
-          >
-            <option value="auto">Auto detect{defaultSourceLanguage === "auto" ? " · Your default" : ""}</option>
-            {LANGUAGE_OPTIONS.map((language) => (
-              <option value={language.locale} key={language.locale}>
-                {language.label}{defaultSourceLanguage === language.locale ? " · Your default" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Translate captions to
-          <select
-            name="targetLanguage"
-            autoComplete="off"
-            data-testid="target-language"
-            value={targetLanguage}
-            disabled={disabled}
-            onChange={(event) =>
-              onTargetLanguageChange(event.target.value as LanguageLocale)
-            }
-          >
-            {LANGUAGE_OPTIONS.map((language) => (
-              <option value={language.locale} key={language.locale}>
-                {language.label}{defaultTargetLanguage === language.locale ? " · Your default" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="fullField">
-          Recording window before translation
-          <select
-            name="recordingWindow"
-            autoComplete="off"
-            data-testid="recording-window"
-            value={recordingWindowMs}
-            aria-describedby={windowHelpId}
-            disabled={disabled}
-            onChange={(event) =>
-              onRecordingWindowChange(normalizeRecordingWindowMs(event.target.value))
-            }
-          >
-            {RECORDING_WINDOW_OPTIONS_MS.map((value) => (
-              <option value={value} key={value}>
-                {RECORDING_WINDOW_LABELS[value]}{defaultRecordingWindowMs === value ? " · Your default" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <p className="helpText" id={sourceHelpId}>
-        Selected source: {sourceLabel}. Explicit selection is recommended live.
-      </p>
-      <p className="helpText" id={windowHelpId}>
-        Longer windows can reduce chopped sentences, but captions appear later.
-        Refreshing discards the unfinished audio window and recent translation context.
-      </p>
-      <div className="divider" />
-      <div className="fieldHeading">
-        <strong>Church terminology</strong>
-        <span>{keywordCount} terms</span>
-      </div>
-      <label>
-        Biblical names and keyword hints
-        <textarea
-          name="terminology"
-          autoComplete="off"
-          rows={4}
-          value={keywordText}
-          maxLength={MAX_TERMINOLOGY_INPUT_CHARS}
-          disabled={disabled}
-          aria-describedby={glossaryHelpId}
-          onChange={(event) => onKeywordTextChange(event.target.value)}
-          placeholder="Saul => Saul, Betlehem => Bethlehem…"
-        />
-      </label>
-      <p className="helpText" id={glossaryHelpId}>
-        Use <code>source =&gt; approved translation</code> for deterministic terms.
-        Other entries boost transcription recognition. An approved recognition correction
-        uses <code>Saul|swauf =&gt; Saul</code>. Review variants before adding them;
-        these replace whole words in the source transcript.
-      </p>
-      <details className="advancedActions">
-        <summary>More options</summary>
-        <button className="secondaryButton" type="button" disabled={disabled || targetLanguage !== "en" || !["id", "auto"].includes(sourceLanguage)}
-          onClick={() => onKeywordTextChange([keywordText, TB2_SERVICE_VOCABULARY].filter(Boolean).join(", "))}>
-          Add TB2 names for Indonesian to English
-        </button>
-      </details>
+      {showLanguages ? (
+        <>
+          <div className="fieldGrid">
+            <label>
+              Preacher speaks
+              <select
+                name="sourceLanguage"
+                autoComplete="off"
+                data-testid="source-language"
+                value={sourceLanguage}
+                disabled={disabled}
+                aria-describedby={sourceHelpId}
+                onChange={(event) =>
+                  onSourceLanguageChange(event.target.value as SourceLanguage)
+                }
+              >
+                <option value="auto">Detect automatically{defaultSourceLanguage === "auto" ? " · Your default" : ""}</option>
+                {LANGUAGE_OPTIONS.map((language) => (
+                  <option value={language.locale} key={language.locale}>
+                    {language.label}{defaultSourceLanguage === language.locale ? " · Your default" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Show captions in
+              <select
+                name="targetLanguage"
+                autoComplete="off"
+                data-testid="target-language"
+                value={targetLanguage}
+                disabled={disabled}
+                onChange={(event) =>
+                  onTargetLanguageChange(event.target.value as LanguageLocale)
+                }
+              >
+                {LANGUAGE_OPTIONS.map((language) => (
+                  <option value={language.locale} key={language.locale}>
+                    {language.label}{defaultTargetLanguage === language.locale ? " · Your default" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="fullField">
+              Caption speed
+              <select
+                name="recordingWindow"
+                autoComplete="off"
+                data-testid="recording-window"
+                value={recordingWindowMs}
+                aria-describedby={windowHelpId}
+                disabled={disabled}
+                onChange={(event) =>
+                  onRecordingWindowChange(normalizeRecordingWindowMs(event.target.value))
+                }
+              >
+                {RECORDING_WINDOW_OPTIONS_MS.map((value) => (
+                  <option value={value} key={value}>
+                    {RECORDING_WINDOW_LABELS[value]}{defaultRecordingWindowMs === value ? " · Your default" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p className="helpText" id={sourceHelpId}>
+            Now: {sourceLabel}. Choosing the language is more reliable than detecting it.
+          </p>
+          <p className="helpText" id={windowHelpId}>
+            Listening longer gives fuller sentences, but captions appear later.
+          </p>
+        </>
+      ) : null}
+      {showWords ? (
+        <>
+          <div className="fieldHeading">
+            <strong>Names and terms</strong>
+            <span>{keywordCount} {keywordCount === 1 ? "term" : "terms"}</span>
+          </div>
+          <label>
+            Names and terms the AI should know
+            <textarea
+              name="terminology"
+              autoComplete="off"
+              spellCheck={false}
+              rows={5}
+              value={keywordText}
+              maxLength={MAX_TERMINOLOGY_INPUT_CHARS}
+              disabled={disabled}
+              aria-describedby={glossaryHelpId}
+              onChange={(event) => onKeywordTextChange(event.target.value)}
+              placeholder="e.g. Pastor Ken, Betlehem => Bethlehem…"
+            />
+          </label>
+          <p className="helpText" id={glossaryHelpId}>
+            Separate entries with commas. A plain name helps the AI hear it. Write{" "}
+            <code>word =&gt; translation</code> to always translate it that way, or{" "}
+            <code>Saul|swauf =&gt; Saul</code> to fix a word the AI mishears.
+          </p>
+          <details className="advancedActions">
+            <summary>Import Bible names (Indonesian → English)</summary>
+            <p className="helpText">
+              Adds the TB2 list of names once. Only useful when the preacher speaks
+              Indonesian and captions are in English.
+            </p>
+            <button className="secondaryButton" type="button" disabled={disabled || targetLanguage !== "en" || !["id", "auto"].includes(sourceLanguage)}
+              onClick={() => onKeywordTextChange([keywordText, TB2_SERVICE_VOCABULARY].filter(Boolean).join(", "))}>
+              Import names
+            </button>
+          </details>
+        </>
+      ) : null}
     </div>
   );
 }

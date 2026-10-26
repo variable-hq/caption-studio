@@ -15,7 +15,7 @@ physical-device, provider-output or semantic acceptance.
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
 | `SermonJournal` | One service's source/corrections/exclusions, reader paragraphs, operator notes, lifecycle checkpoints and manual summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
-| `OperatorPreferences` | One object per hashed Access email: theme, sidebar width, saved prompt, summary defaults, caption style, default translation setup and tutorial dismissal |
+| `OperatorPreferences` | One object per hashed Access email: theme, saved prompt, summary defaults, caption style and default translation setup (sidebar width and tutorial dismissal remain in the schema but are no longer written) |
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
 | Workers AI | Optional shared reader phrasing and bounded manual summaries |
 
@@ -180,7 +180,7 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | --- | --- |
 | Raw audio and queued chunks | Browser/request memory only; never archived |
 | Draft translation settings | Page memory; active snapshot in tab sessionStorage for recovery |
-| Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, history-saving default, automatic-summary opt-in, theme, sidebar width, tutorial dismissal | `OperatorPreferences` object keyed by the SHA-256 of the lower-cased Access email, kept until the operator clears it; a browser copy remains in unencrypted localStorage as a fallback, and the shared channel style also persists |
+| Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, history-saving default, automatic-summary opt-in, theme (plus a sidebar width or tutorial dismissal saved before ADR 0021, no longer written) | `OperatorPreferences` object keyed by the SHA-256 of the lower-cased Access email, kept until the operator clears it; a browser copy remains in unencrypted localStorage as a fallback, and the shared channel style also persists |
 | OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
 | Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
 | Latest public caption | Main live state; cleared by controls and End/expiry |

@@ -35,26 +35,25 @@ The browser is the sole client; there are no native/signing checklists.
 
 ## Setup and fast-caption journey
 
-1. In a fresh browser profile, complete the six-step tutorial, test Back, direct selection,
-   Skip/Escape and panel shortcuts. Reopen with **How to use**; focus returns correctly.
-   Reload after dismissal; no audio or service action occurs from the guide.
+1. In a fresh browser profile, open the dashboard: it lands on **Live** with a readiness
+   checklist and nothing pops up. Any red item's button opens the Settings section that
+   fixes it. Open **Help** (the **?** button) and return with **Back to Live**; no audio or
+   service action occurs from either.
 2. Check at 1920, 1200, 390 and 320 CSS pixels. Use keyboard navigation, visible focus,
    actual zoom, reduced motion and an assistive-technology user where available. No control,
    dialog or long record should create horizontal page overflow or hide the next action.
-   Verify the grouped sidebar and phone navigation drawer, Escape/focus return, section
-   bookmarks and browser Back/Forward. Switch **Theme** to Dark and back to Light: text,
-   status chips, focus outlines and the caption preview must stay readable, and the OBS
-   overlay must stay transparent. Resize the sidebar with the handle and with arrow keys,
-   reload, and confirm the width and theme return from the account.
-   Confirm drafts and the history checkbox survive
-   in-page navigation, and no navigation action starts capture.
-   Service controls should start collapsed. Open/close its right panel, test keyboard
-   focus and resizing across 1280px, and confirm capture continues when it is closed.
+   Verify the **Live**, **Sermons** and **Settings** tabs and each Settings section, screen
+   bookmarks, reload and browser Back/Forward. Switch **Settings › This computer ›
+   Appearance** to Dark and back to Light: text, status pill, focus outlines and the
+   caption preview must stay readable, and the OBS overlay must stay transparent. Reload
+   and confirm the theme returns from the account.
+   Confirm drafts and the transcript checkbox survive moving between screens, and no
+   navigation action starts capture.
    Save the prompt, summary defaults, caption style and default translation setup with
-   **Save to my account** / **Save as my default setup**, then open the dashboard in a
-   second browser as the same Access user: every value and the dismissed tutorial must
-   follow the account. A different Access user must not see them.
-3. Sign in; confirm configured models in Service details. Defaults are
+   **Save to my account** / **Save as my default**, then open the dashboard in a second
+   browser as the same Access user: every value must follow the account. A different
+   Access user must not see them.
+3. Sign in; after Start, confirm the configured models under Live › This service › Details. Defaults are
    `whisper-large-v3-turbo` and `openai/gpt-oss-20b`. Configuration is not a model-output test.
 4. Enable the audio test, select the USB interface and speak into the AUX feed. Mute that
    feed and confirm nearby computer speech does not reveal an unintended input. Verify the
@@ -69,20 +68,22 @@ The browser is the sole client; there are no native/signing checklists.
    link to a recording. Set font, size, colours, highlight, placement and safe margins;
    preview updates continuously and saved shared style survives reload.
 8. Show and Clear a synthetic idle test. It makes no AI call or microphone capture.
-   Open **Service controls**, choose whether to save history, then **Start captions**;
-   Start performs readiness and ownership checks. Expand **Preview captions** when needed.
+   On **Live**, choose whether to save the transcript, then **Start captions**; Start
+   performs readiness and ownership checks. **Heard** and **Audience sees** show the
+   private source and the public caption.
 9. Speak approved samples. Confirm private source versus moderated public output, glossary
    behavior, masks, caption language, skipped chunks and processing-time labels.
    The processing number excludes the recording window, queue wait and audience rendering.
 10. While live and paused, draft language, terms, filters, recording window and prompt changes.
-    Cancel refresh once, then confirm it. Old output/context disappears; old results cannot
+    Press **Undo changes** once, make them again, then **Apply now**. Old output/context
+    disappears; old results cannot
     reappear. Timer, controller, links, usage and live/paused state remain. Repeat a short
     sample at 6 and 18 seconds; longer windows do not guarantee complete sentences.
 11. Pause at a natural break: microphone and queued work stop, OBS/latest viewer blank,
     and attempts stop increasing. Show/clear a paused test; Resume clears it before capture.
     Clear alone keeps capture active, so new valid speech can appear afterward.
-    Repeat Pause/Resume and Clear with Service controls collapsed. End remains inside
-    the panel; cancel its confirmation once and check focus returns to End service.
+    Pause/Resume, Clear screen and End service stay pinned to the bottom of Live while you
+    scroll. Cancel End's confirmation once and check focus returns to End service.
 
 ## Latest viewer, appending reader and remote
 
@@ -107,8 +108,9 @@ The browser is the sole client; there are no native/signing checklists.
 | End/expiry | OBS blank but reusable; latest viewer/remote revoked; reader remains for 30-minute grace |
 | Network loss/reconnect | Truthful state and bounded recovery; record actual detection time, not only mocked socket behavior |
 
-Viewer/reader links and phone pairing are under **Live outputs**. Private transcript
-review and summaries are under **Sermon history**.
+The phone viewer link, reader link and phone pairing are under **Live › Share**; link
+replacement is under **Settings › OBS & links**. Private transcript review and summaries
+are under **Sermons**.
 
 Test authenticated missing/duplicate/stale/paused/expired attempt rejection through the
 synthetic harness. Do not publish credential values or spend inference quota to prove a
@@ -169,7 +171,7 @@ Device / OS / browser / selected USB interface:
 Separate OBS computer / OBS version / audience phone models:
 Source -> target / models / recording window / evaluation sample IDs:
 History consent / optional AI state / account-plan and data-control checks:
-Tutorial / keyboard / zoom / screen-reader / layout results:
+Help / keyboard / zoom / screen-reader / layout results:
 Fast output / glossary / filter / completion / attempt-claim results:
 Remote commands / host acknowledgement / disconnect results:
 Reader late join / Clear / Pause / revision / link expiry results:

@@ -50,7 +50,7 @@ try {
   if (bootstrap.error) throw bootstrap.error;
   if (bootstrap.status !== 0) throw new Error(`QA bootstrap failed (exit ${bootstrap.status}).`);
 
-  for (const script of ["qa:tutorial", "qa:operator", "qa:experience"]) {
+  for (const script of ["qa:operator", "qa:experience"]) {
     await run("npm", ["run", script], { shell: process.platform === "win32" });
   }
 } finally {

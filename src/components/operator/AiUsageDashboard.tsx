@@ -61,7 +61,7 @@ export function AiUsageDashboard({
       <section className="usageSection" aria-labelledby="provider-usage-heading">
         <div className="usageSectionHeading">
           <div>
-            <h3 id="provider-usage-heading">Groq quota headroom</h3>
+            <h3 id="provider-usage-heading">Translation service headroom</h3>
           </div>
           <code>{provider?.model ?? translationModel}</code>
         </div>
@@ -69,12 +69,12 @@ export function AiUsageDashboard({
           <>
             <div className="usageSummaryGrid providerUsageGrid">
               <ProviderWindow
-                label="Daily requests"
+                label="Requests left today"
                 window={provider.requestsPerDay}
                 scope="requests per day"
               />
               <ProviderWindow
-                label="Minute tokens"
+                label="Tokens left this minute"
                 window={provider.tokensPerMinute}
                 scope="tokens per minute"
               />
@@ -87,7 +87,7 @@ export function AiUsageDashboard({
           </>
         ) : (
           <div className="providerSnapshotEmpty">
-            <strong>Waiting for provider quota information</strong>
+            <strong>Waiting for the translation service to report its limits</strong>
             <p>
               Groq reports daily-request and per-minute-token headroom with a
               translation response. Daily token and complete account consumption are

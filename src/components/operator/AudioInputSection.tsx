@@ -35,7 +35,7 @@ export function AudioInputSection({
           onChange={(event) => onDeviceChange(event.target.value)}
         >
           {devices.length === 0 ? (
-            <option value="">Permission required to list devices</option>
+            <option value="">Allow the microphone to see the list</option>
           ) : (
             devices.map((device, index) => (
               <option value={device.deviceId} key={device.deviceId}>
@@ -51,7 +51,7 @@ export function AudioInputSection({
         onClick={onStartAudioTest}
         disabled={microphoneState === "active" || microphoneState === "requesting" || disabled}
       >
-        {microphoneState === "active" ? "Microphone connected" : "Enable audio test"}
+        {microphoneState === "active" ? "Microphone connected" : "Test the microphone"}
       </button>
       <p className="helpText">
         Speak into the selected input and check that the meter moves. This test stays in the
