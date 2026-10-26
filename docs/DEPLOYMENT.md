@@ -1,6 +1,6 @@
 # Deployment runbook
 
-Reviewed 14 September 2026 against merged PR #33 (`abae57b`). This describes the current
+Reviewed 26 October 2026 against merged PR #67 (`c9410a6`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
@@ -11,6 +11,7 @@ no GitHub Actions workflow. Use these settings for the connected Worker:
 
 | Setting | Value |
 | --- | --- |
+| Worker | `caption-studio` (origin `https://caption-studio.lukas-ka.workers.dev`) |
 | Root | `/` |
 | Production branch | `main` |
 | Build command | `npx opennextjs-cloudflare build` |
@@ -25,6 +26,13 @@ npm ci
 npm run build:cloudflare
 npm run deploy:check
 ```
+
+`wrangler.jsonc`'s `name` must match the connected Worker; a mismatched manual deploy
+creates a separate, unprotected Worker. Renaming the Worker also changes its workers.dev
+hostname, so every Access application (operator and bypass) must be moved to the new
+hostname in the same change. The October 2026 rename from `church-live-caption` left the
+new hostname without Access, and every operator API call then failed with
+"Authentication is required."
 
 Do not substitute a Next.js build alone: `custom-worker.ts` imports the generated
 `.open-next/worker.js` and Wrangler uploads `.open-next/assets`.
