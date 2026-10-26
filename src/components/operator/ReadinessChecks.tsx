@@ -40,7 +40,7 @@ export function ReadinessChecks({ title, checks }: ReadinessChecksProps) {
               <span>{check.label}</span>
               <span>{check.value}</span>
             </span>
-            <a className={check.ok ? "textButton" : "primaryButton compact"} href={check.href}>
+            <a className={check.ok ? "textButton" : "primaryButton"} href={check.href}>
               {check.ok ? "Change" : check.fixLabel}
             </a>
           </li>

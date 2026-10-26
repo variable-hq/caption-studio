@@ -107,7 +107,7 @@ try {
    if(section==='translator'){
     assert.equal(await page.getByTestId('inference-level').isVisible(),true);
    }
-   if(section==='usage') assert.equal(await page.getByText('Translation service headroom',{exact:true}).isVisible(),true);
+   if(section==='usage') assert.equal(await page.getByText('Translation service right now',{exact:true}).isVisible(),true);
    if(section==='words'){
     await page.locator('input[name="word"]').fill('synthetic-hidden');
     await page.locator('select[name="wordAction"]').selectOption('hide');

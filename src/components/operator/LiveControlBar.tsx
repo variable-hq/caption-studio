@@ -38,7 +38,7 @@ export function LiveControlBar({
       <div className="liveControlBarInner">
         <button
           type="button"
-          className="primaryButton large"
+          className="primaryButton"
           disabled={controlsDisabled}
           onClick={resumeShown ? onResume : onPause}
         >
@@ -49,7 +49,7 @@ export function LiveControlBar({
           )}
           {isResuming ? "Resuming…" : isPausing ? "Pausing…" : resumeShown ? "Resume" : "Pause"}
         </button>
-        <button type="button" className="secondaryButton large" disabled={controlsDisabled} onClick={onClear}>
+        <button type="button" className="secondaryButton" disabled={controlsDisabled} onClick={onClear}>
           {clearing ? "Clearing…" : "Clear screen"}
         </button>
         <p className="operatorHint">

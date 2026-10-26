@@ -259,17 +259,8 @@
 
 .heardText[data-empty="true"] { color: var(--muted); }
 
-/* The monitor reuses CaptionPreview; inside Live it drops the card chrome and help line. */
-.monitorPane .previewCard {
-  padding: 0;
-  border: 0;
-  background: none;
-  box-shadow: none;
-}
-
 .monitorPane .previewHelp,
-.monitorPane .sourceTranscript,
-.monitorPane .previewCard > .sectionHeading { display: none; }
+.monitorPane .sourceTranscript { display: none; }
 
 .levelRow {
   display: flex;
@@ -307,7 +298,6 @@
 .checkList li:first-child { border-top: 0; }
 
 .checkList svg { flex: none; }
-.checkList .primaryButton { min-width: 0; }
 
 .checkText {
   display: flex;
@@ -411,18 +401,13 @@
   padding-left: var(--space-3);
 }
 
-@media (max-width: 980px) {
-  .wordsAddRow { grid-template-columns: minmax(0, 1fr); }
-  .wordsAddRow > button { justify-self: start; }
-}
-
 @media (max-width: 680px) {
   .operatorTopBar { padding: var(--gap-md) var(--space-2); }
   .operatorScreen { padding: var(--space-2); }
   .operatorCard { padding: var(--space-2); }
   .liveControlBarInner { padding: var(--gap-md) var(--space-2); }
-  .startActions .large,
-  .liveControlBarInner .large { flex: 1 1 140px; }
+  .startActions > button,
+  .liveControlBarInner > button:not(.dangerOutlineButton):not(.dangerButton) { flex: 1 1 140px; }
   .liveControlBarInner .operatorHint { display: none; }
 }
 
@@ -470,8 +455,6 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr) auto;
   align-items: end;
   gap: var(--gap-md);
-  padding-top: var(--gap-md);
-  border-top: 1px solid var(--line);
 }
 
 /* Quick fixes group and the OBS & links disclosures (moved from service-panel.css). */
@@ -516,3 +499,286 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-regular);
 }
+
+/* Settings sections: one header, titled groups divided by hairlines, one save bar. */
+.settingsHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+}
+
+.settingsHeader h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+
+.settingGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  min-width: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.settingGroup > h3 {
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: var(--leading-tight);
+}
+
+.settingGroup > h3 + .settingHint { margin-top: calc(var(--gap-md) * -1 + var(--space-0)); }
+
+.settingHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
+}
+
+.saveBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-md);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.saveBar .settingHint { flex: 1 1 220px; min-width: 0; }
+
+.buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-sm);
+}
+
+.replaceRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-md);
+  padding: var(--gap-md) 0;
+  border-top: 1px solid var(--line);
+}
+
+.replaceRow:first-of-type { border-top: 0; padding-top: 0; }
+.replaceRow > span:first-child { flex: 1 1 260px; min-width: 0; }
+
+.statTiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: var(--gap-md);
+}
+
+.statTile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.statTile span,
+.statTile small { color: var(--muted); font-size: var(--text-sm); }
+.statTile strong { font-size: var(--text-xl); line-height: var(--leading-tight); }
+
+/* One disclosure style everywhere in the dashboard. */
+.operatorShell details > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0;
+  color: var(--ink);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}
+
+.operatorShell details.advancedActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.operatorShell details.advancedActions[open] { padding-bottom: var(--space-0); }
+
+/* Every form control shares the button height. */
+.operatorShell select,
+.operatorShell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
+  min-height: var(--control-height);
+  height: var(--control-height);
+}
+
+.settingsPanel { gap: var(--space-3); }
+
+/* Sermons: a list of saved sermons beside the selected one. */
+.sermonList .archiveList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sermonListItem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.sermonListItem:hover { background: var(--surface-muted); color: var(--ink); }
+.sermonListItem[aria-current="page"] { background: var(--surface-strong); color: var(--ink); }
+.sermonListItem:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.correctionEditor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.settingsPanel .archiveRecords article,
+.settingsPanel .readerParagraph {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+  margin: 0;
+  padding: var(--gap-md) 0;
+  border-top: 1px solid var(--line);
+}
+
+.settingsPanel .readerNote { margin: 0; }
+
+/* A field with its action beside it (quick block, own message). */
+.operatorShell .inlineForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--gap-sm);
+}
+
+@media (max-width: 680px) {
+  .operatorShell .inlineForm { grid-template-columns: minmax(0, 1fr); }
+  .operatorShell .inlineForm > button { justify-self: start; }
+}
+
+.quickBlockControl,
+.manualCaptionControl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+  padding: 0;
+  border: 0;
+}
+
+.operatorShell .shareRow { flex-wrap: nowrap; }
+.operatorShell .shareRow > span { flex: 1 1 auto; min-width: 0; }
+
+.operatorShell .settingHint a,
+.operatorShell .operatorHint a {
+  color: var(--ink);
+  font-weight: var(--weight-bold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.settingsPanel .archiveRecords article > p:not(.settingHint) { margin: 0; color: var(--ink); }
+
+.quickBlockList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quickBlockList li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-sm);
+  padding-left: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  font-weight: var(--weight-bold);
+}
+
+/* Narrow screens: Settings and Sermons lists scroll sideways above the content,
+   the Words form stacks, and each word becomes a small card. */
+@media (max-width: 980px) {
+  .wordsAddRow { grid-template-columns: minmax(0, 1fr); }
+  .wordsAddRow > button { justify-self: start; }
+
+  .settingsNav {
+    flex: 1 1 100%;
+    flex-direction: row;
+    gap: var(--space-0);
+    overflow-x: auto;
+    padding-bottom: var(--space-0);
+    scrollbar-width: thin;
+  }
+
+  .settingsNav a,
+  .sermonListItem { flex: none; white-space: nowrap; }
+  .settingsNav .operatorHint,
+  .settingsNav > .settingHint { display: none; }
+  .sermonList .archiveList { flex-direction: row; }
+}
+
+@media (max-width: 680px) {
+  .wordsTable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .wordsTable tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px var(--gap-md);
+    padding: var(--gap-md) 0;
+    border-top: 1px solid var(--line);
+  }
+  .wordsTable td { padding: 0; border: 0; }
+  .wordsTable td:nth-child(2),
+  .wordsTable td:nth-child(3) { grid-column: 1; color: var(--muted); font-size: var(--text-sm); }
+  .wordsTable td:last-child { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
+  .wordsTable td[data-empty="true"] { display: none; }
+}
+
+.helpPanel { max-width: 760px; }
+.helpPanel .settingsHeader h1 { margin: 0; font-size: var(--text-xl); }
+
+/* Buttons never wrap or underline, whether a <button> or a link styled as one. */
+.operatorShell .primaryButton,
+.operatorShell .secondaryButton,
+.operatorShell .dangerButton,
+.operatorShell .dangerOutlineButton,
+.operatorShell .textButton { white-space: nowrap; }
+
+.operatorShell a.primaryButton,
+.operatorShell a.secondaryButton { text-decoration: none; }
+
+/* A text button sits on the text's edge; its focus ring still clears the label. */
+.operatorShell .textButton { padding-inline: 0; }
+
+/* The Sermons view sits in the experience panel's grid; keep its one column within the screen. */
+.operatorScreen .experienceStack { grid-template-columns: minmax(0, 1fr); }

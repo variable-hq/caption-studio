@@ -1,6 +1,7 @@
 "use client";
 
 import { AudioLevelMeter } from "@/components/operator/AudioLevelMeter";
+import { SettingGroup } from "@/components/operator/SettingsParts";
 import type { MicrophoneState } from "@/live/use-microphone-input";
 
 interface AudioInputSectionProps {
@@ -26,16 +27,26 @@ export function AudioInputSection({
   onStartAudioTest,
 }: AudioInputSectionProps) {
   return (
-    <>
+    <SettingGroup
+      title="Microphone"
+      hint="Choose the input that hears the preacher, press Test, and speak: the bar should reach the middle. The test stays on this computer."
+    >
+      {microphoneError ? (
+        <p className="operatorBanner" data-tone="bad" role="alert">
+          {microphoneError} Click the microphone icon in the browser’s address bar, choose Allow, then test again.
+        </p>
+      ) : null}
       <label>
-        Microphone or audio interface
+        <span className="visuallyHidden">Microphone or audio interface</span>
         <select
+          name="microphone"
+          autoComplete="off"
           value={selectedDeviceId}
           disabled={disabled}
           onChange={(event) => onDeviceChange(event.target.value)}
         >
           {devices.length === 0 ? (
-            <option value="">Allow the microphone to see the list</option>
+            <option value="">Test the microphone to see the list</option>
           ) : (
             devices.map((device, index) => (
               <option value={device.deviceId} key={device.deviceId}>
@@ -46,22 +57,16 @@ export function AudioInputSection({
         </select>
       </label>
       <AudioLevelMeter level={level} />
-      <button
-        className="secondaryButton"
-        onClick={onStartAudioTest}
-        disabled={microphoneState === "active" || microphoneState === "requesting" || disabled}
-      >
-        {microphoneState === "active" ? "Microphone connected" : "Test the microphone"}
-      </button>
-      <p className="helpText">
-        Speak into the selected input and check that the meter moves. This test stays in the
-        browser and makes no AI calls.
-      </p>
-      {microphoneError ? (
-        <p className="errorText" role="alert">
-          {microphoneError}
-        </p>
-      ) : null}
-    </>
+      <div className="buttonRow">
+        <button
+          type="button"
+          className="secondaryButton"
+          onClick={onStartAudioTest}
+          disabled={microphoneState === "active" || microphoneState === "requesting" || disabled}
+        >
+          {microphoneState === "active" ? "Microphone connected" : microphoneState === "requesting" ? "Asking…" : "Test the microphone"}
+        </button>
+      </div>
+    </SettingGroup>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
 import type { CaptionStyle } from "@/live/contracts";
@@ -44,7 +44,6 @@ export function CaptionPreview({
   targetLanguage,
   sourceLanguage,
 }: PreviewProps) {
-  const headingId = useId();
   const frameRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.25);
 
@@ -64,13 +63,7 @@ export function CaptionPreview({
   const marginX = `${Math.round((style.horizontalMarginPercent / 100) * OBS_CANVAS_WIDTH)}px`;
 
   return (
-    <section className="previewCard" aria-labelledby={headingId}>
-      <div className="sectionHeading">
-        <div>
-          <h2 id={headingId}>Preview</h2>
-        </div>
-        <span className={`statusChip ${live ? "live" : ""}`}>{badge}</span>
-      </div>
+    <section className="previewCard" aria-label={`Caption preview: ${badge}`}>
       <div className="videoFrame" ref={frameRef}>
         <div
           className="previewStage"

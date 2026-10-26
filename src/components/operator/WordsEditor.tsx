@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 
 import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
 import { TB2_SERVICE_VOCABULARY } from "@/pipeline/bible-terms";
+import { SettingGroup } from "@/components/operator/SettingsParts";
 import {
   WORD_ACTIONS,
   cleanWordValue,
@@ -55,11 +56,8 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
   const tb2Available = targetLanguage === "en" && (sourceLanguage === "id" || sourceLanguage === "auto");
 
   return (
-    <div className="wordsEditor">
-      <p className="operatorHint">
-        Teach the AI names and terms, fix words it mishears, and keep words off the audience
-        screens. You always see the original under “Heard”.
-      </p>
+    <>
+      <SettingGroup title="Your words" hint="You always see the original under “Heard” on the Live screen.">
       {rows.length ? (
         <div className="wordsTableBox">
           <table className="wordsTable">
@@ -76,11 +74,11 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
                 <tr key={`${row.action}:${row.word}:${index}`}>
                   <td>{row.word}</td>
                   <td>{ACTION_LABELS[row.action]}</td>
-                  <td>{row.with || "—"}</td>
+                  <td data-empty={!row.with}>{row.with || "—"}</td>
                   <td>
                     <button
                       type="button"
-                      className="textButton compact"
+                      className="textButton"
                       disabled={disabled}
                       aria-label={`Remove ${row.word}`}
                       onClick={() => save(rows.filter((_, other) => other !== index))}
@@ -96,6 +94,8 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
       ) : (
         <p className="emptyState">No words yet. Add names the AI should know, or words never to show.</p>
       )}
+      </SettingGroup>
+      <SettingGroup title="Add a word">
       {overLimit ? (
         <p className="operatorBanner" data-tone="warn" role="status">
           Only the first 40 names and terms and the first 40 hidden words are used. Remove some you no longer need.
@@ -154,21 +154,22 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
         </button>
       </form>
       {error ? <p className="errorText" id={errorId} role="alert">{error}</p> : null}
-      <details className="advancedActions">
-        <summary>Import Bible names (Indonesian → English)</summary>
-        <p className="operatorHint">
-          Adds the TB2 list of names once. Only useful when the preacher speaks Indonesian and
-          captions are in English.
-        </p>
+      </SettingGroup>
+      <SettingGroup
+        title="Bible names"
+        hint="Adds the TB2 list of names once. Only useful when the preacher speaks Indonesian and captions are in English."
+      >
+        <div className="buttonRow">
         <button
-          className="secondaryButton compact"
+          className="secondaryButton"
           type="button"
           disabled={disabled || !tb2Available}
           onClick={() => onChange({ keywordText: [keywordText, TB2_SERVICE_VOCABULARY].filter(Boolean).join(", "), filterText })}
         >
           Import names
         </button>
-      </details>
-    </div>
+        </div>
+      </SettingGroup>
+    </>
   );
 }

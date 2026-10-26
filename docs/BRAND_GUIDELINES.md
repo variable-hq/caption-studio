@@ -179,11 +179,13 @@ Use the shared classes in the design system before writing a new rule.
 - **Buttons.** Primary (`.primaryButton`) for the single main action in a region;
   secondary (`.secondaryButton`) for everything else; text button (`.textButton`) for
   low-emphasis inline actions such as "Change"; `.dangerOutlineButton` to start a
-  destructive or irreversible action and `.dangerButton` to confirm it. Use only the three
-  sizes in the design system: default, `.compact` for rows, tables and banners, and
-  `.large` for Live's Start, Pause/Resume and Clear screen. Never give a button its own
-  height, padding, font size or minimum width; touch targets are never under 44px on
-  phones. A disabled button always has visible text nearby saying why.
+  destructive or irreversible action and `.dangerButton` to confirm it. **All buttons are
+  the same size** (`--control-height`, `--text-base`); emphasis comes from colour, never
+  from size. Never give a button its own height, padding, font size or minimum width, and
+  never add a size modifier. A disabled button always has visible text nearby saying why.
+- **Settings layout.** Every Settings section (and a selected sermon) is a header, then
+  titled groups, then one **Save for everyone** bar, built from `SettingsParts.tsx`. Never
+  nest a card inside a card.
 - **Forms.** The label sits above its control, the hint below. Every input has a
   `name` and `autocomplete="off"` unless it is an authentication field; turn spellcheck
   off for names and codes. Errors appear inline next to the field and name the fix.

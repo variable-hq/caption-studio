@@ -25,6 +25,7 @@ export function ManualCaptionControl({
   return (
     <div className="manualCaptionControl">
       <form
+        className="inlineForm"
         onSubmit={(event) => {
           event.preventDefault();
           if (!text.trim()) return;
@@ -32,7 +33,7 @@ export function ManualCaptionControl({
         }}
       >
         <label>
-          Manual caption
+          Show your own message
           <input
             name="manualCaptionText"
             autoComplete="off"
@@ -45,15 +46,15 @@ export function ManualCaptionControl({
           />
         </label>
         <button
-          className="secondaryButton compact"
+          className="secondaryButton"
           type="submit"
           disabled={disabled || busy || !text.trim()}
         >
           {busy ? "Showing…" : "Show now"}
         </button>
       </form>
-      <p className="privacyNote" id={helpId}>
-        Replaces the hidden paused caption in OBS and for viewers. Resume or Clear removes it.
+      <p className="settingHint" id={helpId}>
+        Shows on OBS and phones while paused, and is saved in the transcript. Resume or Clear screen removes it.
       </p>
     </div>
   );

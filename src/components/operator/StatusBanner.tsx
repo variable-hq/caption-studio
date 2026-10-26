@@ -34,12 +34,13 @@ export function StatusBanner({
 }: StatusBannerProps) {
   return (
     <section
-      className={`statusBanner ${status} ${status !== "error" ? "visuallyHidden" : ""}`}
+      className={status === "error" ? "operatorBanner" : "visuallyHidden"}
+      data-tone="bad"
       role="status"
       aria-live="polite"
       aria-atomic="true"
     >
-      <div>
+      <span>
         <strong>
           {hasService
             ? liveNeedsAttention
@@ -51,11 +52,12 @@ export function StatusBanner({
                 : "Live"
             : "Can’t start yet"}
         </strong>
-        <p>{message}</p>
-      </div>
+        <br />
+        {message}
+      </span>
       {status === "error" && !hasService && rotationRecoveryRequired ? (
         confirmRotate ? (
-          <span className="confirmationRow recoveryActions">
+          <span className="buttonRow">
             <button className="secondaryButton" onClick={() => onConfirmRotateChange(false)}>
               Cancel
             </button>
@@ -67,17 +69,17 @@ export function StatusBanner({
                 onRotateChannel();
               }}
             >
-              Replace OBS URL
+              Replace OBS link
             </button>
           </span>
         ) : (
           <button className="dangerOutlineButton" onClick={() => onConfirmRotateChange(true)}>
-            Rotate and recover
+            Replace OBS link…
           </button>
         )
       ) : status === "error" && !hasService ? (
-        <button className="textButton" onClick={onReloadChannel}>
-          Retry channel
+        <button className="secondaryButton" onClick={onReloadChannel}>
+          Try again
         </button>
       ) : null}
     </section>

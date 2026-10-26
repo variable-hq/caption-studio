@@ -5,6 +5,7 @@ import { experienceRequest } from "@/experience/client";
 import { HISTORY_RETENTION, type JournalState, type ReaderNote, type ReaderParagraph, type SourceRecord, type SummaryJob, type SummaryModel, type SummaryOptions } from "@/experience/contracts";
 import { DEFAULT_SUMMARY_OPTIONS } from "@/experience/summary-defaults";
 import { LANGUAGE_OPTIONS } from "@/domain/languages";
+import { SettingGroup } from "@/components/operator/SettingsParts";
 
 interface Archive { details: Omit<JournalState, "readerHash">; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
 interface ServiceEntry { id: string; startedAt: number }
@@ -105,7 +106,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
     {view === "sharing" && <>
       <div className="shareRow">
         <span><strong>Sermon reader</strong><br /><span className="operatorHint">{service ? "Text to scroll and read on a phone" : "Available once you start"}</span></span>
-        <button className="secondaryButton compact" disabled={!service || busy} onClick={() => {
+        <button className="secondaryButton" disabled={!service || busy} onClick={() => {
           const current = readerLink && readerLink.serviceId === service?.serviceId ? readerLink.url : service?.readerUrl;
           if (current) { setIssuedLink({ serviceId: service!.serviceId!, url: current }); setMessage("Reader link ready to copy."); }
           else setConfirmation("reader");
@@ -113,73 +114,88 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
       </div>
       <div className="shareRow">
         <span><strong>Your phone as a remote</strong><br /><span className="operatorHint">{canPair ? "Pause, resume and clear from the stage" : "Available once you start"}</span></span>
-        <button className="secondaryButton compact" disabled={!canPair || busy} onClick={() => void perform(async () => {
+        <button className="secondaryButton" disabled={!canPair || busy} onClick={() => void perform(async () => {
           const result = await experienceRequest<{ url: string }>("pair", {}, service?.controllerToken); setIssuedLink({ serviceId: pairedServiceId, url: result.url }); setMessage("Phone paired. Open the link on your phone; any phone paired before is unpaired.");
         })}>Pair phone</button>
       </div>
       {!service && observer && <p className="operatorHint">Another operator started this service. Your phone can still pause, resume and clear it; the reader link stays with them.</p>}
       {link && <label>Link to open on the phone<input name="experienceLink" autoComplete="off" spellCheck={false} readOnly value={link} />
-        <button className="secondaryButton compact" onClick={() => void perform(async () => { await navigator.clipboard.writeText(link); setMessage("Link copied."); })}>Copy link</button></label>}
+        <button className="secondaryButton" onClick={() => void perform(async () => { await navigator.clipboard.writeText(link); setMessage("Link copied."); })}>Copy link</button></label>}
       {service && <details className="advancedActions"><summary>Reader link shared by mistake?</summary>
         <p className="operatorHint">Replacing it stops the old link straight away.</p>
-        <button className="dangerOutlineButton compact" disabled={busy} onClick={() => setConfirmation("reader")}>Replace reader link</button></details>}
+        <button className="dangerOutlineButton" disabled={busy} onClick={() => setConfirmation("reader")}>Replace reader link</button></details>}
     </>}
-    {view === "archive" && <section className="experienceCard" aria-label="Saved sermons">
-      {loadedList && !services.length && <p className="emptyState"><strong>No saved sermons yet.</strong> Tick “Save the transcript” before you start a service. Saved sermons are kept for 7 days.</p>}
-      <button className="secondaryButton compact" disabled={busy} onClick={() => void loadList()}>Refresh list</button>
-      <div className="archiveList">{services.map((entry) => <button className="secondaryButton" key={entry.id} disabled={busy}
-        onClick={() => void perform(() => load(entry.id))}>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(entry.startedAt)}</button>)}</div>
-    </section>}
-    {view === "archive" && archive && <section className="experienceCard" aria-labelledby="archive-heading"><h2 id="archive-heading">{new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(archive.details.startedAt)}</h2>
-      <p>{archive.details.status === "ended" ? "Ended" : "Still running"} · {archive.details.incomplete ? "Parts weren’t captured: check the gaps before sharing" : "Check the transcript before sharing"}</p>
-      <p className="helpText">Kept until {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format((archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION)}.</p>
-      <div className="buttonGrid"><button className="secondaryButton" disabled={busy} onClick={() => void perform(() => load(archive.details.id))}>Refresh</button>
-        <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => download("sermon-transcript.json", await allSources(archive.details.id)))}>Export transcript</button>
-        <button className="dangerOutlineButton" disabled={busy || archive.details.status !== "ended"} onClick={() => setConfirmation("delete")}>Delete sermon</button></div>
-      <details ref={transcriptRef}><summary>Transcript</summary><div className="archiveRecords">{archive.sources.map((source) => <article id={`source-${source.id}`} tabIndex={-1} key={source.id}>
-        <p><strong>Segment {source.id}</strong> · {new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(source.at)}{source.excluded ? " · Excluded" : ""}</p>
-        <p lang={source.language}>{source.correction ?? source.text}</p>
-        <button className="textButton" onClick={() => setCorrection({ id: source.id, text: source.correction ?? source.text })}>Correct</button>
-      </article>)}</div>{archive.more && <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => {
-        const sources = await allSources(archive.details.id); setArchive({ ...archive, sources, more: false });
-      })}>Load full transcript</button>}</details>
-      <details><summary>Reader passages</summary>{archive.paragraphs.filter((paragraph) => !paragraph.removed).map((paragraph) => <article key={paragraph.id} className="readerParagraph">
-        <p>{paragraph.text}</p><button className="dangerOutlineButton compact" onClick={() => setConfirmation(`remove:${paragraph.id}`)}>Remove</button></article>)}{archive.moreParagraphs && <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => {
-        const result = await experienceRequest<Archive>(`sermons/${archive.details.id}/archive?paragraphAfter=${archive.paragraphs.at(-1)?.id ?? 0}`);
-        setArchive({ ...archive, paragraphs: [...archive.paragraphs, ...result.paragraphs], moreParagraphs: result.moreParagraphs });
-      })}>Load more passages</button>}</details>
-      {(archive.notes?.length ?? 0) > 0 && <details><summary>Your messages ({archive.notes.length})</summary>{archive.notes.map((note) => <article key={note.id} className="readerNote">
-        <p>{note.text}</p></article>)}</details>}
-      {correction && <div className="experienceCard"><label>Corrected text<textarea name="sourceCorrection" autoComplete="off" value={correction.text} maxLength={4000} rows={4} onChange={(event) => setCorrection({ ...correction, text: event.target.value })} /></label>
-        <p className="helpText">The original stays private. Saving clears any summary made from it; to change what readers see, remove the passage under Reader passages.</p>
-        <div className="buttonGrid"><button className="secondaryButton" onClick={() => setCorrection(null)}>Cancel</button>
-          <button className="primaryButton" disabled={busy || !correction.text.trim()} onClick={() => void perform(async () => {
-            await experienceRequest(`sermons/${archive.details.id}/correct`, correction); setCorrection(null); await load(archive.details.id);
-          })}>Save correction</button></div></div>}
-      <h3>AI summary</h3>
-      <p className="helpText">{length === "detailed" ? "Detailed" : "Short"} · {LANGUAGE_OPTIONS.find((entry) => entry.locale === language)?.label ?? language}{guidance ? ` · ${guidance}` : ""}. <a href="#settings=summary">Change defaults</a></p>
-      <button className="primaryButton" disabled={busy || archive.details.status !== "ended" || ["queued", "running"].includes(archive.summary?.status ?? "")}
-        onClick={() => void perform(async () => {
-          if (summaryRequestRef.current?.serviceId !== archive.details.id) summaryRequestRef.current = { serviceId: archive.details.id, id: crypto.randomUUID() };
-          await experienceRequest(`sermons/${archive.details.id}/summary`, { model, language, length, guidance, requestId: summaryRequestRef.current.id });
-          summaryRequestRef.current = null;
-          await load(archive.details.id);
-        })}>Generate summary</button>
-      {archive.summary && <div className="summaryDraft"><p role="status">Summary {archive.summary.status}. {archive.summary.error}{archive.summary.automatic ? " Made automatically when the service ended." : ""}</p>
-        {archive.summary.result?.map((point, index) => <p key={index}>{point.text} <small>Sources: {point.sourceIds.map((id) => <button key={id} className="textButton" onClick={() => void perform(async () => {
-          const sources = archive.sources.some((source) => source.id === id) ? archive.sources : await allSources(archive.details.id);
-          setArchive({ ...archive, sources });
-          if (transcriptRef.current) transcriptRef.current.open = true;
-          requestAnimationFrame(() => { const source = document.getElementById(`source-${id}`); source?.scrollIntoView({ block: "center" }); source?.focus({ preventScroll: true }); });
-        })}>#{id}</button>)}</small></p>)}
-        {archive.summary.status === "completed" && <><label className="checkLabel"><input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} />I checked this summary against the transcript</label>
-          <button className="secondaryButton" disabled={!reviewed} onClick={() => download("sermon-summary.json", { summary: archive.summary, reviewed: true })}>Export summary</button></>}
-      </div>}
-    </section>}
-    <dialog ref={dialogRef} className="experienceCard confirmation" aria-labelledby="experience-confirm-heading" onCancel={() => setConfirmation(null)}><div>
-      <h3 id="experience-confirm-heading">{confirmation === "reader" ? "Replace the reader link?" : confirmation === "delete" ? "Delete this sermon?" : "Remove this passage?"}</h3>
+    {view === "archive" && <div className="operatorColumns">
+      <nav className="settingsNav sermonList" aria-label="Saved sermons">
+        <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void loadList()}>Refresh list</button></div>
+        {loadedList && !services.length && <p className="settingHint">No saved sermons yet.</p>}
+        <div className="archiveList">{services.map((entry) => <button type="button" className="sermonListItem" key={entry.id} disabled={busy}
+          aria-current={archive?.details.id === entry.id ? "page" : undefined}
+          onClick={() => void perform(() => load(entry.id))}>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(entry.startedAt)}</button>)}</div>
+      </nav>
+      <section className="operatorCard settingsPanel" aria-labelledby="archive-heading">
+        {!archive ? <>
+          <header className="settingsHeader"><h2 id="archive-heading">{services.length ? "Choose a sermon" : "No saved sermons yet"}</h2>
+            <p className="settingHint">{services.length ? "Pick one from the list to read its transcript and make a summary." : "Tick “Save the transcript” on the Live screen before you start a service. Saved sermons are kept for 7 days."}</p></header>
+        </> : <>
+        <header className="settingsHeader"><h2 id="archive-heading">{new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(archive.details.startedAt)}</h2>
+          <p className="settingHint">{archive.details.status === "ended" ? "Ended" : "Still running"} · kept until {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format((archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION)}</p></header>
+        {archive.details.incomplete && <p className="operatorBanner" data-tone="warn">Parts of this service weren’t captured. Check the gaps in the transcript before sharing.</p>}
+        <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(() => load(archive.details.id))}>Refresh</button>
+          <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => download("sermon-transcript.json", await allSources(archive.details.id)))}>Export transcript</button>
+          <button className="dangerOutlineButton" disabled={busy || archive.details.status !== "ended"} onClick={() => setConfirmation("delete")}>Delete sermon</button></div>
+        <SettingGroup title="AI summary" hint={<>{length === "detailed" ? "Detailed" : "Short"} · {LANGUAGE_OPTIONS.find((entry) => entry.locale === language)?.label ?? language}{guidance ? ` · ${guidance}` : ""}. <a href="#settings=summary">Change defaults</a></>}>
+          <div className="buttonRow"><button className="primaryButton" disabled={busy || archive.details.status !== "ended" || ["queued", "running"].includes(archive.summary?.status ?? "")}
+            onClick={() => void perform(async () => {
+              if (summaryRequestRef.current?.serviceId !== archive.details.id) summaryRequestRef.current = { serviceId: archive.details.id, id: crypto.randomUUID() };
+              await experienceRequest(`sermons/${archive.details.id}/summary`, { model, language, length, guidance, requestId: summaryRequestRef.current.id });
+              summaryRequestRef.current = null;
+              await load(archive.details.id);
+            })}>Generate summary</button></div>
+          {archive.summary && <div className="summaryDraft"><p className="settingHint" role="status">Summary {archive.summary.status}. {archive.summary.error}{archive.summary.automatic ? " Made automatically when the service ended." : ""}</p>
+            {archive.summary.result?.map((point, index) => <p key={index}>{point.text} <small>Sources: {point.sourceIds.map((id) => <button key={id} type="button" className="textButton" onClick={() => void perform(async () => {
+              const sources = archive.sources.some((source) => source.id === id) ? archive.sources : await allSources(archive.details.id);
+              setArchive({ ...archive, sources });
+              if (transcriptRef.current) transcriptRef.current.open = true;
+              requestAnimationFrame(() => { const source = document.getElementById(`source-${id}`); source?.scrollIntoView({ block: "center" }); source?.focus({ preventScroll: true }); });
+            })}>#{id}</button>)}</small></p>)}
+            {archive.summary.status === "completed" && <><label className="checkLabel"><input type="checkbox" name="summaryReviewed" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} />I checked this summary against the transcript</label>
+              <div className="buttonRow"><button className="secondaryButton" disabled={!reviewed} onClick={() => download("sermon-summary.json", { summary: archive.summary, reviewed: true })}>Export summary</button></div></>}
+          </div>}
+        </SettingGroup>
+        <SettingGroup title="Transcript" hint="What was heard. Corrections stay private; to change what readers see, remove the passage below.">
+          <details ref={transcriptRef} className="advancedActions"><summary>Show the transcript</summary><div className="archiveRecords">{archive.sources.map((source) => <article id={`source-${source.id}`} tabIndex={-1} key={source.id}>
+            <p className="settingHint">{new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(source.at)}{source.excluded ? " · Removed from summaries" : ""}</p>
+            <p lang={source.language}>{source.correction ?? source.text}</p>
+            <div className="buttonRow"><button type="button" className="secondaryButton" onClick={() => setCorrection({ id: source.id, text: source.correction ?? source.text })}>Correct</button></div>
+          </article>)}</div>{archive.more && <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => {
+            const sources = await allSources(archive.details.id); setArchive({ ...archive, sources, more: false });
+          })}>Load full transcript</button></div>}</details>
+          {correction && <div className="correctionEditor"><label>Corrected text<textarea name="sourceCorrection" autoComplete="off" value={correction.text} maxLength={4000} rows={4} onChange={(event) => setCorrection({ ...correction, text: event.target.value })} /></label>
+            <p className="settingHint">Saving clears any summary made from this passage.</p>
+            <div className="buttonRow"><button type="button" className="secondaryButton" onClick={() => setCorrection(null)}>Cancel</button>
+              <button type="button" className="primaryButton" disabled={busy || !correction.text.trim()} onClick={() => void perform(async () => {
+                await experienceRequest(`sermons/${archive.details.id}/correct`, correction); setCorrection(null); await load(archive.details.id);
+              })}>Save correction</button></div></div>}
+        </SettingGroup>
+        <SettingGroup title="Reader passages" hint="What people with the reader link see.">
+          <details className="advancedActions"><summary>Show reader passages</summary>{archive.paragraphs.filter((paragraph) => !paragraph.removed).map((paragraph) => <article key={paragraph.id} className="readerParagraph">
+            <p>{paragraph.text}</p><div className="buttonRow"><button type="button" className="dangerOutlineButton" onClick={() => setConfirmation(`remove:${paragraph.id}`)}>Remove</button></div></article>)}{archive.moreParagraphs && <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => {
+            const result = await experienceRequest<Archive>(`sermons/${archive.details.id}/archive?paragraphAfter=${archive.paragraphs.at(-1)?.id ?? 0}`);
+            setArchive({ ...archive, paragraphs: [...archive.paragraphs, ...result.paragraphs], moreParagraphs: result.moreParagraphs });
+          })}>Load more passages</button></div>}</details>
+        </SettingGroup>
+        {(archive.notes?.length ?? 0) > 0 && <SettingGroup title="Your messages" hint="Messages you showed during the service.">
+          {archive.notes.map((note) => <p key={note.id} className="readerNote">{note.text}</p>)}
+        </SettingGroup>}
+        </>}
+        <p className="settingHint" role="status" aria-live="polite">{busy ? "Working…" : message}</p>
+      </section>
+    </div>}
+    <dialog ref={dialogRef} className="confirmationDialog" aria-labelledby="experience-confirm-heading" onCancel={() => setConfirmation(null)}><div>
+      <h2 id="experience-confirm-heading">{confirmation === "reader" ? "Replace the reader link?" : confirmation === "delete" ? "Delete this sermon?" : "Remove this passage?"}</h2>
       <p>{confirmation === "reader" ? "The old reader link stops working straight away. Send the new one to readers." : confirmation === "delete" ? "The transcript, reader passages and summary are deleted for everyone. This can’t be undone." : "Readers stop seeing this passage and summaries leave it out. The original stays private until the sermon is deleted."}</p>
-      <div className="buttonGrid"><button className="secondaryButton" disabled={busy} onClick={() => setConfirmation(null)}>{confirmation === "delete" ? "Keep it" : "Cancel"}</button>
+      <div className="confirmationRow"><button className="secondaryButton" disabled={busy} onClick={() => setConfirmation(null)}>{confirmation === "delete" ? "Keep it" : "Cancel"}</button>
         <button className="dangerButton" disabled={busy || (confirmation === "reader" && !service)} onClick={() => void perform(async () => {
           if (confirmation === "reader") { const result = await experienceRequest<{ url: string }>("reader-rotate", {}, service!.controllerToken); setIssuedLink({ serviceId: service!.serviceId!, url: result.url }); setReaderLink({ serviceId: service!.serviceId!, url: result.url }); onReaderLink(result.url); }
           else if (archive) {
@@ -188,6 +204,6 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
           }
           setConfirmation(null); setMessage("Done.");
         })}>{confirmation === "reader" ? "Replace link" : confirmation === "delete" ? "Delete sermon" : "Remove passage"}</button></div></div></dialog>
-    <p role="status" aria-live="polite">{busy ? "Working…" : message}</p>
+    {view === "sharing" && <p className="settingHint" role="status" aria-live="polite">{busy ? "Working…" : message}</p>}
   </div>;
 }
