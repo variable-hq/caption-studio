@@ -3,24 +3,13 @@
 import { useId } from "react";
 
 import {
-  OUTPUT_BUFFER_COUNT_OPTIONS,
+  DEFAULT_OUTPUT_BUFFER_DWELL_MS,
   OUTPUT_BUFFER_DWELL_OPTIONS_MS,
   normalizeOutputBufferCount,
   normalizeOutputBufferDwellMs,
   type OutputBufferCount,
   type OutputBufferDwellMs,
 } from "@/live/output-buffer";
-
-function countLabel(value: OutputBufferCount, isDefault: boolean): string {
-  const label = value === 0 ? "Off" : "On";
-  return isDefault ? `${label} · Your default` : label;
-}
-
-function dwellLabel(value: OutputBufferDwellMs, isDefault: boolean): string {
-  const seconds = value / 1_000;
-  const label = `${seconds} second${seconds === 1 ? "" : "s"}`;
-  return isDefault ? `${label} · Your default` : label;
-}
 
 interface OutputBufferPanelProps {
   count: OutputBufferCount;
@@ -34,10 +23,8 @@ interface OutputBufferPanelProps {
   defaultDwellMs?: OutputBufferDwellMs | null;
 }
 
-/** The output buffer's On/Off setting, dwell duration, and account default —
- * configuration, not a live control. See OutputBufferQueueControl for the
- * operator-facing queue itself, co-located in the same Manual override section
- * since it's an override, not connectivity config. */
+/** "Check captions before they show": one choice, Off or how long each caption waits.
+ * Stored as the existing count (0 or 1) and dwell, so saved setups keep their format. */
 export function OutputBufferPanel({
   count,
   onCountChange,
@@ -49,63 +36,43 @@ export function OutputBufferPanel({
   defaultCount = null,
   defaultDwellMs = null,
 }: OutputBufferPanelProps) {
-  const countHelpId = useId();
-  const dwellHelpId = useId();
+  const helpId = useId();
+  const value = count > 0 ? String(dwellMs) : "off";
+  const defaultValue = defaultCount === null ? null : defaultCount > 0 ? String(defaultDwellMs ?? DEFAULT_OUTPUT_BUFFER_DWELL_MS) : "off";
+  const badge = (option: string) => (defaultValue === option ? " · Church default" : "");
 
   return (
     <div className="outputBufferPanel">
       <label>
-        Output buffer
+        Wait before showing each caption
         <select
-          name="outputBufferCount"
+          name="outputBufferWait"
           autoComplete="off"
-          data-testid="output-buffer-count"
-          value={count}
+          data-testid="output-buffer-wait"
+          value={value}
           disabled={disabled}
-          aria-describedby={countHelpId}
-          onChange={(event) => onCountChange(normalizeOutputBufferCount(event.target.value))}
+          aria-describedby={helpId}
+          onChange={(event) => {
+            if (event.target.value === "off") return onCountChange(0);
+            onCountChange(normalizeOutputBufferCount(1));
+            onDwellChange(normalizeOutputBufferDwellMs(event.target.value));
+          }}
         >
-          {OUTPUT_BUFFER_COUNT_OPTIONS.map((value) => (
-            <option value={value} key={value}>
-              {countLabel(value, defaultCount === value)}
+          <option value="off">Off: show straight away{badge("off")}</option>
+          {OUTPUT_BUFFER_DWELL_OPTIONS_MS.map((ms) => (
+            <option value={ms} key={ms}>
+              Wait {ms / 1000} {ms === 1000 ? "second" : "seconds"}{badge(String(ms))}
             </option>
           ))}
         </select>
       </label>
-      <p className="helpText" id={countHelpId}>
-        Off shows each translation immediately. On holds the next caption so you can
-        pause, correct, or drop it before it reaches OBS and the mobile viewer; once the
-        queue backlog fills, further captions are dropped. Use Manual override to act on
-        a queued caption.
+      <p className="helpText" id={helpId}>
+        While a caption waits under Next up you can edit, pause or skip it. Changes apply
+        straight away.
       </p>
-      {count > 0 ? (
-        <>
-          <label>
-            Dwell duration
-            <select
-              name="outputBufferDwellMs"
-              autoComplete="off"
-              data-testid="output-buffer-dwell"
-              value={dwellMs}
-              disabled={disabled}
-              aria-describedby={dwellHelpId}
-              onChange={(event) => onDwellChange(normalizeOutputBufferDwellMs(event.target.value))}
-            >
-              {OUTPUT_BUFFER_DWELL_OPTIONS_MS.map((value) => (
-                <option value={value} key={value}>
-                  {dwellLabel(value, defaultDwellMs === value)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="helpText" id={dwellHelpId}>
-            How long the next-up caption holds before advancing to Live.
-          </p>
-        </>
-      ) : null}
       <div className="saveRow">
         <button className="secondaryButton" type="button" onClick={onSaveDefault} disabled={disabled}>
-          Save as my default
+          Save for everyone
         </button>
         <p role="status" aria-live="polite" aria-atomic="true">
           {savedMessage}

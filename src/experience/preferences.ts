@@ -24,7 +24,6 @@ export type TranslationDefaults = Omit<TranslationSessionSettings, "translationS
 export interface OperatorPreferences {
   version: typeof PREFERENCES_VERSION;
   theme: ThemePreference;
-  sidebarWidth: number | null;
   translationSystemPrompt: string | null;
   summaryDefaults: SummaryOptions | null;
   captionStyle: CaptionStyle | null;
@@ -35,14 +34,12 @@ export interface OperatorPreferences {
   saveHistoryDefault: boolean | null;
   /** Generates an AI summary draft after each saved service this operator ends. */
   autoSummary: boolean;
-  tutorialDismissed: boolean;
   updatedAt: number | null;
 }
 
 export const EMPTY_PREFERENCES: OperatorPreferences = {
   version: PREFERENCES_VERSION,
   theme: "system",
-  sidebarWidth: null,
   translationSystemPrompt: null,
   summaryDefaults: null,
   captionStyle: null,
@@ -51,21 +48,11 @@ export const EMPTY_PREFERENCES: OperatorPreferences = {
   outputBufferDwellMs: null,
   saveHistoryDefault: null,
   autoSummary: false,
-  tutorialDismissed: false,
   updatedAt: null,
 };
 
-export const SIDEBAR_WIDTH_MIN = 200;
-export const SIDEBAR_WIDTH_MAX = 420;
-
 export function normalizeTheme(value: unknown): ThemePreference {
   return value === "light" || value === "dark" ? value : "system";
-}
-
-function normalizeSidebarWidth(value: unknown) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return null;
-  return Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, Math.round(number)));
 }
 
 function normalizePrompt(value: unknown) {
@@ -111,7 +98,6 @@ export function mergeOperatorPreferences(
   return {
     version: PREFERENCES_VERSION,
     theme: "theme" in input ? normalizeTheme(input.theme) : base.theme,
-    sidebarWidth: pick("sidebarWidth", base.sidebarWidth, normalizeSidebarWidth),
     translationSystemPrompt: pick("translationSystemPrompt", base.translationSystemPrompt, normalizePrompt),
     summaryDefaults: pick("summaryDefaults", base.summaryDefaults, normalizeSummaryOptions),
     captionStyle: pick("captionStyle", base.captionStyle, (value) =>
@@ -121,7 +107,6 @@ export function mergeOperatorPreferences(
     outputBufferDwellMs: pick("outputBufferDwellMs", base.outputBufferDwellMs, normalizeOutputBufferDwellMs),
     saveHistoryDefault: pick("saveHistoryDefault", base.saveHistoryDefault, (value) => value === true),
     autoSummary: "autoSummary" in input ? input.autoSummary === true : base.autoSummary,
-    tutorialDismissed: "tutorialDismissed" in input ? input.tutorialDismissed === true : base.tutorialDismissed,
     updatedAt: at,
   };
 }
@@ -140,6 +125,45 @@ export function normalizeOperatorPreferences(value: unknown): OperatorPreference
   const merged = mergeOperatorPreferences(EMPTY_PREFERENCES, candidate);
   const updatedAt = Number((candidate as Record<string, unknown>).updatedAt);
   return { ...merged, updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? updatedAt : null };
+}
+
+/**
+ * The church-wide setup every operator shares (ADR 0022): the same record shape, stored
+ * once for the workspace. Only `theme` stays per operator.
+ */
+export const WORKSPACE_SETUP_KEY = "workspace:setup";
+
+/** Fields the church setup owns; the rest of a record (theme) stays personal. */
+export const SHARED_SETUP_FIELDS = [
+  "translationSystemPrompt",
+  "summaryDefaults",
+  "captionStyle",
+  "translationDefaults",
+  "outputBufferCount",
+  "outputBufferDwellMs",
+  "saveHistoryDefault",
+  "autoSummary",
+] as const satisfies readonly (keyof OperatorPreferences)[];
+
+/**
+ * The setup in effect for one operator. Until anyone has saved the church setup, an
+ * operator keeps their own earlier saved values; afterwards a field still unset in the
+ * church setup falls back to the operator's own, so nothing saved before ADR 0022 is lost.
+ */
+export function effectiveSetup(shared: OperatorPreferences, personal: OperatorPreferences): OperatorPreferences {
+  if (shared.updatedAt === null) return personal;
+  return {
+    ...personal,
+    translationSystemPrompt: shared.translationSystemPrompt ?? personal.translationSystemPrompt,
+    summaryDefaults: shared.summaryDefaults ?? personal.summaryDefaults,
+    captionStyle: shared.captionStyle ?? personal.captionStyle,
+    translationDefaults: shared.translationDefaults ?? personal.translationDefaults,
+    outputBufferCount: shared.outputBufferCount ?? personal.outputBufferCount,
+    outputBufferDwellMs: shared.outputBufferDwellMs ?? personal.outputBufferDwellMs,
+    saveHistoryDefault: shared.saveHistoryDefault ?? personal.saveHistoryDefault,
+    autoSummary: shared.autoSummary,
+    updatedAt: shared.updatedAt,
+  };
 }
 
 /** Deterministic, non-reversible key for an operator identity such as an Access email. */

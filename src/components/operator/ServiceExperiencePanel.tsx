@@ -135,7 +135,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
       <p className="helpText">Kept until {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format((archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION)}.</p>
       <div className="buttonGrid"><button className="secondaryButton" disabled={busy} onClick={() => void perform(() => load(archive.details.id))}>Refresh</button>
         <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => download("sermon-transcript.json", await allSources(archive.details.id)))}>Export transcript</button>
-        <button className="dangerButton" disabled={busy || archive.details.status !== "ended"} onClick={() => setConfirmation("delete")}>Delete sermon</button></div>
+        <button className="dangerOutlineButton" disabled={busy || archive.details.status !== "ended"} onClick={() => setConfirmation("delete")}>Delete sermon</button></div>
       <details ref={transcriptRef}><summary>Transcript</summary><div className="archiveRecords">{archive.sources.map((source) => <article id={`source-${source.id}`} tabIndex={-1} key={source.id}>
         <p><strong>Segment {source.id}</strong> · {new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(source.at)}{source.excluded ? " · Excluded" : ""}</p>
         <p lang={source.language}>{source.correction ?? source.text}</p>
@@ -144,7 +144,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
         const sources = await allSources(archive.details.id); setArchive({ ...archive, sources, more: false });
       })}>Load full transcript</button>}</details>
       <details><summary>Reader passages</summary>{archive.paragraphs.filter((paragraph) => !paragraph.removed).map((paragraph) => <article key={paragraph.id} className="readerParagraph">
-        <p>{paragraph.text}</p><button className="dangerButton" onClick={() => setConfirmation(`remove:${paragraph.id}`)}>Remove</button></article>)}{archive.moreParagraphs && <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => {
+        <p>{paragraph.text}</p><button className="dangerOutlineButton compact" onClick={() => setConfirmation(`remove:${paragraph.id}`)}>Remove</button></article>)}{archive.moreParagraphs && <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => {
         const result = await experienceRequest<Archive>(`sermons/${archive.details.id}/archive?paragraphAfter=${archive.paragraphs.at(-1)?.id ?? 0}`);
         setArchive({ ...archive, paragraphs: [...archive.paragraphs, ...result.paragraphs], moreParagraphs: result.moreParagraphs });
       })}>Load more passages</button>}</details>

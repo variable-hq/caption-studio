@@ -1,6 +1,8 @@
 # ADR 0017: configurable output buffer dwell duration
 
-Date: 30 September 2026. Status: accepted, implemented in source.
+Date: 30 September 2026. Status: accepted; amended by
+[ADR 0022](0022-shared-church-setup-and-words-list.md), which presents On/Off and the
+dwell as one choice (Off, or Wait 1–5 seconds) stored the same way.
 
 ## Decision
 

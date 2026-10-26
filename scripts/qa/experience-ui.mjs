@@ -50,7 +50,7 @@ try {
    else if (url.pathname.endsWith('/remove')) { assert.equal(body.confirm, true); excluded = true; summary = null; payload = { removed: true }; }
    else if (url.pathname.endsWith('/correct')) { assert.ok(body.text); summary = null; payload = { corrected: true }; }
    else if (url.pathname.endsWith('/delete')) { assert.equal(body.confirm, true); payload = { deleted: true }; }
-   else if (url.pathname.endsWith('/experience/preferences')) payload = { version: 1, theme: 'system', sidebarWidth: null, translationSystemPrompt: null, summaryDefaults: null, captionStyle: null, translationDefaults: null, tutorialDismissed: false, updatedAt: null };
+   else if (url.pathname.endsWith('/experience/preferences') || url.pathname.endsWith('/experience/setup')) payload = { version: 1, theme: 'system', translationSystemPrompt: null, summaryDefaults: null, captionStyle: null, translationDefaults: null, updatedAt: null };
    else if (url.pathname.endsWith('/experience/usage')) payload = { records: [{ id: 'synthetic-attempt', serviceId: id, at: Date.now(), stage: 'translation', provider: 'groq', model: 'openai/gpt-oss-20b', status: 'completed', tokens: { promptTokens: 150, completionTokens: 50, totalTokens: 200 }, audioSeconds: null, estimatedNeurons: 0 }], next: null };
    else { errors.push('Unexpected API: ' + url.pathname); return route.fulfill({ status: 400, json: { error: 'Unexpected request' } }); }
    return route.fulfill({ status: 200, json: payload });
@@ -76,13 +76,13 @@ try {
   assert.ok(requests.every((url) => url === '/api/live/reader'));
   requests.length = 0;
   await page.goto(origin + '/operator/mobile#' + id + '.' + 'p'.repeat(43));
-  await page.getByText('Capture computer connected · live', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Pause captions', exact: true }).click();
-  await page.getByText('pause: confirmed by the capture computer', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Resume captions', exact: true }).click();
-  await page.getByText('resume: confirmed by the capture computer', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Clear live caption', exact: true }).click();
-  await page.getByText('clear: confirmed by the capture computer', { exact: true }).waitFor(); await check('remote');
+  await page.getByText('Caption computer connected · live', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await page.getByText('Pause: confirmed by the caption computer.', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Resume', exact: true }).click();
+  await page.getByText('Resume: confirmed by the caption computer.', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Clear screen', exact: true }).click();
+  await page.getByText('Clear screen: confirmed by the caption computer.', { exact: true }).waitFor(); await check('remote');
   assert.ok(requests.every((url) => url === '/api/live/experience/remote'));
   await page.goto(origin + '/#sermons'); await page.getByRole('heading', { name: 'Sermons', exact: true }).waitFor();
   await page.locator('.archiveList button').first().click();
@@ -111,7 +111,7 @@ try {
   await page.screenshot({ path: `${output}/usage-before-${width}.png`, fullPage: true });
   await fs.writeFile(`${output}/usage-before-${width}.txt`, await page.locator('body').innerText());
   await page.getByRole('button', { name: 'Refresh usage history', exact: true }).click();
-  await page.getByText('Plan monthly service capacity', { exact: true }).click(); await check('usage');
+  await page.getByText('Usage by day (UTC)', { exact: true }).click(); assert.equal(await page.getByText('Plan monthly service capacity', { exact: true }).count(), 0); await check('usage');
   assert.deepEqual(errors, []); await context.close();
  }
  await fs.writeFile(output + '/results.json', JSON.stringify(results, null, 2));

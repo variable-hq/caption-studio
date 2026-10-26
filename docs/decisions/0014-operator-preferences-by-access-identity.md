@@ -1,6 +1,8 @@
 # ADR 0014: operator preferences bound to the Access identity
 
-15 September 2026. Status: accepted, implemented in source.
+15 September 2026. Status: accepted; amended by
+[ADR 0022](0022-shared-church-setup-and-words-list.md), which moves every saved setting
+except the theme into one church setup shared by all operators.
 
 ## Context
 

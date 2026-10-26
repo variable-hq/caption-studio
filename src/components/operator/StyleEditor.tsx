@@ -58,9 +58,9 @@ export function StyleEditor({
               setFontFamily(event.target.value as CaptionStyle["fontFamily"])
             }
           >
-            <option value="sans-serif">Sans serif{defaultStyle?.fontFamily === "sans-serif" ? " · Your default" : ""}</option>
-            <option value="serif">Times serif{defaultStyle?.fontFamily === "serif" ? " · Your default" : ""}</option>
-            <option value="monospace">Monospace{defaultStyle?.fontFamily === "monospace" ? " · Your default" : ""}</option>
+            <option value="sans-serif">Sans serif{defaultStyle?.fontFamily === "sans-serif" ? " · Church default" : ""}</option>
+            <option value="serif">Times serif{defaultStyle?.fontFamily === "serif" ? " · Church default" : ""}</option>
+            <option value="monospace">Monospace{defaultStyle?.fontFamily === "monospace" ? " · Church default" : ""}</option>
           </select>
         </label>
         <label>
@@ -73,9 +73,9 @@ export function StyleEditor({
               )
             }
           >
-            <option value="left">Left{defaultStyle?.horizontalAlign === "left" ? " · Your default" : ""}</option>
-            <option value="center">Centre{defaultStyle?.horizontalAlign === "center" ? " · Your default" : ""}</option>
-            <option value="right">Right{defaultStyle?.horizontalAlign === "right" ? " · Your default" : ""}</option>
+            <option value="left">Left{defaultStyle?.horizontalAlign === "left" ? " · Church default" : ""}</option>
+            <option value="center">Centre{defaultStyle?.horizontalAlign === "center" ? " · Church default" : ""}</option>
+            <option value="right">Right{defaultStyle?.horizontalAlign === "right" ? " · Church default" : ""}</option>
           </select>
         </label>
         <label>
@@ -86,9 +86,9 @@ export function StyleEditor({
               setVerticalAlign(event.target.value as CaptionStyle["verticalAlign"])
             }
           >
-            <option value="top">Top{defaultStyle?.verticalAlign === "top" ? " · Your default" : ""}</option>
-            <option value="middle">Middle{defaultStyle?.verticalAlign === "middle" ? " · Your default" : ""}</option>
-            <option value="bottom">Bottom{defaultStyle?.verticalAlign === "bottom" ? " · Your default" : ""}</option>
+            <option value="top">Top{defaultStyle?.verticalAlign === "top" ? " · Church default" : ""}</option>
+            <option value="middle">Middle{defaultStyle?.verticalAlign === "middle" ? " · Church default" : ""}</option>
+            <option value="bottom">Bottom{defaultStyle?.verticalAlign === "bottom" ? " · Church default" : ""}</option>
           </select>
         </label>
         <label>

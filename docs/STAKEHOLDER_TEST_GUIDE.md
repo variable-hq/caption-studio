@@ -49,10 +49,10 @@ The browser is the sole client; there are no native/signing checklists.
    and confirm the theme returns from the account.
    Confirm drafts and the transcript checkbox survive moving between screens, and no
    navigation action starts capture.
-   Save the prompt, summary defaults, caption style and default translation setup with
-   **Save to my account** / **Save as my default**, then open the dashboard in a second
-   browser as the same Access user: every value must follow the account. A different
-   Access user must not see them.
+   Save the prompt, summary defaults, caption style, words and default translation setup
+   with **Save for everyone**, then open the dashboard as a different Access user: the
+   church setup must match. Change the theme there; it must not change for the first
+   user. Add one word of each Words action and confirm each behaves as described.
 3. Sign in; after Start, confirm the configured models under Live › This service › Details. Defaults are
    `whisper-large-v3-turbo` and `openai/gpt-oss-20b`. Configuration is not a model-output test.
 4. Enable the audio test, select the USB interface and speak into the AUX feed. Mute that

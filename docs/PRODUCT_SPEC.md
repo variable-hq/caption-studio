@@ -265,15 +265,15 @@ between a translated, moderated caption and its arrival on the public Live outpu
 the mobile viewer). It lives only in the controlling operator's browser tab, applies
 immediately without a translation refresh, and is unrelated to the recording window
 duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md) and
-[ADR 0017](decisions/0017-configurable-output-buffer-dwell.md). The On/Off setting, dwell
-duration, and their account defaults, plus the queued caption itself and its controls,
-sit under **Check captions before they show** on the Live screen, both before Start and
+[ADR 0017](decisions/0017-configurable-output-buffer-dwell.md). The setting and its church
+default sit under **Check captions before they show** on the Live screen, both before Start and
 during a service; the queued captions and their controls appear in Live's **Quick fixes**
 with Quick block and Manual caption. The public caption filter lives in Settings › Words.
 
-- **On/Off**, default Off (matching behavior before this feature existed). On holds each
-  caption for a **dwell duration** before it advances to Live: a fixed choice of 1/2/3/4/5
-  seconds, default 3 seconds, shown only while the buffer is On.
+- One choice, **Wait before showing each caption**: Off (the default, matching behavior
+  before this feature existed) or Wait 1, 2, 3, 4 or 5 seconds before each caption advances
+  to Live. It is stored as the existing On/Off count and dwell duration
+  ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)).
 - Only the next-up caption is ever shown or individually controllable. Internally, up to
   3 more translations can queue behind it out of sight, giving a paused or in-edit caption
   real headroom; once that backlog is full, a paused front drops any further arriving
@@ -287,15 +287,28 @@ with Quick block and Manual caption. The public caption filter lives in Settings
   (removed from the queue), or **fast-forwarded** (shown on Live immediately). These are
   separate from the quick block above: pausing the service, clearing the current Live
   caption, a translation refresh, takeover, and End all discard the whole buffer.
-- **Save as my default** stores the On/Off choice and dwell duration with the operator's
-  account, the same way the Translation page saves its default setup; new services start
-  from it.
+- **Save for everyone** stores the choice in the church setup; new services start from it.
 
-Discrete-choice controls with a saved account default (output buffer On/Off and dwell
-duration, recording window, source/target language, inference level, caption
-font/alignment) mark the matching option "· Your default" in its own dropdown, distinct
-from whatever is merely selected in the current session's draft. Free-text fields
-(terminology, filters, the system prompt) don't carry this marker.
+### Church setup and Words
+
+Every saved setting except the theme belongs to one **church setup** shared by all
+signed-in operators ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)):
+languages, caption speed, words and inference level; the translator instructions; the
+caption style; the summary defaults and automatic summaries; the output buffer; and the
+transcript-saving default. **Save for everyone** (and **Make this the church default**
+beside the transcript choice) writes it. Until anyone saves it, each operator keeps the
+setup they saved earlier; afterwards a value the church setup has never set still falls
+back to the operator's own, and the first save carries the saving operator's earlier
+setup across. Discrete-choice controls mark the church's saved option "· Church default",
+distinct from the current draft.
+
+**Settings › Words** lists one row per word with one action: **Help the AI recognise it**,
+**Fix spelling to…** (a mishearing), **Always translate as…**, **Hide the word (\*\*\*)**,
+**Replace on screen with…**, or **Hide the whole caption**. Rows are stored as the glossary
+and public-filter text described above, so drafts, **Apply now** and saved setups treat
+them exactly as before; the pipeline reads at most 40 glossary and 40 filter entries, and
+the editor warns past that. **Import Bible names** adds the TB2 list once for Indonesian →
+English. Live's quick block stays separate because it applies without a refresh.
 
 ### Caption display, OBS, and mobile viewing
 
@@ -375,8 +388,8 @@ from whatever is merely selected in the current session's draft. Free-text field
 - The mobile page exposes no source caption, history, broadcast style controls, operator state,
   controller token, OBS token, or inference capability. Pause clears it; End, expiry,
   takeover, and replacement revoke it.
-- The shared style persists in the channel; **Save as default** also stores the style
-  with the operator's account and keeps a browser fallback in `localStorage`
+- The shared style persists in the channel; **Save for next week** also stores the style
+  in the church setup and keeps a browser fallback in `localStorage`
   (`caption-studio:caption-style:v1`), beside the explicitly saved prompt
   (`caption-studio:translation-system-prompt:v1`), the explicitly saved summary
   defaults (`caption-studio:summary-defaults:v1`), the theme
@@ -555,8 +568,8 @@ the current live caption uses one of those IDs, removal also requests its cleari
 never rewrites OBS.
 Confirmed Delete requires End, removes content and the archive index, and rejects late jobs.
 
-The paired `/operator/mobile` remote offers **Pause captions**, **Resume captions** and
-**Clear live caption**; Resume stays disabled while the capture computer is disconnected,
+The paired `/operator/mobile` phone remote offers **Pause**, **Resume** and **Clear
+screen**; Resume stays disabled while the capture computer is disconnected,
 and each action reads as pending until the capture computer acknowledges it. The remote
 stays scoped to those live commands: saved transcripts and sermons are reviewed on the
 dashboard's Sermons screen, which any signed-in operator may open on any device.
@@ -566,9 +579,9 @@ hold a paired-phone credential, matching the 32 watcher sockets the room accepts
 that ceiling the oldest identity is dropped and must register again.
 
 Manual summaries use opted-in, ended history with a frozen source revision. Settings › AI
-summary holds account defaults for the allowlisted Workers AI model, output language,
-short/detailed length and up to 2,000 characters of guidance; **Save to my account**
-stores them explicitly. **Generate summary** on a sermon sends those defaults and names
+summary holds the church's defaults for output language, short/detailed length and up to
+2,000 characters of guidance; **Save for everyone** stores them. Every summary uses the
+default Workers AI model; there is no model choice. **Generate summary** on a sermon sends those defaults and names
 them with a **Change defaults** link; it has no per-request overrides. The Usage history
 disclosures explain that nothing is listed until usage is
 loaded. Server-owned TB2 grounding rules cannot be edited. Bounded
@@ -577,9 +590,9 @@ context, call or daily budgets are visible. Source membership validation is not 
 proof. Operators must review the private draft before JSON export. Transcript JSON export
 is also available; generating or regenerating never extends retention.
 
-The same settings page has **Generate a summary automatically after each service I end**
-(off by default, account-only). When on, ending a service with saving on queues the same
-summary job from the operator's saved defaults; it appears in Sermons marked as
+The same settings page has **Make a summary draft automatically after each service** (off
+by default, part of the church setup). When on, ending a service with saving on queues the
+same summary job from the church's summary defaults; it appears in Sermons marked as
 generated automatically, still needs review before export, and is skipped if a summary
 already exists. See [ADR 0019](decisions/0019-automatic-post-service-summary.md).
 
@@ -592,8 +605,9 @@ Summaries must not manufacture scripture or claim a generated paraphrase is an e
 A separate numeric ledger spans services for a rolling 30 days. It records admissions
 before provider dispatch, deduplicates outcomes and preserves unknown consumption.
 End, Clear, refresh, takeover, source removal and archive deletion never reset it.
-The UI groups by service/day/stage/model and labels capacity as an estimate under stated
-limits, not an account billing meter or a calendar-month allowance.
+Settings › Usage shows the service count and today's remaining requests, with breakdowns by
+day and by service under Details. It is not an account billing meter or a calendar-month
+allowance, and it offers no capacity estimate.
 
 Optional Workers AI requires `CAPTION_OPTIONAL_AI_ENABLED=true`; it defaults off.
 Per-service ceilings are 200 reader and 60 summary calls. Conservative reservations permit

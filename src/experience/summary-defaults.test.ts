@@ -16,7 +16,7 @@ describe("summary defaults", () => {
       .toEqual(DEFAULT_SUMMARY_OPTIONS);
   });
 
-  it("keeps allowlisted values and bounds the guidance", () => {
+  it("keeps allowlisted values, uses the one summary model, and bounds the guidance", () => {
     const stored = JSON.stringify({
       model: SUMMARY_MODELS[1],
       language: "en",
@@ -24,7 +24,7 @@ describe("summary defaults", () => {
       guidance: ` Focus on\u0000 applications. ${"x".repeat(MAX_SUMMARY_GUIDANCE_CHARS)}`,
     });
     const options = normalizeSummaryOptions(stored);
-    expect(options.model).toBe(SUMMARY_MODELS[1]);
+    expect(options.model).toBe(SUMMARY_MODELS[0]);
     expect(options.language).toBe("en");
     expect(options.length).toBe("detailed");
     expect(options.guidance.startsWith("Focus on applications.")).toBe(true);

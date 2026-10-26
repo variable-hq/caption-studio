@@ -1,8 +1,7 @@
 # Design system
 
 26 October 2026. Describes the tokens and shared rules in `src/app/globals.css`,
-`src/app/operator-shell.css`, `src/app/dashboard.css`, `src/app/service-panel.css` and the
-React Bits `BorderGlow` adaptation.
+`src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
 No CSS framework or runtime dependency is involved.
 
 [Brand guidelines](BRAND_GUIDELINES.md) set the rules for using these tokens and classes:
@@ -19,7 +18,7 @@ All colour, type, spacing and size values come from custom properties on `:root`
 | Colour | `--ink --muted --line --line-strong --paper --card --surface-muted --surface-strong --accent --accent-hover --on-accent --track --backdrop --focus --danger --danger-bg --ok-ink --ok-bg --ok-line --warn-ink --warn-bg --warn-line --shadow --shadow-elevated` |
 | Type | `--text-xs` 11px, `--text-sm` 12px, `--text-base` 14px, `--text-md` 15px, `--text-lg` 18px, `--text-xl` 22px, `--text-2xl` 28px; `--leading-tight` 1.2, `--leading-normal` 1.5; `--weight-regular` 500, `--weight-bold` 700; `--tracking-caps` |
 | Space | `--space-0` 4px to `--space-4` 32px; `--gap-sm` 8px, `--gap-md` 12px, `--gap-lg` 18px |
-| Size | `--control-height` 44px, `--control-height-sm` 36px, `--control-padding-x` 14px, `--radius-sm/md/lg`, `--sidebar-width` (264px default), `--content-max` 1160px |
+| Size | `--control-height` 44px, `--control-height-sm` 36px, `--control-height-lg` 60px, `--control-padding-x` 14px, `--radius-sm/md/lg`, `--content-max` 1160px |
 | Icon | `--chevron-right`, `--shield`: inline SVG masks painted in `currentColor`, so a CSS-only marker follows the row's own colour in both themes |
 
 Stylesheets contain no hard-coded colours except the simulated OBS stage, which must stay
@@ -46,11 +45,19 @@ The dashboard theme never changes the configured OBS caption colours.
 ## Controls
 
 - Buttons: `.primaryButton` (accent), `.secondaryButton` (card with border),
-  `.textButton` (borderless, underline on hover), `.dangerButton` and
-  `.dangerOutlineButton` (danger tokens). All share the control height, horizontal
-  padding, radius, `--text-base` bold text, inline-flex alignment, the same
-  focus-visible outline (`--focus`), disabled opacity and hover/active treatment.
-  `.compact` lowers a control to `--control-height-sm`.
+  `.textButton` (borderless, underline on hover), `.dangerOutlineButton` (starts a
+  destructive action) and `.dangerButton` (solid `--danger` with `--on-danger` text;
+  confirms one, or retries a failed End). All share `--radius-md`, bold text,
+  inline-flex alignment, the same focus-visible outline (`--focus`), disabled opacity and
+  hover/active treatment, and size to their content: no button sets its own minimum
+  width, and full width comes only from a layout (`.fullButton` or a stacked phone row).
+  There are exactly three sizes:
+
+  | Size | Height | Padding | Text | Use |
+  | --- | --- | --- | --- | --- |
+  | default | `--control-height` | `--control-padding-x` | `--text-base` | Every button unless listed below |
+  | `.compact` | `--control-height-sm` | `--gap-md` | `--text-sm` | Rows, tables, banners, queue actions, checklist fixes |
+  | `.large` | `--control-height-lg` | `--space-3` | `--text-lg` | Live only: Start captions, Pause/Resume, Clear screen |
 - Inputs, selects and textareas share height, padding, radius, border and font size.
 - Chips (`.statusPill`, `.statusChip`, `.characterCount`) share one rule.
 - Disclosure rows (`.outputDestination`, `.advancedActions`, `.credentialDisclosure`,
@@ -84,10 +91,8 @@ The dashboard theme never changes the configured OBS caption colours.
   padding). `.operatorBanner` (`data-tone` warn or bad) sits above the content it concerns.
 - `.liveControlBar`: pinned to the bottom of Live while a service runs; `.operatorShell`
   reserves matching `scroll-padding-bottom` so the bar never hides a focused control.
-  `.largeButton` is the bar's and Start's taller button.
 - `.settingsNav`: the Settings section links, current one marked `aria-current="page"`.
 
-`--sidebar-width` and the rail rules in `dashboard.css` are no longer used by the dashboard.
 
 ## Headings and browser surfaces
 

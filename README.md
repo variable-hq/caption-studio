@@ -19,15 +19,15 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
 ## Overview
 
 - **Capture and transcription**: browser-based microphone selection with a level meter, a
-  6-step first-run setup guide, and a 6- to 18-second recording window transcribed by Groq
+  first-run readiness checklist, and a 6- to 18-second recording window transcribed by Groq
   Whisper with bounded biblical/church-name hints and approved recognition aliases.
 - **Translation**: GPT-OSS 20B translates through an immutable safety envelope, approved
   terminology, and an operator-selectable **Inference Level** (Low/Balanced/High) governing
-  how literally vs. coherently it translates. Public captions support configurable
-  masking, replacement, or hiding of filtered words.
+  how literally vs. coherently it translates. One **Words** list teaches names, fixes
+  mishearings, sets preferred translations and masks, replaces or hides words on screen.
 - **Live delivery**: moderated captions reach a reusable OBS Browser Source, a per-service
   mobile viewer, and an appending reader, with an instant quick-block for unanticipated
-  words and an optional pre-publish output buffer (configurable dwell; pause, edit, clear,
+  words and an optional pre-publish output buffer (wait 1–5 seconds; pause, edit, clear,
   or fast-forward the next-up caption).
 - **Operator dashboard**: three screens, **Live**, **Sermons** and **Settings**, built
   for volunteers. Live shows what was heard beside what the audience sees, a readiness
@@ -35,7 +35,10 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
   service pinned to the bottom of the screen. Every screen has its own bookmarkable
   address. Full behavior and visuals: [Product specification](docs/PRODUCT_SPEC.md),
   [Brand guidelines](docs/BRAND_GUIDELINES.md) and [Design system](docs/DESIGN_SYSTEM.md).
-- **Service history**: optional per-operator private archives, corrections, exclusions,
+- **One church setup**: languages, words, translator instructions, caption style, summary
+  defaults and the output buffer are saved once for every operator; only the light/dark
+  choice is personal ([ADR 0022](docs/decisions/0022-shared-church-setup-and-words-list.md)).
+- **Service history**: optional workspace-wide private archives, corrections, exclusions,
   and AI-generated summaries, retained seven days after End.
 
 ## Get Started
@@ -86,7 +89,7 @@ and [rehearsal gates](docs/STAKEHOLDER_TEST_GUIDE.md).
 
 **Live captioning.** Moderated captions publish to a reusable OBS Browser Source, a
 per-service mobile viewer, and an appending reader, with an optional output buffer
-holding the next caption for a configurable 1-5 second dwell (default 3) before it
+holding the next caption for 1–5 seconds before it
 publishes — Pause, refresh, takeover, or End discard it; Clear screen leaves it
 queued. See [ADR 0016](docs/decisions/0016-client-side-output-buffer.md) and
 [ADR 0017](docs/decisions/0017-configurable-output-buffer-dwell.md).

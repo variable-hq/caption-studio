@@ -4,6 +4,8 @@ import { startSerialPolling } from "@/live/serial-polling";
 import { applyTheme, readStoredTheme } from "@/live/theme";
 interface RemoteState { status: string; connected: boolean; command: { action: string; status: string } | null }
 
+const COMMAND_LABELS: Record<string, string> = { pause: "Pause", resume: "Resume", clear: "Clear screen" };
+
 export default function OperatorMobilePage() {
   const [state, setState] = useState<RemoteState | null>(null);
   const [message, setMessage] = useState("Connecting to the capture computer…");
@@ -26,7 +28,7 @@ export default function OperatorMobilePage() {
     credential.current = { serviceId, token };
     let cancelled = false;
     if (!serviceId || !token) {
-      const explain = window.setTimeout(() => setMessage("Not paired. Open this page from the pairing link under Live outputs on the capture computer."), 0);
+      const explain = window.setTimeout(() => setMessage("Not paired. On the caption computer, open Live › Share › Pair phone and open that link here."), 0);
       return () => { cancelled = true; window.clearTimeout(explain); };
     }
     const stop = startSerialPolling(async () => {
@@ -47,18 +49,18 @@ export default function OperatorMobilePage() {
   }
   const pending = state?.command?.status === "pending";
   return <main className="experiencePage">
-    <header className="experienceHeader"><p className="eyebrow">Caption Studio</p><h1>Operator remote</h1>
-      <p>This phone controls the microphone on the capture computer.</p></header>
+    <header className="experienceHeader"><p className="eyebrow">Caption Studio</p><h1>Phone remote</h1>
+      <p>This phone pauses, resumes and clears captions on the caption computer.</p></header>
     <section className="experienceCard" aria-label="Remote capture controls">
-      <p role="status" aria-live="polite">{message || (state?.connected ? `Capture computer connected · ${state.status}` : "Capture computer disconnected")}</p>
+      <p role="status" aria-live="polite">{message || (state?.connected ? `Caption computer connected · ${state.status === "paused" ? "paused" : "live"}` : "Caption computer disconnected")}</p>
       <div className="buttonGrid"><button className="primaryButton" disabled={!state || busy || pending || (state.status === "paused" && !state.connected)}
-        onClick={() => void send(state?.status === "paused" ? "resume" : "pause")}>{busy ? "Sending…" : state?.status === "paused" ? "Resume captions" : "Pause captions"}</button>
-        <button className="secondaryButton" disabled={!state || busy || pending} onClick={() => void send("clear")}>Clear live caption</button></div>
-      {state?.command && <p role="status">{state.command.action}: {state.command.status === "pending"
-        ? state.connected ? "Waiting for capture computer acknowledgement" : "Held until the capture computer reconnects. Reopen the dashboard on the capture computer; controls unlock when it acknowledges or after 45 seconds."
-        : state.command.status === "confirmed" ? "confirmed by the capture computer"
-          : "not confirmed by the capture computer. Check the microphone there before trusting this state, then send the command again if needed."}</p>}
-      <p className="helpText">Pause blocks new inference immediately. Microphone stop is confirmed only after the capture computer acknowledges it.</p>
+        onClick={() => void send(state?.status === "paused" ? "resume" : "pause")}>{busy ? "Sending…" : state?.status === "paused" ? "Resume" : "Pause"}</button>
+        <button className="secondaryButton" disabled={!state || busy || pending} onClick={() => void send("clear")}>Clear screen</button></div>
+      {state?.command && <p role="status">{COMMAND_LABELS[state.command.action] ?? state.command.action}: {state.command.status === "pending"
+        ? state.connected ? "waiting for the caption computer to confirm…" : "held until the caption computer reconnects. Reopen the dashboard there; the buttons unlock when it confirms or after 45 seconds."
+        : state.command.status === "confirmed" ? "confirmed by the caption computer."
+          : "not confirmed by the caption computer. Check the microphone there, then send it again if needed."}</p>}
+      <p className="helpText">Pause stops new captions straight away. The microphone shows as off once the caption computer confirms it.</p>
     </section>
   </main>;
 }
