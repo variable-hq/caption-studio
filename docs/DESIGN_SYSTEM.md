@@ -18,7 +18,7 @@ All colour, type, spacing and size values come from custom properties on `:root`
 | Colour | `--ink --muted --line --line-strong --paper --card --surface-muted --surface-strong --accent --accent-hover --on-accent --track --backdrop --focus --danger --danger-bg --ok-ink --ok-bg --ok-line --warn-ink --warn-bg --warn-line --shadow --shadow-elevated` |
 | Type | `--text-xs` 11px, `--text-sm` 12px, `--text-base` 14px, `--text-md` 15px, `--text-lg` 18px, `--text-xl` 22px, `--text-2xl` 28px; `--leading-tight` 1.2, `--leading-normal` 1.5; `--weight-regular` 500, `--weight-bold` 700; `--tracking-caps` |
 | Space | `--space-0` 4px to `--space-4` 32px; `--gap-sm` 8px, `--gap-md` 12px, `--gap-lg` 18px |
-| Size | `--control-height` 44px, `--control-height-sm` 36px, `--control-height-lg` 60px, `--control-padding-x` 14px, `--radius-sm/md/lg`, `--content-max` 1160px |
+| Size | `--control-height` 44px (every button and field), `--control-height-sm` 36px (nav tabs only), `--control-padding-x` 14px, `--radius-sm/md/lg`, `--content-max` 1160px |
 | Icon | `--chevron-right`, `--shield`: inline SVG masks painted in `currentColor`, so a CSS-only marker follows the row's own colour in both themes |
 
 Stylesheets contain no hard-coded colours except the simulated OBS stage, which must stay
@@ -49,16 +49,14 @@ The dashboard theme never changes the configured OBS caption colours.
   destructive action) and `.dangerButton` (solid `--danger` with `--on-danger` text;
   confirms one, or retries a failed End). All share `--radius-md`, bold text,
   inline-flex alignment, the same focus-visible outline (`--focus`), disabled opacity and
-  hover/active treatment, and size to their content: no button sets its own minimum
-  width, and full width comes only from a layout (`.fullButton` or a stacked phone row).
-  There are exactly three sizes:
-
-  | Size | Height | Padding | Text | Use |
-  | --- | --- | --- | --- | --- |
-  | default | `--control-height` | `--control-padding-x` | `--text-base` | Every button unless listed below |
-  | `.compact` | `--control-height-sm` | `--gap-md` | `--text-sm` | Rows, tables, banners, queue actions, checklist fixes |
-  | `.large` | `--control-height-lg` | `--space-3` | `--text-lg` | Live only: Start captions, Pause/Resume, Clear screen |
-- Inputs, selects and textareas share height, padding, radius, border and font size.
+  hover/active treatment. **Every button is one size**: `--control-height` tall,
+  `--control-padding-x` padding, `--text-base` text, never wrapping, never underlined
+  (links styled as buttons included). Buttons size to their label: none sets its own
+  height, padding, font size or minimum width, and full width comes only from a layout
+  (`.fullButton` or a stacked phone row). Primary, secondary and danger differ by colour
+  only. `.textButton` sits flush with the text around it.
+- Inputs, selects, colour pickers and disclosure summaries share the button height
+  (`--control-height`); textareas share padding, radius, border and font size.
 - Chips (`.statusPill`, `.statusChip`, `.characterCount`) share one rule.
 - Disclosure rows (`.outputDestination`, `.advancedActions`, `.credentialDisclosure`,
   `.serviceSnapshot`, `.transcriptDisclosure`, `details` inside `.experienceCard`) hide the
@@ -91,7 +89,13 @@ The dashboard theme never changes the configured OBS caption colours.
   padding). `.operatorBanner` (`data-tone` warn or bad) sits above the content it concerns.
 - `.liveControlBar`: pinned to the bottom of Live while a service runs; `.operatorShell`
   reserves matching `scroll-padding-bottom` so the bar never hides a focused control.
-- `.settingsNav`: the Settings section links, current one marked `aria-current="page"`.
+- `.settingsNav`: the Settings section links (and the Sermons list), current one marked
+  `aria-current="page"`; below 981px it becomes one sideways-scrolling row.
+- Settings sections and the selected sermon share one structure from
+  `SettingsParts.tsx`: a `.settingsHeader` (title and one-line description), then
+  `SettingGroup`s (an `h3`, an optional `.settingHint`, the controls), each above a hairline,
+  then one `SaveBar` (**Save for everyone** and its status). `.buttonRow` lines buttons up;
+  `.statTiles` show figures; `.inlineForm` puts a field and its button side by side.
 
 
 ## Headings and browser surfaces

@@ -2,10 +2,11 @@
 import { useEffect, useState } from "react";
 import { experienceRequest } from "@/experience/client";
 import type { UsageRecord } from "@/experience/contracts";
+import { SettingGroup } from "@/components/operator/SettingsParts";
 
 export function UsageHistory() {
   const [records, setRecords] = useState<UsageRecord[]>([]);
-  const [message, setMessage] = useState("Loading usage recorded across services in the last 30 days…");
+  const [message, setMessage] = useState("Loading…");
   const [busy, setBusy] = useState(false);
   const groups = new Map<string, { calls: number; tokens: number; seconds: number; unknown: number; neurons: number }>();
   for (const record of records) {
@@ -25,8 +26,11 @@ export function UsageHistory() {
         for (const row of result.records) rows.set(row.id, row);
         after = result.next;
       }
-      setRecords([...rows.values()]); setMessage(after ? "Showing part of the last 30 days; the rest didn’t load." : "Usage updated. Unknown consumption is excluded from known totals.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not load usage."); }
+      setRecords([...rows.values()]); setMessage(after ? "Showing part of the last 30 days; the rest didn’t load." : "Up to date. Calls whose outcome is unconfirmed aren’t in the token totals.");
+    } catch (error) {
+      setMessage(error instanceof Error && !(error instanceof SyntaxError) && !(error instanceof TypeError)
+        ? error.message : "Couldn’t load usage. Check the connection, then press Refresh.");
+    }
     finally { setBusy(false); }
   }
   useEffect(() => {
@@ -45,19 +49,46 @@ export function UsageHistory() {
     day.calls++; day.tokens += row.tokens?.totalTokens ?? 0; day.unknown += Number(row.status !== "completed"); days.set(date, day);
   }
   const count = (value: number) => new Intl.NumberFormat().format(value);
-  return <section className="experienceCard" aria-labelledby="usage-history-heading">
-    <h3 id="usage-history-heading">All services · last 30 days</h3>
-    <p>Numeric usage survives Clear, End, and sermon deletion. Records expire individually after 30 days. Provider quota resets separately.</p>
-    <button className="secondaryButton" disabled={busy} onClick={() => void load()}>{busy ? "Loading…" : "Refresh usage history"}</button>
-    <p role="status" aria-live="polite">{message}</p>
-    {records.length > 0 && <p><strong>{count(records.length)} attempts across {count(services.size)} services</strong></p>}
-    {[...groups].map(([name, group]) => <article className="usageHistoryRow" key={name}><h4>{name}</h4>
-      <p>{count(group.calls)} attempts · {count(group.tokens)} known tokens · {count(group.seconds / 60)} known audio minutes</p>
-      <p>{count(group.unknown)} unresolved attempts · {count(group.neurons)} estimated neurons</p></article>)}
-    <details><summary>Usage by day (UTC)</summary>{records.length === 0 && <p className="helpText">{busy ? "Loading usage…" : "No usage loaded yet. Choose Refresh usage history to list recorded days."}</p>}{[...days].sort(([a], [b]) => b.localeCompare(a)).map(([date, day]) =>
-      <article className="usageHistoryRow" key={date}><h4>{date}</h4><p>{count(day.calls)} attempts · {count(day.tokens)} known tokens · {count(day.unknown)} unresolved</p></article>)}</details>
-    <details><summary>Usage by service</summary>{records.length === 0 && <p className="helpText">{busy ? "Loading usage…" : "No usage loaded yet. Choose Refresh usage history to list recorded services."}</p>}{[...services].sort(([, a], [, b]) => b.at - a.at).map(([id, service]) =>
-      <article className="usageHistoryRow" key={id}><h4>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(service.at)}</h4>
-        <p>{count(service.calls)} attempts · {count(service.tokens)} known tokens · {count(service.unknown)} unresolved</p></article>)}</details>
-  </section>;
+  const transcriptions = records.filter((row) => row.stage === "transcription").length;
+  const translations = records.filter((row) => row.stage === "translation").length;
+  return (
+    <SettingGroup title="Last 30 days" hint="Counts survive Clear, End and deleting a sermon; each record expires after 30 days.">
+      <div className="statTiles">
+        <div className="statTile"><span>Services</span><strong>{count(services.size)}</strong></div>
+        <div className="statTile"><span>Transcriptions</span><strong>{count(transcriptions)}</strong></div>
+        <div className="statTile"><span>Translations</span><strong>{count(translations)}</strong></div>
+      </div>
+      <div className="buttonRow">
+        <button type="button" className="secondaryButton" disabled={busy} onClick={() => void load()}>{busy ? "Loading…" : "Refresh"}</button>
+      </div>
+      <p className="settingHint" role="status" aria-live="polite">{message}</p>
+      <details className="advancedActions">
+        <summary>Usage by day (UTC)</summary>
+        {days.size === 0 ? <p className="settingHint">Nothing recorded yet.</p> : null}
+        {[...days].sort(([first], [second]) => second.localeCompare(first)).map(([date, day]) => (
+          <div className="statRow" key={date}><span>{date}</span><span>{count(day.calls)} calls · {count(day.tokens)} tokens{day.unknown ? ` · ${count(day.unknown)} unconfirmed` : ""}</span></div>
+        ))}
+      </details>
+      <details className="advancedActions">
+        <summary>Usage by service</summary>
+        {services.size === 0 ? <p className="settingHint">Nothing recorded yet.</p> : null}
+        {[...services].sort(([, first], [, second]) => second.at - first.at).map(([id, service]) => (
+          <div className="statRow" key={id}>
+            <span>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(service.at)}</span>
+            <span>{count(service.calls)} calls · {count(service.tokens)} tokens{service.unknown ? ` · ${count(service.unknown)} unconfirmed` : ""}</span>
+          </div>
+        ))}
+      </details>
+      <details className="advancedActions">
+        <summary>Usage by AI service</summary>
+        {groups.size === 0 ? <p className="settingHint">Nothing recorded yet.</p> : null}
+        {[...groups].map(([name, group]) => (
+          <div className="statRow" key={name}>
+            <span translate="no">{name}</span>
+            <span>{count(group.calls)} calls · {count(group.tokens)} tokens · {count(Math.round(group.seconds / 60))} audio min{group.unknown ? ` · ${count(group.unknown)} unconfirmed` : ""}</span>
+          </div>
+        ))}
+      </details>
+    </SettingGroup>
+  );
 }

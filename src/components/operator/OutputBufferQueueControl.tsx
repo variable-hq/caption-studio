@@ -82,7 +82,7 @@ export function OutputBufferQueueControl({
                 <div className="outputBufferSlotActions">
                   <button
                     type="button"
-                    className="secondaryButton compact"
+                    className="secondaryButton"
                     title="Cancel edit"
                     aria-label="Cancel edit"
                     disabled={disabled}
@@ -92,7 +92,7 @@ export function OutputBufferQueueControl({
                   </button>
                   <button
                     type="button"
-                    className="primaryButton compact"
+                    className="primaryButton"
                     title="Submit edit"
                     aria-label="Submit edit"
                     disabled={disabled}
@@ -108,7 +108,7 @@ export function OutputBufferQueueControl({
                 <div className="outputBufferSlotActions">
                   <button
                     type="button"
-                    className="secondaryButton compact"
+                    className="secondaryButton"
                     title={front.manuallyPaused ? "Resume" : "Pause"}
                     aria-label={front.manuallyPaused ? "Resume this queued caption" : "Pause this queued caption"}
                     disabled={disabled}
@@ -118,7 +118,7 @@ export function OutputBufferQueueControl({
                   </button>
                   <button
                     type="button"
-                    className="secondaryButton compact"
+                    className="secondaryButton"
                     title="Edit"
                     aria-label="Edit this queued caption"
                     disabled={disabled}
@@ -128,7 +128,7 @@ export function OutputBufferQueueControl({
                   </button>
                   <button
                     type="button"
-                    className="secondaryButton compact"
+                    className="secondaryButton"
                     title="Show now"
                     aria-label="Fast-forward this queued caption to Live"
                     disabled={disabled}
@@ -138,7 +138,7 @@ export function OutputBufferQueueControl({
                   </button>
                   <button
                     type="button"
-                    className="dangerOutlineButton compact"
+                    className="dangerOutlineButton"
                     title="Clear"
                     aria-label="Clear this queued caption"
                     disabled={disabled}

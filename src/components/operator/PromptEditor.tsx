@@ -1,18 +1,17 @@
 "use client";
 
-import { useId } from "react";
-
 import {
   INFERENCE_LEVEL_OPTIONS,
   normalizeInferenceLevel,
   type InferenceLevel,
 } from "@/ai/contracts";
 import { ID_EN_ADDRESS_TERM_GUIDANCE, MAX_TRANSLATION_SYSTEM_PROMPT_CHARS } from "@/ai/translation-prompt";
+import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 
 const INFERENCE_LEVEL_LABELS: Record<InferenceLevel, string> = {
-  low: "Low",
-  balanced: "Balanced",
-  high: "High",
+  low: "Close: nearly word for word",
+  balanced: "Balanced: clear captions, same meaning",
+  high: "Free: natural speech, bolder rewording",
 };
 
 interface PromptEditorProps {
@@ -29,6 +28,7 @@ interface PromptEditorProps {
   disabled?: boolean;
 }
 
+/** Settings › AI translator: how closely to translate, and the setup person's instructions. */
 export function PromptEditor({
   value,
   sourceLanguage,
@@ -42,106 +42,67 @@ export function PromptEditor({
   savedMessage,
   disabled = false,
 }: PromptEditorProps) {
-  const helpId = useId();
-  const statusId = useId();
-  const inferenceHelpId = useId();
-
+  const addressTermsAvailable = targetLanguage === "en" && ["id", "auto"].includes(sourceLanguage);
   return (
-    <div className="promptEditor">
-      <div className="promptHeading">
-        <div>
-          <strong>Instructions for the translator</strong>
-          <p id={helpId}>
-            These operator instructions are sent to Groq with every translated
-            caption. The application-owned envelope remains fixed in the request,
-            and the model is told to prioritize it; output still needs human review.
-          </p>
-        </div>
-        <span className="characterCount" aria-label={`${value.length} characters`}>
-          {value.length.toLocaleString()} / {MAX_TRANSLATION_SYSTEM_PROMPT_CHARS.toLocaleString()}
-        </span>
-      </div>
-      <label>
-        Custom translation instructions
-        <textarea
-          name="translationGuidance"
-          autoComplete="off"
-          className="systemPromptInput"
-          rows={14}
-          value={value}
-          maxLength={MAX_TRANSLATION_SYSTEM_PROMPT_CHARS}
-          disabled={disabled}
-          aria-describedby={`${helpId} ${statusId}`}
-          spellCheck
-          onChange={(event) => onChange(event.target.value)}
-        />
-      </label>
-      <label className="fullField">
-        Inference level
-        <select
-          name="inferenceLevel"
-          autoComplete="off"
-          data-testid="inference-level"
-          value={inferenceLevel}
-          aria-describedby={inferenceHelpId}
-          disabled={disabled}
-          onChange={(event) =>
-            onInferenceLevelChange(normalizeInferenceLevel(event.target.value))
-          }
-        >
-          {INFERENCE_LEVEL_OPTIONS.map((level) => (
-            <option value={level} key={level}>
-              {INFERENCE_LEVEL_LABELS[level]}{defaultInferenceLevel === level ? " · Church default" : ""}
-            </option>
-          ))}
-        </select>
-      </label>
-      <p className="helpText" id={inferenceHelpId}>
-        Low stays close to word-for-word with minimal corrections. Balanced
-        (default) keeps captions coherent without changing meaning. High favors natural
-        coherence over literal accuracy, allowing bolder rewording.
-      </p>
-      <div className="promptActions">
-        <button
-          className="secondaryButton"
-          type="button"
-          disabled={disabled}
-          onClick={onSaveBrowserDefault}
-        >
-          Save for everyone
-        </button>
-      </div>
-      <details className="advancedActions">
-        <summary>More options</summary>
-        <div className="promptActions">
-          <button
-            className="secondaryButton"
-            type="button"
-            disabled={disabled || targetLanguage !== "en" || !["id", "auto"].includes(sourceLanguage)}
-            onClick={() => onChange([value, ID_EN_ADDRESS_TERM_GUIDANCE].filter(Boolean).join("\n\n"))}
-          >
-            Add Indonesian address-term guidance
-          </button>
-          <button
-            className="textButton"
-            type="button"
+    <>
+      <SettingGroup title="How closely to follow the words">
+        <label>
+          <span className="visuallyHidden">How closely to follow the words</span>
+          <select
+            name="inferenceLevel"
+            autoComplete="off"
+            data-testid="inference-level"
+            value={inferenceLevel}
             disabled={disabled}
-            onClick={onReset}
+            onChange={(event) => onInferenceLevelChange(normalizeInferenceLevel(event.target.value))}
           >
-            Reset to safe default
-          </button>
-        </div>
-      </details>
-      <p className="browserStorageNote">
-        Saving stores the prompt with your signed-in operator account and keeps an
-        unencrypted local copy in this browser. During a live
-        service, the applied prompt also stays in this tab&apos;s unencrypted session
-        storage for recovery until End, expiry, or takeover. Do not put private
-        sermon notes, credentials, or personal data here.
-      </p>
-      <p id={statusId} className="promptSaveStatus" role="status" aria-live="polite">
-        {savedMessage}
-      </p>
-    </div>
+            {INFERENCE_LEVEL_OPTIONS.map((level) => (
+              <option value={level} key={level}>
+                {INFERENCE_LEVEL_LABELS[level]}{defaultInferenceLevel === level ? " · Church default" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+      </SettingGroup>
+      <SettingGroup
+        title="Instructions for the translator"
+        hint="For the person who looks after the setup; volunteers don’t need to change this. Fixed safety rules always apply on top. Don’t include private notes or personal details."
+      >
+        <details className="advancedActions">
+          <summary>Edit the instructions</summary>
+          <label>
+            <span className="visuallyHidden">Instructions for the translator</span>
+            <textarea
+              name="translationGuidance"
+              autoComplete="off"
+              className="systemPromptInput"
+              rows={12}
+              value={value}
+              maxLength={MAX_TRANSLATION_SYSTEM_PROMPT_CHARS}
+              disabled={disabled}
+              spellCheck
+              onChange={(event) => onChange(event.target.value)}
+            />
+          </label>
+          <p className="settingHint">
+            {value.length.toLocaleString()} of {MAX_TRANSLATION_SYSTEM_PROMPT_CHARS.toLocaleString()} characters
+          </p>
+          <div className="buttonRow">
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={disabled || !addressTermsAvailable}
+              onClick={() => onChange([value, ID_EN_ADDRESS_TERM_GUIDANCE].filter(Boolean).join("\n\n"))}
+            >
+              Add Indonesian forms of address
+            </button>
+            <button className="secondaryButton" type="button" disabled={disabled} onClick={onReset}>
+              Restore the default
+            </button>
+          </div>
+        </details>
+      </SettingGroup>
+      <SaveBar onSave={onSaveBrowserDefault} disabled={disabled} status={savedMessage} />
+    </>
   );
 }

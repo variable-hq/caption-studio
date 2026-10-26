@@ -27,6 +27,7 @@ export function QuickBlockControl({
   return (
     <div className="quickBlockControl">
       <form
+        className="inlineForm"
         onSubmit={(event) => {
           event.preventDefault();
           if (!term.trim()) return;
@@ -51,7 +52,7 @@ export function QuickBlockControl({
           Hide captions with it
         </button>
       </form>
-      <p className="privacyNote" id={helpId}>
+      <p className="settingHint" id={helpId}>
         Hides the whole caption straight away whenever this word is said. To hide only the
         word, add it under Settings › Words.
       </p>

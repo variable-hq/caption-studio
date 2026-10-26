@@ -74,7 +74,8 @@ import { useLiveCaptionSession } from "@/live/use-live-caption-session";
 import { useObservedSession } from "@/live/use-observed-session";
 import { ServiceExperiencePanel } from "@/components/operator/ServiceExperiencePanel";
 import { UsageHistory } from "@/components/operator/UsageHistory";
-import { formatCount } from "@/components/operator/UsageMetric";
+import { formatCount } from "@/components/operator/format-count";
+import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
 import "./operator-shell.css";
 
@@ -97,15 +98,15 @@ type SettingsSectionId =
   | "summary"
   | "usage";
 
-const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; label: string }[] = [
-  { id: "computer", label: "This computer" },
-  { id: "languages", label: "Languages & timing" },
-  { id: "words", label: "Words" },
-  { id: "look", label: "Caption look" },
-  { id: "obs", label: "OBS & links" },
-  { id: "translator", label: "AI translator" },
-  { id: "summary", label: "AI summary" },
-  { id: "usage", label: "Usage" },
+const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; label: string; description: string }[] = [
+  { id: "computer", label: "This computer", description: "The microphone and light or dark mode on this computer only." },
+  { id: "languages", label: "Languages & timing", description: "What the preacher speaks, what captions show, and how quickly." },
+  { id: "words", label: "Words", description: "Names the AI should know, and words to keep off the screen." },
+  { id: "look", label: "Caption look", description: "How captions look in OBS and on phones." },
+  { id: "obs", label: "OBS & links", description: "The OBS link and the phone viewer link." },
+  { id: "translator", label: "AI translator", description: "How freely the AI translates." },
+  { id: "summary", label: "AI summary", description: "How sermon summaries are made." },
+  { id: "usage", label: "Usage", description: "How much of the free AI allowance is used." },
 ];
 
 // Bookmarks from the old sidebar layout still land on the matching screen.
@@ -406,7 +407,7 @@ export default function OperatorDashboard() {
       return () => window.clearTimeout(timeout);
     } catch {
       const timeout = window.setTimeout(
-        () => setPreferenceError("Saved browser preferences could not be loaded."),
+        () => setPreferenceError("Saved settings couldn’t be loaded; using the defaults."),
         0,
       );
       return () => window.clearTimeout(timeout);
@@ -423,14 +424,14 @@ export default function OperatorDashboard() {
       const timeout = window.setTimeout(() => {
         setTranslationSystemPrompt(loaded);
         setSavedPromptFingerprint(loaded);
-        setPromptStorageMessage("Loaded the saved browser default.");
+        setPromptStorageMessage("Loaded the saved settings.");
       }, 0);
       return () => window.clearTimeout(timeout);
     } catch {
       const timeout = window.setTimeout(
         () =>
           setPromptStorageMessage(
-            "The saved browser prompt is invalid. The safe default is in use.",
+            "The saved instructions couldn’t be read; using the default.",
           ),
         0,
       );
@@ -463,10 +464,6 @@ export default function OperatorDashboard() {
     () => wordsFromSettings(keywordText, filterText).length,
     [keywordText, filterText],
   );
-  const sourceLabel =
-    sourceLanguage === "auto"
-      ? "Automatic detection"
-      : LANGUAGE_OPTIONS.find(({ locale }) => locale === sourceLanguage)?.label;
   const hasService = Boolean(liveState.service);
   const isLive = liveState.status === "live";
   const isPaused = liveState.status === "paused";
@@ -754,7 +751,7 @@ export default function OperatorDashboard() {
       const timeout = window.setTimeout(() => {
         setSummaryDefaults(loaded);
         setSavedSummaryDefaults(loaded);
-        setSummaryStorageMessage("Loaded the saved browser default.");
+        setSummaryStorageMessage("Loaded the saved settings.");
       }, 0);
       return () => window.clearTimeout(timeout);
     } catch {
@@ -773,7 +770,7 @@ export default function OperatorDashboard() {
         setSummaryStorageMessage(ok ? "Saved for everyone." : "Saved in this browser only; couldn’t reach the church setup."),
       );
     } catch {
-      setSummaryStorageMessage("The summary configuration could not be saved in this browser.");
+      setSummaryStorageMessage("Couldn’t save. Try again.");
     }
   };
 
@@ -809,7 +806,7 @@ export default function OperatorDashboard() {
     }
     setSummaryDefaults(DEFAULT_SUMMARY_OPTIONS);
     setSavedSummaryDefaults(null);
-    setSummaryStorageMessage("Reset to the built-in defaults.");
+    setSummaryStorageMessage("Restored the built-in settings. Save to apply them for everyone.");
     void syncAccountPreferences({ summaryDefaults: null });
   };
 
@@ -822,9 +819,9 @@ export default function OperatorDashboard() {
     summaryStorageMessage ||
     (savedSummaryDefaults
       ? summaryOptionsEqual(savedSummaryDefaults, summaryDefaults)
-        ? "Matches the saved browser default."
-        : "Unsaved changes. Save to keep them in this browser."
-      : "Built-in defaults. Save to keep a browser default.");
+        ? "Saved for everyone."
+        : "You have unsaved changes."
+      : "Using the built-in settings.");
 
   const savePromptBrowserDefault = () => {
     try {
@@ -842,7 +839,7 @@ export default function OperatorDashboard() {
         setPromptStorageMessage(ok ? "Saved for everyone." : "Saved in this browser only; couldn’t reach the church setup."),
       );
     } catch {
-      setPromptStorageMessage("The prompt could not be saved in this browser.");
+      setPromptStorageMessage("Couldn’t save. Try again.");
     }
   };
 
@@ -853,12 +850,12 @@ export default function OperatorDashboard() {
       setTranslationSystemPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT);
       setSavedPromptFingerprint("");
       setPromptStorageMessage(
-        "Reset to the safe default. No custom prompt is saved in this browser.",
+        "Restored the default instructions for everyone.",
       );
     } catch {
       setTranslationSystemPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT);
       setPromptStorageMessage(
-        "Safe default restored, but browser storage could not be cleared.",
+        "Restored the default instructions.",
       );
     }
   };
@@ -894,7 +891,7 @@ export default function OperatorDashboard() {
       });
       if (liveState.channel?.configured) void saveChannelStyle();
     } catch {
-      setPreferenceError("Caption preferences could not be saved in this browser.");
+      setPreferenceError("Couldn’t save. Try again.");
     }
   };
 
@@ -903,14 +900,14 @@ export default function OperatorDashboard() {
     (savedStyleFingerprint === styleFingerprint
       ? liveState.channel?.configured
         ? channelAction === "save-style"
-          ? "Saved in this browser. Saving to the Main channel…"
+          ? "Saving…"
           : sharedStyleFingerprint === styleFingerprint
-            ? "Saved to this browser and the Main channel."
-            : "Saved in this browser. The Main channel save is not confirmed."
-        : "Saved in this browser."
+            ? "Saved for everyone and sent to OBS."
+            : "Saved here, but OBS hasn’t confirmed it yet."
+        : "Saved for everyone."
       : savedStyleFingerprint
-        ? "Caption appearance has unsaved changes."
-        : "Caption appearance is not saved yet.");
+        ? "You have unsaved changes."
+        : "Not saved yet.");
 
   const styleEditorProps: StyleEditorProps = {
     style,
@@ -933,17 +930,16 @@ export default function OperatorDashboard() {
     promptStorageMessage ||
     (savedPromptFingerprint
       ? savedPromptFingerprint === translationSystemPrompt
-        ? "Saved as this browser's default prompt."
-        : "Prompt changed. Save explicitly to update the browser default."
+        ? "Saved for everyone."
+        : "You have unsaved changes."
       : translationSystemPrompt === DEFAULT_TRANSLATION_SYSTEM_PROMPT
-        ? "Using the safe default. Custom changes are not saved automatically."
-        : "Custom prompt is not saved. Save explicitly if this browser should reuse it.");
+        ? "Using the default instructions."
+        : "You have unsaved changes.");
 
   const translationEditorProps = {
     sourceLanguage,
     targetLanguage,
     recordingWindowMs,
-    sourceLabel: sourceLabel ?? sourceLanguage,
     disabled: translationEditorDisabled,
     defaultSourceLanguage: accountPreferences?.translationDefaults?.sourceLanguage ?? null,
     defaultTargetLanguage: accountPreferences?.translationDefaults?.targetLanguage ?? null,
@@ -1063,7 +1059,7 @@ export default function OperatorDashboard() {
       </span>
       <button
         type="button"
-        className="secondaryButton compact"
+        className="secondaryButton"
         disabled={translationChanges.length === 0 || translationActionBusy}
         onClick={restoreActiveTranslationDraft}
       >
@@ -1071,7 +1067,7 @@ export default function OperatorDashboard() {
       </button>
       <button
         type="button"
-        className="primaryButton compact"
+        className="primaryButton"
         disabled={translationActionBusy}
         onClick={() => void refreshTranslationSession()}
       >
@@ -1120,7 +1116,7 @@ export default function OperatorDashboard() {
         <div className="operatorBanner" data-tone="warn">
           <strong>{runningOperator ?? "Another operator"} is running captions on another computer.</strong>
           <span>{observed.message || "You can watch here. Taking over clears the screen and moves control to this computer."}</span>
-          <button type="button" className="secondaryButton compact" disabled={isBusy || cloudState !== "ready"} onClick={() => takeoverDialogRef.current?.showModal()}>
+          <button type="button" className="secondaryButton" disabled={isBusy || cloudState !== "ready"} onClick={() => takeoverDialogRef.current?.showModal()}>
             Take over
           </button>
         </div>
@@ -1164,7 +1160,7 @@ export default function OperatorDashboard() {
               <div className="startActions">
                 <button
                   type="button"
-                  className="primaryButton large"
+                  className="primaryButton"
                   disabled={startBlocked}
                   aria-describedby="start-help"
                   onClick={() => void startSession()}
@@ -1257,7 +1253,7 @@ export default function OperatorDashboard() {
                 <br />
                 <span className="operatorHint">{viewerUrl ? "Live captions on phones" : "Available once you start"}</span>
               </span>
-              <button type="button" className="secondaryButton compact" disabled={!viewerUrl} onClick={() => void copyViewerUrl()}>
+              <button type="button" className="secondaryButton" disabled={!viewerUrl} onClick={() => void copyViewerUrl()}>
                 {viewerCopied ? "Copied" : "Copy link"}
               </button>
             </div>
@@ -1289,15 +1285,20 @@ export default function OperatorDashboard() {
 
   const sermonsScreen = (
     <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
-      <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>Sermons</h1>
-      <p className="operatorHint">
-        Saved transcripts are kept for 7 days and shared with everyone at {WORKSPACE_NAME}.
-      </p>
+      <header className="settingsHeader">
+        <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>Sermons</h1>
+        <p className="settingHint">Saved transcripts are kept for 7 days and shared with everyone at {WORKSPACE_NAME}.</p>
+      </header>
       <ServiceExperiencePanel view="archive" service={liveState.service} onReaderLink={rememberReaderLink} summaryDefaults={summaryDefaults} />
     </main>
   );
 
-  const settingsTitle = SETTINGS_SECTIONS.find(({ id }) => id === settingsSection)?.label ?? "Settings";
+  const currentSection = SETTINGS_SECTIONS.find(({ id }) => id === settingsSection) ?? SETTINGS_SECTIONS[0];
+  const translationDefaultsStatus =
+    translationDefaultsMessage ||
+    (accountPreferences?.translationDefaults
+      ? "New services start from the church’s saved setup."
+      : "Not saved yet. Save to make this the church’s setup for new services.");
   const settingsScreen = (
     <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
       <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1} className="visuallyHidden">Settings</h1>
@@ -1315,7 +1316,10 @@ export default function OperatorDashboard() {
           <p className="operatorHint">“This computer” applies here only. Everything else is shared by everyone at {WORKSPACE_NAME}.</p>
         </nav>
         <section className="operatorCard settingsPanel" aria-labelledby="settings-section-heading">
-          <h2 id="settings-section-heading">{settingsTitle}</h2>
+          <header className="settingsHeader">
+            <h2 id="settings-section-heading">{currentSection.label}</h2>
+            <p className="settingHint">{currentSection.description}</p>
+          </header>
           {["languages", "words", "translator"].includes(settingsSection) ? pendingBanner : null}
 
           {settingsSection === "computer" ? (
@@ -1331,33 +1335,25 @@ export default function OperatorDashboard() {
                 onStartAudioTest={() => { void startAudioTest().catch(() => undefined); }}
               />
               {hasService && isLive ? (
-                <p className="operatorHint">Pause before changing the microphone.</p>
+                <p className="settingHint">Pause before changing the microphone.</p>
               ) : null}
-              <label className="themeField">
-                Appearance
-                <select name="theme" autoComplete="off" value={theme} onChange={(event) => chooseTheme(event.target.value)}>
-                  <option value="system">Match this computer</option>
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                </select>
-              </label>
+              <SettingGroup title="Light or dark" hint="Only changes how this dashboard looks on this computer.">
+                <label>
+                  <span className="visuallyHidden">Light or dark</span>
+                  <select name="theme" autoComplete="off" value={theme} onChange={(event) => chooseTheme(event.target.value)}>
+                    <option value="system">Match this computer</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </label>
+              </SettingGroup>
             </>
           ) : null}
 
           {settingsSection === "languages" ? (
             <>
               <TranslationSettingsEditor {...translationEditorProps} />
-              <div className="startActions">
-                <button type="button" className="secondaryButton" disabled={translationEditorDisabled} onClick={saveTranslationDefaults}>
-                  Save for everyone
-                </button>
-              </div>
-              <p className="operatorHint" role="status" aria-live="polite">
-                {translationDefaultsMessage ||
-                  (accountPreferences?.translationDefaults
-                    ? "New services start from the church’s saved languages, speed and words."
-                    : "Saves languages, caption speed and words for everyone’s new services.")}
-              </p>
+              <SaveBar onSave={saveTranslationDefaults} disabled={translationEditorDisabled} status={translationDefaultsStatus} />
             </>
           ) : null}
 
@@ -1374,28 +1370,26 @@ export default function OperatorDashboard() {
                   setFilterText(next.filterText);
                 }}
               />
-              <div className="startActions">
-                <button type="button" className="secondaryButton" disabled={translationEditorDisabled} onClick={saveTranslationDefaults}>
-                  Save for everyone
-                </button>
-              </div>
+              <SaveBar onSave={saveTranslationDefaults} disabled={translationEditorDisabled} status={translationDefaultsStatus} />
             </>
           ) : null}
 
           {settingsSection === "look" ? (
             <>
-              <CaptionPreview
-                caption={monitorCaption || SAMPLE_CAPTIONS[targetLanguage]}
-                targetLanguage={monitorCaption ? monitorLanguage : targetLanguage}
-                style={style}
-                badge={monitorCaption ? outputBadge : "Sample"}
-                live={monitorLive}
-              />
-              <p className="operatorHint">
-                {hasService
+              <SettingGroup
+                title="Preview"
+                hint={hasService
                   ? "Changes show on OBS straight away. Save keeps them for next week."
-                  : "Changes show in this preview. Save sends them to OBS and keeps them for next week."}
-              </p>
+                  : "Changes show here first. Save sends them to OBS and keeps them for next week."}
+              >
+                <CaptionPreview
+                  caption={monitorCaption || SAMPLE_CAPTIONS[targetLanguage]}
+                  targetLanguage={monitorCaption ? monitorLanguage : targetLanguage}
+                  style={style}
+                  badge={monitorCaption ? outputBadge : "Sample"}
+                  live={monitorLive}
+                />
+              </SettingGroup>
               <StyleEditor {...styleEditorProps} />
             </>
           ) : null}
@@ -1405,11 +1399,6 @@ export default function OperatorDashboard() {
               hasService={hasService}
               isBusy={isBusy}
               anotherOperatorActive={anotherOperatorActive}
-              runningOperator={runningOperator}
-              observedMessage={observed.message}
-              observedSaveHistory={observed.observer?.saveHistory}
-              outputMonitor={null}
-              readerAndPhoneOutputs={null}
               obs={{
                 configured: channelConfigured,
                 channelAction,
@@ -1469,10 +1458,7 @@ export default function OperatorDashboard() {
 
           {settingsSection === "usage" ? (
             <>
-              <AiUsageDashboard
-                llmUsage={liveState.llmUsage}
-                translationModel={cloudModels?.translation ?? "Configured translation model"}
-              />
+              <AiUsageDashboard llmUsage={liveState.llmUsage} />
               <UsageHistory />
             </>
           ) : null}
@@ -1482,8 +1468,12 @@ export default function OperatorDashboard() {
   );
 
   const helpScreen = (
-    <main className="operatorScreen" id="main" aria-labelledby="screen-heading" style={{ maxWidth: 760 }}>
-      <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>How it works</h1>
+    <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
+      <section className="operatorCard settingsPanel helpPanel">
+      <header className="settingsHeader">
+        <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>How it works</h1>
+        <p className="settingHint">The steps of a service, in order.</p>
+      </header>
       <ol className="helpSteps">
         <li>Check the list on the Live screen. If an item is red, press the button next to it.</li>
         <li>Tick <strong>Save the transcript</strong> if you want the sermon text and a summary afterwards.</li>
@@ -1492,10 +1482,11 @@ export default function OperatorDashboard() {
         <li>Press <strong>Pause</strong> during songs and announcements, and <strong>Clear screen</strong> to remove a wrong caption. Both stay at the bottom of the screen.</li>
         <li>Press <strong>End service</strong> when it’s over. The transcript and summary are in <strong>Sermons</strong>.</li>
       </ol>
-      <p className="operatorHint">
+      <p className="settingHint">
         First time? Open <a href="#settings=obs">Settings › OBS &amp; links</a> and create the OBS link, then add it to OBS as a 1920 × 1080 Browser Source.
       </p>
-      <div><a className="primaryButton" href="#live">Back to Live</a></div>
+      <div className="buttonRow"><a className="primaryButton" href="#live">Back to Live</a></div>
+      </section>
     </main>
   );
 

@@ -57,7 +57,8 @@ try {
   });
   async function check(screen) {
    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
-   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), width + '/' + screen + ' overflow');
+   const wide = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth ? '' : [...document.querySelectorAll('body *')].filter((el) => el.getBoundingClientRect().right > innerWidth + 1).slice(-4).map((el) => `${el.tagName}.${el.className}:${Math.round(el.getBoundingClientRect().right)}`).join(' | '));
+   assert.ok(!wide, width + '/' + screen + ' overflow: ' + wide);
    const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
    results.push({ width, screen, violations: axe.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })) });
    await page.screenshot({ path: `${output}/${screen}-${width}.png`, fullPage: true });
@@ -86,7 +87,7 @@ try {
   assert.ok(requests.every((url) => url === '/api/live/experience/remote'));
   await page.goto(origin + '/#sermons'); await page.getByRole('heading', { name: 'Sermons', exact: true }).waitFor();
   await page.locator('.archiveList button').first().click();
-  await page.getByText('Transcript', { exact: true }).click();
+  await page.getByText('Show the transcript', { exact: true }).click();
   await page.getByRole('button', { name: 'Correct', exact: true }).click();
   await page.getByLabel('Corrected text').fill('Reviewed synthetic source.');
   await page.getByRole('button', { name: 'Save correction', exact: true }).click();
@@ -98,7 +99,7 @@ try {
   await page.getByRole('button', { name: '#1', exact: true }).click();
   await page.waitForFunction(() => document.activeElement?.id === 'source-1');
   await check('archive');
-  await page.getByText('Reader passages', { exact: true }).click();
+  await page.getByText('Show reader passages', { exact: true }).click();
   await page.getByRole('button', { name: 'Remove', exact: true }).click();
   await page.getByRole('dialog').waitFor(); await check('remove-dialog');
   await page.keyboard.press('Escape'); assert.equal(await page.getByRole('dialog').count(), 0);
@@ -110,7 +111,7 @@ try {
   await page.waitForTimeout(250);
   await page.screenshot({ path: `${output}/usage-before-${width}.png`, fullPage: true });
   await fs.writeFile(`${output}/usage-before-${width}.txt`, await page.locator('body').innerText());
-  await page.getByRole('button', { name: 'Refresh usage history', exact: true }).click();
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.getByText('Usage by day (UTC)', { exact: true }).click(); assert.equal(await page.getByText('Plan monthly service capacity', { exact: true }).count(), 0); await check('usage');
   assert.deepEqual(errors, []); await context.close();
  }

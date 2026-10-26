@@ -49,7 +49,7 @@ export function OperatorTopBar({ screen, status }: OperatorTopBarProps) {
           ))}
         </div>
         <a
-          className="secondaryButton compact"
+          className="secondaryButton"
           href="#help"
           aria-label="Help"
           aria-current={screen === "help" ? "page" : undefined}

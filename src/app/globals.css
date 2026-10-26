@@ -63,7 +63,6 @@
   --radius-lg: 14px;
   --control-height: 44px;
   --control-height-sm: 36px;
-  --control-height-lg: 60px;
   --control-padding-x: 14px;
   --content-max: 1160px;
 }
@@ -498,37 +497,6 @@ code {
   transform: translateY(1px);
 }
 
-.primaryButton.compact,
-.secondaryButton.compact,
-.textButton.compact,
-.dangerButton.compact,
-.dangerOutlineButton.compact {
-  min-height: var(--control-height-sm);
-  padding: 0 var(--gap-md);
-  font-size: var(--text-sm);
-}
-
-/* Touch screens keep every target at least --control-height tall. */
-@media (pointer: coarse) {
-  .primaryButton.compact,
-  .secondaryButton.compact,
-  .textButton.compact,
-  .dangerButton.compact,
-  .dangerOutlineButton.compact {
-    min-height: var(--control-height);
-  }
-}
-
-/* Live's main controls only: Start, Pause/Resume and Clear screen. */
-.primaryButton.large,
-.secondaryButton.large,
-.dangerButton.large,
-.dangerOutlineButton.large {
-  min-height: var(--control-height-lg);
-  padding: 0 var(--space-3);
-  font-size: var(--text-lg);
-}
-
 .primaryButton {
   border-color: var(--accent);
   color: var(--on-accent);
@@ -634,13 +602,6 @@ code {
   width: 100%;
 }
 
-.previewCard,
-.obsSetupCard {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--card);
-  box-shadow: var(--shadow);
-}
 
 .sectionHeading {
   justify-content: space-between;
@@ -729,11 +690,20 @@ input[type="color"] {
   display: flex;
   align-items: center;
   gap: var(--gap-sm);
-  min-height: 48px;
+  height: var(--control-height);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--card);
-  padding: var(--space-0) var(--space-1);
+  padding: 0 var(--space-1);
+}
+
+.colorControl input[type="color"] {
+  width: 32px;
+  height: 28px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
 .colorControl code {
@@ -824,10 +794,6 @@ input[type="color"] {
   flex: 0 0 auto;
 }
 
-.previewCard,
-.obsSetupCard {
-  padding: var(--gap-lg);
-}
 
 .previewHelp {
   margin-top: var(--space-1);
@@ -980,7 +946,7 @@ input[type="color"] {
   flex-wrap: wrap;
 }
 
-.outputBufferSlotActions .compact {
+.outputBufferSlotActions button {
   min-width: 0;
   padding-inline: var(--gap-md);
 }
