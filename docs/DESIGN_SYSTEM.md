@@ -30,7 +30,7 @@ and muted text at least 6.9:1 against cards.
 
 The navigation rail and phone drawer hold a **Theme** select (System, Light, Dark) under the links. The choice is
 applied to `<html data-theme>`, cached in `localStorage` under
-`church-live-caption:theme:v1`, and saved with the operator's account through the
+`caption-studio:theme:v1`, and saved with the operator's account through the
 preferences record, so it follows the operator between browsers. The paired operator
 remote applies the cached theme; the audience `/view` and `/read` pages follow the
 system setting only. The OBS overlay is always transparent and untouched by themes.
@@ -68,7 +68,7 @@ On desktop (981px and wider) a vertical handle on the rail's right edge
 (`role="separator"`, label "Resize navigation") resizes the sidebar between 200 and
 420px by pointer drag, ArrowLeft/ArrowRight (16px), Home/End, or double-click to reset
 to 264px. The width is written to `--sidebar-width` on the dashboard shell, cached in
-`localStorage` under `church-live-caption:sidebar-width:v1`, and saved with the
+`localStorage` under `caption-studio:sidebar-width:v1`, and saved with the
 operator's account after resizing settles. Rail labels truncate with an ellipsis at
 narrow widths. The handle and rail are hidden below 981px, where the drawer is used.
 

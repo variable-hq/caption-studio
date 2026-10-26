@@ -5,8 +5,8 @@
 
 export type ThemePreference = "system" | "light" | "dark";
 
-export const THEME_PREFERENCE_KEY = "church-live-caption:theme:v1";
-export const SIDEBAR_WIDTH_KEY = "church-live-caption:sidebar-width:v1";
+export const THEME_PREFERENCE_KEY = "caption-studio:theme:v1";
+export const SIDEBAR_WIDTH_KEY = "caption-studio:sidebar-width:v1";
 
 export const SIDEBAR_WIDTH_DEFAULT = 264;
 export const SIDEBAR_WIDTH_MIN = 200;

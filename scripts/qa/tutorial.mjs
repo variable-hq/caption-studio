@@ -12,7 +12,7 @@ const { chromium } = await import(pathToFileURL(path.join(tooling, "node_modules
 const { default: AxeBuilder } = await import(pathToFileURL(path.join(tooling, "node_modules/@axe-core/playwright/dist/index.mjs")));
 const origin = "http://127.0.0.1:3100";
 const output = path.resolve("test-results/tutorial");
-const preference = "church-live-caption:operator-tutorial:v1";
+const preference = "caption-studio:operator-tutorial:v1";
 const results = [];
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const DISMISSED_KEY = "church-live-caption:operator-tutorial:v1";
+const DISMISSED_KEY = "caption-studio:operator-tutorial:v1";
 
 const STEPS = [
   {

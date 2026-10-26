@@ -155,7 +155,7 @@ Current behavior:
   unencrypted browser `localStorage` copy as a fallback when the account store is
   unavailable;
   other translation drafts remain in React/page memory and disappear on reload. The
-  tutorial stores only `dismissed` under `church-live-caption:operator-tutorial:v1` on
+  tutorial stores only `dismissed` under `caption-studio:operator-tutorial:v1` on
   Skip, Escape, or completion; it makes no audio, inference, service-control, or analytics
   request. This browser-local flag lasts until site data is cleared;
 - during an active service, the active language, terminology, filter, recording window, and prompt
