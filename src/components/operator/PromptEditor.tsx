@@ -91,7 +91,7 @@ export function PromptEditor({
         >
           {INFERENCE_LEVEL_OPTIONS.map((level) => (
             <option value={level} key={level}>
-              {INFERENCE_LEVEL_LABELS[level]}{defaultInferenceLevel === level ? " · Your default" : ""}
+              {INFERENCE_LEVEL_LABELS[level]}{defaultInferenceLevel === level ? " · Church default" : ""}
             </option>
           ))}
         </select>
@@ -108,7 +108,7 @@ export function PromptEditor({
           disabled={disabled}
           onClick={onSaveBrowserDefault}
         >
-          Save to my account
+          Save for everyone
         </button>
       </div>
       <details className="advancedActions">

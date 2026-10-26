@@ -1,5 +1,5 @@
 import { authorizeOperatorIdentity, type LiveWorkerEnvironment } from "@/live/api";
-import { MAX_PREFERENCES_BYTES, operatorIdentityKey } from "./preferences";
+import { MAX_PREFERENCES_BYTES, WORKSPACE_SETUP_KEY, operatorIdentityKey } from "./preferences";
 import { captionTokenHash } from "@/live/caption-room";
 import { InvalidRequestBodyError, RequestBodyTooLargeError, readJsonObject } from "@/http/request-body";
 import { CAPABILITY_TOKEN_PATTERN, UUID_PATTERN, randomToken } from "@/http/tokens";
@@ -21,12 +21,13 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       }));
     }
     const operation = url.pathname.slice("/api/live/experience/".length);
-    if (operation === "preferences") {
+    if (operation === "preferences" || operation === "setup") {
       if (!["GET", "POST", "DELETE"].includes(request.method)) return json({ error: "Use GET, POST, or DELETE." }, 405);
       const authorized = await authorizeOperatorIdentity(request, env);
       if (authorized.denied) return authorized.denied;
       if (!env.OPERATOR_PREFERENCES) return json({ error: "Operator preferences are not configured." }, 503);
-      const key = await operatorIdentityKey(authorized.identity);
+      // "setup" is the church-wide record every signed-in operator shares (ADR 0022).
+      const key = operation === "setup" ? WORKSPACE_SETUP_KEY : await operatorIdentityKey(authorized.identity);
       const target = env.OPERATOR_PREFERENCES.get(env.OPERATOR_PREFERENCES.idFromName(key));
       const body = request.method === "POST" ? await readJsonObject(request, MAX_PREFERENCES_BYTES) : undefined;
       return target.fetch(new Request("https://internal/preferences", {

@@ -1,6 +1,7 @@
 import { normalizeOperatorPreferences, type OperatorPreferences } from "./preferences";
 
-const ENDPOINT = "/api/live/experience/preferences";
+const PERSONAL = "/api/live/experience/preferences";
+const SHARED = "/api/live/experience/setup";
 
 export class PreferencesUnavailableError extends Error {
   constructor(message = "Account preferences are unavailable.") {
@@ -9,8 +10,8 @@ export class PreferencesUnavailableError extends Error {
   }
 }
 
-async function call(method: "GET" | "POST" | "DELETE", body?: unknown) {
-  const response = await fetch(ENDPOINT, {
+async function call(endpoint: string, method: "GET" | "POST" | "DELETE", body?: unknown) {
+  const response = await fetch(endpoint, {
     method,
     cache: "no-store",
     headers: { "content-type": "application/json" },
@@ -22,16 +23,26 @@ async function call(method: "GET" | "POST" | "DELETE", body?: unknown) {
   return normalizeOperatorPreferences(result);
 }
 
-/** Reads the signed-in operator's saved configuration. */
+/** Reads the signed-in operator's own record (their theme, and setup saved before ADR 0022). */
 export function loadOperatorPreferences() {
-  return call("GET");
+  return call(PERSONAL, "GET");
 }
 
-/** Merges a partial update; `null` clears a field. Returns the stored record. */
+/** Merges a partial update into the operator's own record; `null` clears a field. */
 export function saveOperatorPreferences(patch: Partial<OperatorPreferences>) {
-  return call("POST", patch);
+  return call(PERSONAL, "POST", patch);
 }
 
 export function clearOperatorPreferences() {
-  return call("DELETE");
+  return call(PERSONAL, "DELETE");
+}
+
+/** Reads the church setup every operator shares. */
+export function loadSharedSetup() {
+  return call(SHARED, "GET");
+}
+
+/** Merges a partial update into the church setup; `null` clears a field. */
+export function saveSharedSetup(patch: Partial<OperatorPreferences>) {
+  return call(SHARED, "POST", patch);
 }

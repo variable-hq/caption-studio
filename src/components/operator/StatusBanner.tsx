@@ -71,7 +71,7 @@ export function StatusBanner({
             </button>
           </span>
         ) : (
-          <button className="dangerOutlineButton recoveryButton" onClick={() => onConfirmRotateChange(true)}>
+          <button className="dangerOutlineButton" onClick={() => onConfirmRotateChange(true)}>
             Rotate and recover
           </button>
         )

@@ -3,7 +3,7 @@
 import { useId } from "react";
 
 import { LANGUAGE_OPTIONS } from "@/domain/languages";
-import { SUMMARY_MODELS, type SummaryModel, type SummaryOptions } from "@/experience/contracts";
+import type { SummaryOptions } from "@/experience/contracts";
 import { MAX_SUMMARY_GUIDANCE_CHARS } from "@/experience/summary-defaults";
 
 interface SummarySettingsEditorProps {
@@ -18,11 +18,6 @@ interface SummarySettingsEditorProps {
   onAutoSummaryChange: (enabled: boolean) => void;
   autoSummaryMessage: string;
 }
-
-export const SUMMARY_MODEL_LABELS: Record<SummaryModel, string> = {
-  "@cf/meta/llama-3.3-70b-instruct-fp8-fast": "Llama 3.3 70B · Cloudflare",
-  "@cf/meta/llama-3.1-8b-instruct-fp8": "Llama 3.1 8B · Cloudflare",
-};
 
 export function SummarySettingsEditor({
   value,
@@ -44,11 +39,9 @@ export function SummarySettingsEditor({
         <div>
           <strong>Summary defaults</strong>
           <p id={helpId}>
-            These defaults prefill the Summary assistant in Sermon history. Each
-            summary request still shows and sends its own values, and generation
-            only happens when optional Workers AI is enabled and you choose
-            Generate summary, or when automatic summaries below are on. Server-owned
-            grounding rules stay fixed.
+            Every summary uses these settings, whether you press Generate summary in
+            Sermons or it is made automatically below. Summaries need the optional
+            Workers AI setting turned on for this deployment.
           </p>
         </div>
         <span className="characterCount" aria-label={`${value.guidance.length} guidance characters`}>
@@ -56,19 +49,6 @@ export function SummarySettingsEditor({
         </span>
       </div>
       <div className="fieldGrid">
-        <label>
-          Default summary model
-          <select
-            name="defaultSummaryModel"
-            value={value.model}
-            aria-describedby={helpId}
-            onChange={(event) => onChange({ ...value, model: event.target.value as SummaryModel })}
-          >
-            {SUMMARY_MODELS.map((entry) => (
-              <option key={entry} value={entry}>{SUMMARY_MODEL_LABELS[entry]}</option>
-            ))}
-          </select>
-        </label>
         <label>
           Default summary language
           <select
@@ -108,7 +88,7 @@ export function SummarySettingsEditor({
       </label>
       <div className="promptActions">
         <button className="secondaryButton" type="button" onClick={onSaveBrowserDefault}>
-          Save to my account
+          Save for everyone
         </button>
       </div>
       <details className="advancedActions">
@@ -134,10 +114,10 @@ export function SummarySettingsEditor({
           disabled={!autoSummaryAvailable}
           onChange={(event) => onAutoSummaryChange(event.target.checked)}
         />
-        Generate a summary automatically after each service I end
+        Make a summary draft automatically after each service
       </label>
       <p className="helpText">
-        Uses the defaults above as saved to your account, and only for services with
+        Uses the defaults above as saved for everyone, and only for services with
         transcript saving on. The draft appears in Sermon history; review it against the
         transcript before sharing. It uses the same daily AI budget as Generate summary.
       </p>

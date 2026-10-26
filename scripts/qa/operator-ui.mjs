@@ -41,7 +41,7 @@ try {
    let body={};try{body=request.postDataJSON()??{}}catch{}
    let payload={};
    if(path==='/api/ai/health'||path==='/api/ai/readiness')payload=health;
-   else if(path==='/api/live/experience/preferences')payload=method==='GET'?{version:1,theme:'system',sidebarWidth:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,tutorialDismissed:false,updatedAt:null}:{...body,version:1,updatedAt:Date.now()};
+   else if(path==='/api/live/experience/preferences'||path==='/api/live/experience/setup')payload=method==='GET'?{version:1,theme:'system',translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,updatedAt:null}:{...body,version:1,updatedAt:Date.now()};
    else if(path==='/api/live/channel')payload={channelId:'main',configured:true,status,overlayUrl:'http://127.0.0.1:3100/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
    else if(path==='/api/live/channel/style'){style=body.style;payload={ok:true}}
    else if(path==='/api/live/channel/service'&&method==='POST'){
@@ -108,7 +108,14 @@ try {
     assert.equal(await page.getByTestId('inference-level').isVisible(),true);
    }
    if(section==='usage') assert.equal(await page.getByText('Translation service headroom',{exact:true}).isVisible(),true);
-   if(section==='words') assert.equal(await page.locator('input[name="publicFilter"]').isEnabled(),true);
+   if(section==='words'){
+    await page.locator('input[name="word"]').fill('synthetic-hidden');
+    await page.locator('select[name="wordAction"]').selectOption('hide');
+    await page.getByRole('button',{name:'Add word',exact:true}).click();
+    await page.getByRole('cell',{name:'synthetic-hidden',exact:true}).waitFor();
+    await page.getByRole('button',{name:'Remove synthetic-hidden',exact:true}).click();
+    assert.equal(await page.getByRole('cell',{name:'synthetic-hidden',exact:true}).count(),0);
+   }
   }
   await openScreen(page,'Sermons'); await check('sermons');
   await page.getByRole('link',{name:'Help',exact:true}).click();

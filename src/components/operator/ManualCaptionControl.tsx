@@ -45,7 +45,7 @@ export function ManualCaptionControl({
           />
         </label>
         <button
-          className="secondaryButton compactButton"
+          className="secondaryButton compact"
           type="submit"
           disabled={disabled || busy || !text.trim()}
         >

@@ -149,16 +149,20 @@ Current behavior:
 - caption-style preferences, a custom operator prompt, default summary configuration, a
   default translation setup, a history-saving default, the automatic-summary opt-in and
   theme explicitly saved by the operator
-  are stored with the operator's account in the `OperatorPreferences` Durable Object,
+  are stored in the `OperatorPreferences` Durable Object: the theme in the operator's own
+  record, and everything else in one church setup record (`workspace:setup`) that every
+  signed-in operator can read and change
+  ([ADR 0022](docs/decisions/0022-shared-church-setup-and-words-list.md)). Setups saved
+  per operator before then stay in that operator's record,
   addressed by the SHA-256 of the lower-cased Access email (the email itself is not
   stored) and retained until the operator resets or deletes them; the same values keep an
   unencrypted browser `localStorage` copy as a fallback when the account store is
   unavailable;
   other translation drafts remain in React/page memory and disappear on reload. A sidebar
   width or tutorial dismissal saved before
-  [ADR 0021](docs/decisions/0021-live-sermons-settings-operator-layout.md) stays in that
-  record and in `localStorage` until cleared, but the dashboard no longer reads or writes
-  it;
+  [ADR 0021](docs/decisions/0021-live-sermons-settings-operator-layout.md) is dropped from
+  that record on its next save; any browser copy stays in `localStorage` until site data
+  is cleared, unread;
 - during an active service, the active language, terminology, filter, recording window, and prompt
   snapshot is stored in that tab's unencrypted `sessionStorage` solely for same-tab
   recovery, then removed on End, takeover, or idle cleanup. The output buffer queue is not

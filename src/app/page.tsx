@@ -25,9 +25,11 @@ import { SummarySettingsEditor } from "@/components/operator/SummarySettingsEdit
 import type { SummaryOptions } from "@/experience/contracts";
 import {
   loadOperatorPreferences,
+  loadSharedSetup,
   saveOperatorPreferences,
+  saveSharedSetup,
 } from "@/experience/preferences-client";
-import type { OperatorPreferences } from "@/experience/preferences";
+import { SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPreferences } from "@/experience/preferences";
 import {
   DEFAULT_SUMMARY_OPTIONS,
   SUMMARY_DEFAULTS_PREFERENCE_KEY,
@@ -35,6 +37,7 @@ import {
   summaryOptionsEqual,
 } from "@/experience/summary-defaults";
 import { TranslationSettingsEditor } from "@/components/operator/TranslationSettingsEditor";
+import { WordsEditor } from "@/components/operator/WordsEditor";
 import {
   DEFAULT_SOURCE_LANGUAGE,
   DEFAULT_TARGET_LANGUAGE,
@@ -43,7 +46,7 @@ import {
   type SourceLanguage,
 } from "@/domain/languages";
 import { WORKSPACE_NAME } from "@/domain/workspace";
-import { parseGlossaryInput } from "@/live/config";
+import { wordsFromSettings } from "@/live/words";
 import {
   DEFAULT_RECORDING_WINDOW_MS,
   MAX_LIVE_SESSION_MS,
@@ -73,10 +76,7 @@ import { ServiceExperiencePanel } from "@/components/operator/ServiceExperienceP
 import { UsageHistory } from "@/components/operator/UsageHistory";
 import { formatCount } from "@/components/operator/UsageMetric";
 import { StatusBanner } from "@/components/operator/StatusBanner";
-import { MAX_FILTER_INPUT_CHARS } from "@/live/translation-settings";
-import "./dashboard.css";
 import "./operator-shell.css";
-import "./service-panel.css";
 
 interface CloudModels {
   transcription: string;
@@ -188,7 +188,13 @@ export default function OperatorDashboard() {
   );
   const [savedPromptFingerprint, setSavedPromptFingerprint] = useState("");
   const [promptStorageMessage, setPromptStorageMessage] = useState("");
-  const [accountPreferences, setAccountPreferences] = useState<OperatorPreferences | null>(null);
+  // The operator's own record (theme) and the church setup everyone shares (ADR 0022).
+  const [personalPreferences, setPersonalPreferences] = useState<OperatorPreferences | null>(null);
+  const [sharedSetup, setSharedSetup] = useState<OperatorPreferences | null>(null);
+  const accountPreferences = useMemo(
+    () => (personalPreferences && sharedSetup ? effectiveSetup(sharedSetup, personalPreferences) : null),
+    [personalPreferences, sharedSetup],
+  );
   const [translationDefaultsMessage, setTranslationDefaultsMessage] = useState("");
   const [outputBufferSavedMessage, setOutputBufferSavedMessage] = useState("");
   const [summaryDefaults, setSummaryDefaults] = useState<SummaryOptions>(DEFAULT_SUMMARY_OPTIONS);
@@ -453,9 +459,9 @@ export default function OperatorDashboard() {
     return () => window.clearTimeout(timeout);
   }, [sharedStyleFingerprint]);
 
-  const keywordCount = useMemo(
-    () => parseGlossaryInput(keywordText, targetLanguage).length,
-    [keywordText, targetLanguage],
+  const wordCount = useMemo(
+    () => wordsFromSettings(keywordText, filterText).length,
+    [keywordText, filterText],
   );
   const sourceLabel =
     sourceLanguage === "auto"
@@ -625,19 +631,21 @@ export default function OperatorDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    loadOperatorPreferences()
-      .then((loaded) => {
+    Promise.all([loadOperatorPreferences(), loadSharedSetup()])
+      .then(([personal, shared]) => {
         if (cancelled) return;
-        setAccountPreferences(loaded);
+        setPersonalPreferences(personal);
+        setSharedSetup(shared);
+        const loaded = effectiveSetup(shared, personal);
         if (loaded.translationSystemPrompt !== null) {
           setTranslationSystemPrompt(loaded.translationSystemPrompt);
           setSavedPromptFingerprint(loaded.translationSystemPrompt);
-          setPromptStorageMessage("Loaded from your account.");
+          setPromptStorageMessage("Loaded the church setup.");
         }
         if (loaded.summaryDefaults) {
           setSummaryDefaults(loaded.summaryDefaults);
           setSavedSummaryDefaults(loaded.summaryDefaults);
-          setSummaryStorageMessage("Loaded from your account.");
+          setSummaryStorageMessage("Loaded the church setup.");
         }
         if (loaded.captionStyle) {
           const saved = loaded.captionStyle;
@@ -652,10 +660,10 @@ export default function OperatorDashboard() {
           setFontFamily(saved.fontFamily);
           setSavedStyleFingerprint(JSON.stringify(saved));
         }
-        setTheme(loaded.theme);
+        setTheme(personal.theme);
         try {
-          if (loaded.theme === "system") window.localStorage.removeItem(THEME_PREFERENCE_KEY);
-          else window.localStorage.setItem(THEME_PREFERENCE_KEY, loaded.theme);
+          if (personal.theme === "system") window.localStorage.removeItem(THEME_PREFERENCE_KEY);
+          else window.localStorage.setItem(THEME_PREFERENCE_KEY, personal.theme);
         } catch {
           // Storage may be blocked; the account value still applies for this visit.
         }
@@ -667,22 +675,24 @@ export default function OperatorDashboard() {
           setFilterText(defaults.filterText);
           setRecordingWindowMs(defaults.recordingWindowMs);
           setInferenceLevel(defaults.inferenceLevel);
-          setTranslationDefaultsMessage("Loaded your saved default setup.");
+          setTranslationDefaultsMessage("Loaded the church setup.");
         }
         if (loaded.saveHistoryDefault !== null && !hasServiceRef.current) {
           setSaveHistory(loaded.saveHistoryDefault);
         }
         if (loaded.outputBufferCount !== null && !hasServiceRef.current) {
           setOutputBufferCount(loaded.outputBufferCount);
-          setOutputBufferSavedMessage("Loaded your saved default.");
+          setOutputBufferSavedMessage("Loaded the church setup.");
         }
         if (loaded.outputBufferDwellMs !== null && !hasServiceRef.current) {
           setOutputBufferDwellMs(loaded.outputBufferDwellMs);
-          setOutputBufferSavedMessage("Loaded your saved default.");
+          setOutputBufferSavedMessage("Loaded the church setup.");
         }
       })
       .catch(() => {
-        if (!cancelled) setAccountPreferences(null);
+        if (cancelled) return;
+        setPersonalPreferences(null);
+        setSharedSetup(null);
       });
     return () => {
       cancelled = true;
@@ -690,11 +700,22 @@ export default function OperatorDashboard() {
     // Runs once; the setters are stable and the live-service guard uses a ref.
   }, []);
 
-  /** Best-effort account sync; callers report the browser-only fallback themselves. */
+  /**
+   * Best-effort sync; callers report the browser-only fallback themselves. The theme is
+   * saved to the operator's own record, everything else to the church setup. The first
+   * church-setup save carries this operator's earlier saved setup with it, so values saved
+   * before the setup was shared are not lost.
+   */
   const syncAccountPreferences = async (patch: Partial<OperatorPreferences>) => {
     try {
-      const stored = await saveOperatorPreferences(patch);
-      setAccountPreferences(stored);
+      if (Object.keys(patch).every((key) => key === "theme")) {
+        setPersonalPreferences(await saveOperatorPreferences(patch));
+        return true;
+      }
+      const seed = sharedSetup?.updatedAt === null && personalPreferences
+        ? Object.fromEntries(SHARED_SETUP_FIELDS.map((field) => [field, personalPreferences[field]]))
+        : {};
+      setSharedSetup(await saveSharedSetup({ ...seed, ...patch }));
       return true;
     } catch {
       return false;
@@ -702,25 +723,25 @@ export default function OperatorDashboard() {
   };
 
   const saveTranslationDefaults = () => {
-    setTranslationDefaultsMessage("Saving your default setup…");
+    setTranslationDefaultsMessage("Saving for everyone…");
     void syncAccountPreferences({
       translationDefaults: { sourceLanguage, targetLanguage, keywordText, filterText, recordingWindowMs, inferenceLevel },
     }).then((ok) =>
       setTranslationDefaultsMessage(
         ok
-          ? "Saved as your default setup. New services start from these languages, recording window, inference level, and terms."
-          : "Account sync is unavailable; the default setup was not saved.",
+          ? "Saved for everyone. New services start with these languages, caption speed and words."
+          : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
       ),
     );
   };
 
   const saveOutputBufferDefault = () => {
-    setOutputBufferSavedMessage("Saving your default…");
+    setOutputBufferSavedMessage("Saving for everyone…");
     void syncAccountPreferences({ outputBufferCount, outputBufferDwellMs }).then((ok) =>
       setOutputBufferSavedMessage(
         ok
-          ? "Saved as your default. New services start with the output buffer in this state."
-          : "Account sync is unavailable; the default was not saved.",
+          ? "Saved for everyone. New services start with this choice."
+          : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
       ),
     );
   };
@@ -747,9 +768,9 @@ export default function OperatorDashboard() {
       window.localStorage.setItem(SUMMARY_DEFAULTS_PREFERENCE_KEY, JSON.stringify(normalized));
       setSummaryDefaults(normalized);
       setSavedSummaryDefaults(normalized);
-      setSummaryStorageMessage("Saved in this browser. Syncing to your account…");
+      setSummaryStorageMessage("Saved in this browser. Saving for everyone…");
       void syncAccountPreferences({ summaryDefaults: normalized }).then((ok) =>
-        setSummaryStorageMessage(ok ? "Saved to your account and this browser." : "Saved in this browser only; account sync is unavailable."),
+        setSummaryStorageMessage(ok ? "Saved for everyone." : "Saved in this browser only; couldn’t reach the church setup."),
       );
     } catch {
       setSummaryStorageMessage("The summary configuration could not be saved in this browser.");
@@ -757,12 +778,12 @@ export default function OperatorDashboard() {
   };
 
   const saveHistoryAsDefault = () => {
-    setSaveHistoryDefaultMessage("Saving your default…");
+    setSaveHistoryDefaultMessage("Saving for everyone…");
     void syncAccountPreferences({ saveHistoryDefault: saveHistory }).then((ok) =>
       setSaveHistoryDefaultMessage(
         ok
           ? `Saved. New services start with transcript saving ${saveHistory ? "on" : "off"}; you can still change it before Start.`
-          : "Account sync is unavailable; the default was not saved.",
+          : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
       ),
     );
   };
@@ -775,7 +796,7 @@ export default function OperatorDashboard() {
           ? enabled
             ? "On. After you end a service with transcript saving, its summary draft appears in Sermon history."
             : "Off. Summaries are only generated when you choose Generate summary."
-          : "Account sync is unavailable; the setting was not saved.",
+          : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
       ),
     );
   };
@@ -816,9 +837,9 @@ export default function OperatorDashboard() {
       );
       setTranslationSystemPrompt(normalized);
       setSavedPromptFingerprint(normalized);
-      setPromptStorageMessage("Saved in this browser. Syncing to your account…");
+      setPromptStorageMessage("Saved in this browser. Saving for everyone…");
       void syncAccountPreferences({ translationSystemPrompt: normalized }).then((ok) =>
-        setPromptStorageMessage(ok ? "Saved to your account and this browser." : "Saved in this browser only; account sync is unavailable."),
+        setPromptStorageMessage(ok ? "Saved for everyone." : "Saved in this browser only; couldn’t reach the church setup."),
       );
     } catch {
       setPromptStorageMessage("The prompt could not be saved in this browser.");
@@ -869,7 +890,7 @@ export default function OperatorDashboard() {
       setSavedStyleFingerprint(serialized);
       setPreferenceError("");
       void syncAccountPreferences({ captionStyle: style }).then((ok) => {
-        if (!ok) setPreferenceError("Saved in this browser only; account sync is unavailable.");
+        if (!ok) setPreferenceError("Saved in this browser only; couldn’t reach the church setup.");
       });
       if (liveState.channel?.configured) void saveChannelStyle();
     } catch {
@@ -921,17 +942,14 @@ export default function OperatorDashboard() {
   const translationEditorProps = {
     sourceLanguage,
     targetLanguage,
-    keywordText,
     recordingWindowMs,
     sourceLabel: sourceLabel ?? sourceLanguage,
-    keywordCount,
     disabled: translationEditorDisabled,
     defaultSourceLanguage: accountPreferences?.translationDefaults?.sourceLanguage ?? null,
     defaultTargetLanguage: accountPreferences?.translationDefaults?.targetLanguage ?? null,
     defaultRecordingWindowMs: accountPreferences?.translationDefaults?.recordingWindowMs ?? null,
     onSourceLanguageChange: setSourceLanguage,
     onTargetLanguageChange: setTargetLanguage,
-    onKeywordTextChange: setKeywordText,
     onRecordingWindowChange: setRecordingWindowMs,
   };
 
@@ -1003,7 +1021,7 @@ export default function OperatorDashboard() {
     {
       label: "Words",
       ok: true,
-      value: `${keywordCount} ${keywordCount === 1 ? "term" : "terms"}`,
+      value: `${wordCount} ${wordCount === 1 ? "word" : "words"}`,
       href: "#settings=words",
       fixLabel: "Fix",
     },
@@ -1072,8 +1090,8 @@ export default function OperatorDashboard() {
       savedMessage={
         outputBufferSavedMessage ||
         (accountPreferences && accountPreferences.outputBufferCount !== null
-          ? "Your account has a saved default for this."
-          : "Saves this choice to your account for new services.")
+          ? "The church setup has a saved choice for this."
+          : "Saves this choice for everyone’s new services.")
       }
       disabled={isBusy}
       defaultCount={accountPreferences?.outputBufferCount ?? null}
@@ -1146,7 +1164,7 @@ export default function OperatorDashboard() {
               <div className="startActions">
                 <button
                   type="button"
-                  className="primaryButton largeButton"
+                  className="primaryButton large"
                   disabled={startBlocked}
                   aria-describedby="start-help"
                   onClick={() => void startSession()}
@@ -1182,7 +1200,7 @@ export default function OperatorDashboard() {
               </label>
               {accountPreferences?.saveHistoryDefault !== saveHistory ? (
                 <button className="textButton" type="button" disabled={isBusy} onClick={saveHistoryAsDefault}>
-                  Make this my default
+                  Make this the church default
                 </button>
               ) : null}
               <p className="operatorHint" role="status" aria-live="polite">{saveHistoryDefaultMessage}</p>
@@ -1294,7 +1312,7 @@ export default function OperatorDashboard() {
               {section.label}
             </a>
           ))}
-          <p className="operatorHint">“This computer” applies here only. The rest is saved with your account.</p>
+          <p className="operatorHint">“This computer” applies here only. Everything else is shared by everyone at {WORKSPACE_NAME}.</p>
         </nav>
         <section className="operatorCard settingsPanel" aria-labelledby="settings-section-heading">
           <h2 id="settings-section-heading">{settingsTitle}</h2>
@@ -1328,44 +1346,37 @@ export default function OperatorDashboard() {
 
           {settingsSection === "languages" ? (
             <>
-              <TranslationSettingsEditor {...translationEditorProps} part="languages" />
+              <TranslationSettingsEditor {...translationEditorProps} />
               <div className="startActions">
                 <button type="button" className="secondaryButton" disabled={translationEditorDisabled} onClick={saveTranslationDefaults}>
-                  Save as my default
+                  Save for everyone
                 </button>
               </div>
               <p className="operatorHint" role="status" aria-live="polite">
                 {translationDefaultsMessage ||
                   (accountPreferences?.translationDefaults
-                    ? "New services start from your saved languages, speed and words."
-                    : "Saves languages, caption speed and words for new services.")}
+                    ? "New services start from the church’s saved languages, speed and words."
+                    : "Saves languages, caption speed and words for everyone’s new services.")}
               </p>
             </>
           ) : null}
 
           {settingsSection === "words" ? (
             <>
-              <TranslationSettingsEditor {...translationEditorProps} part="words" />
-              <label>
-                Never show these words
-                <input
-                  name="publicFilter"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={filterText}
-                  maxLength={MAX_FILTER_INPUT_CHARS}
-                  disabled={translationEditorDisabled}
-                  onChange={(event) => setFilterText(event.target.value)}
-                  placeholder="e.g. word, word=>replacement, word=>!hide…"
-                />
-              </label>
-              <p className="operatorHint">
-                A plain word shows as ***. <code>word=&gt;replacement</code> swaps it, and{" "}
-                <code>word=&gt;!hide</code> hides the whole caption. You still see the original under “Heard”.
-              </p>
+              <WordsEditor
+                keywordText={keywordText}
+                filterText={filterText}
+                sourceLanguage={sourceLanguage}
+                targetLanguage={targetLanguage}
+                disabled={translationEditorDisabled}
+                onChange={(next) => {
+                  setKeywordText(next.keywordText);
+                  setFilterText(next.filterText);
+                }}
+              />
               <div className="startActions">
                 <button type="button" className="secondaryButton" disabled={translationEditorDisabled} onClick={saveTranslationDefaults}>
-                  Save as my default
+                  Save for everyone
                 </button>
               </div>
             </>
