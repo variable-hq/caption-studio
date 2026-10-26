@@ -171,7 +171,7 @@ export function DashboardNavigation({ items, activeId, onSelect, tools, channelS
   const contents = (
     <>
       <div className="dashboardBrand" translate="no">
-        <span className="brandMark" aria-hidden="true">CC</span>
+        <span className="brandMark" aria-hidden="true">CS</span>
         <span>Caption Studio<small>{WORKSPACE_NAME}</small></span>
       </div>
       <a

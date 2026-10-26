@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 
 import { STORAGE_MIGRATION_SCRIPT } from "@/live/storage-migration";
 
@@ -23,9 +24,12 @@ export const viewport: Viewport = {
 // legacy key migration runs first so the theme read below already sees the new key.
 const BOOT_SCRIPT = `${STORAGE_MIGRATION_SCRIPT}try{var t=localStorage.getItem("caption-studio:theme:v1");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}`;
 
+// Self-hosted at build time by next/font, so no page request goes to a font host.
+const inter = Inter({ subsets: ["latin", "latin-ext"], variable: "--font-inter", display: "swap" });
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>

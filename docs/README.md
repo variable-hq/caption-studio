@@ -17,6 +17,7 @@ records to establish release evidence.
 | [Contributing](../CONTRIBUTING.md) | Branch/PR workflow and required QA |
 | [Stakeholder test guide](STAKEHOLDER_TEST_GUIDE.md) | Protected rehearsal and content-free evidence |
 | [Roadmap](ROADMAP.md) / [Gap analysis](GAP_ANALYSIS.md) | Outstanding work and release gates |
+| [Brand guidelines](BRAND_GUIDELINES.md) | The design baseline: voice and glossary, colour roles, typography, spacing, components, accessibility |
 | [Design system](DESIGN_SYSTEM.md) | Tokens, light/dark themes, shared controls and the resizable navigation |
 | [Agent instructions](../AGENTS.md) | Machine-oriented routing index for AI agents; points here rather than duplicating it |
 
