@@ -52,8 +52,8 @@ describe("normalizeSidebarWidth", () => {
 
 describe("stored preference readers", () => {
   it("uses the versioned storage keys", () => {
-    expect(THEME_PREFERENCE_KEY).toBe("church-live-caption:theme:v1");
-    expect(SIDEBAR_WIDTH_KEY).toBe("church-live-caption:sidebar-width:v1");
+    expect(THEME_PREFERENCE_KEY).toBe("caption-studio:theme:v1");
+    expect(SIDEBAR_WIDTH_KEY).toBe("caption-studio:sidebar-width:v1");
   });
 
   it("reads through the storage keys and survives a throwing or missing storage", () => {

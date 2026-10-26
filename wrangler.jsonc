@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "main": "custom-worker.ts",
-  "name": "church-live-caption",
+  "name": "caption-studio",
   "compatibility_date": "2026-07-18",
   "compatibility_flags": ["nodejs_compat"],
   "keep_vars": true,

@@ -62,12 +62,12 @@ interface QueuedChunk {
   generation: number;
 }
 
-const CONTROLLER_STORAGE_KEY = "church-live-caption:main-controller:v1";
-const VIEWER_STORAGE_KEY = "church-live-caption:main-viewer:v1";
+const CONTROLLER_STORAGE_KEY = "caption-studio:main-controller:v1";
+const VIEWER_STORAGE_KEY = "caption-studio:main-viewer:v1";
 const TRANSLATION_SETTINGS_STORAGE_KEY =
-  "church-live-caption:active-translation-settings:v1";
+  "caption-studio:active-translation-settings:v1";
 const LEGACY_SPEECH_BUFFER_STORAGE_KEY =
-  "church-live-caption:speech-buffer:v1";
+  "caption-studio:speech-buffer:v1";
 
 function validStoredViewerUrl(value: string | null) {
   if (!value) return null;

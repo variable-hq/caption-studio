@@ -89,9 +89,9 @@ interface CloudModels {
   translation: string;
 }
 
-const CAPTION_PREFERENCE_KEY = "church-live-caption:caption-style:v1";
+const CAPTION_PREFERENCE_KEY = "caption-studio:caption-style:v1";
 const TRANSLATION_PROMPT_PREFERENCE_KEY =
-  "church-live-caption:translation-system-prompt:v1";
+  "caption-studio:translation-system-prompt:v1";
 
 export type WorkspaceSectionId =
   | "history"

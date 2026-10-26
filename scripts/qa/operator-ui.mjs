@@ -16,7 +16,7 @@ try {
  for (const width of QA_VIEWPORT_WIDTHS) {
   const context=await browser.newContext({viewport:{width,height:width>500?1080:844},permissions:['microphone'],reducedMotion:'reduce'});
   const page=await context.newPage();
-  await page.addInitScript(() => localStorage.setItem("church-live-caption:operator-tutorial:v1", "dismissed"));
+  await page.addInitScript(() => localStorage.setItem("caption-studio:operator-tutorial:v1", "dismissed"));
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const violations=[];
   let status='idle';let startedAt=null;let expiresAt=null;let transcriptionRequests=0;let inferenceCalls=0;

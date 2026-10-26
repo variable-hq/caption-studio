@@ -1,7 +1,7 @@
 import { isLanguageLocale } from "@/domain/languages";
 import { SUMMARY_MODELS, type SummaryModel, type SummaryOptions } from "@/experience/contracts";
 
-export const SUMMARY_DEFAULTS_PREFERENCE_KEY = "church-live-caption:summary-defaults:v1";
+export const SUMMARY_DEFAULTS_PREFERENCE_KEY = "caption-studio:summary-defaults:v1";
 export const MAX_SUMMARY_GUIDANCE_CHARS = 2_000;
 
 export const DEFAULT_SUMMARY_OPTIONS: SummaryOptions = {

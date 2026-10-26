@@ -403,15 +403,18 @@ from whatever is merely selected in the current session's draft. Free-text field
   takeover, and replacement revoke it.
 - The shared style persists in the channel; **Save as default** also stores the style
   with the operator's account and keeps a browser fallback in `localStorage`
-  (`church-live-caption:caption-style:v1`), beside the explicitly saved prompt
-  (`church-live-caption:translation-system-prompt:v1`), the explicitly saved summary
-  defaults (`church-live-caption:summary-defaults:v1`), the theme
-  (`church-live-caption:theme:v1`), the sidebar width
-  (`church-live-caption:sidebar-width:v1`) and the tutorial flag. Account
+  (`caption-studio:caption-style:v1`), beside the explicitly saved prompt
+  (`caption-studio:translation-system-prompt:v1`), the explicitly saved summary
+  defaults (`caption-studio:summary-defaults:v1`), the theme
+  (`caption-studio:theme:v1`), the sidebar width
+  (`caption-studio:sidebar-width:v1`) and the tutorial flag. Account
   values load first on each visit and win over the browser copy; the browser copy is
   used only when the account store is unavailable. Neither storage holds the OBS token. The tab's `sessionStorage` holds
   the controller token, the current mobile viewer link and the active translation
   snapshot until End, takeover or cleanup; the reader link lives only in page memory.
+  Keys saved under the former `church-live-caption:` prefix, in either storage, move to
+  `caption-studio:` on the next page load, before any page script reads them; a value
+  already under the new key wins.
 
 Pause stops microphone capture, clears queued audio and public display, and blocks late
 caption writes while keeping the original URL and expiry. Resume clears any synthetic

@@ -24,7 +24,7 @@ try {
   const context = await browser.newContext({ viewport: { width, height: width > 500 ? 1080 : 844 }, reducedMotion: 'reduce' });
   const page = await context.newPage(); const errors = []; const requests = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.addInitScript(() => localStorage.setItem('church-live-caption:operator-tutorial:v1', 'dismissed'));
+  await page.addInitScript(() => localStorage.setItem('caption-studio:operator-tutorial:v1', 'dismissed'));
   let readerStatus = 'live', readerExpired = false, readerRemoved = false;
   let remote = { status: 'live', connected: true, command: null };
   let summary = null; let excluded = false; const summaryIds = [];
