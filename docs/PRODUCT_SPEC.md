@@ -193,18 +193,20 @@ implemented.
   doctrine, facts, missing words, or unsaid meaning. Recognizing that a passage is a
   scripture reading or paraphrase may only be used to translate the words actually spoken
   more naturally — never to retrieve, insert, or complete scripture text from memory. A
-  word that was said but is unclear or mistranscribed is first resolved to the closest
-  plausible source-language word (correcting a likely transcription error) before being
-  translated; if only a partial guess is possible it's rendered in brackets (e.g.
-  `[name]`), and if no guess at all is possible, the active Inference Level decides the
-  final disposition — Low, Balanced, and High may each omit that one word and keep the
-  rest of the caption natural, falling back to the shared `[...]` marker only where
-  omitting would leave the caption empty. The model also recognizes the speaker's likely
-  tone and register (informative, conversational, biblical, formal, illustrative) and
-  adjusts phrasing and formality accordingly. Profanity, slurs, or vulgar language are
-  marked with that same `[...]` marker rather than translated, rendered, or invented. None
-  of this has been confirmed against live model responses, only against constructed-prompt
-  tests.
+  unclear or mistranscribed spoken word follows an ordered cascade: normalize a stretched,
+  hyphenated, repeated-for-effect, mispronounced, or likely mistranscribed real word to its
+  closest plausible source-language form and translate it; render a sound word or imitation
+  as its natural target-language equivalent or a short description; then, if only a partial
+  guess is possible, put the best target-language guess or a category placeholder such as
+  `[name]` in brackets. Brackets never contain an untranslated source-language word. Only
+  when no guess is possible does the active Inference Level decide the final disposition —
+  Low, Balanced, and High may each omit that one word and keep the rest of the caption
+  natural, falling back to the shared `[...]` marker only where omitting would leave the
+  caption empty. The model also recognizes the speaker's likely tone and register
+  (informative, conversational, biblical, formal, illustrative) and adjusts phrasing and
+  formality accordingly. Profanity, slurs, or vulgar language are marked with that same
+  `[...]` marker rather than translated, rendered, or invented. These prompt changes have
+  constructed-prompt test coverage; live-model quality review remains pending under G03.
 - Current caption, approved terms, and recent context are structured as untrusted data.
   Context may resolve ambiguity but must not be translated, repeated, or summarized.
 - Publishable model output must be nonempty text with provider finish reason `stop`.

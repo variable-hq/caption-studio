@@ -72,6 +72,26 @@ asking for a response the pipeline would only ever read as a failure. Omitting t
 outright would need a way for the pipeline to tell that apart from a real failure, which
 doesn't exist yet.
 
+## Amendment — ordered resolution for unclear and sound words
+
+Date: 27 October 2026.
+
+The original unclear-word instruction paired a partial-guess example (`[name]`) with a
+prohibition on leaving unclear words verbatim, without defining what the brackets contain.
+That let a source-language sound word or expressive spelling such as `berkok-kok` be
+repeated inside brackets. Replace that conflicting instruction with one ordered cascade:
+normalize stretched, hyphenated, repeated-for-effect, mispronounced, or likely
+mistranscribed real words and translate them; render sound words and imitations naturally
+in the target language or as a short description; bracket only a target-language partial
+guess or category placeholder; and only then hand a word with no guess to the active
+Inference Level. Brackets never contain untranslated source-language words.
+
+The existing rule against verbatim unclear words (including inside quotations), the
+scripture/lyrics non-invention rule, the explicit-foreign-term exception, and all three
+Inference Level omission rules remain in force. Constructed-prompt regression tests now
+cover the ordered cases and bracket meaning. No real-model evaluation was run for this
+amendment; the G03 synthetic review remains required before release.
+
 ## Tradeoffs and verification
 
 - `buildInferenceLevelRule` (`src/ai/translation-prompt.ts`) is a simple switch over the
@@ -79,7 +99,7 @@ doesn't exist yet.
   fail-safe pattern `normalizeInferenceLevel` uses, so an invalid or missing level never
   reaches the model as an unhandled case.
 - Two base-prompt rules apply at every inference level, not gated behind the parameter:
-  a two-step resolve-before-bracketing rule for unclear words, and recognition of the
+  an ordered resolve-before-bracketing cascade for unclear words, and recognition of the
   speaker's tone/register (informative, conversational, biblical, formal, illustrative).
 - `src/ai/server/groq.test.ts` asserts the envelope text differs by level (including the
   invalid-value fallback), that the scripture-recognition and tone-recognition clauses

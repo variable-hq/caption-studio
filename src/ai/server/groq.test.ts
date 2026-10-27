@@ -157,8 +157,24 @@ describe("Groq cloud provider prompts", () => {
       preferredTerms: {},
     });
 
-    expect(messages[0].content).toContain("If only a partial guess is possible, bracket it, e.g. [name]");
-    expect(messages[0].content).toContain("follow the active inference level's rule below for how to handle it");
+    expect(messages[0].content).toContain(
+      "Handle every unclear or mistranscribed spoken word in this order, stopping at the first applicable case",
+    );
+    expect(messages[0].content).toContain(
+      "stretched, hyphenated, repeated for effect, or mispronounced",
+    );
+    expect(messages[0].content).toContain(
+      "a sound word or imitation (animal sound, onomatopoeia, imitated voice)",
+    );
+    expect(messages[0].content).toContain(
+      "best target-language guess or a category placeholder such as [name] in brackets",
+    );
+    expect(messages[0].content).toContain(
+      "brackets never contain an untranslated source-language word",
+    );
+    expect(messages[0].content).toContain(
+      "If no guess is possible, follow the active inference level's rule below",
+    );
     expect(messages[0].content).toContain("Never leave an unclear word untranslated or verbatim");
     expect(messages[0].content).toContain("Never reconstruct scripture or lyrics from memory");
     expect(messages[0].content).toContain("keep it verbatim in quotation marks");
@@ -176,7 +192,9 @@ describe("Groq cloud provider prompts", () => {
     // The never-invent rule and the bracket-guess rule both mention "names"/"[name]" —
     // this pins the explicit "said" boundary between them so the two don't collide.
     expect(messages[0].content).toContain("hallucinate content, Bible verses, doctrine, facts, names, or context beyond what was actually said");
-    expect(messages[0].content).toContain("If a word was said but is unclear or mistranscribed");
+    expect(messages[0].content).toContain(
+      "Handle every unclear or mistranscribed spoken word in this order",
+    );
   });
 
   it("recognizes a scripture reading without permitting retrieval from memory", () => {
