@@ -192,6 +192,10 @@ implemented.
   Inference handles meaning and ambiguity;
   Sanitization owns filler cleanup, so Balanced Inference no longer removes filler or junk
   phrases when Sanitization is Off.
+- The translator settings show a short description for the selected Inference Level only:
+  Low stays closest to spoken words and fixes clear errors; Balanced keeps captions clear
+  and complete by filling small gaps from context; High favors intended meaning over exact
+  wording and may reword boldly. This describes meaning and intent, not cleanup.
 - Sanitization is a separate four-level setting, default Off; Balanced is the recommended
   on-state. Low omits non-word filler sounds. Balanced also omits filler words with no
   meaning in context and keeps only the final version of an explicit self-correction. High

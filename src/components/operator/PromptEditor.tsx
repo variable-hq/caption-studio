@@ -25,6 +25,20 @@ const SANITIZE_LEVEL_DESCRIPTIONS: Record<SanitizeLevel, string[]> = {
   high: ["Also removes empty openers and tags. May drop very soft speech."],
 };
 
+const INFERENCE_LEVEL_DESCRIPTIONS: Record<InferenceLevel, string[]> = {
+  low: ["Closest to the spoken words; fixes only clear errors."],
+  balanced: ["Keeps captions clear and complete; fills small gaps from context."],
+  high: ["Favors the speaker's intended meaning over exact wording; may reword boldly."],
+};
+
+function LevelDescription({ lines, id }: { lines: string[]; id?: string }) {
+  return (
+    <ul id={id} className="helpText levelDescription" aria-live="polite">
+      {lines.map((line) => <li key={line}>{line}</li>)}
+    </ul>
+  );
+}
+
 const INFERENCE_LEVEL_LABELS: Record<InferenceLevel, string> = {
   low: "Close: nearly word for word",
   balanced: "Balanced: clear captions, same meaning",
@@ -79,6 +93,7 @@ export function PromptEditor({
             name="inferenceLevel"
             autoComplete="off"
             data-testid="inference-level"
+            aria-describedby="inference-level-description"
             value={inferenceLevel}
             disabled={disabled}
             onChange={(event) => onInferenceLevelChange(normalizeInferenceLevel(event.target.value))}
@@ -90,6 +105,7 @@ export function PromptEditor({
             ))}
           </select>
         </label>
+        <LevelDescription id="inference-level-description" lines={INFERENCE_LEVEL_DESCRIPTIONS[inferenceLevel]} />
       </SettingGroup>
       <SettingGroup title="Sanitization">
         <label>
@@ -109,9 +125,7 @@ export function PromptEditor({
             ))}
           </select>
         </label>
-        <ul className="helpText levelDescription" aria-live="polite">
-          {SANITIZE_LEVEL_DESCRIPTIONS[sanitizeLevel].map((line) => <li key={line}>{line}</li>)}
-        </ul>
+        <LevelDescription lines={SANITIZE_LEVEL_DESCRIPTIONS[sanitizeLevel]} />
       </SettingGroup>
       <SettingGroup title="Filter inappropriate language">
         <label className="checkLabel">
