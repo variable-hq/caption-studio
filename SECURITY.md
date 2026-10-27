@@ -163,11 +163,12 @@ Current behavior:
   [ADR 0021](docs/decisions/0021-live-sermons-settings-operator-layout.md) is dropped from
   that record on its next save; any browser copy stays in `localStorage` until site data
   is cleared, unread;
-- during an active service, the active language, terminology, filter, recording window, and prompt
-  snapshot is stored in that tab's unencrypted `sessionStorage` solely for same-tab
-  recovery, then removed on End, takeover, or idle cleanup. The output buffer queue is not
-  stored there or anywhere else; it exists only in that tab's React state and is discarded
-  on Pause, refresh, takeover, or End;
+- during an active service, the active language, terminology, filter, recording window,
+  Inference, Sanitization, and inappropriate-language filter settings, and prompt snapshot
+  are stored in that tab's unencrypted `sessionStorage` solely for same-tab recovery, then
+  removed on End, takeover, or idle cleanup. The output buffer queue and
+  filtered-segment count are not stored there or anywhere else; they exist only in that tab's
+  React state. Dropped segment text is never logged or saved;
 - the active translation prompt crosses the protected API/Groq boundary and is not
   stored in the room or sent to audience clients. The journal receives glossary/filter
   context for reader work; opted-in checkpoints retain that bounded context while needed.

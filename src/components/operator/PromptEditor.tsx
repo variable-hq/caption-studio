@@ -2,11 +2,42 @@
 
 import {
   INFERENCE_LEVEL_OPTIONS,
+  SANITIZE_LEVEL_OPTIONS,
   normalizeInferenceLevel,
+  normalizeSanitizeLevel,
   type InferenceLevel,
+  type SanitizeLevel,
 } from "@/ai/contracts";
 import { ID_EN_ADDRESS_TERM_GUIDANCE, MAX_TRANSLATION_SYSTEM_PROMPT_CHARS } from "@/ai/translation-prompt";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
+
+const SANITIZE_LEVEL_LABELS: Record<SanitizeLevel, string> = {
+  off: "Off",
+  low: "Low",
+  balanced: "Balanced · recommended",
+  high: "High · may drop soft speech",
+};
+
+const SANITIZE_LEVEL_DESCRIPTIONS: Record<SanitizeLevel, string[]> = {
+  off: ["No cleanup. Captions keep everything transcribed."],
+  low: ["Removes filler sounds and clear non-speech noise."],
+  balanced: ["Also removes filler words and keeps only the final version of a self-correction."],
+  high: ["Also removes empty openers and tags. May drop very soft speech."],
+};
+
+const INFERENCE_LEVEL_DESCRIPTIONS: Record<InferenceLevel, string[]> = {
+  low: ["Closest to the spoken words; fixes only clear errors."],
+  balanced: ["Keeps captions clear and complete; fills small gaps from context."],
+  high: ["Favors the speaker's intended meaning over exact wording; may reword boldly."],
+};
+
+function LevelDescription({ lines, id }: { lines: string[]; id?: string }) {
+  return (
+    <ul id={id} className="helpText levelDescription" aria-live="polite">
+      {lines.map((line) => <li key={line}>{line}</li>)}
+    </ul>
+  );
+}
 
 const INFERENCE_LEVEL_LABELS: Record<InferenceLevel, string> = {
   low: "Close: nearly word for word",
@@ -20,8 +51,13 @@ interface PromptEditorProps {
   targetLanguage: string;
   inferenceLevel: InferenceLevel;
   defaultInferenceLevel?: InferenceLevel | null;
+  sanitizeLevel: SanitizeLevel;
+  defaultSanitizeLevel?: SanitizeLevel | null;
+  filterInappropriateLanguage: boolean;
   onChange: (value: string) => void;
   onInferenceLevelChange: (value: InferenceLevel) => void;
+  onSanitizeLevelChange: (value: SanitizeLevel) => void;
+  onFilterInappropriateLanguageChange: (value: boolean) => void;
   onSaveBrowserDefault: () => void;
   onReset: () => void;
   savedMessage: string;
@@ -35,8 +71,13 @@ export function PromptEditor({
   targetLanguage,
   inferenceLevel,
   defaultInferenceLevel = null,
+  sanitizeLevel,
+  defaultSanitizeLevel = null,
+  filterInappropriateLanguage,
   onChange,
   onInferenceLevelChange,
+  onSanitizeLevelChange,
+  onFilterInappropriateLanguageChange,
   onSaveBrowserDefault,
   onReset,
   savedMessage,
@@ -52,6 +93,7 @@ export function PromptEditor({
             name="inferenceLevel"
             autoComplete="off"
             data-testid="inference-level"
+            aria-describedby="inference-level-description"
             value={inferenceLevel}
             disabled={disabled}
             onChange={(event) => onInferenceLevelChange(normalizeInferenceLevel(event.target.value))}
@@ -63,6 +105,42 @@ export function PromptEditor({
             ))}
           </select>
         </label>
+        <LevelDescription id="inference-level-description" lines={INFERENCE_LEVEL_DESCRIPTIONS[inferenceLevel]} />
+      </SettingGroup>
+      <SettingGroup title="Sanitization">
+        <label>
+          <span className="visuallyHidden">Sanitization</span>
+          <select
+            name="sanitizeLevel"
+            autoComplete="off"
+            data-testid="sanitize-level"
+            aria-describedby="sanitize-level-description"
+            value={sanitizeLevel}
+            disabled={disabled}
+            onChange={(event) => onSanitizeLevelChange(normalizeSanitizeLevel(event.target.value))}
+          >
+            {SANITIZE_LEVEL_OPTIONS.map((level) => (
+              <option value={level} key={level}>
+                {SANITIZE_LEVEL_LABELS[level]}{defaultSanitizeLevel === level ? " · Church default" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        <LevelDescription id="sanitize-level-description" lines={SANITIZE_LEVEL_DESCRIPTIONS[sanitizeLevel]} />
+      </SettingGroup>
+      <SettingGroup title="Filter inappropriate language">
+        <label className="checkLabel">
+          <input
+            type="checkbox"
+            name="filterInappropriateLanguage"
+            aria-describedby="filter-inappropriate-language-help"
+            checked={filterInappropriateLanguage}
+            disabled={disabled}
+            onChange={(event) => onFilterInappropriateLanguageChange(event.target.checked)}
+          />
+          Filter inappropriate language
+        </label>
+        <p id="filter-inappropriate-language-help" className="settingHint">On: omits profanity, slurs, and vulgar language from captions. Off: translates them as spoken.</p>
       </SettingGroup>
       <SettingGroup
         title="Instructions for the translator"

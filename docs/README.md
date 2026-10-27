@@ -36,7 +36,8 @@ records to establish release evidence.
 - [ADR 0022](decisions/0022-shared-church-setup-and-words-list.md) records one church setup
   shared by all operators, the Words list, one summary model and one buffer wait choice.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
-  handling was delegated to the translator instead of the deterministic filter alone.
+  handling was delegated to the translator, and the default-on operator control for faithful
+  rendering when that omission rule is disabled.
 - [ADR 0013](decisions/0013-manual-caption-archived-as-operator-notes.md) records why a
   paused manual caption is archived as a separate operator note instead of a transcript
   paragraph, and why the synthetic show-test caption is not archived at all.
@@ -54,9 +55,8 @@ records to establish release evidence.
   buffer's dwell duration became a configurable, saved-default setting, superseding the
   fixed-3-second-dwell decision in ADR 0016.
 - [ADR 0018](decisions/0018-inference-level-as-server-envelope-parameter.md) records why
-  the Inference Level toggle (Low/Balanced/High) is a parameter to the immutable server
-  translation envelope rather than the operator-editable system prompt, and the safety
-  boundary for recognizing scripture readings without retrieving text from memory.
+  Inference and Sanitization are immutable translation-envelope parameters, including the
+  boundary between meaning and cleanup and the rule against retrieving scripture from memory.
 - [ADR 0019](decisions/0019-automatic-post-service-summary.md) records the per-operator
   history-saving default and the opt-in summary generated automatically when that
   operator ends a saved service.

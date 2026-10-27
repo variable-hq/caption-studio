@@ -6,8 +6,10 @@ import {
   InvalidTranslationSystemPromptError,
   MAX_TRANSLATION_SYSTEM_PROMPT_CHARS,
   OMITTED_CONTENT_MARKER,
+  buildInappropriateLanguageRule,
   isValidTranslationSystemPrompt,
   normalizeTranslationSystemPrompt,
+  buildSanitizeRule,
 } from "@/ai/translation-prompt";
 import {
   GroqProviderError,
@@ -17,6 +19,7 @@ import {
   translateWithGroq,
   verifyGroqProvider,
 } from "@/ai/server/groq";
+import { outputLooksUnsafe } from "@/ai/output-guard";
 
 describe("Groq cloud provider prompts", () => {
   afterEach(() => {
@@ -157,8 +160,24 @@ describe("Groq cloud provider prompts", () => {
       preferredTerms: {},
     });
 
-    expect(messages[0].content).toContain("If only a partial guess is possible, bracket it, e.g. [name]");
-    expect(messages[0].content).toContain("follow the active inference level's rule below for how to handle it");
+    expect(messages[0].content).toContain(
+      "Handle every unclear or mistranscribed spoken word in this order, stopping at the first applicable case",
+    );
+    expect(messages[0].content).toContain(
+      "stretched, hyphenated, repeated for effect, or mispronounced",
+    );
+    expect(messages[0].content).toContain(
+      "a sound word or imitation (animal sound, onomatopoeia, imitated voice)",
+    );
+    expect(messages[0].content).toContain(
+      "best target-language guess or a category placeholder such as [name] in brackets",
+    );
+    expect(messages[0].content).toContain(
+      "brackets never contain an untranslated source-language word",
+    );
+    expect(messages[0].content).toContain(
+      "If no guess is possible, follow the active inference level's rule below",
+    );
     expect(messages[0].content).toContain("Never leave an unclear word untranslated or verbatim");
     expect(messages[0].content).toContain("Never reconstruct scripture or lyrics from memory");
     expect(messages[0].content).toContain("keep it verbatim in quotation marks");
@@ -176,7 +195,9 @@ describe("Groq cloud provider prompts", () => {
     // The never-invent rule and the bracket-guess rule both mention "names"/"[name]" —
     // this pins the explicit "said" boundary between them so the two don't collide.
     expect(messages[0].content).toContain("hallucinate content, Bible verses, doctrine, facts, names, or context beyond what was actually said");
-    expect(messages[0].content).toContain("If a word was said but is unclear or mistranscribed");
+    expect(messages[0].content).toContain(
+      "Handle every unclear or mistranscribed spoken word in this order",
+    );
   });
 
   it("recognizes a scripture reading without permitting retrieval from memory", () => {
@@ -307,7 +328,10 @@ describe("Groq cloud provider prompts", () => {
     expect(invalid[0].content).toContain("Inference level: BALANCED");
   });
 
-  it("requires marking profanity, slurs, or vulgar language as [...] rather than translating it", () => {
+  it("keeps the existing omission rule when inappropriate-language filtering is on", () => {
+    expect(buildInappropriateLanguageRule(true, OMITTED_CONTENT_MARKER)).toBe(
+      "If the speech contains profanity, slurs, or vulgar language, mark it as [...] instead of translating it, keeping the rest of the sentence natural and complete.",
+    );
     const messages = buildTranslationMessages({
       text: "Grace and peace.",
       sourceLanguage: "en",
@@ -318,6 +342,23 @@ describe("Groq cloud provider prompts", () => {
 
     expect(messages[0].content).toContain(`If the speech contains profanity, slurs, or vulgar language, mark it as ${OMITTED_CONTENT_MARKER} instead of translating it`);
     expect(messages[0].content).toContain("keeping the rest of the sentence natural and complete");
+  });
+
+  it("renders inappropriate language as spoken when the filter is off without changing unclear-word markers", () => {
+    const messages = buildTranslationMessages({
+      text: "You said the unclear name.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      filterInappropriateLanguage: false,
+    });
+
+    expect(messages[0].content).toContain("Translate profanity, slurs, and vulgar language exactly as spoken, without softening, omitting, or censoring it.");
+    expect(messages[0].content).not.toContain("mark it as [...] instead of translating it");
+    expect(messages[0].content).toContain("mark it as [...] instead");
+    expect(messages[0].content).not.toMatch(/scripture.{0,30}exempt|exempt.{0,30}scripture/iu);
+    expect(outputLooksUnsafe("That was damn awful.")).toBe(false);
   });
 
   it("exempts the bracket/quote conventions from the no-labels output contract", () => {
@@ -476,9 +517,94 @@ describe("Groq cloud provider prompts", () => {
         sourceLanguage: "auto",
         keywordHints: [],
       }),
-    ).resolves.toEqual([
-      expect.objectContaining({ detectedLanguage: "zh-Hans", text: "恩典" }),
-    ]);
+    ).resolves.toEqual({
+      segments: [expect.objectContaining({ detectedLanguage: "zh-Hans", text: "恩典" })],
+      droppedSegments: 0,
+    });
+  });
+
+  it("filters only guarded transcription segments and reports a content-free count", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({
+        language: "english",
+        segments: [
+          { text: "silence hallucination", no_speech_prob: 0.91, avg_logprob: -1.3, compression_ratio: 1.4 },
+          { text: "Amen, amen", no_speech_prob: 0.02, avg_logprob: -0.15, compression_ratio: 1.1 },
+          { text: "machine loop", no_speech_prob: 0.02, avg_logprob: -0.15, compression_ratio: 3.2 },
+        ],
+      })),
+    );
+
+    await expect(transcribeWithGroq({
+      audio: new Blob(["audio"], { type: "audio/webm" }),
+      sourceLanguage: "en",
+      keywordHints: [],
+      sanitizeLevel: "low",
+    })).resolves.toEqual({
+      segments: [expect.objectContaining({ text: "Amen, amen", isFinal: true })],
+      droppedSegments: 2,
+    });
+  });
+
+  it("keeps all segments and reports zero filtered at Sanitization Off", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({
+        segments: [
+          { text: "silence-like", no_speech_prob: 0.99, avg_logprob: -9, compression_ratio: 3.5 },
+        ],
+      })),
+    );
+
+    await expect(transcribeWithGroq({
+      audio: new Blob(["audio"], { type: "audio/webm" }),
+      sourceLanguage: "en",
+      keywordHints: [],
+      sanitizeLevel: "off",
+    })).resolves.toEqual({
+      segments: [expect.objectContaining({ text: "silence-like" })],
+      droppedSegments: 0,
+    });
+  });
+
+  it("builds cumulative Sanitization rules without moving cleanup into Inference", () => {
+    expect(buildSanitizeRule("off")).toBe("");
+    const low = buildSanitizeRule("low");
+    const balanced = buildSanitizeRule("balanced");
+    const high = buildSanitizeRule("high");
+
+    expect(low).toContain("non-word filler sounds");
+    expect(low).toMatch(/leave all repetition as spoken/iu);
+    expect(balanced).toContain("non-word filler sounds");
+    expect(balanced).toContain("filler words that carry no meaning in context");
+    expect(balanced).toContain("explicit self-correction keep only the final version");
+    expect(high).toContain("filler words that carry no meaning in context");
+    expect(high).toContain("omit empty openers and tags that add no content");
+    expect(high).toContain("never omit direct address or call-and-response");
+
+    for (const rule of [low, balanced, high]) {
+      expect(rule).toMatch(/leave all repetition as spoken/iu);
+      expect(rule).toContain("only the unclear-word rule may normalize a single stretched or hyphenated word");
+      expect(rule).toContain("Do not sanitize speech the speaker is quoting or acting out");
+      expect(rule).toContain("congregation call-and-response");
+      expect(rule).toContain("Never remove meaningful content");
+      expect(rule).toContain("Never add or complete content, names, or scripture");
+      expect(rule).not.toMatch(/profanity|non-speech noise|gibberish/iu);
+    }
+
+    const messages = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      sanitizeLevel: "off",
+    });
+    expect(messages[0].content).not.toContain("Sanitization:");
+    expect(messages[0].content).not.toContain("Rephrase or omit filler and junk phrases");
   });
 
   it("uses the replacement translation model with bounded low reasoning", async () => {

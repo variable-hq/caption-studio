@@ -1,7 +1,13 @@
-import { MAX_TRANSLATION_COMPLETION_TOKENS, normalizeInferenceLevel } from "@/ai/contracts";
+import {
+  MAX_TRANSLATION_COMPLETION_TOKENS,
+  normalizeInferenceLevel,
+  normalizeSanitizeLevel,
+} from "@/ai/contracts";
 import type {
   LlmProviderRateLimitSnapshot,
+  SanitizeLevel,
   TranscriptSegment,
+  TranscriptionResult,
   TranslationRequest,
   TranslationResult,
 } from "@/ai/contracts";
@@ -15,6 +21,7 @@ import {
 } from "@/ai/translation-prompt";
 import { buildEnvelopeSystemMessage, buildUntrustedDataMessage } from "@/ai/prompt-envelope";
 import { outputLooksUnsafe } from "@/ai/output-guard";
+import { shouldDropSegment, type TranscriptQualityMetrics } from "@/ai/transcript-guard";
 import {
   LANGUAGE_OPTIONS,
   findLanguage,
@@ -36,7 +43,7 @@ interface GroqTranscriptResponse {
   language?: string;
   segments?: Array<{
     text?: string;
-  }>;
+  } & TranscriptQualityMetrics>;
 }
 
 interface GroqChatResponse {
@@ -252,7 +259,11 @@ export function buildTranslationMessages(request: TranslationRequest) {
         source,
         target,
         request.targetLanguage,
-        normalizeInferenceLevel(request.inferenceLevel),
+        {
+          inferenceLevel: normalizeInferenceLevel(request.inferenceLevel),
+          sanitizeLevel: normalizeSanitizeLevel(request.sanitizeLevel),
+          filterInappropriateLanguage: request.filterInappropriateLanguage !== false,
+        },
       ),
       { label: "OPERATOR TRANSLATION GUIDANCE", text: operatorGuidance },
     ),
@@ -269,8 +280,9 @@ export async function transcribeWithGroq(input: {
   sourceLanguage: SourceLanguage;
   keywordHints: string[];
   previousTranscript?: string;
+  sanitizeLevel?: SanitizeLevel;
   signal?: AbortSignal;
-}): Promise<TranscriptSegment[]> {
+}): Promise<TranscriptionResult> {
   const form = new FormData();
   form.append("file", input.audio, "caption-audio.webm");
   form.append(
@@ -299,25 +311,28 @@ export async function transcribeWithGroq(input: {
   const detectedLanguage = detectedLocale(payload.language, input.sourceLanguage);
 
   if (payload.segments?.length) {
-    return payload.segments
-      .filter((segment) => segment.text?.trim())
-      .map((segment) => ({
-        text: segment.text!.trim(),
-        isFinal: true,
-        detectedLanguage,
-      }));
+    const segments: TranscriptSegment[] = [];
+    let droppedSegments = 0;
+    const sanitizeLevel = normalizeSanitizeLevel(input.sanitizeLevel);
+    for (const segment of payload.segments) {
+      const text = segment.text?.trim();
+      if (!text) continue;
+      if (shouldDropSegment(segment, sanitizeLevel)) {
+        droppedSegments += 1;
+        continue;
+      }
+      segments.push({ text, isFinal: true, detectedLanguage });
+    }
+    return { segments, droppedSegments };
   }
 
   const text = payload.text?.trim();
-  if (!text) return [];
+  if (!text) return { segments: [], droppedSegments: 0 };
 
-  return [
-    {
-      text,
-      isFinal: true,
-      detectedLanguage,
-    },
-  ];
+  return {
+    segments: [{ text, isFinal: true, detectedLanguage }],
+    droppedSegments: 0,
+  };
 }
 
 export async function translateWithGroq(

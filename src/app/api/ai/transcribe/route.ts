@@ -5,6 +5,7 @@ import {
   GroqProviderError,
   transcribeWithGroq,
 } from "@/ai/server/groq";
+import { normalizeSanitizeLevel } from "@/ai/contracts";
 import { isLanguageLocale, type SourceLanguage } from "@/domain/languages";
 import {
   CloudAccessError,
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
     const sourceLanguage = String(form.get("sourceLanguage") ?? "auto");
     const keywordHintsValue = String(form.get("keywordHints") ?? "[]");
     const previousTranscript = String(form.get("previousTranscript") ?? "").slice(-1_000);
+    const sanitizeLevel = normalizeSanitizeLevel(form.get("sanitizeLevel"));
 
     if (!(audio instanceof Blob) || audio.size === 0) {
       return NextResponse.json({ error: "An audio chunk is required." }, { status: 400 });
@@ -93,15 +95,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Keyword hints are invalid." }, { status: 400 });
     }
 
-    const segments = await meteredGroq(request, "transcription", (telemetry) => transcribeWithGroq({
+    const result = await meteredGroq(request, "transcription", (telemetry) => transcribeWithGroq({
       audio,
       sourceLanguage: sourceLanguage as SourceLanguage,
       keywordHints,
       previousTranscript,
+      sanitizeLevel,
       signal: request.signal,
       telemetry,
     }));
-    return NextResponse.json({ segments }, { headers: { "cache-control": "no-store" } });
+    return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return errorResponse(error);
   }

@@ -165,6 +165,7 @@ export interface LiveSessionState {
   message: string;
   sequence: number;
   droppedChunks: number;
+  filteredSegments: number;
   transcriptionRequests: number;
   llmUsage: LlmSessionUsage;
   latestSourceText: string;

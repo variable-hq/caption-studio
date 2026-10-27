@@ -45,3 +45,22 @@ Only prompt-construction correctness has been verified
 `reasoning_effort: "low"`, reliably omits such content in practice has not been confirmed
 against real Groq responses. Treat this as an open validation gap, not an assumed
 guarantee, until real captions have been reviewed.
+
+## Amendment — operator-controlled language filter
+
+Date: 27 October 2026. Status: implemented; real-model verification pending.
+
+The operator now has a shared, default-on **Filter inappropriate language** setting in the
+translation refresh flow. On retains the omission rule above, byte-for-byte in the server
+envelope. Off replaces that rule with an instruction to render profanity, slurs, and vulgar
+language exactly as spoken, without softening, omission, or censorship. The existing
+deterministic public Filter and Quick block rules remain active in both modes, and continue
+to separate protected source text from public moderated text.
+
+This does not add a scripture-specific exemption: turning the setting Off is the way to
+render scripture wording faithfully. It does not add a deterministic profanity list; operators
+continue to use the existing Filter for terms they want to mask, replace, or hide. Sanitization
+does not control profanity. Missing or invalid values default to On; only explicit `false`
+turns it off. Tests verify defaulting, request handling, prompt selection, and that unclear-word
+markers remain available in both modes. The synthetic real-model omission/rendering cases in
+G03 remain a manual quality gate; this amendment does not claim semantic reliability.

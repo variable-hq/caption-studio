@@ -187,24 +187,63 @@ implemented.
   paraphrasing, prioritizing coherence and continuity over literal fidelity, falling back
   to the clearest partial caption for a whole line that's still too ambiguous even after
   that. It is an immutable envelope parameter, not operator-editable text, and changing it
-  goes through the same translation refresh confirmation as language, terminology, filter,
-  and recording-window changes.
+  goes through the same translation refresh confirmation as language, terminology, public
+  filtering, Sanitization, inappropriate-language filtering, and recording-window changes.
+  Inference handles meaning and ambiguity;
+  Sanitization owns filler cleanup, so Balanced Inference no longer removes filler or junk
+  phrases when Sanitization is Off.
+- The translator settings show a short description for the selected Inference Level only:
+  Low stays closest to spoken words and fixes clear errors; Balanced keeps captions clear
+  and complete by filling small gaps from context; High favors intended meaning over exact
+  wording and may reword boldly. This describes meaning and intent, not cleanup.
+- Sanitization is a separate four-level setting, default Off; Balanced is the recommended
+  on-state. Low omits non-word filler sounds. Balanced also omits filler words with no
+  meaning in context and keeps only the final version of an explicit self-correction. High
+  also omits empty openers and tags that add no content, while preserving direct address and
+  congregation call-and-response. The model rule preserves other repetition and quoted or
+  acted-out speech, and never removes meaningful content, names, or scripture. Profanity is
+  controlled separately by Filter inappropriate language.
+- Filter inappropriate language is an independent, default-on translation setting. When On,
+  the existing envelope rule omits profanity, slurs, and vulgar language, using `[...]` only
+  when omission would leave no caption content. When Off, the translator renders those words
+  as spoken without softening, omission, or censorship. The deterministic public Filter and
+  Quick block rules still apply in either state, so source text remains separate from
+  moderated public text. Only explicit `false` disables this setting in new and stored
+  snapshots; an absent or invalid value falls back to On. Changes use the translation refresh
+  confirmation and are saved with shared church defaults. Sanitization does not control
+  profanity, and there is no scripture-specific exemption; turn the setting Off for faithful
+  wording of scripture.
+- A deterministic transcription guard runs before translation. Off has no guard. Low drops
+  a segment when `no_speech_prob > 0.8` and `avg_logprob < -1.2`, or when
+  `compression_ratio > 3.0`; Balanced uses `0.6`, `-1.0`, or `2.4`; High uses `0.5`,
+  `-0.8`, or `2.4`. The no-speech and log-probability conditions must both hold; the
+  compression-ratio condition is independent. These are initial thresholds. The compression
+  limit never goes below 2.4 because a lower value risks dropping deliberate human
+  repetition. High has the greatest false-drop risk, especially for very soft or whispered
+  speech such as prayer.
+- While Sanitization is on, the service details show a numeric filtered-segment count. It
+  contains no dropped text and is not logged or archived. The archive keeps only transcript
+  text that survived the guard; surviving source text remains otherwise raw, and the model
+  rule shapes translation only. If detected source language already equals the target, the
+  translation call is skipped but the transcription guard still applies.
 - The model is instructed not to invent or complete Bible verses, songs, quotations,
   doctrine, facts, missing words, or unsaid meaning. Recognizing that a passage is a
   scripture reading or paraphrase may only be used to translate the words actually spoken
   more naturally — never to retrieve, insert, or complete scripture text from memory. A
-  word that was said but is unclear or mistranscribed is first resolved to the closest
-  plausible source-language word (correcting a likely transcription error) before being
-  translated; if only a partial guess is possible it's rendered in brackets (e.g.
-  `[name]`), and if no guess at all is possible, the active Inference Level decides the
-  final disposition — Low, Balanced, and High may each omit that one word and keep the
-  rest of the caption natural, falling back to the shared `[...]` marker only where
-  omitting would leave the caption empty. The model also recognizes the speaker's likely
-  tone and register (informative, conversational, biblical, formal, illustrative) and
-  adjusts phrasing and formality accordingly. Profanity, slurs, or vulgar language are
-  marked with that same `[...]` marker rather than translated, rendered, or invented. None
-  of this has been confirmed against live model responses, only against constructed-prompt
-  tests.
+  unclear or mistranscribed spoken word follows an ordered cascade: normalize a stretched,
+  hyphenated, repeated-for-effect, mispronounced, or likely mistranscribed real word to its
+  closest plausible source-language form and translate it; render a sound word or imitation
+  as its natural target-language equivalent or a short description; then, if only a partial
+  guess is possible, put the best target-language guess or a category placeholder such as
+  `[name]` in brackets. Brackets never contain an untranslated source-language word. Only
+  when no guess is possible does the active Inference Level decide the final disposition —
+  Low, Balanced, and High may each omit that one word and keep the rest of the caption
+  natural, falling back to the shared `[...]` marker only where omitting would leave the
+  caption empty. The model also recognizes the speaker's likely tone and register
+  (informative, conversational, biblical, formal, illustrative) and adjusts phrasing and
+  formality accordingly. Profanity, slurs, or vulgar language are marked with that same
+  `[...]` marker rather than translated, rendered, or invented. These prompt changes have
+  constructed-prompt test coverage; live-model quality review remains pending under G03.
 - Current caption, approved terms, and recent context are structured as untrusted data.
   Context may resolve ambiguity but must not be translated, repeated, or summarized.
 - Publishable model output must be nonempty text with provider finish reason `stop`.
@@ -256,7 +295,8 @@ session-only, and does not persist between services; a term meant to persist sti
 belongs in the filter field above.
 
 Terminology and filter edits made during an active service are drafts until the same
-explicit translation refresh used for language, recording window, and prompt changes.
+explicit translation refresh used for language, Inference, Sanitization, recording window,
+and prompt changes.
 
 ### Output buffer
 
@@ -293,7 +333,7 @@ with Quick block and Manual caption. The public caption filter lives in Settings
 
 Every saved setting except the theme belongs to one **church setup** shared by all
 signed-in operators ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)):
-languages, caption speed, words and inference level; the translator instructions; the
+languages, caption speed, words, Inference and Sanitization; the translator instructions; the
 caption style; the summary defaults and automatic summaries; the output buffer; and the
 transcript-saving default. **Save for everyone** (and **Make this the church default**
 beside the transcript choice) writes it. Until anyone saves it, each operator keeps the
