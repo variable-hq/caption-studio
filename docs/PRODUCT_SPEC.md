@@ -207,7 +207,7 @@ implemented.
   the existing envelope rule omits profanity, slurs, and vulgar language, using `[...]` only
   when omission would leave no caption content. When Off, the translator renders those words
   as spoken without softening, omission, or censorship. The deterministic public Filter and
-  Blocked now rules still apply in either state, so source text remains separate from
+  Quick block rules still apply in either state, so source text remains separate from
   moderated public text. Only explicit `false` disables this setting in new and stored
   snapshots; an absent or invalid value falls back to On. Changes use the translation refresh
   confirmation and are saved with shared church defaults. Sanitization does not control

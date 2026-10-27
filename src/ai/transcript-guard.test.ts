@@ -54,11 +54,21 @@ describe("Sanitization transcription guard", () => {
   );
 
   it.each(["low", "balanced", "high"] as const)(
-    "keeps ordinary speech and emphatic repetition at %s",
+    "keeps a repeated phrase with compression below the limit at %s",
     (level) => {
+      const compressionRatioBelowLimit =
+        SANITIZE_GUARD_THRESHOLDS[level]!.compressionRatioAbove - 0.01;
       expect(shouldDropSegment(SPEECH, level)).toBe(false);
-      const emphaticRepetition = { text: "Amen, amen!", ...SPEECH };
-      expect(shouldDropSegment(emphaticRepetition, level)).toBe(false);
+      const repeatedPhrase = {
+        text: "Amen, amen, amen!",
+        no_speech_prob: 0.02,
+        avg_logprob: -0.15,
+        compression_ratio: compressionRatioBelowLimit,
+      };
+      expect(repeatedPhrase.compression_ratio).toBeLessThan(
+        SANITIZE_GUARD_THRESHOLDS[level]!.compressionRatioAbove,
+      );
+      expect(shouldDropSegment(repeatedPhrase, level)).toBe(false);
     },
   );
 

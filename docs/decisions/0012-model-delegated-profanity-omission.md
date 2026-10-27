@@ -54,7 +54,7 @@ The operator now has a shared, default-on **Filter inappropriate language** sett
 translation refresh flow. On retains the omission rule above, byte-for-byte in the server
 envelope. Off replaces that rule with an instruction to render profanity, slurs, and vulgar
 language exactly as spoken, without softening, omission, or censorship. The existing
-deterministic public Filter and Blocked now rules remain active in both modes, and continue
+deterministic public Filter and Quick block rules remain active in both modes, and continue
 to separate protected source text from public moderated text.
 
 This does not add a scripture-specific exemption: turning the setting Off is the way to

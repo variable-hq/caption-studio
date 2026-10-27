@@ -104,7 +104,7 @@ export function buildInappropriateLanguageRule(
 }
 
 const SANITIZE_SHARED_CLAUSES =
-  "Leave all repetition as spoken, except for word-like normalization handled by the unclear-word rule and the explicit self-correction above. Do not sanitize speech the speaker is quoting or acting out, or congregation call-and-response. Never remove meaningful content, names, or scripture. Never add or complete content, names, or scripture.";
+  "Leave all repetition as spoken; only the unclear-word rule may normalize a single stretched or hyphenated word. Do not sanitize speech the speaker is quoting or acting out, or congregation call-and-response. Never remove meaningful content, names, or scripture. Never add or complete content, names, or scripture.";
 
 /** One cumulative model rule; non-speech artifacts are handled by the transcription guard. */
 export function buildSanitizeRule(level: SanitizeLevel): string {

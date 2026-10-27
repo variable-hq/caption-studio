@@ -114,6 +114,7 @@ export function PromptEditor({
             name="sanitizeLevel"
             autoComplete="off"
             data-testid="sanitize-level"
+            aria-describedby="sanitize-level-description"
             value={sanitizeLevel}
             disabled={disabled}
             onChange={(event) => onSanitizeLevelChange(normalizeSanitizeLevel(event.target.value))}
@@ -125,20 +126,21 @@ export function PromptEditor({
             ))}
           </select>
         </label>
-        <LevelDescription lines={SANITIZE_LEVEL_DESCRIPTIONS[sanitizeLevel]} />
+        <LevelDescription id="sanitize-level-description" lines={SANITIZE_LEVEL_DESCRIPTIONS[sanitizeLevel]} />
       </SettingGroup>
       <SettingGroup title="Filter inappropriate language">
         <label className="checkLabel">
           <input
             type="checkbox"
             name="filterInappropriateLanguage"
+            aria-describedby="filter-inappropriate-language-help"
             checked={filterInappropriateLanguage}
             disabled={disabled}
             onChange={(event) => onFilterInappropriateLanguageChange(event.target.checked)}
           />
           Filter inappropriate language
         </label>
-        <p className="settingHint">On: omits profanity, slurs, and vulgar language from captions. Off: translates them as spoken.</p>
+        <p id="filter-inappropriate-language-help" className="settingHint">On: omits profanity, slurs, and vulgar language from captions. Off: translates them as spoken.</p>
       </SettingGroup>
       <SettingGroup
         title="Instructions for the translator"

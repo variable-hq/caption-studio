@@ -587,6 +587,7 @@ describe("Groq cloud provider prompts", () => {
 
     for (const rule of [low, balanced, high]) {
       expect(rule).toMatch(/leave all repetition as spoken/iu);
+      expect(rule).toContain("only the unclear-word rule may normalize a single stretched or hyphenated word");
       expect(rule).toContain("Do not sanitize speech the speaker is quoting or acting out");
       expect(rule).toContain("congregation call-and-response");
       expect(rule).toContain("Never remove meaningful content");
