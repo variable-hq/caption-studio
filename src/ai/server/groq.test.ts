@@ -8,6 +8,7 @@ import {
   OMITTED_CONTENT_MARKER,
   isValidTranslationSystemPrompt,
   normalizeTranslationSystemPrompt,
+  buildSanitizeRule,
 } from "@/ai/translation-prompt";
 import {
   GroqProviderError,
@@ -494,9 +495,93 @@ describe("Groq cloud provider prompts", () => {
         sourceLanguage: "auto",
         keywordHints: [],
       }),
-    ).resolves.toEqual([
-      expect.objectContaining({ detectedLanguage: "zh-Hans", text: "恩典" }),
-    ]);
+    ).resolves.toEqual({
+      segments: [expect.objectContaining({ detectedLanguage: "zh-Hans", text: "恩典" })],
+      droppedSegments: 0,
+    });
+  });
+
+  it("filters only guarded transcription segments and reports a content-free count", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({
+        language: "english",
+        segments: [
+          { text: "silence hallucination", no_speech_prob: 0.91, avg_logprob: -1.3, compression_ratio: 1.4 },
+          { text: "Amen, amen", no_speech_prob: 0.02, avg_logprob: -0.15, compression_ratio: 1.1 },
+          { text: "machine loop", no_speech_prob: 0.02, avg_logprob: -0.15, compression_ratio: 3.2 },
+        ],
+      })),
+    );
+
+    await expect(transcribeWithGroq({
+      audio: new Blob(["audio"], { type: "audio/webm" }),
+      sourceLanguage: "en",
+      keywordHints: [],
+      sanitizeLevel: "low",
+    })).resolves.toEqual({
+      segments: [expect.objectContaining({ text: "Amen, amen", isFinal: true })],
+      droppedSegments: 2,
+    });
+  });
+
+  it("keeps all segments and reports zero filtered at Sanitization Off", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({
+        segments: [
+          { text: "silence-like", no_speech_prob: 0.99, avg_logprob: -9, compression_ratio: 3.5 },
+        ],
+      })),
+    );
+
+    await expect(transcribeWithGroq({
+      audio: new Blob(["audio"], { type: "audio/webm" }),
+      sourceLanguage: "en",
+      keywordHints: [],
+      sanitizeLevel: "off",
+    })).resolves.toEqual({
+      segments: [expect.objectContaining({ text: "silence-like" })],
+      droppedSegments: 0,
+    });
+  });
+
+  it("builds cumulative Sanitization rules without moving cleanup into Inference", () => {
+    expect(buildSanitizeRule("off")).toBe("");
+    const low = buildSanitizeRule("low");
+    const balanced = buildSanitizeRule("balanced");
+    const high = buildSanitizeRule("high");
+
+    expect(low).toContain("non-word filler sounds");
+    expect(low).toMatch(/leave all repetition as spoken/iu);
+    expect(balanced).toContain("non-word filler sounds");
+    expect(balanced).toContain("filler words that carry no meaning in context");
+    expect(balanced).toContain("explicit self-correction keep only the final version");
+    expect(high).toContain("filler words that carry no meaning in context");
+    expect(high).toContain("omit empty openers and tags that add no content");
+    expect(high).toContain("never omit direct address or call-and-response");
+
+    for (const rule of [low, balanced, high]) {
+      expect(rule).toMatch(/leave all repetition as spoken/iu);
+      expect(rule).toContain("Do not sanitize speech the speaker is quoting or acting out");
+      expect(rule).toContain("congregation call-and-response");
+      expect(rule).toContain("Never remove meaningful content");
+      expect(rule).toContain("Never add or complete content, names, or scripture");
+      expect(rule).not.toMatch(/profanity|non-speech noise|gibberish/iu);
+    }
+
+    const messages = buildTranslationMessages({
+      text: "Grace and peace.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      sanitizeLevel: "off",
+    });
+    expect(messages[0].content).not.toContain("Sanitization:");
+    expect(messages[0].content).not.toContain("Rephrase or omit filler and junk phrases");
   });
 
   it("uses the replacement translation model with bounded low reasoning", async () => {

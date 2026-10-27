@@ -2,11 +2,28 @@
 
 import {
   INFERENCE_LEVEL_OPTIONS,
+  SANITIZE_LEVEL_OPTIONS,
   normalizeInferenceLevel,
+  normalizeSanitizeLevel,
   type InferenceLevel,
+  type SanitizeLevel,
 } from "@/ai/contracts";
 import { ID_EN_ADDRESS_TERM_GUIDANCE, MAX_TRANSLATION_SYSTEM_PROMPT_CHARS } from "@/ai/translation-prompt";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
+
+const SANITIZE_LEVEL_LABELS: Record<SanitizeLevel, string> = {
+  off: "Off",
+  low: "Low",
+  balanced: "Balanced · recommended",
+  high: "High · may drop soft speech",
+};
+
+const SANITIZE_LEVEL_DESCRIPTIONS: Record<SanitizeLevel, string[]> = {
+  off: ["No cleanup. Captions keep everything transcribed."],
+  low: ["Removes filler sounds and clear non-speech noise."],
+  balanced: ["Also removes filler words and keeps only the final version of a self-correction."],
+  high: ["Also removes empty openers and tags. May drop very soft speech."],
+};
 
 const INFERENCE_LEVEL_LABELS: Record<InferenceLevel, string> = {
   low: "Close: nearly word for word",
@@ -20,8 +37,11 @@ interface PromptEditorProps {
   targetLanguage: string;
   inferenceLevel: InferenceLevel;
   defaultInferenceLevel?: InferenceLevel | null;
+  sanitizeLevel: SanitizeLevel;
+  defaultSanitizeLevel?: SanitizeLevel | null;
   onChange: (value: string) => void;
   onInferenceLevelChange: (value: InferenceLevel) => void;
+  onSanitizeLevelChange: (value: SanitizeLevel) => void;
   onSaveBrowserDefault: () => void;
   onReset: () => void;
   savedMessage: string;
@@ -35,8 +55,11 @@ export function PromptEditor({
   targetLanguage,
   inferenceLevel,
   defaultInferenceLevel = null,
+  sanitizeLevel,
+  defaultSanitizeLevel = null,
   onChange,
   onInferenceLevelChange,
+  onSanitizeLevelChange,
   onSaveBrowserDefault,
   onReset,
   savedMessage,
@@ -63,6 +86,28 @@ export function PromptEditor({
             ))}
           </select>
         </label>
+      </SettingGroup>
+      <SettingGroup title="Sanitization">
+        <label>
+          <span className="visuallyHidden">Sanitization</span>
+          <select
+            name="sanitizeLevel"
+            autoComplete="off"
+            data-testid="sanitize-level"
+            value={sanitizeLevel}
+            disabled={disabled}
+            onChange={(event) => onSanitizeLevelChange(normalizeSanitizeLevel(event.target.value))}
+          >
+            {SANITIZE_LEVEL_OPTIONS.map((level) => (
+              <option value={level} key={level}>
+                {SANITIZE_LEVEL_LABELS[level]}{defaultSanitizeLevel === level ? " · Church default" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        <ul className="helpText levelDescription" aria-live="polite">
+          {SANITIZE_LEVEL_DESCRIPTIONS[sanitizeLevel].map((line) => <li key={line}>{line}</li>)}
+        </ul>
       </SettingGroup>
       <SettingGroup
         title="Instructions for the translator"

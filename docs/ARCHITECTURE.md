@@ -204,19 +204,29 @@ Readiness verifies configured model availability. Stale `llama-3.1-8b-instant`
 overrides resolve to the migrated translation default. Other explicit overrides require
 normal readiness and quality review.
 
-Transcription accepts WebM/Ogg/MP4, at most 3 MB of audio, bounded hints and the previous
-chunk's corrected transcript (at most 1,000 characters accepted). The provider prompt uses a
-conservative 224 UTF-8-byte budget: when a previous transcript exists, its last whole words
-(at most 96 bytes) end the prompt as Whisper's preceding-speech context and hints fill the
-rest. Start, translation refresh and Clear reset it together with the translation context. Only
-canonical names enter ASR hints;
-approved whole-word recognition variants are deterministic corrections, not training.
+Transcription accepts WebM/Ogg/MP4, at most 3 MB of audio, bounded hints, the previous
+chunk's corrected transcript (at most 1,000 characters accepted), and a Sanitization level
+(Off, Low, Balanced, High; omitted or invalid values normalize to Off). The provider prompt
+uses a conservative 224 UTF-8-byte budget: when a previous transcript exists, its last whole
+words (at most 96 bytes) end the prompt as Whisper's preceding-speech context and hints fill
+the rest. Start, translation refresh and Clear reset it together with the translation context.
+Only canonical names enter ASR hints; approved whole-word recognition variants are
+deterministic corrections, not training.
+
+Groq `verbose_json` segment metadata (`no_speech_prob`, `avg_logprob`,
+`compression_ratio`) feeds a deterministic per-segment guard. The configured thresholds
+remove a segment only when both no-speech and average-log-probability limits cross, or when
+the compression limit is crossed. Sanitization Off bypasses the guard. The response returns
+`segments` plus a non-negative `droppedSegments` count; only that content-free count enters
+live UI state. Dropped text is neither logged nor archived. Saved archive source contains
+only segments that survived the guard; the translation rule does not rewrite the source.
 
 Translation receives current source, at most four retained source captions, relevant
 glossary mappings, an immutable server envelope, and up to 4,000 characters of editable
 guidance. The envelope also carries the operator's chosen inference level (Low, Balanced,
-High), which governs how aggressively the model may infer meaning and rephrase; it is a
-fixed envelope parameter, not part of the editable guidance. Completion is capped at 256
+High) and Sanitization level (Off, Low, Balanced, High). Inference governs meaning and
+rephrasing; Sanitization owns filler cleanup and independently selects the guard thresholds.
+Both are fixed envelope parameters, not part of editable guidance. Completion is capped at 256
 tokens; GPT-OSS uses low reasoning effort.
 Only nonempty text with finish reason `stop` is publishable. Incomplete output is
 stripped but available usage retained; missing usage acknowledgement stops capture.

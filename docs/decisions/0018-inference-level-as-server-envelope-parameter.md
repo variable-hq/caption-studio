@@ -92,6 +92,37 @@ Inference Level omission rules remain in force. Constructed-prompt regression te
 cover the ordered cases and bracket meaning. No real-model evaluation was run for this
 amendment; the G03 synthetic review remains required before release.
 
+## Amendment — Sanitization as a separate envelope setting
+
+Date: 27 October 2026.
+
+Inference owns meaning: intent, ambiguity and unclear words. Sanitization owns cleanup
+that removes no-meaning speech: filler sounds and words, explicit self-corrections (keep
+only their final version), and transcription gibberish. Gibberish is removed only by the
+deterministic transcription guard, never by a model rule. Sanitization is a separate
+immutable envelope parameter, default Off, saved with shared translation defaults and
+applied through the same translation refresh confirmation as Inference. A pre-change live
+snapshot without `sanitizeLevel` normalizes to Off; the storage version stays unchanged.
+
+The deterministic guard consumes Groq `verbose_json` segment metrics. It drops a segment
+when `no_speech_prob` and `avg_logprob` both cross the selected thresholds, or when
+`compression_ratio` crosses its threshold. Off bypasses the guard. Initial thresholds are:
+Low `0.8 / -1.2 / 3.0`, Balanced `0.6 / -1.0 / 2.4`, High `0.5 / -0.8 / 2.4` (no-speech,
+average log probability, compression ratio). Do not lower compression below 2.4; it targets
+machine loops and lower values risk deliberate repetition. High has greater false-drop risk
+for quiet or whispered speech, including prayer. The live service shows only a numeric count
+of filtered segments; dropped text is not logged or saved. An all-dropped window creates no
+source caption and makes no translation request. If source and target languages match, the
+guard still applies while translation is skipped.
+
+Low's model rule omits non-word filler sounds. Balanced adds contextually empty filler words
+and explicit self-corrections; High adds empty openers and tags while preserving direct
+address and congregation call-and-response. All levels preserve other repetition, quoted or
+acted-out speech, meaningful content, names and scripture. Profanity remains governed by
+its existing rule; Sanitization neither mentions nor filters it. Sound words and expressive
+real-word forms remain meaningful content for Inference. Balanced Inference no longer has a
+filler/junk-phrase rule: with Sanitization Off, Balanced no longer cleans those phrases.
+
 ## Tradeoffs and verification
 
 - `buildInferenceLevelRule` (`src/ai/translation-prompt.ts`) is a simple switch over the
@@ -101,6 +132,8 @@ amendment; the G03 synthetic review remains required before release.
 - Two base-prompt rules apply at every inference level, not gated behind the parameter:
   an ordered resolve-before-bracketing cascade for unclear words, and recognition of the
   speaker's tone/register (informative, conversational, biblical, formal, illustrative).
+  Sanitization is a separate optional rule; its deterministic transcription guard never sends
+  dropped segment text to translation or stores it.
 - `src/ai/server/groq.test.ts` asserts the envelope text differs by level (including the
   invalid-value fallback), that the scripture-recognition and tone-recognition clauses
   are present regardless of level, that every level can omit a single indecipherable

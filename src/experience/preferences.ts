@@ -80,6 +80,7 @@ function normalizeTranslationDefaults(value: unknown): TranslationDefaults | nul
     filterText: settings.filterText,
     recordingWindowMs: settings.recordingWindowMs,
     inferenceLevel: settings.inferenceLevel,
+    sanitizeLevel: settings.sanitizeLevel,
   };
 }
 

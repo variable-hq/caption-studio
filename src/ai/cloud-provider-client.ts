@@ -1,8 +1,10 @@
+import { DEFAULT_SANITIZE_LEVEL } from "@/ai/contracts";
 import type {
   InferenceAttemptContext,
   LlmProviderRateLimitSnapshot,
   LlmTokenUsage,
   TranscriptSegment,
+  TranscriptionResult,
   TranscriptionProvider,
   TranscriptionRequest,
   TranslationProvider,
@@ -133,7 +135,7 @@ export class CloudProviderClient
     request: TranscriptionRequest,
     context: InferenceAttemptContext,
     signal?: AbortSignal,
-  ): Promise<TranscriptSegment[]> {
+  ): Promise<TranscriptionResult> {
     const headers = inferenceHeaders(context, "transcription");
     const form = new FormData();
     const extension = request.audio.type.includes("ogg")
@@ -145,6 +147,7 @@ export class CloudProviderClient
     form.append("sourceLanguage", request.sourceLanguage);
     form.append("keywordHints", JSON.stringify(request.keywordHints));
     if (request.previousTranscript) form.append("previousTranscript", request.previousTranscript);
+    form.append("sanitizeLevel", request.sanitizeLevel ?? DEFAULT_SANITIZE_LEVEL);
 
     const response = await fetch("/api/ai/transcribe", {
       method: "POST",
@@ -163,8 +166,19 @@ export class CloudProviderClient
       );
     }
 
-    const payload = (await response.json()) as { segments: TranscriptSegment[] };
-    return payload.segments;
+    const payload = (await response.json()) as Partial<TranscriptionResult>;
+    const droppedSegments = payload.droppedSegments;
+    return {
+      segments: Array.isArray(payload.segments)
+        ? (payload.segments as TranscriptSegment[])
+        : [],
+      droppedSegments:
+        typeof droppedSegments === "number" &&
+        Number.isSafeInteger(droppedSegments) &&
+        droppedSegments >= 0
+          ? droppedSegments
+          : 0,
+    };
   }
 
   async translate(

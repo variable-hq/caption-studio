@@ -54,9 +54,8 @@ records to establish release evidence.
   buffer's dwell duration became a configurable, saved-default setting, superseding the
   fixed-3-second-dwell decision in ADR 0016.
 - [ADR 0018](decisions/0018-inference-level-as-server-envelope-parameter.md) records why
-  the Inference Level toggle (Low/Balanced/High) is a parameter to the immutable server
-  translation envelope rather than the operator-editable system prompt, and the safety
-  boundary for recognizing scripture readings without retrieving text from memory.
+  Inference and Sanitization are immutable translation-envelope parameters, including the
+  boundary between meaning and cleanup and the rule against retrieving scripture from memory.
 - [ADR 0019](decisions/0019-automatic-post-service-summary.md) records the per-operator
   history-saving default and the opt-in summary generated automatically when that
   operator ends a saved service.

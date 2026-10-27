@@ -1403,13 +1403,13 @@ describe("transcription dispatch enforcement", () => {
         controllerToken: service.controllerToken,
         transcriptionAttempt: lease.transcriptionRequests,
       };
-      const segments = await cloud.transcribe({
+      const transcription = await cloud.transcribe({
         audio: new Blob(["synthetic"], { type: "audio/webm" }),
         sourceLanguage: "en",
         keywordHints: [],
       }, context);
       const translation = await cloud.translate({
-        text: segments[0].text,
+        text: transcription.segments[0].text,
         sourceLanguage: "en",
         targetLanguage: "id",
         recentContext: [],

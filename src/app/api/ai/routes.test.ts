@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MAX_TRANSLATION_SYSTEM_PROMPT_CHARS } from "@/ai/translation-prompt";
 
@@ -6,6 +6,11 @@ import { POST as transcribe } from "@/app/api/ai/transcribe/route";
 import { POST as translate } from "@/app/api/ai/translate/route";
 
 describe("AI route request boundaries", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
   const validTranslationBody = {
     text: "Grace and peace.",
     sourceLanguage: "en",
@@ -75,6 +80,57 @@ describe("AI route request boundaries", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       error: "Translation system prompt must be text.",
+    });
+  });
+
+  it("normalizes invalid Sanitization to Off on the translation route", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      choices: [{ finish_reason: "stop", message: { content: "Kasih karunia" } }],
+    })));
+
+    const response = await translate(
+      new Request("https://caption.example/api/ai/translate", {
+        method: "POST",
+        body: JSON.stringify({ ...validTranslationBody, sanitizeLevel: "extreme" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const providerBody = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)) as {
+      messages: Array<{ content: string }>;
+    };
+    expect(providerBody.messages[0].content).not.toContain("Sanitization:");
+  });
+
+  it("normalizes invalid Sanitization to Off on the transcription route", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      language: "english",
+      segments: [{
+        text: "quiet transcript",
+        no_speech_prob: 0.99,
+        avg_logprob: -9,
+        compression_ratio: 3.5,
+      }],
+    })));
+    const form = new FormData();
+    form.set("audio", new Blob(["synthetic"], { type: "audio/webm" }), "caption.webm");
+    form.set("sourceLanguage", "en");
+    form.set("keywordHints", "[]");
+    form.set("sanitizeLevel", "extreme");
+
+    const response = await transcribe(
+      new Request("https://caption.example/api/ai/transcribe", {
+        method: "POST",
+        body: form,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      segments: [{ text: "quiet transcript", isFinal: true, detectedLanguage: "en" }],
+      droppedSegments: 0,
     });
   });
 

@@ -1,8 +1,11 @@
 import {
   DEFAULT_INFERENCE_LEVEL,
+  DEFAULT_SANITIZE_LEVEL,
   INFERENCE_LEVEL_OPTIONS,
   normalizeInferenceLevel,
+  normalizeSanitizeLevel,
   type InferenceLevel,
+  type SanitizeLevel,
 } from "@/ai/contracts";
 import {
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
@@ -34,6 +37,7 @@ export interface TranslationSessionSettings {
   recordingWindowMs: RecordingWindowMs;
   translationSystemPrompt: string;
   inferenceLevel: InferenceLevel;
+  sanitizeLevel: SanitizeLevel;
 }
 
 interface TranslationSessionIdentity {
@@ -54,7 +58,8 @@ type TranslationSettingsChange =
   | "Terminology"
   | "Public filter"
   | "System prompt"
-  | "Inference level";
+  | "Inference level"
+  | "Sanitization";
 
 function boundedText(value: unknown, maximum: number) {
   return typeof value === "string" ? value.slice(0, maximum) : "";
@@ -88,6 +93,9 @@ export function normalizeTranslationSessionSettings(
     ),
     inferenceLevel: normalizeInferenceLevel(
       input.inferenceLevel ?? DEFAULT_INFERENCE_LEVEL,
+    ),
+    sanitizeLevel: normalizeSanitizeLevel(
+      input.sanitizeLevel ?? DEFAULT_SANITIZE_LEVEL,
     ),
   };
 }
@@ -126,6 +134,9 @@ export function translationSettingsChanges(
   }
   if (current.inferenceLevel !== next.inferenceLevel) {
     changes.push("Inference level");
+  }
+  if (current.sanitizeLevel !== next.sanitizeLevel) {
+    changes.push("Sanitization");
   }
 
   return changes;

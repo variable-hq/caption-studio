@@ -188,7 +188,29 @@ implemented.
   to the clearest partial caption for a whole line that's still too ambiguous even after
   that. It is an immutable envelope parameter, not operator-editable text, and changing it
   goes through the same translation refresh confirmation as language, terminology, filter,
-  and recording-window changes.
+  Sanitization, and recording-window changes. Inference handles meaning and ambiguity;
+  Sanitization owns filler cleanup, so Balanced Inference no longer removes filler or junk
+  phrases when Sanitization is Off.
+- Sanitization is a separate four-level setting, default Off; Balanced is the recommended
+  on-state. Low omits non-word filler sounds. Balanced also omits filler words with no
+  meaning in context and keeps only the final version of an explicit self-correction. High
+  also omits empty openers and tags that add no content, while preserving direct address and
+  congregation call-and-response. The model rule preserves other repetition and quoted or
+  acted-out speech, and never removes meaningful content, names, or scripture. Profanity
+  handling is unchanged and remains outside Sanitization.
+- A deterministic transcription guard runs before translation. Off has no guard. Low drops
+  a segment when `no_speech_prob > 0.8` and `avg_logprob < -1.2`, or when
+  `compression_ratio > 3.0`; Balanced uses `0.6`, `-1.0`, or `2.4`; High uses `0.5`,
+  `-0.8`, or `2.4`. The no-speech and log-probability conditions must both hold; the
+  compression-ratio condition is independent. These are initial thresholds. The compression
+  limit never goes below 2.4 because a lower value risks dropping deliberate human
+  repetition. High has the greatest false-drop risk, especially for very soft or whispered
+  speech such as prayer.
+- While Sanitization is on, the service details show a numeric filtered-segment count. It
+  contains no dropped text and is not logged or archived. The archive keeps only transcript
+  text that survived the guard; surviving source text remains otherwise raw, and the model
+  rule shapes translation only. If detected source language already equals the target, the
+  translation call is skipped but the transcription guard still applies.
 - The model is instructed not to invent or complete Bible verses, songs, quotations,
   doctrine, facts, missing words, or unsaid meaning. Recognizing that a passage is a
   scripture reading or paraphrase may only be used to translate the words actually spoken
@@ -258,7 +280,8 @@ session-only, and does not persist between services; a term meant to persist sti
 belongs in the filter field above.
 
 Terminology and filter edits made during an active service are drafts until the same
-explicit translation refresh used for language, recording window, and prompt changes.
+explicit translation refresh used for language, Inference, Sanitization, recording window,
+and prompt changes.
 
 ### Output buffer
 
@@ -295,7 +318,7 @@ with Quick block and Manual caption. The public caption filter lives in Settings
 
 Every saved setting except the theme belongs to one **church setup** shared by all
 signed-in operators ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)):
-languages, caption speed, words and inference level; the translator instructions; the
+languages, caption speed, words, Inference and Sanitization; the translator instructions; the
 caption style; the summary defaults and automatic summaries; the output buffer; and the
 transcript-saving default. **Save for everyone** (and **Make this the church default**
 beside the transcript choice) writes it. Until anyone saves it, each operator keeps the

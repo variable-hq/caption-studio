@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CloudProviderClient } from "@/ai/cloud-provider-client";
-import { DEFAULT_INFERENCE_LEVEL, type InferenceLevel } from "@/ai/contracts";
+import {
+  DEFAULT_INFERENCE_LEVEL,
+  DEFAULT_SANITIZE_LEVEL,
+  type InferenceLevel,
+  type SanitizeLevel,
+} from "@/ai/contracts";
 import {
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   normalizeTranslationSystemPrompt,
@@ -178,6 +183,9 @@ export default function OperatorDashboard() {
   const [inferenceLevel, setInferenceLevel] = useState<InferenceLevel>(
     DEFAULT_INFERENCE_LEVEL,
   );
+  const [sanitizeLevel, setSanitizeLevel] = useState<SanitizeLevel>(
+    DEFAULT_SANITIZE_LEVEL,
+  );
   const [outputBufferCount, setOutputBufferCount] = useState<OutputBufferCount>(
     DEFAULT_OUTPUT_BUFFER_COUNT,
   );
@@ -248,10 +256,12 @@ export default function OperatorDashboard() {
         recordingWindowMs,
         translationSystemPrompt,
         inferenceLevel,
+        sanitizeLevel,
       }),
     [
       filterText,
       inferenceLevel,
+      sanitizeLevel,
       keywordText,
       sourceLanguage,
       recordingWindowMs,
@@ -359,6 +369,7 @@ export default function OperatorDashboard() {
       setRecordingWindowMs(active.recordingWindowMs);
       setTranslationSystemPrompt(active.translationSystemPrompt);
       setInferenceLevel(active.inferenceLevel);
+      setSanitizeLevel(active.sanitizeLevel);
       setPromptStorageMessage("");
     }, 0);
     return () => window.clearTimeout(timeout);
@@ -672,6 +683,7 @@ export default function OperatorDashboard() {
           setFilterText(defaults.filterText);
           setRecordingWindowMs(defaults.recordingWindowMs);
           setInferenceLevel(defaults.inferenceLevel);
+          setSanitizeLevel(defaults.sanitizeLevel);
           setTranslationDefaultsMessage("Loaded the church setup.");
         }
         if (loaded.saveHistoryDefault !== null && !hasServiceRef.current) {
@@ -722,11 +734,11 @@ export default function OperatorDashboard() {
   const saveTranslationDefaults = () => {
     setTranslationDefaultsMessage("Saving for everyone…");
     void syncAccountPreferences({
-      translationDefaults: { sourceLanguage, targetLanguage, keywordText, filterText, recordingWindowMs, inferenceLevel },
+      translationDefaults: { sourceLanguage, targetLanguage, keywordText, filterText, recordingWindowMs, inferenceLevel, sanitizeLevel },
     }).then((ok) =>
       setTranslationDefaultsMessage(
         ok
-          ? "Saved for everyone. New services start with these languages, caption speed and words."
+          ? "Saved for everyone. New services start with these languages, caption speed, Words, and caption cleanup."
           : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
       ),
     );
@@ -877,6 +889,7 @@ export default function OperatorDashboard() {
     setRecordingWindowMs(active.recordingWindowMs);
     setTranslationSystemPrompt(active.translationSystemPrompt);
     setInferenceLevel(active.inferenceLevel);
+    setSanitizeLevel(active.sanitizeLevel);
     setPromptStorageMessage("");
   };
 
@@ -1269,6 +1282,9 @@ export default function OperatorDashboard() {
               <details className="advancedActions">
                 <summary>Details</summary>
                 <div className="statRow"><span>Delay after speech</span><span>{liveState.lastLatencyMs === null ? "—" : `${(liveState.lastLatencyMs / 1000).toFixed(1)} s`}</span></div>
+                {activeTranslationSettings?.sanitizeLevel && activeTranslationSettings.sanitizeLevel !== "off" ? (
+                  <div className="statRow"><span>Segments filtered</span><span>{formatCount(liveState.filteredSegments)}</span></div>
+                ) : null}
                 <div className="statRow"><span>Audio chunks dropped</span><span>{formatCount(liveState.droppedChunks)}</span></div>
                 <div className="statRow"><span>Transcriptions</span><span>{formatCount(liveState.transcriptionRequests)}</span></div>
                 <div className="statRow"><span>Translation calls</span><span>{formatCount(liveState.llmUsage.translationRequests)}</span></div>
@@ -1433,8 +1449,11 @@ export default function OperatorDashboard() {
               targetLanguage={targetLanguage}
               inferenceLevel={inferenceLevel}
               defaultInferenceLevel={accountPreferences?.translationDefaults?.inferenceLevel ?? null}
+              sanitizeLevel={sanitizeLevel}
+              defaultSanitizeLevel={accountPreferences?.translationDefaults?.sanitizeLevel ?? null}
               onChange={updateTranslationSystemPrompt}
               onInferenceLevelChange={setInferenceLevel}
+              onSanitizeLevelChange={setSanitizeLevel}
               onSaveBrowserDefault={savePromptBrowserDefault}
               onReset={resetPromptToSafeDefault}
               savedMessage={promptSavedMessage}

@@ -88,6 +88,7 @@ const INITIAL_LIVE_STATE: LiveSessionState = {
   message: "Loading the Main OBS channel…",
   sequence: 0,
   droppedChunks: 0,
+  filteredSegments: 0,
   transcriptionRequests: 0,
   llmUsage: emptyLlmSessionUsage(),
   latestSourceText: "",
@@ -571,19 +572,26 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         controllerToken: serviceAtStart.controllerToken,
         transcriptionAttempt: lease.transcriptionRequests,
       };
-      const segments = await cloudClientRef.current.transcribe(
+      const transcription = await cloudClientRef.current.transcribe(
         {
           audio,
           sourceLanguage: current.sourceLanguage,
           keywordHints: keywordHints(glossary.map((entry) => ({ ...entry, variants: [] }))),
           previousTranscript: recentContextRef.current.at(-1),
+          sanitizeLevel: current.sanitizeLevel,
         },
         inferenceContext,
         signal,
       );
       if (!isCurrentCapture()) return;
+      if (transcription.droppedSegments > 0) {
+        setLiveState((state) => ({
+          ...state,
+          filteredSegments: state.filteredSegments + transcription.droppedSegments,
+        }));
+      }
 
-      const finalSegments = segments.filter(({ isFinal, text }) => isFinal && text.trim());
+      const finalSegments = transcription.segments.filter(({ isFinal, text }) => isFinal && text.trim());
       if (!finalSegments.length) return;
       const originalSource = finalSegments.map(({ text }) => text.trim()).join(" ");
       const sourceText = correctApprovedRecognitionVariants(originalSource, glossary);
@@ -620,6 +628,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               preferredTerms: preferredTermMap(glossary, current.targetLanguage),
               translationSystemPrompt: current.translationSystemPrompt,
               inferenceLevel: current.inferenceLevel,
+              sanitizeLevel: current.sanitizeLevel,
             },
             inferenceContext,
             signal,
@@ -1182,6 +1191,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         sequence: 0,
         historyIncomplete: false,
         droppedChunks: 0,
+        filteredSegments: 0,
         transcriptionRequests: 0,
         llmUsage: emptyLlmSessionUsage(),
         latestSourceText: "",

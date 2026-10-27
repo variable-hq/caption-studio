@@ -12,6 +12,16 @@ export function normalizeInferenceLevel(value: unknown): InferenceLevel {
     : DEFAULT_INFERENCE_LEVEL;
 }
 
+export const SANITIZE_LEVEL_OPTIONS = ["off", "low", "balanced", "high"] as const;
+export type SanitizeLevel = (typeof SANITIZE_LEVEL_OPTIONS)[number];
+export const DEFAULT_SANITIZE_LEVEL: SanitizeLevel = "off";
+
+export function normalizeSanitizeLevel(value: unknown): SanitizeLevel {
+  return SANITIZE_LEVEL_OPTIONS.includes(value as SanitizeLevel)
+    ? (value as SanitizeLevel)
+    : DEFAULT_SANITIZE_LEVEL;
+}
+
 export interface TranscriptSegment {
   text: string;
   isFinal: boolean;
@@ -23,6 +33,7 @@ export interface TranscriptionRequest {
   sourceLanguage: SourceLanguage;
   keywordHints: string[];
   previousTranscript?: string;
+  sanitizeLevel?: SanitizeLevel;
 }
 
 export interface TranslationRequest {
@@ -33,6 +44,7 @@ export interface TranslationRequest {
   preferredTerms: Readonly<Record<string, string>>;
   translationSystemPrompt?: string;
   inferenceLevel?: InferenceLevel;
+  sanitizeLevel?: SanitizeLevel;
 }
 
 export interface LlmTokenUsage {
@@ -59,6 +71,11 @@ export interface LlmSessionUsage extends LlmTokenUsage {
   providerRateLimit: LlmProviderRateLimitSnapshot | null;
 }
 
+export interface TranscriptionResult {
+  segments: TranscriptSegment[];
+  droppedSegments: number;
+}
+
 export interface TranslationResult {
   text: string;
   incomplete?: true;
@@ -78,7 +95,7 @@ export interface TranscriptionProvider {
     request: TranscriptionRequest,
     context: InferenceAttemptContext,
     signal?: AbortSignal,
-  ): Promise<TranscriptSegment[]>;
+  ): Promise<TranscriptionResult>;
 }
 
 export interface TranslationProvider {

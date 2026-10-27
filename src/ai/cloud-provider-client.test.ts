@@ -17,6 +17,7 @@ const transcriptionRequest = {
   audio: new Blob(["synthetic"], { type: "audio/webm" }),
   sourceLanguage: "en" as const,
   keywordHints: [],
+  sanitizeLevel: "balanced" as const,
 };
 
 const request = {
@@ -25,6 +26,7 @@ const request = {
   targetLanguage: "id" as const,
   recentContext: [],
   preferredTerms: {},
+  sanitizeLevel: "high" as const,
 };
 
 describe("cloud inference client authentication and usage", () => {
@@ -82,12 +84,16 @@ describe("cloud inference client authentication and usage", () => {
     const capture = new AbortController();
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({
       segments: [{ text: "Grace", isFinal: true, detectedLanguage: "en" }],
+      droppedSegments: 2,
     })));
 
     await expect(new CloudProviderClient().transcribe(transcriptionRequest, {
       ...context,
       transcriptionAttempt: MAX_TRANSCRIPTION_REQUESTS,
-    }, capture.signal)).resolves.toMatchObject([{ text: "Grace" }]);
+    }, capture.signal)).resolves.toEqual({
+      segments: [expect.objectContaining({ text: "Grace" })],
+      droppedSegments: 2,
+    });
 
     const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(url).toBe("/api/ai/transcribe");
@@ -98,7 +104,8 @@ describe("cloud inference client authentication and usage", () => {
     expect(headers.has("content-type")).toBe(false);
     const form = init?.body as FormData;
     expect(form.get("audio")).toBeInstanceOf(Blob);
-    expect([...form.keys()]).toEqual(["audio", "sourceLanguage", "keywordHints"]);
+    expect([...form.keys()]).toEqual(["audio", "sourceLanguage", "keywordHints", "sanitizeLevel"]);
+    expect(form.get("sanitizeLevel")).toBe("balanced");
     capture.abort();
     expect(init?.signal?.aborted).toBe(true);
   });

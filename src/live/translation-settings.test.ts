@@ -49,6 +49,7 @@ describe("translation-session settings", () => {
         keywordText: "Bethlehem",
         translationSystemPrompt: "Prefer concise, natural captions.",
         inferenceLevel: "high",
+        sanitizeLevel: "balanced",
       }),
     ).toEqual([
       "Translation language",
@@ -56,6 +57,7 @@ describe("translation-session settings", () => {
       "Terminology",
       "System prompt",
       "Inference level",
+      "Sanitization",
     ]);
   });
 
@@ -75,6 +77,27 @@ describe("translation-session settings", () => {
         inferenceLevel: "low",
       }).inferenceLevel,
     ).toBe("low");
+  });
+
+  it("defaults Sanitization to Off and normalizes invalid levels to Off", () => {
+    expect(normalizeTranslationSessionSettings({ ...BASE_SETTINGS }).sanitizeLevel).toBe("off");
+    expect(normalizeTranslationSessionSettings({
+      ...BASE_SETTINGS,
+      sanitizeLevel: "extreme" as never,
+    }).sanitizeLevel).toBe("off");
+    expect(normalizeTranslationSessionSettings({
+      ...BASE_SETTINGS,
+      sanitizeLevel: "high",
+    }).sanitizeLevel).toBe("high");
+  });
+
+  it("reads an older same-version snapshot without Sanitization as Off", () => {
+    const stored = JSON.stringify({
+      version: 4,
+      settings: { ...BASE_SETTINGS, sanitizeLevel: undefined },
+      ...SERVICE_IDENTITY,
+    });
+    expect(parseStoredTranslationSessionSettings(stored)?.settings.sanitizeLevel).toBe("off");
   });
 
   it("creates stable fingerprints for equivalent normalized settings", () => {
