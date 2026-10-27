@@ -187,8 +187,9 @@ implemented.
   paraphrasing, prioritizing coherence and continuity over literal fidelity, falling back
   to the clearest partial caption for a whole line that's still too ambiguous even after
   that. It is an immutable envelope parameter, not operator-editable text, and changing it
-  goes through the same translation refresh confirmation as language, terminology, filter,
-  Sanitization, and recording-window changes. Inference handles meaning and ambiguity;
+  goes through the same translation refresh confirmation as language, terminology, public
+  filtering, Sanitization, inappropriate-language filtering, and recording-window changes.
+  Inference handles meaning and ambiguity;
   Sanitization owns filler cleanup, so Balanced Inference no longer removes filler or junk
   phrases when Sanitization is Off.
 - Sanitization is a separate four-level setting, default Off; Balanced is the recommended
@@ -196,8 +197,18 @@ implemented.
   meaning in context and keeps only the final version of an explicit self-correction. High
   also omits empty openers and tags that add no content, while preserving direct address and
   congregation call-and-response. The model rule preserves other repetition and quoted or
-  acted-out speech, and never removes meaningful content, names, or scripture. Profanity
-  handling is unchanged and remains outside Sanitization.
+  acted-out speech, and never removes meaningful content, names, or scripture. Profanity is
+  controlled separately by Filter inappropriate language.
+- Filter inappropriate language is an independent, default-on translation setting. When On,
+  the existing envelope rule omits profanity, slurs, and vulgar language, using `[...]` only
+  when omission would leave no caption content. When Off, the translator renders those words
+  as spoken without softening, omission, or censorship. The deterministic public Filter and
+  Blocked now rules still apply in either state, so source text remains separate from
+  moderated public text. Only explicit `false` disables this setting in new and stored
+  snapshots; an absent or invalid value falls back to On. Changes use the translation refresh
+  confirmation and are saved with shared church defaults. Sanitization does not control
+  profanity, and there is no scripture-specific exemption; turn the setting Off for faithful
+  wording of scripture.
 - A deterministic transcription guard runs before translation. Off has no guard. Low drops
   a segment when `no_speech_prob > 0.8` and `avg_logprob < -1.2`, or when
   `compression_ratio > 3.0`; Balanced uses `0.6`, `-1.0`, or `2.4`; High uses `0.5`,

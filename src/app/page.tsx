@@ -186,6 +186,7 @@ export default function OperatorDashboard() {
   const [sanitizeLevel, setSanitizeLevel] = useState<SanitizeLevel>(
     DEFAULT_SANITIZE_LEVEL,
   );
+  const [filterInappropriateLanguage, setFilterInappropriateLanguage] = useState(true);
   const [outputBufferCount, setOutputBufferCount] = useState<OutputBufferCount>(
     DEFAULT_OUTPUT_BUFFER_COUNT,
   );
@@ -257,11 +258,13 @@ export default function OperatorDashboard() {
         translationSystemPrompt,
         inferenceLevel,
         sanitizeLevel,
+        filterInappropriateLanguage,
       }),
     [
       filterText,
       inferenceLevel,
       sanitizeLevel,
+      filterInappropriateLanguage,
       keywordText,
       sourceLanguage,
       recordingWindowMs,
@@ -370,6 +373,7 @@ export default function OperatorDashboard() {
       setTranslationSystemPrompt(active.translationSystemPrompt);
       setInferenceLevel(active.inferenceLevel);
       setSanitizeLevel(active.sanitizeLevel);
+      setFilterInappropriateLanguage(active.filterInappropriateLanguage);
       setPromptStorageMessage("");
     }, 0);
     return () => window.clearTimeout(timeout);
@@ -684,6 +688,7 @@ export default function OperatorDashboard() {
           setRecordingWindowMs(defaults.recordingWindowMs);
           setInferenceLevel(defaults.inferenceLevel);
           setSanitizeLevel(defaults.sanitizeLevel);
+          setFilterInappropriateLanguage(defaults.filterInappropriateLanguage);
           setTranslationDefaultsMessage("Loaded the church setup.");
         }
         if (loaded.saveHistoryDefault !== null && !hasServiceRef.current) {
@@ -734,11 +739,11 @@ export default function OperatorDashboard() {
   const saveTranslationDefaults = () => {
     setTranslationDefaultsMessage("Saving for everyone…");
     void syncAccountPreferences({
-      translationDefaults: { sourceLanguage, targetLanguage, keywordText, filterText, recordingWindowMs, inferenceLevel, sanitizeLevel },
+      translationDefaults: { sourceLanguage, targetLanguage, keywordText, filterText, recordingWindowMs, inferenceLevel, sanitizeLevel, filterInappropriateLanguage },
     }).then((ok) =>
       setTranslationDefaultsMessage(
         ok
-          ? "Saved for everyone. New services start with these languages, caption speed, Words, and caption cleanup."
+          ? "Saved for everyone. New services start with these languages, caption speed, Words, caption cleanup, and language filtering."
           : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
       ),
     );
@@ -890,6 +895,7 @@ export default function OperatorDashboard() {
     setTranslationSystemPrompt(active.translationSystemPrompt);
     setInferenceLevel(active.inferenceLevel);
     setSanitizeLevel(active.sanitizeLevel);
+    setFilterInappropriateLanguage(active.filterInappropriateLanguage);
     setPromptStorageMessage("");
   };
 
@@ -1451,9 +1457,11 @@ export default function OperatorDashboard() {
               defaultInferenceLevel={accountPreferences?.translationDefaults?.inferenceLevel ?? null}
               sanitizeLevel={sanitizeLevel}
               defaultSanitizeLevel={accountPreferences?.translationDefaults?.sanitizeLevel ?? null}
+              filterInappropriateLanguage={filterInappropriateLanguage}
               onChange={updateTranslationSystemPrompt}
               onInferenceLevelChange={setInferenceLevel}
               onSanitizeLevelChange={setSanitizeLevel}
+              onFilterInappropriateLanguageChange={setFilterInappropriateLanguage}
               onSaveBrowserDefault={savePromptBrowserDefault}
               onReset={resetPromptToSafeDefault}
               savedMessage={promptSavedMessage}

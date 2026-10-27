@@ -6,6 +6,7 @@ import {
   InvalidTranslationSystemPromptError,
   MAX_TRANSLATION_SYSTEM_PROMPT_CHARS,
   OMITTED_CONTENT_MARKER,
+  buildInappropriateLanguageRule,
   isValidTranslationSystemPrompt,
   normalizeTranslationSystemPrompt,
   buildSanitizeRule,
@@ -18,6 +19,7 @@ import {
   translateWithGroq,
   verifyGroqProvider,
 } from "@/ai/server/groq";
+import { outputLooksUnsafe } from "@/ai/output-guard";
 
 describe("Groq cloud provider prompts", () => {
   afterEach(() => {
@@ -326,7 +328,10 @@ describe("Groq cloud provider prompts", () => {
     expect(invalid[0].content).toContain("Inference level: BALANCED");
   });
 
-  it("requires marking profanity, slurs, or vulgar language as [...] rather than translating it", () => {
+  it("keeps the existing omission rule when inappropriate-language filtering is on", () => {
+    expect(buildInappropriateLanguageRule(true, OMITTED_CONTENT_MARKER)).toBe(
+      "If the speech contains profanity, slurs, or vulgar language, mark it as [...] instead of translating it, keeping the rest of the sentence natural and complete.",
+    );
     const messages = buildTranslationMessages({
       text: "Grace and peace.",
       sourceLanguage: "en",
@@ -337,6 +342,23 @@ describe("Groq cloud provider prompts", () => {
 
     expect(messages[0].content).toContain(`If the speech contains profanity, slurs, or vulgar language, mark it as ${OMITTED_CONTENT_MARKER} instead of translating it`);
     expect(messages[0].content).toContain("keeping the rest of the sentence natural and complete");
+  });
+
+  it("renders inappropriate language as spoken when the filter is off without changing unclear-word markers", () => {
+    const messages = buildTranslationMessages({
+      text: "You said the unclear name.",
+      sourceLanguage: "en",
+      targetLanguage: "id",
+      recentContext: [],
+      preferredTerms: {},
+      filterInappropriateLanguage: false,
+    });
+
+    expect(messages[0].content).toContain("Translate profanity, slurs, and vulgar language exactly as spoken, without softening, omitting, or censoring it.");
+    expect(messages[0].content).not.toContain("mark it as [...] instead of translating it");
+    expect(messages[0].content).toContain("mark it as [...] instead");
+    expect(messages[0].content).not.toMatch(/scripture.{0,30}exempt|exempt.{0,30}scripture/iu);
+    expect(outputLooksUnsafe("That was damn awful.")).toBe(false);
   });
 
   it("exempts the bracket/quote conventions from the no-labels output contract", () => {

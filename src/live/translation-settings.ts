@@ -38,6 +38,7 @@ export interface TranslationSessionSettings {
   translationSystemPrompt: string;
   inferenceLevel: InferenceLevel;
   sanitizeLevel: SanitizeLevel;
+  filterInappropriateLanguage: boolean;
 }
 
 interface TranslationSessionIdentity {
@@ -59,7 +60,8 @@ type TranslationSettingsChange =
   | "Public filter"
   | "System prompt"
   | "Inference level"
-  | "Sanitization";
+  | "Sanitization"
+  | "Inappropriate language filter";
 
 function boundedText(value: unknown, maximum: number) {
   return typeof value === "string" ? value.slice(0, maximum) : "";
@@ -97,6 +99,7 @@ export function normalizeTranslationSessionSettings(
     sanitizeLevel: normalizeSanitizeLevel(
       input.sanitizeLevel ?? DEFAULT_SANITIZE_LEVEL,
     ),
+    filterInappropriateLanguage: input.filterInappropriateLanguage !== false,
   };
 }
 
@@ -137,6 +140,9 @@ export function translationSettingsChanges(
   }
   if (current.sanitizeLevel !== next.sanitizeLevel) {
     changes.push("Sanitization");
+  }
+  if (current.filterInappropriateLanguage !== next.filterInappropriateLanguage) {
+    changes.push("Inappropriate language filter");
   }
 
   return changes;

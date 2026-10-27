@@ -36,7 +36,8 @@ records to establish release evidence.
 - [ADR 0022](decisions/0022-shared-church-setup-and-words-list.md) records one church setup
   shared by all operators, the Words list, one summary model and one buffer wait choice.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
-  handling was delegated to the translator instead of the deterministic filter alone.
+  handling was delegated to the translator, and the default-on operator control for faithful
+  rendering when that omission rule is disabled.
 - [ADR 0013](decisions/0013-manual-caption-archived-as-operator-notes.md) records why a
   paused manual caption is archived as a separate operator note instead of a transcript
   paragraph, and why the synthetic show-test caption is not archived at all.

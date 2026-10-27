@@ -262,6 +262,7 @@ export function buildTranslationMessages(request: TranslationRequest) {
         {
           inferenceLevel: normalizeInferenceLevel(request.inferenceLevel),
           sanitizeLevel: normalizeSanitizeLevel(request.sanitizeLevel),
+          filterInappropriateLanguage: request.filterInappropriateLanguage !== false,
         },
       ),
       { label: "OPERATOR TRANSLATION GUIDANCE", text: operatorGuidance },

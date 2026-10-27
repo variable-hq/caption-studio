@@ -113,6 +113,7 @@ export async function POST(request: Request) {
         translationSystemPrompt,
         inferenceLevel: normalizeInferenceLevel(body.inferenceLevel),
         sanitizeLevel: normalizeSanitizeLevel(body.sanitizeLevel),
+        filterInappropriateLanguage: body.filterInappropriateLanguage !== false,
       },
       request.signal,
       telemetry,

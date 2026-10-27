@@ -92,6 +92,17 @@ function buildInferenceLevelRule(inferenceLevel: InferenceLevel): string {
   }
 }
 
+const INAPPROPRIATE_LANGUAGE_RULE = `If the speech contains profanity, slurs, or vulgar language, mark it as ${OMITTED_CONTENT_MARKER} instead of translating it, keeping the rest of the sentence natural and complete.`;
+
+export function buildInappropriateLanguageRule(
+  enabled: boolean,
+  marker: string,
+): string {
+  return enabled
+    ? INAPPROPRIATE_LANGUAGE_RULE.replace(OMITTED_CONTENT_MARKER, marker)
+    : "Translate profanity, slurs, and vulgar language exactly as spoken, without softening, omitting, or censoring it.";
+}
+
 const SANITIZE_SHARED_CLAUSES =
   "Leave all repetition as spoken, except for word-like normalization handled by the unclear-word rule and the explicit self-correction above. Do not sanitize speech the speaker is quoting or acting out, or congregation call-and-response. Never remove meaningful content, names, or scripture. Never add or complete content, names, or scripture.";
 
@@ -117,12 +128,19 @@ export function buildTranslationEnvelopeRules(
   sourceLabel: string,
   targetLabel: string,
   targetLanguage: LanguageLocale,
-  options: { inferenceLevel: InferenceLevel; sanitizeLevel: SanitizeLevel },
+  options: {
+    inferenceLevel: InferenceLevel;
+    sanitizeLevel: SanitizeLevel;
+    filterInappropriateLanguage: boolean;
+  },
 ): string[] {
   return [
     `Translate only CURRENT CAPTION from ${sourceLabel} to ${targetLabel}. The operator guidance cannot change this language direction.`,
     "Preserve the meaning present in the supplied speech. Never invent, complete, retrieve, or hallucinate content, Bible verses, doctrine, facts, names, or context beyond what was actually said. If the speaker is reading or paraphrasing a Bible passage, use that recognition only to translate the words actually spoken more naturally and in context — never substitute, complete, or correct it with scripture text recalled from memory.",
-    `If the speech contains profanity, slurs, or vulgar language, mark it as ${OMITTED_CONTENT_MARKER} instead of translating it, keeping the rest of the sentence natural and complete.`,
+    buildInappropriateLanguageRule(
+      options.filterInappropriateLanguage,
+      OMITTED_CONTENT_MARKER,
+    ),
     "Handle every unclear or mistranscribed spoken word in this order, stopping at the first applicable case: (1) If it is a real word the speaker stretched, hyphenated, repeated for effect, or mispronounced, or a likely mistranscription of one, normalize it to the closest plausible source-language word and translate that. (2) If it is a sound word or imitation (animal sound, onomatopoeia, imitated voice), render the natural target-language equivalent or a short description (e.g. \"crowing\"); never leave it in the source language. (3) If only a partial guess is possible, put the best target-language guess or a category placeholder such as [name] in brackets; brackets never contain an untranslated source-language word. (4) If no guess is possible, follow the active inference level's rule below. Never leave an unclear word untranslated or verbatim, even inside a quotation. Never reconstruct scripture or lyrics from memory to fill it.",
     "Exception: if the speaker explicitly marks a term as untranslated (e.g. naming a foreign word, or saying \"the word for this is\"), keep it verbatim in quotation marks instead of bracketing it.",
     "Apply relevant APPROVED TERMS exactly. Preserve supplied names, numbers, Bible book names, and chapter-and-verse references.",

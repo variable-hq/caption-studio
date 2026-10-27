@@ -103,6 +103,22 @@ describe("AI route request boundaries", () => {
     expect(providerBody.messages[0].content).not.toContain("Sanitization:");
   });
 
+  it("defaults inappropriate-language filtering on unless the request explicitly disables it", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      choices: [{ finish_reason: "stop", message: { content: "Grace and peace" } }],
+    })));
+
+    for (const [value, expected] of [[undefined, "mark it as [...] instead of translating it"], ["invalid", "mark it as [...] instead of translating it"], [false, "exactly as spoken"]] as const) {
+      await translate(new Request("https://caption.example/api/ai/translate", {
+        method: "POST",
+        body: JSON.stringify({ ...validTranslationBody, ...(value === undefined ? {} : { filterInappropriateLanguage: value }) }),
+      }));
+      const providerBody = JSON.parse(String(vi.mocked(fetch).mock.calls.at(-1)?.[1]?.body)) as { messages: Array<{ content: string }> };
+      expect(providerBody.messages[0].content).toContain(expected);
+    }
+  });
+
   it("normalizes invalid Sanitization to Off on the transcription route", async () => {
     vi.stubEnv("GROQ_API_KEY", "test-key");
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({

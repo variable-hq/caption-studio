@@ -164,9 +164,9 @@ Current behavior:
   that record on its next save; any browser copy stays in `localStorage` until site data
   is cleared, unread;
 - during an active service, the active language, terminology, filter, recording window,
-  Inference and Sanitization settings, and prompt snapshot are stored in that tab's unencrypted
-  `sessionStorage` solely for same-tab
-  recovery, then removed on End, takeover, or idle cleanup. The output buffer queue and
+  Inference, Sanitization, and inappropriate-language filter settings, and prompt snapshot
+  are stored in that tab's unencrypted `sessionStorage` solely for same-tab recovery, then
+  removed on End, takeover, or idle cleanup. The output buffer queue and
   filtered-segment count are not stored there or anywhere else; they exist only in that tab's
   React state. Dropped segment text is never logged or saved;
 - the active translation prompt crosses the protected API/Groq boundary and is not

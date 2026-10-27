@@ -55,6 +55,10 @@ and profanity) at each Sanitization level with Balanced Inference, plus High San
 Low and High Inference. Also review a quiet-spoken synthetic sample at High and record the
 content-free filtered-segment count. These model-quality checks are manual; constructed-prompt
 tests do not replace them.
+The default-on Filter inappropriate language toggle also needs real-model checks for a slur,
+strong profanity, mild crude language, a vulgar euphemism, profanity as the only word, and
+quoted profanity; with the toggle Off, confirm faithful rendering and that `outputLooksUnsafe`
+does not reject the result. This Filter validation remains manual and pending.
 
 ### G04 — P1: queue and audience latency
 

@@ -224,10 +224,12 @@ only segments that survived the guard; the translation rule does not rewrite the
 Translation receives current source, at most four retained source captions, relevant
 glossary mappings, an immutable server envelope, and up to 4,000 characters of editable
 guidance. The envelope also carries the operator's chosen inference level (Low, Balanced,
-High) and Sanitization level (Off, Low, Balanced, High). Inference governs meaning and
-rephrasing; Sanitization owns filler cleanup and independently selects the guard thresholds.
-Both are fixed envelope parameters, not part of editable guidance. Completion is capped at 256
-tokens; GPT-OSS uses low reasoning effort.
+High), Sanitization level (Off, Low, Balanced, High), and default-on inappropriate-language
+filter. Inference governs meaning and rephrasing; Sanitization owns filler cleanup and
+independently selects the guard thresholds. The language filter selects between the existing
+profanity omission rule and a render-as-spoken rule; the deterministic public Filter still
+moderates public text in either mode. These are fixed envelope parameters, not part of editable
+guidance. Completion is capped at 256 tokens; GPT-OSS uses low reasoning effort.
 Only nonempty text with finish reason `stop` is publishable. Incomplete output is
 stripped but available usage retained; missing usage acknowledgement stops capture.
 There is no automatic source-language fallback.

@@ -45,6 +45,7 @@ export interface TranslationRequest {
   translationSystemPrompt?: string;
   inferenceLevel?: InferenceLevel;
   sanitizeLevel?: SanitizeLevel;
+  filterInappropriateLanguage?: boolean;
 }
 
 export interface LlmTokenUsage {

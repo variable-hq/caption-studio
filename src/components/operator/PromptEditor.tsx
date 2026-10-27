@@ -39,9 +39,11 @@ interface PromptEditorProps {
   defaultInferenceLevel?: InferenceLevel | null;
   sanitizeLevel: SanitizeLevel;
   defaultSanitizeLevel?: SanitizeLevel | null;
+  filterInappropriateLanguage: boolean;
   onChange: (value: string) => void;
   onInferenceLevelChange: (value: InferenceLevel) => void;
   onSanitizeLevelChange: (value: SanitizeLevel) => void;
+  onFilterInappropriateLanguageChange: (value: boolean) => void;
   onSaveBrowserDefault: () => void;
   onReset: () => void;
   savedMessage: string;
@@ -57,9 +59,11 @@ export function PromptEditor({
   defaultInferenceLevel = null,
   sanitizeLevel,
   defaultSanitizeLevel = null,
+  filterInappropriateLanguage,
   onChange,
   onInferenceLevelChange,
   onSanitizeLevelChange,
+  onFilterInappropriateLanguageChange,
   onSaveBrowserDefault,
   onReset,
   savedMessage,
@@ -108,6 +112,19 @@ export function PromptEditor({
         <ul className="helpText levelDescription" aria-live="polite">
           {SANITIZE_LEVEL_DESCRIPTIONS[sanitizeLevel].map((line) => <li key={line}>{line}</li>)}
         </ul>
+      </SettingGroup>
+      <SettingGroup title="Filter inappropriate language">
+        <label className="checkLabel">
+          <input
+            type="checkbox"
+            name="filterInappropriateLanguage"
+            checked={filterInappropriateLanguage}
+            disabled={disabled}
+            onChange={(event) => onFilterInappropriateLanguageChange(event.target.checked)}
+          />
+          Filter inappropriate language
+        </label>
+        <p className="settingHint">On: omits profanity, slurs, and vulgar language from captions. Off: translates them as spoken.</p>
       </SettingGroup>
       <SettingGroup
         title="Instructions for the translator"

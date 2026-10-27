@@ -50,6 +50,7 @@ describe("translation-session settings", () => {
         translationSystemPrompt: "Prefer concise, natural captions.",
         inferenceLevel: "high",
         sanitizeLevel: "balanced",
+        filterInappropriateLanguage: false,
       }),
     ).toEqual([
       "Translation language",
@@ -58,6 +59,7 @@ describe("translation-session settings", () => {
       "System prompt",
       "Inference level",
       "Sanitization",
+      "Inappropriate language filter",
     ]);
   });
 
@@ -94,10 +96,18 @@ describe("translation-session settings", () => {
   it("reads an older same-version snapshot without Sanitization as Off", () => {
     const stored = JSON.stringify({
       version: 4,
-      settings: { ...BASE_SETTINGS, sanitizeLevel: undefined },
+      settings: { ...BASE_SETTINGS, sanitizeLevel: undefined, filterInappropriateLanguage: undefined },
       ...SERVICE_IDENTITY,
     });
     expect(parseStoredTranslationSessionSettings(stored)?.settings.sanitizeLevel).toBe("off");
+    expect(parseStoredTranslationSessionSettings(stored)?.settings.filterInappropriateLanguage).toBe(true);
+  });
+
+  it("keeps inappropriate-language filtering on unless explicitly false", () => {
+    expect(BASE_SETTINGS.filterInappropriateLanguage).toBe(true);
+    expect(normalizeTranslationSessionSettings({ ...BASE_SETTINGS, filterInappropriateLanguage: undefined }).filterInappropriateLanguage).toBe(true);
+    expect(normalizeTranslationSessionSettings({ ...BASE_SETTINGS, filterInappropriateLanguage: "false" as never }).filterInappropriateLanguage).toBe(true);
+    expect(normalizeTranslationSessionSettings({ ...BASE_SETTINGS, filterInappropriateLanguage: false }).filterInappropriateLanguage).toBe(false);
   });
 
   it("creates stable fingerprints for equivalent normalized settings", () => {

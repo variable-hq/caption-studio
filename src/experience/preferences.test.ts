@@ -39,7 +39,7 @@ describe("operator preferences", () => {
       sidebarWidth: 9_999,
       translationSystemPrompt: " Keep names. ",
       summaryDefaults: { model: SUMMARY_MODELS[1], language: "en", length: "detailed", guidance: "Short." },
-      translationDefaults: { sourceLanguage: "id", targetLanguage: "en", keywordText: "Yesus => Jesus", filterText: "", recordingWindowMs: 12_000, inferenceLevel: "high", sanitizeLevel: "balanced" },
+      translationDefaults: { sourceLanguage: "id", targetLanguage: "en", keywordText: "Yesus => Jesus", filterText: "", recordingWindowMs: 12_000, inferenceLevel: "high", sanitizeLevel: "balanced", filterInappropriateLanguage: false },
       captionStyle: { fontSize: 40 },
       outputBufferCount: 1,
       outputBufferDwellMs: 5_000,
@@ -53,6 +53,7 @@ describe("operator preferences", () => {
     expect(first.translationDefaults?.recordingWindowMs).toBe(12_000);
     expect(first.translationDefaults?.inferenceLevel).toBe("high");
     expect(first.translationDefaults?.sanitizeLevel).toBe("balanced");
+    expect(first.translationDefaults?.filterInappropriateLanguage).toBe(false);
     expect(first.captionStyle?.fontSize).toBe(40);
     expect(first.outputBufferCount).toBe(1);
     expect(first.outputBufferDwellMs).toBe(5_000);
@@ -94,6 +95,7 @@ describe("operator preferences", () => {
     });
     expect(legacy.translationDefaults?.recordingWindowMs).toBe(15_000);
     expect(legacy.translationDefaults?.sanitizeLevel).toBe("off");
+    expect(legacy.translationDefaults?.filterInappropriateLanguage).toBe(true);
 
     // A record already carrying the current key is never overridden by a stale legacy one.
     const both = mergeOperatorPreferences(EMPTY_PREFERENCES, {

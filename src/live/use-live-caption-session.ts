@@ -629,6 +629,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               translationSystemPrompt: current.translationSystemPrompt,
               inferenceLevel: current.inferenceLevel,
               sanitizeLevel: current.sanitizeLevel,
+              filterInappropriateLanguage: current.filterInappropriateLanguage,
             },
             inferenceContext,
             signal,

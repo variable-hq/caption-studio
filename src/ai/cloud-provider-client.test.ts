@@ -27,6 +27,7 @@ const request = {
   recentContext: [],
   preferredTerms: {},
   sanitizeLevel: "high" as const,
+  filterInappropriateLanguage: false,
 };
 
 describe("cloud inference client authentication and usage", () => {
