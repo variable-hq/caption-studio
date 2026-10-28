@@ -6,7 +6,7 @@ export interface ReadinessCheck {
   value: string;
   /** Settings section the action opens. */
   href: string;
-  /** Shown instead of "Change" when the check fails, e.g. "Fix" or "Set up". */
+  /** The button shown when the check fails, e.g. "Fix" or "Set up"; a passing check shows a chevron. */
   fixLabel: string;
 }
 
@@ -40,9 +40,15 @@ export function ReadinessChecks({ title, checks }: ReadinessChecksProps) {
               <span>{check.label}</span>
               <span>{check.value}</span>
             </span>
-            <a className={check.ok ? "textButton" : "primaryButton"} href={check.href}>
-              {check.ok ? "Change" : check.fixLabel}
-            </a>
+            {check.ok ? (
+              <a className="rowLink" href={check.href} aria-label={`Change ${check.label.toLowerCase()}`}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </a>
+            ) : (
+              <a className="primaryButton" href={check.href}>{check.fixLabel}</a>
+            )}
           </li>
         ))}
       </ul>

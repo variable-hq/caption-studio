@@ -310,7 +310,8 @@ sent in a fenced trusted guidance block beside translator instructions, never as
 data, and the server envelope always takes priority.
 
 **Recent outputs** shows the last 3 successfully published captions in the controlling
-tab, newest first, with time, public text and source text. Filtered entries read “Hidden by
+tab, newest first, with time, public text and source text, under **Recent captions** in
+Live's captions card. Filtered entries read “Hidden by
 filter”. It records whether the output buffer was active, but does not change or feed later
 translations. Pause and Clear preserve the strip; Start, End and takeover reset it.
 
@@ -389,20 +390,27 @@ English. Live's quick block stays separate because it applies without a refresh.
   translation drafts and the before-Start transcript choice; reload preserves the screen,
   not unsaved drafts. Links never include credentials. The status pill announces state
   changes to screen readers; the running clock beside it is not announced.
-- **Live** shows **Heard** (the source text, operator only) beside **Audience sees** (a
-  scaled copy of the OBS screen in the channel's saved style) and the microphone level.
+- **Live** is two rows of paired cards, each pair the same height: captions beside the
+  readiness checklist, then the Start card (or **Quick fixes**) beside **Share**; on narrow
+  screens they stack as captions, Start/Quick fixes, checklist, Share. The captions card
+  shows **Heard** (the source text, operator only) beside **Audience sees** (a scaled copy
+  of the OBS screen in the channel's saved style, letterboxed), always the same size, and
+  the microphone level, with **Recent captions** folded below.
   Before Start it holds one Start card: **Start captions**, **Show a test caption**, a line
-  saying what to do next or what blocks Start, the transcript-saving choice, and the output
-  buffer under **Check captions before they show**. The side column holds the readiness
-  checklist, **Share** (phone viewer link, sermon reader link, pairing a phone as a remote,
-  and replacing a reader link shared by mistake) and, during a service, **This service**
-  (time left, transcript saving, and under Details the delay after speech, dropped audio
-  chunks, transcription and translation counts, tokens, and model names).
+  saying what to do next or what blocks Start, the transcript-saving choice, **Session details**, and
+  the output buffer under **Check captions before they show**. Each checklist row links to the
+  Settings section that changes it (a chevron when ready, a Fix/Set up button when not).
+  **Share** holds the phone viewer link, sermon reader link, **Phone remote** pairing, and
+  replacing a reader link shared by mistake.
 - During a service a bar pinned to the bottom of Live holds **Pause**/**Resume**, **Clear
-  screen** and **End service** (or **Try End again** when End could not be confirmed); the
+  screen**, the minutes left and whether the transcript is being saved, and **End service**
+  (or **Try End again** when End could not be confirmed); the
   page reserves scroll space so the bar never covers a focused control. **Quick fixes**
   replaces the Start card: Quick block, Manual caption while paused, the queued captions,
-  and a test caption while paused. End and Take over open native confirmation dialogs
+  **Live note**, a test caption while paused, **Session details**, and under **Service
+  details** the delay after speech, segments filtered (when filtering is on), dropped audio
+  chunks, transcription and translation counts, tokens, and model names.
+  End and Take over open native confirmation dialogs
   (**End this service?**: Keep going / End service; **Take over captions?**: Keep watching
   / Take over). **Clear screen** blanks OBS and the latest viewer while preserving
   committed reader paragraphs.
@@ -536,7 +544,7 @@ Code-level acceptance:
 - An operator can select an input, source, target, and 6- to 18-second recording window. During
   live or paused operation, language, terminology, filter, recording window, and custom-prompt edits
   stay draft until the operator presses **Apply now**.
-- Live's **This service** card separates service time, reserved transcription
+- Live separates service time (the control bar), reserved transcription
   attempts, and acknowledged translation calls/tokens for the live service; Settings ›
   Usage separates that from Groq's provider headroom, which remains truthful when provider
   headers are unavailable and never claims account-wide consumption.
@@ -633,8 +641,9 @@ never rewrites OBS.
 Confirmed Delete requires End, removes content and the archive index, and rejects late jobs.
 
 Optional **Session details** (Topic and Speaker up to 120 characters each, Description up
-to 1,000 characters, and an optional session date/time) are saved only with opted-in
-history. They remain editable by any signed-in workspace operator while the seven-day
+to 1,000 characters, and an optional session date/time) sit under a **Session details**
+disclosure on Live's Start card and, during a service, in **Quick fixes** with **Save
+session details**. They are saved only with opted-in history. They remain editable by any signed-in workspace operator while the seven-day
 archive exists. They are record-keeping only: they are not sent to translation or summary
 models, do not extend retention, and are deleted with the archive.
 

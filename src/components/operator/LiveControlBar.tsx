@@ -5,6 +5,8 @@ interface LiveControlBarProps {
   isPausing: boolean;
   isResuming: boolean;
   clearing: boolean;
+  minutesLeft: number;
+  transcriptSaved: boolean;
   /** Pause/Resume/Clear are unavailable (a request is in flight or the service is busy). */
   controlsDisabled: boolean;
   endRetryRequired: boolean;
@@ -17,12 +19,15 @@ interface LiveControlBarProps {
 }
 
 /** Pinned to the bottom of the Live screen while a service runs, so Pause, Clear screen
- * and End service stay reachable however far the operator scrolls. */
+ * and End service stay reachable however far the operator scrolls. Also shows the time
+ * left on the 90-minute service and whether the transcript is being saved. */
 export function LiveControlBar({
   isPaused,
   isPausing,
   isResuming,
   clearing,
+  minutesLeft,
+  transcriptSaved,
   controlsDisabled,
   endRetryRequired,
   endDisabled,
@@ -53,9 +58,8 @@ export function LiveControlBar({
           {clearing ? "Clearing…" : "Clear screen"}
         </button>
         <p className="operatorHint">
-          {resumeShown
-            ? "Nothing is shown and the microphone is off. The 90-minute timer keeps running."
-            : "Pause during songs and announcements."}
+          {resumeShown ? "Paused: nothing is shown and the microphone is off. " : ""}
+          {minutesLeft} min left · Transcript {transcriptSaved ? "saving" : "not saved"}
         </p>
         {endRetryRequired ? (
           <button type="button" className="dangerButton" disabled={endDisabled} onClick={onRetryEnd}>

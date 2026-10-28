@@ -83,8 +83,11 @@ The dashboard theme never changes the configured OBS caption colours.
   per the colour roles in the brand guidelines) and the `.operatorTab` links, the current
   one marked `aria-current="page"`.
 - `.operatorScreen`: one screen, capped at `--content-max`, with `--space-3` gutters
-  (`--space-2` at 680px and narrower). `.operatorColumns` wraps a `.operatorMainColumn`
-  and an `.operatorSideColumn` into one column on narrow screens.
+  (`--space-2` at 680px and narrower). `.operatorColumns` puts the Settings and Sermons
+  list beside its panel. Live uses `.liveGrid`: two rows of paired cards (`.liveCaptions`
+  beside the checklist, `.liveActions` beside `.liveShare`) that stretch to equal height
+  and stack into one column at 980px and narrower. In `.liveCaptions` the Heard box and
+  the letterboxed 16:9 preview grow together, so they are always the same size.
 - `.operatorCard`: the screen's cards (border, `--radius-lg`, `--shadow`, `--space-3`
   padding). `.operatorBanner` (`data-tone` warn or bad) sits above the content it concerns.
 - `.liveControlBar`: pinned to the bottom of Live while a service runs; `.operatorShell`
