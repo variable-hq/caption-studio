@@ -1,6 +1,6 @@
 # Brand guidelines
 
-Reviewed 26 October 2026 against merged PR #68 (`38e36b2`).
+Reviewed 28 October 2026 against merged PR #75 (`080e6ca`).
 
 The baseline every Caption Studio screen follows: how the product sounds, which token
 to use for which job, and how text, space and components are laid out. Agents and
@@ -28,7 +28,7 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
 2. **One obvious next step.** Each screen region has at most one primary action. When
    something blocks it, the screen says what and offers the fix next to the problem.
 3. **Plain words.** Volunteers see church words, not system words (see the glossary).
-   Technical detail lives under Usage or a "Details" disclosure.
+   Technical detail lives under Usage or a "Service details" disclosure.
 4. **Calm by default, loud when it matters.** Neutral surfaces and ink. Colour is
    reserved for state: ready, paused, live, error.
 5. **One look everywhere.** Every colour, size, space and radius comes from a token.
@@ -101,7 +101,7 @@ hex, rgb or named colour to a stylesheet or inline style. The only exceptions ar
 | Primary action | `--accent`, `--accent-hover`, `--on-accent` | The one primary button in a region; the monogram; selected toggles | Links, decoration, status |
 | Ready / success | `--ok-ink`, `--ok-bg`, `--ok-line` | "Ready" status, ticks, level meter fill, "Copied" | Primary buttons |
 | Paused / needs attention | `--warn-ink`, `--warn-bg`, `--warn-line` | "Paused" status, another-operator and transcript-gap banners | Errors |
-| Live, errors, destructive | `--danger`, `--danger-bg` | The "Live" status indicator; error banners; End service, Delete, Replace link | Anything that is merely important |
+| Live, errors, destructive | `--danger`, `--danger-bg`, `--on-danger` | The "Live" status indicator; error banners; End service, Delete, Replace link | Anything that is merely important |
 | Focus | `--focus` | The `:focus-visible` outline | Anything else |
 | Overlay | `--backdrop` | Behind a dialog | Panels |
 
@@ -151,7 +151,7 @@ Spacing uses the 4px-based tokens `--space-0` to `--space-4` and the gaps `--gap
 | Label to control, icon to text | `--gap-sm` or `--space-0` |
 | Content width | `--content-max`, centred |
 
-- Breakpoints are 680, 980/981 and 1280px. Every screen works from 320px wide with no
+- Breakpoints are 680 and 980/981px. Every screen works from 320px wide with no
   horizontal page scroll; wide tables scroll inside their own box.
 - Lay out with flex or grid and `gap`. Columns wrap rather than shrink: a main column
   and a side column become one column on narrow screens. Never measure the DOM with JS
@@ -200,8 +200,8 @@ Use the shared classes in the design system before writing a new rule.
   sermon, Replace link). `role="alertdialog"`, focus moves in, Escape cancels, the
   action button sits on the right.
 - **Disclosures.** Advanced or rarely used options sit behind `<details>`, named for
-  the situation ("A link was shared by mistake?", "Advanced: instructions for the
-  translator"), never "More options".
+  the situation ("Reader link shared by mistake?", "Check captions before they
+  show"), never "More options".
 - **Tabs and navigation.** Mark the current item with `aria-current="page"` (or
   `aria-selected` inside a `tablist`). Keep each view reachable by a `#` link so it can
   be bookmarked and refreshed.
@@ -251,14 +251,10 @@ On top of the rules above:
 
 ## Known differences in the current UI
 
-These predate this guide. Fix them when the screen is next changed; don't copy them into
-new work.
-
-- The operator phone remote (`/operator/mobile`) still says "Clear live caption" and
-  "Pause captions"; the glossary says "Clear screen" and "Pause".
-- The word lists use typed syntax (`word => translation`, `word=>!hide`) and saved
-  settings are per operator ("Save as my default"). One Words list with an action per
-  word, and one shared church setup, are planned as separate decisions.
+None are open. The phone remote now says "Pause" and "Clear screen", and the one Words
+list and shared church setup shipped with
+[ADR 0022](decisions/0022-shared-church-setup-and-words-list.md). Record any new
+difference here, fix it when the screen is next changed, and don't copy it into new work.
 
 ## Checklist for every UI change
 

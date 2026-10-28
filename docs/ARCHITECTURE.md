@@ -1,7 +1,7 @@
 # Architecture
 
-Reviewed 28 October 2026 against the Live note, Recent outputs and session metadata
-implementation. Cloudflare deployed `20597d8` after the proxy fix; later merges have no recorded deployment yet. See the
+Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). Cloudflare deployed `20597d8`
+after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
 
@@ -13,7 +13,7 @@ physical-device, provider-output or semantic acceptance.
 | Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
 | `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
-| `SermonJournal` | One service's source/corrections/exclusions, record-only session metadata, reader paragraphs, operator notes, lifecycle checkpoints and manual summary jobs |
+| `SermonJournal` | One service's source/corrections/exclusions, record-only session metadata, reader paragraphs, operator notes, lifecycle checkpoints and manual or automatic summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
 | `OperatorPreferences` | One object per hashed Access email (theme, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and words, output buffer, transcript-saving default and automatic summaries |
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
@@ -55,9 +55,10 @@ The default OpenNext config has no configured incremental/tag cache or skew prot
    moderated translations. `GET /api/live/reader` polls existing output; no poll starts AI.
 8. `DELETE /api/live/channel/service` ends capture, finalizes history and starts reader
    grace. An Access-protected manual summary request can then queue bounded journal work.
-   Every model stage admits/reconciles usage independently. If the ending operator opted
+   Every model stage admits/reconciles usage independently. If the church setup opts
    in to automatic summaries and saving was on, the Worker also asks the journal to queue
-   the same summary job from that operator's saved defaults once its End sync arrives
+   the same summary job from the church setup's summary defaults (the ending operator's own
+   saved setup only if no church setup has been saved) once its End sync arrives
    ([ADR 0019](decisions/0019-automatic-post-service-summary.md)). This never blocks End.
 
 Canonical inference POST paths are required. Encoded, repeated-slash, trailing-slash and
@@ -189,7 +190,7 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | Draft translation settings | Page memory; active snapshot in tab sessionStorage for recovery |
 | Live note | Controlling tab memory and sessionStorage, keyed to the service start time; never journaled or logged |
 | Recent outputs | Controlling tab memory; last 3 published outputs, reset at Start, End and takeover |
-| Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, history-saving default, automatic-summary opt-in (church setup, `workspace:setup`); theme (per operator) | `OperatorPreferences` object keyed by the SHA-256 of the lower-cased Access email, kept until the operator clears it; a browser copy remains in unencrypted localStorage as a fallback, and the shared channel style also persists |
+| Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, history-saving default, automatic-summary opt-in (church setup, `workspace:setup`); theme (per operator) | `OperatorPreferences`: the church setup in the one shared `workspace:setup` object, the theme in an object keyed by the SHA-256 of the lower-cased Access email, kept until cleared; a browser copy remains in unencrypted localStorage as a fallback, and the shared channel style also persists |
 | OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
 | Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
 | Latest public caption | Main live state; cleared by controls and End/expiry |
@@ -228,7 +229,7 @@ Groq `verbose_json` segment metadata (`no_speech_prob`, `avg_logprob`,
 remove a segment only when both no-speech and average-log-probability limits cross, or when
 the compression limit is crossed. Sanitization Off bypasses the guard. The response returns
 `segments` plus a non-negative `droppedSegments` count; only that content-free count enters
-live UI state. Dropped text is neither logged nor archived. Saved archive source contains
+live UI state, as **Segments filtered** under Live's Quick fixes › **Service details**. Dropped text is neither logged nor archived. Saved archive source contains
 only segments that survived the guard; the translation rule does not rewrite the source.
 
 Translation receives current source, at most four retained source captions, relevant

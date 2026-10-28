@@ -1,8 +1,7 @@
 # Product specification
 
-Reviewed 28 October 2026 against the Live note, Recent outputs and session metadata
-implementation. The corrected 13 September deploy of `20597d8` succeeded; protected
-runtime and church-language acceptance remain separate gates.
+Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). The corrected 13 September
+deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
 ## Product vision
@@ -65,7 +64,8 @@ plain words. Nothing opens automatically.
    URL into a 1920 × 1080 Browser Source, and shows/clears a synthetic test while idle.
 7. The operator starts a 90-minute service; the app verifies Access, Groq credentials,
    model availability, microphone access, and exclusive controller ownership.
-   Service details show the configured transcription and translation model identifiers;
+   During the service, **Service details** in Quick fixes show the configured transcription
+   and translation model identifiers;
    the readiness check confirms their availability when Start is selected.
 
 ### During the service
@@ -117,7 +117,8 @@ plain words. Nothing opens automatically.
 4. If saving was explicitly enabled before Start, private source, corrections, exclusions,
    paragraphs and summaries remain for seven days after End/expiry. No audio is stored.
 5. The separate reader has 30 minutes of post-End reading grace. An operator may manually
-   generate a summary when optional AI is enabled; End itself makes no summary call.
+   generate a summary when optional AI is enabled; End itself makes no summary call
+   unless the church setup opts in to automatic summaries (see AI summary below).
 6. Numeric usage survives service/content actions for a rolling 30 days.
 
 ## Supported languages
@@ -180,10 +181,11 @@ implemented.
   is instructed to prioritize it over conflicting custom text; this prompt ordering is
   risk reduction, not guaranteed enforcement. The request is one bounded model call
   rather than an agent.
-- An Inference Level setting (Low, Balanced — default, High) controls how aggressively the
-  model may infer meaning and rephrase versus sticking close to word-for-word. Low corrects
-  only clear transcription errors; Balanced permits conservative corrections so every
-  caption reads as complete, natural sentences; High allows bolder rephrasing and
+- An Inference Level setting, shown in Settings › AI translator as **How closely to follow
+  the words** (Close, Balanced — default, Free; stored as `low`, `balanced`, `high`),
+  controls how aggressively the model may infer meaning and rephrase versus sticking
+  close to word-for-word. Close corrects only clear transcription errors; Balanced permits conservative corrections so every
+  caption reads as complete, natural sentences; Free allows bolder rephrasing and
   paraphrasing, prioritizing coherence and continuity over literal fidelity, falling back
   to the clearest partial caption for a whole line that's still too ambiguous even after
   that. It is an immutable envelope parameter, not operator-editable text, and changing it
@@ -193,8 +195,8 @@ implemented.
   Sanitization owns filler cleanup, so Balanced Inference no longer removes filler or junk
   phrases when Sanitization is Off.
 - The translator settings show a short description for the selected Inference Level only:
-  Low stays closest to spoken words and fixes clear errors; Balanced keeps captions clear
-  and complete by filling small gaps from context; High favors intended meaning over exact
+  Close stays closest to spoken words and fixes clear errors; Balanced keeps captions clear
+  and complete by filling small gaps from context; Free favors intended meaning over exact
   wording and may reword boldly. This describes meaning and intent, not cleanup.
 - Sanitization is a separate four-level setting, default Off; Balanced is the recommended
   on-state. Low omits non-word filler sounds. Balanced also omits filler words with no
@@ -237,7 +239,7 @@ implemented.
   guess is possible, put the best target-language guess or a category placeholder such as
   `[name]` in brackets. Brackets never contain an untranslated source-language word. Only
   when no guess is possible does the active Inference Level decide the final disposition —
-  Low, Balanced, and High may each omit that one word and keep the rest of the caption
+  Close, Balanced, and Free may each omit that one word and keep the rest of the caption
   natural, falling back to the shared `[...]` marker only where omitting would leave the
   caption empty. The model also recognizes the speaker's likely tone and register
   (informative, conversational, biblical, formal, illustrative) and adjusts phrasing and
@@ -303,8 +305,8 @@ and prompt changes.
 **Live note** is an ephemeral, operator-authored situational hint for an ambiguity in the
 current passage (names, terms, sound words, speaker, or quoted voices). It applies to
 translations that start after the edit without **Apply now** or a context reset. It cannot
-correct a misheard word; use Quick override for a live exact correction or Words for a
-persistent rule. The note is limited to 500 characters, kept only in this tab's
+correct a misheard word; exact replacements belong in Settings › Words, and Live's quick
+block can hide a whole caption straight away. The note is limited to 500 characters, kept only in this tab's
 `sessionStorage` for the matching service, and cleared at Start, End and takeover. It is
 sent in a fenced trusted guidance block beside translator instructions, never as speech
 data, and the server envelope always takes priority.
@@ -318,7 +320,7 @@ translations. Pause and Clear preserve the strip; Start, End and takeover reset 
 | Control | Purpose | When it applies |
 | --- | --- | --- |
 | Words (Settings › Words) | Exact word rules and spelling fixes | After Apply now |
-| Quick override (Live › Quick fixes) | Four live word actions, including hide and spelling correction | Immediately; current service only |
+| Quick block (Live › Quick fixes) | Hide any caption containing a word | Immediately; current service only |
 | Translator instructions (Settings) | Standing guidance for the whole service | After Apply now |
 | Live note | Situational guidance for the passage being spoken now | From the next translation; current service only |
 | Recent outputs | Observe the last 3 published captions | Display only; changes nothing |
@@ -379,11 +381,11 @@ English. Live's quick block stays separate because it applies without a refresh.
 
 - The operator console follows [Brand guidelines](BRAND_GUIDELINES.md) and uses neutral
   light and dark palettes built from shared design tokens (see [Design system](DESIGN_SYSTEM.md)).
-  **Settings › This computer › Appearance** offers Match this computer, Light and Dark, and
+  **Settings › This computer › Light or dark** offers Match this computer, Light and Dark, and
   the choice is saved with the operator's account. Status text and control labels do not
   depend on colour alone.
 - A top bar holds the brand, one status pill (Ready, Checking…, Not ready, Live, Paused,
-  Applying changes…, Live on another computer, Ending…) and the **Live**, **Sermons** and
+  Applying changes…, Live on another computer, Needs attention, Ending…) and the **Live**, **Sermons** and
   **Settings** tabs plus **Help**. Each screen has its own address (`#live`, `#sermons`,
   `#settings=<section>`, `#help`), so links, reload and browser Back/Forward work; old
   `#workspace=…` links land on the matching screen. Moving between screens keeps
@@ -399,7 +401,7 @@ English. Live's quick block stays separate because it applies without a refresh.
   Before Start it holds one Start card: **Start captions**, **Show a test caption**, a line
   saying what to do next or what blocks Start, the transcript-saving choice, **Session details**, and
   the output buffer under **Check captions before they show**. Each checklist row links to the
-  Settings section that changes it (a chevron when ready, a Fix/Set up button when not).
+  Settings section that changes it (a chevron when ready, a Fix, Set up or Help button when not).
   **Share** holds the phone viewer link, sermon reader link, **Phone remote** pairing, and
   replacing a reader link shared by mistake.
 - During a service a bar pinned to the bottom of Live holds **Pause**/**Resume**, **Clear
@@ -407,7 +409,8 @@ English. Live's quick block stays separate because it applies without a refresh.
   (or **Try End again** when End could not be confirmed); the
   page reserves scroll space so the bar never covers a focused control. **Quick fixes**
   replaces the Start card: Quick block, Manual caption while paused, the queued captions,
-  **Live note**, a test caption while paused, **Session details**, and under **Service
+  **Live note**, a test caption while paused, **Session details** (with **Save session
+  details**), and under **Service
   details** the delay after speech, segments filtered (when filtering is on), dropped audio
   chunks, transcription and translation counts, tokens, and model names.
   End and Take over open native confirmation dialogs
@@ -417,7 +420,7 @@ English. Live's quick block stays separate because it applies without a refresh.
 - When another operator's service is running, Live names them, mirrors their output
   read-only and offers **Take over**; Start stays disabled.
 - **Settings** lists its sections beside the selected one: This computer (microphone,
-  level test, appearance), Languages & timing, Words (names and terms, the public caption
+  level test, light or dark), Languages & timing, Words (names and terms, the public caption
   filter, and the TB2 import), Caption look (with a preview), OBS & links (OBS link,
   phone viewer link and their replacement), AI translator, AI summary and Usage. Channel
   errors offer **Retry channel** or, when the OBS credential must be rebuilt, **Rotate and
@@ -460,7 +463,7 @@ English. Live's quick block stays separate because it applies without a refresh.
 - The mobile page exposes no source caption, history, broadcast style controls, operator state,
   controller token, OBS token, or inference capability. Pause clears it; End, expiry,
   takeover, and replacement revoke it.
-- The shared style persists in the channel; **Save for next week** also stores the style
+- The shared style persists in the channel; **Save for everyone** also stores the style
   in the church setup and keeps a browser fallback in `localStorage`
   (`caption-studio:caption-style:v1`), beside the explicitly saved prompt
   (`caption-studio:translation-system-prompt:v1`), the explicitly saved summary
@@ -568,13 +571,13 @@ Code-level acceptance:
   incoming one instead. Pause freezes the shown caption's remaining hold time; Clear
   removes only it; Fast-forward publishes it immediately. Editing cannot reach Live
   unmoderated, and auto-resumes on Submit.
-- Appearance controls update the dashboard design preview continuously before Save.
+- Caption look controls update the dashboard preview continuously before Save.
 - The output monitor renders the real 1920 × 1080 canvas scaled to the card and shows the
   published caption on Live; Settings › Caption look keeps a sample above its editor.
 - The primary operator viewport is 1920 × 1080, with dashboard content capped at a
   readable 1160px rather than stretched across the full display.
 - Every screen reflows without horizontal scrolling from 320px through desktop
-  widths, including the 680px, 980px and 1280px layout boundaries.
+  widths, including the 680px and 980px layout boundaries.
 - On phones the Live screen stacks into one column; the pinned control bar keeps Pause,
   Clear screen and End service reachable and drops its hint text to save space.
 - The dashboard theme does not override the independently configured OBS caption colour
@@ -631,7 +634,7 @@ reprocessed by optional AI phrasing, or reapplied against glossary/filter rules,
 the operator already typed final text.
 
 History saving is off by default and cannot be enabled after Start. An operator can choose
-**Make this my default** beside the checkbox to have it pre-ticked (or cleared) at each
+**Make this the church default** beside the checkbox to have it pre-ticked (or cleared) at each
 Start; it stays visible and changeable until Start. Saved records expire
 seven days after End/expiry. Archive pages expose private original source, separate
 corrections, source-linked reader paragraphs, and any operator notes. Confirmed Remove
@@ -684,9 +687,9 @@ Summaries must not manufacture scripture or claim a generated paraphrase is an e
 A separate numeric ledger spans services for a rolling 30 days. It records admissions
 before provider dispatch, deduplicates outcomes and preserves unknown consumption.
 End, Clear, refresh, takeover, source removal and archive deletion never reset it.
-Settings › Usage shows the service count and today's remaining requests, with breakdowns by
-day and by service under Details. It is not an account billing meter or a calendar-month
-allowance, and it offers no capacity estimate.
+Settings › Usage shows the service count and today's remaining requests, with breakdowns under
+**Usage by day (UTC)**, **Usage by service** and **Usage by AI service**. It is not an
+account billing meter or a calendar-month allowance, and it offers no capacity estimate.
 
 Optional Workers AI requires `CAPTION_OPTIONAL_AI_ENABLED=true`; it defaults off.
 Per-service ceilings are 200 reader and 60 summary calls. Conservative reservations permit

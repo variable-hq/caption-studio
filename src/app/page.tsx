@@ -894,7 +894,7 @@ export default function OperatorDashboard() {
       setAutoSummaryMessage(
         ok
           ? enabled
-            ? "On. After you end a service with transcript saving, its summary draft appears in Sermon history."
+            ? "On. After you end a service with transcript saving, its summary draft appears in Sermons."
             : "Off. Summaries are only generated when you choose Generate summary."
           : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
       ),

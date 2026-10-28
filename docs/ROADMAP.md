@@ -1,23 +1,44 @@
 # Roadmap
 
-Reviewed 14 September 2026 against merged PR #33 (`abae57b`). Status describes source
-implementation; deployment and
-church-approved quality require separate evidence.
+Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). Status describes source
+implementation; deployment and church-approved quality require separate evidence.
 
 ## Implemented baseline
 
-- Browser capture, selected audio interface, six-step guide, multilingual Whisper/GPT-OSS
-  pipeline, one target at a time, 6/9/12/15/18-second recording windows and bounded context.
+- Browser capture, selected audio interface, readiness checklist and Help page
+  (replacing the six-step guide), multilingual Whisper/GPT-OSS pipeline with
+  previous-chunk continuity context, one target at a time, 6/9/12/15/18-second recording
+  windows, bounded context, Inference and Sanitization levels
+  ([ADR 0018](decisions/0018-inference-level-as-server-envelope-parameter.md)) and the
+  default-on Filter inappropriate language toggle.
 - Reviewed terminology, script-aware public masking, incomplete-output skipping,
   one-time controller/attempt claims and acknowledged usage.
-- Reusable OBS channel, latest-caption viewer, shared styles, safe margins, explicit
-  refresh, Pause/Resume/Clear/End, a paused manual-caption override archived as a
-  separate reader/archive note, takeover, recovery and link rotation.
+- Reusable OBS channel, latest-caption viewer (long captions shrink to fit the phone),
+  shared styles, safe margins, explicit refresh, Pause/Resume/Clear screen/End, automatic
+  pause when the tab closes or stays in the background, takeover, recovery and link
+  rotation.
+- Live overrides: Quick block, a paused Manual caption archived as a separate operator
+  note ([ADR 0013](decisions/0013-manual-caption-archived-as-operator-notes.md)), an
+  optional output buffer whose next caption can be paused, edited, cleared or
+  fast-forwarded ([ADR 0016](decisions/0016-client-side-output-buffer.md),
+  [ADR 0017](decisions/0017-configurable-output-buffer-dwell.md)), and Live note plus
+  Recent captions ([ADR 0023](decisions/0023-live-note-and-recent-outputs.md)).
+- One *BEST Church workspace* per Access tenant
+  ([ADR 0015](decisions/0015-named-workspace-sized-for-its-operators.md)): every signed-in
+  operator can watch the running service and take it over, reads the shared Sermons
+  archive, and uses one church setup with the Settings › Words list
+  ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)); only the theme stays
+  per operator ([ADR 0014](decisions/0014-operator-preferences-by-access-identity.md)).
+  Optional automatic summary drafts at End
+  ([ADR 0019](decisions/0019-automatic-post-service-summary.md)) and record-only session
+  details ([ADR 0024](decisions/0024-session-metadata.md)).
 - Live, Sermons and Settings dashboard for volunteer operators, with a readiness
   checklist, a pinned live control bar and bookmarkable screens
-  ([ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)).
+  ([ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)), following
+  [Brand guidelines](BRAND_GUIDELINES.md) with light and dark themes.
 - Repository deploy guard (`OPEN_NEXT_DEPLOY=true`), deployment dry run in validation,
-  file- and export-level hygiene audits, and `npm run qa:*` wrappers.
+  duplicate-ADR check, file- and export-level hygiene audits, and automated local browser/Axe
+  QA through `npm run qa:*`.
 
 ## Plan 1 — merged and deployed, runtime and semantic acceptance pending
 
@@ -34,7 +55,8 @@ Delivered under [ADR 0011](decisions/0011-service-history-and-optional-inference
   deletion and JSON export.
 - Manual bounded summaries, editable guidance, source references and review-gated export.
 - Numeric usage across services for a rolling 30 days, unknown outcomes and capacity
-  estimates; optional AI budgets independent of content deletion.
+  estimates (the capacity planner was later removed by ADR 0022); optional AI budgets
+  independent of content deletion.
 - Shared operator/remote/reader/viewer UI conventions and local synthetic QA.
 
 Workers AI remains disabled unless explicitly configured. Fallback reader text works
@@ -43,19 +65,25 @@ real sermon processing. Exact TB2 text retrieval is not implemented.
 
 ## Next release gates
 
-1. Record the build ID and Worker version for the latest merge, verify deployed runtime
-   behavior, and narrow reader/static Access bypasses. The deploy guard and documentation
-   cleanup merged in PR #28.
+1. Verify deployed runtime behavior of the latest `main` deployment (merges through
+   `080e6ca` deployed via Workers Builds on 26–28 October; see [Deployment](DEPLOYMENT.md))
+   and narrow reader/static Access bypasses. Access was moved to the renamed
+   `caption-studio` hostname on 26 October and operator sign-in works; recheck each
+   bypass path there. Only `main` builds: preview-branch builds were turned off on
+   28 October because `wrangler preview` is not set up for Durable Objects.
 2. Verify actual provider plans, limits and data controls. Keep optional AI off until
    its availability/privacy/quality checks pass.
 3. Complete [Indonesian→English review](evaluation/ID_EN_REVIEW.md): all 30 samples are
-   still unscored. Add approved audio for Saul/name ambiguity and chunk boundaries.
-4. Rehearse the capture computer, separate OBS computer, paired operator phone and both
-   audience surfaces with synthetic or consented speech.
-5. Exercise Clear/Pause/refresh races, host acknowledgement, reader expiry/replacement,
-   summary grounding, deletion during work, and seven-/30-day retention.
-6. Measure a complete service, queue/audience delay, recovery, provider usage and actual
-   expiry. Obtain operator usability and assistive-technology feedback.
+   still unscored. Add approved audio for Saul/name ambiguity and chunk boundaries, plus
+   the Inference, Sanitization, filter and Live note checks in
+   [G03](GAP_ANALYSIS.md#g03--p0-language-and-theological-quality).
+4. Rehearse the capture computer, separate OBS computer, paired operator phone, a second
+   watching operator and both audience surfaces with synthetic or consented speech.
+5. Exercise Clear/Pause/refresh and output-buffer races, takeover from a watcher, host
+   acknowledgement, reader expiry/replacement, summary grounding (manual and automatic),
+   deletion during work, and seven-/30-day retention.
+6. Measure a complete service, queue/output-buffer/audience delay, recovery, provider
+   usage and actual expiry. Obtain operator usability and assistive-technology feedback.
 7. Record the owner's limited-pilot decision with approved languages, operators, limits,
    stop criteria and rollback procedure.
 
@@ -64,16 +92,20 @@ Local tests and screenshots do not constitute these deployment, hardware or qual
 
 ## Deferred improvements
 
-- Audio-track loss and browser lifecycle recovery, measured queue/audience latency.
-- Live public-caption correction or review before publication; current source corrections
-  change private summary input and do not edit an already displayed OBS caption.
-- Local QR joining and reusable terminology packs, subject to the measured needs in
-  [Pilot improvements](PILOT_IMPROVEMENTS.md).
+- Audio-track loss (ended/mute), device hot-swap and fuller browser lifecycle recovery
+  beyond the automatic tab pause; measured queue/audience latency.
+- Correcting a caption already on screen, or review before every publication. Today the
+  output buffer lets an operator edit or clear the next caption before it shows, Quick
+  block hides captions containing a word, a paused Manual caption replaces the output,
+  and Live note guides upcoming translations; none edits a displayed OBS caption, and
+  archive source corrections change only private summary input.
+- Local QR joining, subject to the measured need in [Pilot improvements](PILOT_IMPROVEMENTS.md).
+  (Reusable terminology is now the shared Settings › Words list.)
 - Display density/line policy, speaker identification and meaningful non-speech cues.
 - Authorized TB2 passage retrieval, provenance and licensing; additional summary providers
   only after a separate data/cost decision.
-- Multi-church workspaces, roles, persistent shared profiles, simultaneous target languages,
-  library search, human interpreter handoff and Cantonese input.
+- Multi-church workspaces, administrator roles, simultaneous target languages, library
+  search, human interpreter handoff and Cantonese input.
 - Paid/realtime providers only after comparable approved tests and explicit spending controls.
 
 ## Native app

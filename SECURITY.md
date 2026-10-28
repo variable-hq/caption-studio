@@ -1,7 +1,7 @@
 # Security policy
 
-Reviewed 28 October 2026 against the Live note, Recent outputs and session metadata
-implementation. The 13 September deployment retry of `20597d8` succeeded;
+Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). The 13 September deployment
+retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
 Caption Studio is a pre-release prototype. Security fixes are supported only on

@@ -19,32 +19,42 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
 ## Overview
 
 - **Capture and transcription**: browser-based microphone selection with a level meter, a
-  first-run readiness checklist, and a 6- to 18-second recording window transcribed by Groq
-  Whisper with bounded biblical/church-name hints and approved recognition aliases.
-- **Translation**: GPT-OSS 20B translates through an immutable safety envelope, approved
-  terminology, and an operator-selectable **Inference Level** (Low/Balanced/High) governing
-  how literally vs. coherently it translates. One **Words** list teaches names, fixes
-  mishearings, sets preferred translations and masks, replaces or hides words on screen.
+  readiness checklist, and a 6- to 18-second recording window transcribed by Groq Whisper
+  with bounded biblical/church-name hints, approved recognition aliases, and the end of
+  the previous chunk's transcript as continuity context.
+- **Translation**: GPT-OSS 20B translates through an immutable safety envelope and
+  approved terminology. **Settings › AI translator** sets **How closely to follow the
+  words** (Close, Balanced or Free), **Sanitization** of filler (Off by default; Low,
+  Balanced or High) and **Filter inappropriate language** (on by default). One **Words**
+  list teaches names, fixes mishearings, sets preferred translations, and hides or
+  replaces words on screen. A **Live note** gives the translator situational guidance for
+  the current passage from the next caption, without **Apply now**.
 - **Live delivery**: moderated captions reach a reusable OBS Browser Source, a per-service
-  mobile viewer, and an appending reader, with an instant quick-block for unanticipated
-  words and an optional pre-publish output buffer (wait 1–5 seconds; pause, edit, clear,
-  or fast-forward the next-up caption).
-- **Operator dashboard**: three screens, **Live**, **Sermons** and **Settings**, built
-  for volunteers. Live shows what was heard beside what the audience sees, a readiness
-  checklist that links to each fix, and, during a service, Pause, Clear screen and End
-  service pinned to the bottom of the screen. Every screen has its own bookmarkable
-  address. Full behavior and visuals: [Product specification](docs/PRODUCT_SPEC.md),
+  mobile viewer, and an appending reader, with an instant quick block for unanticipated
+  words, a typed message while paused, and an optional pre-publish output buffer
+  (**Check captions before they show**: wait 1–5 seconds; pause, edit, clear, or
+  fast-forward the next-up caption).
+- **Operator dashboard**: three screens, **Live**, **Sermons** and **Settings**, plus
+  **Help**, built for volunteers. Live is two rows of equal-height paired cards: the
+  captions card (**Heard** beside **Audience sees**, with **Recent captions** folded
+  below) beside the readiness checklist, then the Start card (**Quick fixes** during a
+  service) beside **Share**. During a service a bar pinned to the bottom holds Pause,
+  Clear screen, the minutes left and End service. Each screen has its own bookmarkable
+  address (`#live`, `#sermons`, `#settings=<section>`, `#help`).
+  Full behavior and visuals: [Product specification](docs/PRODUCT_SPEC.md),
   [Brand guidelines](docs/BRAND_GUIDELINES.md) and [Design system](docs/DESIGN_SYSTEM.md).
-- **One church setup**: languages, words, translator instructions, caption style, summary
-  defaults and the output buffer are saved once for every operator; only the light/dark
-  choice is personal ([ADR 0022](docs/decisions/0022-shared-church-setup-and-words-list.md)).
-- **Service history**: optional workspace-wide private archives, corrections, exclusions,
-  and AI-generated summaries, retained seven days after End.
+- **One church setup**: languages and timing, words, translator settings and
+  instructions, caption style, summary defaults and automatic summaries, the output
+  buffer and the transcript-saving default are saved once for every operator with **Save
+  for everyone**; only the light/dark choice is personal ([ADR 0022](docs/decisions/0022-shared-church-setup-and-words-list.md)).
+- **Service history**: optional workspace-wide private archives with **Session details**
+  (topic, speaker, description, date), corrections, exclusions, and AI-generated
+  summaries, on request or automatically after End, retained seven days after End.
 
 ## Get Started
 
 - **For operators** running a live service: sign-in and surface details are right
-  below, followed by the six-step setup guide.
+  below, followed by first-time setup.
 - **For contributors** working on the codebase: skip to
   [Development and QA](#development-and-qa) for local setup and validation, and
   [Contributing](CONTRIBUTING.md) for the branch/PR workflow.
@@ -63,8 +73,9 @@ a sign-in.
 | `/view` | Per-service latest-caption viewer link |
 | `/read` | Per-service appending reader link |
 
-First-time setup follows the Live screen's checklist; the **Help** page (the **?** button)
-lists the same steps:
+First-time setup follows the Live screen's checklist, whose **Fix** or **Set up** buttons
+open the matching Settings section. The **Help** page (the **?** button in the top bar)
+lists the steps of a service in order.
 
 1. **Settings › OBS & links** — create the OBS link once and paste it into a 1920 × 1080
    OBS Browser Source on the separate OBS computer.
@@ -73,9 +84,10 @@ lists the same steps:
 3. **Settings › Languages & timing** and **Words** — choose the spoken and caption
    languages, caption speed, names and terms, and words never to show.
 4. **Settings › Caption look** — style the captions.
-5. **Live** — tick whether to save the transcript, press **Start captions**, check a test
-   phrase reaches OBS, then share the phone viewer and reader links and pair a phone as a
-   remote. Pause, Clear screen and End service stay at the bottom of the screen.
+5. **Live** — tick **Save the transcript for 7 days** if wanted (optionally fill in
+   **Session details**), press **Start captions**, check a test phrase reaches OBS, then
+   use **Share** for the **Phone viewer** and **Sermon reader** links and **Pair phone**.
+   Pause, Clear screen and End service stay at the bottom of the screen.
 
 ## Languages and quality
 
@@ -89,9 +101,8 @@ and [rehearsal gates](docs/STAKEHOLDER_TEST_GUIDE.md).
 
 **Live captioning.** Moderated captions publish to a reusable OBS Browser Source, a
 per-service mobile viewer, and an appending reader, with an optional output buffer
-holding the next caption for 1–5 seconds before it
-publishes — Pause, refresh, takeover, or End discard it; Clear screen leaves it
-queued. See [ADR 0016](docs/decisions/0016-client-side-output-buffer.md) and
+holding the next caption for 1–5 seconds before it publishes. Pause, Clear screen,
+**Apply now**, takeover and End discard the queue. See [ADR 0016](docs/decisions/0016-client-side-output-buffer.md) and
 [ADR 0017](docs/decisions/0017-configurable-output-buffer-dwell.md).
 
 **Appending reader.** Batches up to five moderated translation chunks about every 30
@@ -105,25 +116,35 @@ microphone always stays on the capture computer, and actions report as confirmed
 after it acknowledges them. Server-side Pause blocks new inference immediately; Resume
 requires the capture computer to still be connected.
 
-**Live settings and drafts.** Language, vocabulary, filters, recording window,
-inference level, and prompt edits stay drafts until a confirmed translation refresh,
-which preserves the service clock, controller, links, and usage. OBS link rotation is
-a separate idle action.
+**Live settings and drafts.** Language, words, recording window, translator settings
+and instruction edits stay drafts until **Apply now** in the banner on Live and the
+affected Settings sections (or **Undo changes**). Applying preserves the service clock,
+controller, links, and usage. The output buffer, caption style and **Live note** apply
+immediately. OBS link rotation is a separate idle action.
+
+**Live note and Recent captions.** During a service, **Quick fixes** holds a 500-character
+**Live note** for names, sound words or who is speaking, kept only in that tab for the
+current service. **Recent captions** shows the last three published captions with their
+source text and changes nothing. See
+[ADR 0023](docs/decisions/0023-live-note-and-recent-outputs.md).
 
 **Service history.** History saving is off by default, must be enabled before Start,
 and can't change mid-service. When on, the private journal keeps recognized source,
 corrections, reader paragraphs, and summary drafts for seven days after End, shared by
-every signed-in operator. After End, an operator can correct source, remove passages,
-export the transcript as JSON, or generate a summary (requires optional Workers AI,
-grounded to approved church content). Full behavior:
+every signed-in operator. Optional **Session details** are record-only and never reach
+a model ([ADR 0024](docs/decisions/0024-session-metadata.md)). After End, an operator can
+correct source, remove passages, export the transcript as JSON, or **Generate summary**
+(requires optional Workers AI, grounded to approved church content); with **Make a
+summary draft automatically after each service** on, End queues one
+([ADR 0019](docs/decisions/0019-automatic-post-service-summary.md)). Full behavior:
 [Product specification](docs/PRODUCT_SPEC.md#after-the-service).
 
 | Action | OBS and latest viewer | Appending reader | Private history and usage |
 | --- | --- | --- | --- |
 | Clear screen | Blank; capture continues | Keep committed paragraphs, discard pending work | Preserved |
-| Quick block a word | Hides any caption containing it immediately, without a settings refresh | Same caption hidden in the reader/archive too | Preserved |
+| Quick block a word (**Hide captions with it**) | Hides any caption containing it immediately, without a settings refresh | Same caption hidden in the reader/archive too | Preserved |
 | Pause | Blank; capture stops | Keep committed paragraphs, mark boundary | Preserved |
-| Manual caption (while paused) | Show operator-typed text (240 characters max) in place of the hidden translation | Not appended to paragraphs; recorded as a separate operator note | Note saved if history saving is on |
+| Manual caption (**Show your own message**, while paused) | Show operator-typed text (240 characters max) in place of the hidden translation | Not appended to paragraphs; recorded as a separate operator note | Note saved if history saving is on |
 | Resume | New capture after acknowledgement | Append new paragraphs | Same service |
 | Refresh translation settings | Clear and reject old results; keep service/links | Preserve earlier text; separate later revisions/languages | Preserved |
 | End or 90-minute expiry | Blank; latest-viewer link revoked; OBS URL retained | Bounded finalization, then 30-minute reading grace | Saved content expires seven days later; usage keeps its own expiry |
@@ -131,22 +152,23 @@ grounded to approved church content). Full behavior:
 | Remove passage | Clear current caption if its source belongs to the removed passage | Remove selected paragraph on refresh/poll | Preserve original source, exclude its IDs from summaries, invalidate drafts |
 | Delete sermon | Available after End | Revoke reader and remove history on its next successful poll | Delete sermon content; numeric usage retained |
 
-Use **Live** for the phone viewer, reader link and phone pairing during a service;
-**Settings › OBS & links** for the OBS link and replacing links; **Sermons** for private
-archives and summaries; and **Settings › Usage** for rolling usage history.
+Use **Live › Share** for the phone viewer, sermon reader and phone pairing during a
+service; **Settings › OBS & links** for the OBS link and replacing the OBS or phone viewer
+link; **Sermons** for private archives and summaries; and **Settings › Usage** for
+provider headroom and rolling usage history.
 
 ## Not yet implemented
 
 Application audio storage, a paid AI fallback, simultaneous target languages, a live
-caption correction editor, shared church profiles, tenant roles, an authorized TB2
+correction of captions already shown, multiple or named church profiles, tenant roles, an authorized TB2
 passage corpus, and a native app (the deferred iOS shell was removed in
 [ADR 0020](docs/decisions/0020-remove-ios-shell.md)). See
 [Roadmap](docs/ROADMAP.md) and [remaining gaps](docs/GAP_ANALYSIS.md) for planned work.
 
 ## AI usage and limits
 
-The protected dashboard separates service counters from **Last 30 days** usage across
-this deployment. Numeric rows record provider, model, stage, service, time, known
+Live's **Service details** shows the active service's counters; **Settings › Usage**
+shows provider headroom and **Last 30 days** usage across this deployment. Numeric rows record provider, model, stage, service, time, known
 tokens/audio, and unknown outcomes; no sermon text or credentials. Each expires 30 days
 after its original attempt. Clear, End, takeover and archive deletion do not reset usage
 or provider quotas. This is a rolling window, not a calendar month or renewed allowance.
@@ -180,7 +202,7 @@ flowchart LR
   Main --> Journal["SermonJournal"]
   API -->|"opted-in source"| Journal
   Journal --> Reader["Appending reader"]
-  Journal -->|"optional phrasing / manual summary"| AI["Workers AI"]
+  Journal -->|"optional phrasing / summaries"| AI["Workers AI"]
   API --> Usage["AiUsageLedger: numeric, 30 days"]
   Journal --> Usage
 ```
@@ -189,8 +211,9 @@ flowchart LR
 four SQLite Durable Objects. `wrangler.jsonc` declares `CAPTION_ROOMS`,
 `SERMON_JOURNALS`, `AI_USAGE`, `OPERATOR_PREFERENCES`, `AI`, and `ASSETS` plus v1/v2/v3
 migrations.
-GitHub provides source review; Cloudflare Workers Builds publishes merges to `main`.
-There is no GitHub Actions workflow. See [Architecture](docs/ARCHITECTURE.md).
+GitHub provides source review; Cloudflare Workers Builds builds and deploys only `main`
+to the `caption-studio` Worker (preview-branch builds are off). There is no GitHub
+Actions workflow. See [Architecture](docs/ARCHITECTURE.md).
 
 ## Development and QA
 
@@ -230,8 +253,8 @@ sequence. Every API request is mocked:
 ```sh
 npm run dev -- --hostname 127.0.0.1 --port 3100
 # Individual scripts remain available when the server and tooling are already running.
-CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:operator
-CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:experience
+CAPTION_QA_TOOLS_DIR=/tmp/caption-studio-ui-qa npm run qa:operator
+CAPTION_QA_TOOLS_DIR=/tmp/caption-studio-ui-qa npm run qa:experience
 ```
 
 If headless Chromium's fake microphone never resolves on your machine (the operator suite
@@ -267,7 +290,7 @@ One successful Cloudflare deployment is on record (13 September 2026); merges si
 have no recorded build ID yet. See the [deployment runbook](docs/DEPLOYMENT.md) for
 build/Worker IDs, the fix that unblocked the first deploy, and remaining rehearsal gates.
 
-<sub>This document reviewed 2 October 2026 against merged [PR #57](https://github.com/variable-hq/caption-studio/pull/57) (`09244e8`).</sub>
+<sub>This document reviewed 28 October 2026 against merged [PR #75](https://github.com/variable-hq/caption-studio/pull/75) (`080e6ca`).</sub>
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).

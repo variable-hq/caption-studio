@@ -1,6 +1,8 @@
 # Design system
 
-26 October 2026. Describes the tokens and shared rules in `src/app/globals.css`,
+Reviewed 28 October 2026 against merged PR #75 (`080e6ca`).
+
+Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
 No CSS framework or runtime dependency is involved.
 
@@ -15,7 +17,7 @@ All colour, type, spacing and size values come from custom properties on `:root`
 
 | Group | Tokens |
 | --- | --- |
-| Colour | `--ink --muted --line --line-strong --paper --card --surface-muted --surface-strong --accent --accent-hover --on-accent --track --backdrop --focus --danger --danger-bg --ok-ink --ok-bg --ok-line --warn-ink --warn-bg --warn-line --shadow --shadow-elevated` |
+| Colour | `--ink --muted --line --line-strong --paper --card --surface-muted --surface-strong --accent --accent-hover --on-accent --track --backdrop --focus --danger --danger-bg --on-danger --ok-ink --ok-bg --ok-line --warn-ink --warn-bg --warn-line --shadow --shadow-elevated` |
 | Type | `--text-xs` 11px, `--text-sm` 12px, `--text-base` 14px, `--text-md` 15px, `--text-lg` 18px, `--text-xl` 22px, `--text-2xl` 28px; `--leading-tight` 1.2, `--leading-normal` 1.5; `--weight-regular` 500, `--weight-bold` 700; `--tracking-caps` |
 | Space | `--space-0` 4px to `--space-4` 32px; `--gap-sm` 8px, `--gap-md` 12px, `--gap-lg` 18px |
 | Size | `--control-height` 44px (every button and field), `--control-height-sm` 36px (nav tabs only), `--control-padding-x` 14px, `--radius-sm/md/lg`, `--content-max` 1160px |
@@ -33,9 +35,8 @@ The light palette is the default. A dark palette is declared twice: under
 `color-scheme` follows the palette. Dark body text measures about 17:1 against the page
 and muted text at least 6.9:1 against cards.
 
-**Settings › This computer** holds an **Appearance** select (Match this computer, Light,
-Dark). The choice is
-applied to `<html data-theme>`, cached in `localStorage` under
+**Settings › This computer** holds a **Light or dark** select (Match this computer,
+Light, Dark). The choice is applied to `<html data-theme>`, cached in `localStorage` under
 `caption-studio:theme:v1`, and saved with the operator's account through the
 preferences record, so it follows the operator between browsers. The paired operator
 remote applies the cached theme; the audience `/view` and `/read` pages follow the
@@ -57,21 +58,22 @@ The dashboard theme never changes the configured OBS caption colours.
   only. `.textButton` sits flush with the text around it.
 - Inputs, selects, colour pickers and disclosure summaries share the button height
   (`--control-height`); textareas share padding, radius, border and font size.
-- Chips (`.statusPill`, `.statusChip`, `.characterCount`) share one rule.
+- Chips (`.statusChip`, `.characterCount`) share one rule.
 - Disclosure rows (`.outputDestination`, `.advancedActions`, `.credentialDisclosure`,
-  `.serviceSnapshot`, `.transcriptDisclosure`, `details` inside `.experienceCard`) hide the
-  browser's own marker and draw a chevron from `--chevron-right`, rotating it when open.
-  The rotation is dropped under `prefers-reduced-motion`.
+  `details` inside `.experienceCard`) hide the browser's own marker and draw a chevron
+  from `--chevron-right`, rotating it when open. The rotation is dropped under
+  `prefers-reduced-motion`. A closed `.advancedActions` is just its summary row, and
+  neighbouring ones stack tightly as one list.
 - Callouts carry no side rule. A block of content (`.sourceTranscript`, `.readerNote`) is
-  marked by the muted surface and a radius; an aside (`.privacyNote`, `.actionFeedback`,
+  marked by the muted surface and a radius; an aside (`.privacyNote`,
   `.usageScopeNote`) by a 1px hairline above it, and `.privacyNote` adds a drawn shield.
 - Headings h1–h4 use the type scale with consistent margins; muted helper text
   (`.helpText`, `.eyebrow`, `.promptSaveStatus`, `.browserStorageNote`,
   `.usageMetricDetail`, `.usageScopeNote`) shares one rule.
-- Section cards (`.experienceCard`, `.historyConsent`, `.usageSection`,
+- Section cards (`.experienceCard`, `.usageSection`,
   `.usageMetricCard`, `.outputDestination`) share border, radius and `--space-3`
   padding (`--space-2` under 680px). Grids use `--gap-md`.
-- Breakpoints stay at 680, 980/981 and 1280px; the 320px minimum has no horizontal
+- Breakpoints stay at 680 and 980/981px; the 320px minimum has no horizontal
   overflow; interactive targets stay at least 44px.
 
 ## Operator shell
@@ -88,6 +90,9 @@ The dashboard theme never changes the configured OBS caption colours.
   beside the checklist, `.liveActions` beside `.liveShare`) that stretch to equal height
   and stack into one column at 980px and narrower. In `.liveCaptions` the Heard box and
   the letterboxed 16:9 preview grow together, so they are always the same size.
+  The readiness checklist (`.checkList`) ends each passing row in a chevron `.rowLink` to
+  the Settings section that changes it; a failing row shows a primary **Fix**, **Set up** or **Help**
+  button instead.
 - `.operatorCard`: the screen's cards (border, `--radius-lg`, `--shadow`, `--space-3`
   padding). `.operatorBanner` (`data-tone` warn or bad) sits above the content it concerns.
 - `.liveControlBar`: pinned to the bottom of Live while a service runs; `.operatorShell`

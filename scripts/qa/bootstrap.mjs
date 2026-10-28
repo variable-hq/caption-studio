@@ -4,7 +4,7 @@ import { access, mkdir } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-const tooling = path.resolve(process.env.CAPTION_QA_TOOLS_DIR || path.join(os.tmpdir(), "church-caption-ui-qa"));
+const tooling = path.resolve(process.env.CAPTION_QA_TOOLS_DIR || path.join(os.tmpdir(), "caption-studio-ui-qa"));
 await mkdir(tooling, { recursive: true });
 
 try {

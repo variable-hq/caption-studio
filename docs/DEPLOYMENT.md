@@ -1,13 +1,13 @@
 # Deployment runbook
 
-Reviewed 26 October 2026 against merged PR #67 (`c9410a6`). This describes the current
+Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
 ## Connected Cloudflare build
 
-GitHub stores source and PR review. Cloudflare Workers Builds watches `main`; there is
-no GitHub Actions workflow. Use these settings for the connected Worker:
+GitHub stores source and PR review. Cloudflare Workers Builds watches `main` only; there
+is no GitHub Actions workflow. Use these settings for the connected Worker:
 
 | Setting | Value |
 | --- | --- |
@@ -16,6 +16,15 @@ no GitHub Actions workflow. Use these settings for the connected Worker:
 | Production branch | `main` |
 | Build command | `npx opennextjs-cloudflare build` |
 | Deploy command | `OPEN_NEXT_DEPLOY=true npx wrangler deploy` |
+| Settings › Builds › Previews Base: Builds for Preview branches | Off (since 28 October 2026) |
+
+Keep preview-branch builds off. With them on, every PR branch ran `npm run build` and then
+`npx wrangler preview` (open beta), which always failed with "Your Wrangler configuration
+needs a `previews` block to run this command" and warned that Durable Objects are not
+included in previews. This app depends on Durable Objects, Workers AI and Cloudflare Access,
+so per-branch previews are unsupported; local validation (`npm run validate`, `npm run qa`)
+is the pull-request gate. Re-enable only together with a `previews` configuration that
+covers the Durable Objects, AI and Access.
 
 The equivalent repository command after building is `npm run deploy:worker`.
 For an explicitly authorized manual build and deployment, `npm run deploy` runs both.
@@ -32,7 +41,9 @@ creates a separate, unprotected Worker. Renaming the Worker also changes its wor
 hostname, so every Access application (operator and bypass) must be moved to the new
 hostname in the same change. The October 2026 rename from `church-live-caption` left the
 new hostname without Access, and every operator API call then failed with
-"Authentication is required."
+"Authentication is required." On 26 October the Access application was moved to
+`caption-studio.lukas-ka.workers.dev`, renamed, and given the missing public bypass paths;
+operator sign-in was confirmed afterwards.
 
 Do not substitute a Next.js build alone: `custom-worker.ts` imports the generated
 `.open-next/worker.js` and Wrangler uploads `.open-next/assets`.
@@ -73,7 +84,7 @@ Preserve `custom-worker.ts` as the entry point and all bindings in `wrangler.jso
 | `CAPTION_ROOMS` / `CaptionRoom` | Main channel, controller, inference claims and remote commands |
 | `SERMON_JOURNALS` / `SermonJournal` | Per-service reader, opted-in history and summary jobs |
 | `AI_USAGE` / `AiUsageLedger` | Numeric provider admissions and rolling usage |
-| `OPERATOR_PREFERENCES` / `OperatorPreferences` | Per-operator saved configuration keyed by hashed Access email |
+| `OPERATOR_PREFERENCES` / `OperatorPreferences` | Shared church setup (one workspace record) and each operator's theme, keyed by hashed Access email |
 | `AI` | Optional Workers AI inference |
 | `ASSETS` | OpenNext static assets |
 
@@ -119,7 +130,7 @@ must still reject absent, wrong-purpose, expired or replaced tokens.
 1. Check both build and deploy stages. A successful compilation does not publish a Worker.
 2. Record the merged Git SHA, successful build ID and final Worker version. Secret changes
    can create newer versions, so reconcile the final deployment.
-3. Verify the three Durable Object bindings, AI binding, v2 migration and runtime variables
+3. Verify the four Durable Object bindings, AI binding, v3 migration and runtime variables
    without revealing secret values. Keep optional AI off until its account/privacy/quality gates pass.
 4. Check authenticated operator and unauthenticated reader boundaries, then run the
    [stakeholder rehearsal](STAKEHOLDER_TEST_GUIDE.md) with synthetic or approved data.
@@ -139,12 +150,17 @@ The previous version was `8112a330-6986-480c-be82-88bcd5d73477`.
 | `26cc8e1` (#30) | Dashboard navigation | Not recorded |
 | `cf8b8c0` (#32) | Collapsible service panel | Not recorded |
 | `abae57b` (#33) | Export hygiene | Not recorded |
+| #35–#74 | Settings, shared setup, Live/Sermons/Settings dashboard, `caption-studio` rename | Individual builds not recorded |
+| `080e6ca` (#75) | Live equal-height cards | Workers Builds check success; production deployment 2026-10-28T18:27Z |
 
-Cloudflare Workers Builds should have built each later merge automatically, but no build
-ID or Worker version has been checked or recorded for them. Complete step 2 above for the
-latest merge before the next rehearsal.
+`wrangler deployments list --name caption-studio` shows production deployments of the
+renamed Worker at 2026-10-26T16:18Z, 2026-10-27T15:47Z, 2026-10-28T16:49Z and
+2026-10-28T18:27Z, all from Workers Builds on `main`; the last is `080e6ca`. Build IDs and
+Worker version IDs were not recorded, and earlier merges on the old Worker name were never
+checked. Complete step 2 above for the latest merge before the next rehearsal.
 
-All three Durable Object bindings, AI and assets were present in the successful upload.
+All three Durable Object bindings then configured, AI and assets were present in the
+successful #26 upload.
 Only the connected deploy command was changed; Access policies and runtime settings were
 preserved. No microphone, caption control or provider call was used for this verification.
 Deployment success does not establish the full runtime, physical-device or semantic gates.

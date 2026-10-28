@@ -1,8 +1,7 @@
 # Documentation index
 
-Reviewed 14 September 2026 against merged PR #33 (`abae57b`). Maintained specifications
-describe merged source, not an
-assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
+Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). Maintained specifications
+describe merged source, not an assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
 records to establish release evidence.
 
 ## Maintained guides
@@ -18,7 +17,7 @@ records to establish release evidence.
 | [Stakeholder test guide](STAKEHOLDER_TEST_GUIDE.md) | Protected rehearsal and content-free evidence |
 | [Roadmap](ROADMAP.md) / [Gap analysis](GAP_ANALYSIS.md) | Outstanding work and release gates |
 | [Brand guidelines](BRAND_GUIDELINES.md) | The design baseline: voice and glossary, colour roles, typography, spacing, components, accessibility |
-| [Design system](DESIGN_SYSTEM.md) | Tokens, light/dark themes, shared controls and the resizable navigation |
+| [Design system](DESIGN_SYSTEM.md) | Tokens, light/dark themes, shared controls and the operator screen layouts |
 | [Agent instructions](../AGENTS.md) | Machine-oriented routing index for AI agents; points here rather than duplicating it |
 
 ## Decisions and evaluation

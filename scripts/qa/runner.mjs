@@ -2,7 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 
-const tooling = path.resolve(process.env.CAPTION_QA_TOOLS_DIR || path.join(os.tmpdir(), "church-caption-ui-qa"));
+const tooling = path.resolve(process.env.CAPTION_QA_TOOLS_DIR || path.join(os.tmpdir(), "caption-studio-ui-qa"));
 const env = { ...process.env, CAPTION_QA_TOOLS_DIR: tooling };
 let server;
 

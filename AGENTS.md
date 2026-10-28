@@ -1,6 +1,6 @@
 # Agent instructions for Caption Studio
 
-Reviewed 21 September 2026 against merged PR #49 (`d7a3db4`).
+Reviewed 28 October 2026 against merged PR #75 (`080e6ca`).
 
 Machine-oriented index. Humans: see `docs/README.md`. This file only routes —
 it never restates facts that live elsewhere, so it doesn't go stale when they
@@ -13,7 +13,7 @@ don't read the full `docs/` tree unless the task is genuinely repo-wide.
 |---|---|
 | Live caption / transcription / translation / moderation behavior | `docs/PRODUCT_SPEC.md`, `docs/ARCHITECTURE.md` |
 | Credentials, tokens, Access, retention, data handling | `SECURITY.md` |
-| Build, deploy, bindings, secrets, DB migrations | `docs/DEPLOYMENT.md` |
+| Build, deploy, bindings, secrets, DB migrations, Cloudflare build checks on PRs | `docs/DEPLOYMENT.md` |
 | UI visuals, copy, tokens, theming, shared controls | `docs/BRAND_GUIDELINES.md` (the rules every UI change follows), then `docs/DESIGN_SYSTEM.md` for token values and classes; run a UI change past `.agents/skills/web-design-guidelines/SKILL.md` |
 | Why a past decision was made | `docs/decisions/*.md` — check each file's own status, several are superseded |
 | What's already proposed, deferred, or a known gap | `docs/PILOT_IMPROVEMENTS.md`, `docs/ROADMAP.md`, `docs/GAP_ANALYSIS.md` |
@@ -64,15 +64,22 @@ build` · `npm run build:cloudflare` · `npm run deploy:check` (dry run) ·
 `engines`). If it fails only on that, report it — don't change the
 environment's Node/nvm version to force it through unless explicitly asked.
 
-`npm run qa:*` scripts drive browser-based UI/accessibility checks and write
-evidence under `docs/review-assets/<date>/`; not part of the required
-validation chain above.
+`npm run qa` starts a dev server on port 3100 and runs `qa:operator` and
+`qa:experience`: browser UI, responsive-overflow and Axe checks against mocked
+APIs, with screenshots in ignored `test-results/`. It needs the isolated
+Playwright install in `CAPTION_QA_TOOLS_DIR` (see `CONTRIBUTING.md`). If
+headless Chromium's fake microphone never resolves on your machine, set
+`CAPTION_QA_STUB_MIC=1` and say so in the PR. Run it for any UI change; it is
+not part of the required validation chain above. Committed evidence goes under
+`docs/review-assets/<date>/` only when deliberately recorded.
 
 ## Non-goals — don't add these unprompted
 
 - CI (GitHub Actions or otherwise). `CONTRIBUTING.md` states this is
   intentional: Cloudflare's connected Workers build deploys `main` directly,
   and local validation is the contributor's responsibility.
+- Per-branch Cloudflare preview builds. They are switched off on purpose; see
+  `docs/DEPLOYMENT.md` before proposing to re-enable them.
 - Automated doc/KB regeneration. Every maintained doc is hand-updated, in the
   same commit, by whoever makes the change it describes — see "Doc taxonomy"
   above.
