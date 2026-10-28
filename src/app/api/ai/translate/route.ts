@@ -6,7 +6,7 @@ import {
   translateWithGroq,
 } from "@/ai/server/groq";
 import type { TranslationRequest } from "@/ai/contracts";
-import { MAX_LIVE_NOTE_CHARS } from "@/live/live-note";
+import { MAX_LIVE_NOTE_CHARS, normalizeLiveNote } from "@/live/live-note";
 import { normalizeInferenceLevel, normalizeSanitizeLevel } from "@/ai/contracts";
 import {
   InvalidTranslationSystemPromptError,
@@ -99,7 +99,8 @@ export async function POST(request: Request) {
     const translationSystemPrompt = normalizeTranslationSystemPrompt(
       body.translationSystemPrompt,
     );
-    if (body.liveNote !== undefined && (typeof body.liveNote !== "string" || body.liveNote.length > MAX_LIVE_NOTE_CHARS || DISALLOWED_CONTROL_CHARACTERS.test(body.liveNote))) {
+    const liveNote = body.liveNote === undefined ? undefined : normalizeLiveNote(body.liveNote);
+    if (body.liveNote !== undefined && (typeof body.liveNote !== "string" || DISALLOWED_CONTROL_CHARACTERS.test(body.liveNote) || body.liveNote.trim().length > MAX_LIVE_NOTE_CHARS)) {
       return NextResponse.json({ error: `Live note must be up to ${MAX_LIVE_NOTE_CHARS} characters without control characters.` }, { status: 400 });
     }
 
@@ -119,7 +120,7 @@ export async function POST(request: Request) {
         inferenceLevel: normalizeInferenceLevel(body.inferenceLevel),
         sanitizeLevel: normalizeSanitizeLevel(body.sanitizeLevel),
         filterInappropriateLanguage: body.filterInappropriateLanguage !== false,
-        ...(body.liveNote ? { liveNote: body.liveNote.trim() } : {}),
+        ...(liveNote ? { liveNote } : {}),
       },
       request.signal,
       telemetry,

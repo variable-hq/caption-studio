@@ -156,6 +156,7 @@ describe("Groq cloud provider prompts", () => {
     const without = buildTranslationMessages(request);
     const withNote = buildTranslationMessages({ ...request, liveNote: 'The phrase "blue bell" is a name.' });
     expect(without[0].content).not.toContain("OPERATOR LIVE NOTE");
+    expect(without[0].content).not.toContain("The live note is short situational guidance");
     expect(withNote[0].content).toContain("--- BEGIN OPERATOR LIVE NOTE (JSON STRING) ---");
     expect(withNote[0].content).toContain(JSON.stringify('The phrase "blue bell" is a name.'));
     expect(withNote[0].content).toContain("The live note is short situational guidance");

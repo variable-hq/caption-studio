@@ -92,6 +92,18 @@ describe("AI route request boundaries", () => {
     }
   });
 
+  it("trims surrounding whitespace before applying the live note length limit", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      choices: [{ finish_reason: "stop", message: { content: "Kasih karunia" } }],
+    })));
+    const response = await translate(new Request("https://caption.example/api/ai/translate", {
+      method: "POST",
+      body: JSON.stringify({ ...validTranslationBody, liveNote: `${" ".repeat(600)}${"x".repeat(500)}${" ".repeat(600)}` }),
+    }));
+    expect(response.status).toBe(200);
+  });
+
   it("normalizes invalid Sanitization to Off on the translation route", async () => {
     vi.stubEnv("GROQ_API_KEY", "test-key");
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({

@@ -69,6 +69,7 @@ const CONTROLLER_STORAGE_KEY = "caption-studio:main-controller:v1";
 const VIEWER_STORAGE_KEY = "caption-studio:main-viewer:v1";
 const TRANSLATION_SETTINGS_STORAGE_KEY =
   "caption-studio:active-translation-settings:v1";
+export const LIVE_NOTE_STORAGE_KEY = "caption-studio:live-note:v1";
 const LEGACY_SPEECH_BUFFER_STORAGE_KEY =
   "caption-studio:speech-buffer:v1";
 
@@ -276,6 +277,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       loadGenerationRef.current += 1;
       stopCapture();
       resetOutputBuffer();
+      resetRecentOutputs();
       clearServiceTimer();
       window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
       window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
@@ -314,7 +316,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           : current.channel,
       }));
     },
-    [clearServiceTimer, requireTranslationRefresh, resetOutputBuffer, stopCapture],
+    [clearServiceTimer, requireTranslationRefresh, resetOutputBuffer, resetRecentOutputs, stopCapture],
   );
 
   const endService = useCallback(
@@ -481,7 +483,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           publicText: entry.publicText,
         });
         if (!isStillCurrentService()) return;
-        recordRecentOutput({ id: crypto.randomUUID(), at: Date.now(), sourceText: entry.sourceText, publicText: entry.publicText, hidden: entry.hidden, buffered: true });
+        recordRecentOutput({ id: crypto.randomUUID(), at: Date.now(), sourceText: entry.sourceText, publicText: entry.publicText, hidden: entry.hidden });
         setLiveState((state) => ({
           ...state,
           message: entry.hidden
@@ -625,6 +627,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       let translation: TranslationResult = { text: sourceText };
       if (detectedLanguage !== current.targetLanguage) {
         try {
+          const liveNote = normalizeLiveNote(settingsRef.current.liveNote);
           translation = await cloudClientRef.current.translate(
             {
               text: sourceText,
@@ -636,7 +639,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               inferenceLevel: current.inferenceLevel,
               sanitizeLevel: current.sanitizeLevel,
               filterInappropriateLanguage: current.filterInappropriateLanguage,
-              ...(normalizeLiveNote(settingsRef.current.liveNote) ? { liveNote: normalizeLiveNote(settingsRef.current.liveNote) } : {}),
+              ...(liveNote ? { liveNote } : {}),
             },
             inferenceContext,
             signal,
@@ -694,7 +697,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           event,
         );
         if (!isCurrentCapture()) return;
-        recordRecentOutput({ id: crypto.randomUUID(), at: Date.now(), sourceText: forms.protectedSourceText, publicText: forms.publicText, hidden: forms.hiddenFromPublicDisplay, buffered: false });
+        recordRecentOutput({ id: crypto.randomUUID(), at: Date.now(), sourceText: forms.protectedSourceText, publicText: forms.publicText, hidden: forms.hiddenFromPublicDisplay });
         setLiveState((state) => ({
           ...state,
           message: forms.hiddenFromPublicDisplay

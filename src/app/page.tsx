@@ -78,7 +78,7 @@ import {
   translationSettingsFingerprint,
   type TranslationSessionSettings,
 } from "@/live/translation-settings";
-import { useLiveCaptionSession } from "@/live/use-live-caption-session";
+import { LIVE_NOTE_STORAGE_KEY, useLiveCaptionSession } from "@/live/use-live-caption-session";
 import { useObservedSession } from "@/live/use-observed-session";
 import { normalizeLiveNote } from "@/live/live-note";
 import { EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata } from "@/experience/contracts";
@@ -350,7 +350,7 @@ export default function OperatorDashboard() {
     if (!startedAt) {
       if (priorServiceStartedAt.current) {
         liveNoteRestoredFor.current = null;
-        window.sessionStorage.removeItem("caption-studio:live-note:v1");
+        window.sessionStorage.removeItem(LIVE_NOTE_STORAGE_KEY);
         priorServiceStartedAt.current = null;
         const frame = window.requestAnimationFrame(() => {
           setLiveNote("");
@@ -364,7 +364,7 @@ export default function OperatorDashboard() {
     }
     let restored = "";
     try {
-      const stored = JSON.parse(window.sessionStorage.getItem("caption-studio:live-note:v1") ?? "null") as { startedAt?: string; value?: unknown } | null;
+      const stored = JSON.parse(window.sessionStorage.getItem(LIVE_NOTE_STORAGE_KEY) ?? "null") as { startedAt?: string; value?: unknown } | null;
       restored = stored?.startedAt === startedAt ? normalizeLiveNote(stored.value) : "";
     } catch { restored = ""; }
     const frame = window.requestAnimationFrame(() => {
@@ -377,7 +377,7 @@ export default function OperatorDashboard() {
   useEffect(() => {
     const startedAt = liveState.service?.startedAt;
     if (!startedAt || liveNoteRestoredFor.current !== startedAt) return;
-    window.sessionStorage.setItem("caption-studio:live-note:v1", JSON.stringify({ startedAt, value: normalizeLiveNote(liveNote) }));
+    window.sessionStorage.setItem(LIVE_NOTE_STORAGE_KEY, JSON.stringify({ startedAt, value: normalizeLiveNote(liveNote) }));
   }, [liveNote, liveState.service?.startedAt]);
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setSessionMetadata((value) => value.sessionAt === null ? { ...value, sessionAt: Date.now() } : value));
@@ -1340,7 +1340,7 @@ export default function OperatorDashboard() {
                   onSubmitEdit: submitOutputBufferEdit,
                 }}
               />
-              <LiveNoteControl value={liveNote} disabled={observed.observer !== null} onChange={setLiveNote} />
+              <LiveNoteControl value={liveNote} disabled={!liveState.service || observed.observer !== null} onChange={setLiveNote} />
               {isPaused ? (
                 <button type="button" className="secondaryButton" disabled={isBusy || controlAction !== null} onClick={() => void showTestCaption()}>
                   {controlAction === "show-test" ? "Showing…" : "Show a test caption"}

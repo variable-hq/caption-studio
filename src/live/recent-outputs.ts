@@ -6,7 +6,6 @@ export interface RecentOutput {
   sourceText: string;
   publicText: string;
   hidden: boolean;
-  buffered: boolean;
 }
 
 export function addRecentOutput(list: readonly RecentOutput[], entry: RecentOutput): RecentOutput[] {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addRecentOutput, RECENT_OUTPUTS_LIMIT, type RecentOutput } from "./recent-outputs";
 
-const entry = (id: string, hidden = false): RecentOutput => ({ id, at: 1, sourceText: `source ${id}`, publicText: `public ${id}`, hidden, buffered: false });
+const entry = (id: string, hidden = false): RecentOutput => ({ id, at: 1, sourceText: `source ${id}`, publicText: `public ${id}`, hidden });
 describe("recent outputs", () => {
   it("puts the newest first, keeps three and preserves hidden state", () => {
     const entries = [entry("a"), entry("b"), entry("c")];
