@@ -253,8 +253,8 @@ sequence. Every API request is mocked:
 ```sh
 npm run dev -- --hostname 127.0.0.1 --port 3100
 # Individual scripts remain available when the server and tooling are already running.
-CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:operator
-CAPTION_QA_TOOLS_DIR=/tmp/church-caption-ui-qa npm run qa:experience
+CAPTION_QA_TOOLS_DIR=/tmp/caption-studio-ui-qa npm run qa:operator
+CAPTION_QA_TOOLS_DIR=/tmp/caption-studio-ui-qa npm run qa:experience
 ```
 
 If headless Chromium's fake microphone never resolves on your machine (the operator suite
