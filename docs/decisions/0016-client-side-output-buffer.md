@@ -1,6 +1,6 @@
 # ADR 0016: client-side output buffer with a hidden backing queue
 
-27 September 2026. Status: accepted, implemented in source.
+27 September 2026. Status: accepted, implemented in source; extended by [ADR 0023](0023-live-note-and-recent-outputs.md) for same-tab live note and recent-output state.
 
 ## Context
 

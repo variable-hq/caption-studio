@@ -25,6 +25,12 @@ const SERVICE_IDENTITY = {
 };
 
 describe("translation-session settings", () => {
+  it("keeps the live note outside the translation settings fingerprint", () => {
+    const withLiveNote = { ...BASE_SETTINGS, liveNote: "Synthetic live note" };
+    expect(translationSettingsFingerprint(BASE_SETTINGS)).toBe(
+      translationSettingsFingerprint(withLiveNote),
+    );
+  });
   it("normalizes a complete atomic snapshot", () => {
     expect(
       normalizeTranslationSessionSettings({

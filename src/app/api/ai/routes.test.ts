@@ -83,6 +83,15 @@ describe("AI route request boundaries", () => {
     });
   });
 
+  it("rejects malformed or overlength live notes", async () => {
+    for (const liveNote of ["x".repeat(501), { note: "synthetic" }, "bad\u0000note"]) {
+      const response = await translate(new Request("https://caption.example/api/ai/translate", {
+        method: "POST", body: JSON.stringify({ ...validTranslationBody, liveNote }),
+      }));
+      expect(response.status).toBe(400);
+    }
+  });
+
   it("normalizes invalid Sanitization to Off on the translation route", async () => {
     vi.stubEnv("GROQ_API_KEY", "test-key");
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({

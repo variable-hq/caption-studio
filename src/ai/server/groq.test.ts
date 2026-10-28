@@ -151,6 +151,18 @@ describe("Groq cloud provider prompts", () => {
     );
   });
 
+  it("fences a live note as a second trusted block and adds its rule only when present", () => {
+    const request = { text: "Synthetic phrase", sourceLanguage: "en" as const, targetLanguage: "id" as const, recentContext: [], preferredTerms: {} };
+    const without = buildTranslationMessages(request);
+    const withNote = buildTranslationMessages({ ...request, liveNote: 'The phrase "blue bell" is a name.' });
+    expect(without[0].content).not.toContain("OPERATOR LIVE NOTE");
+    expect(withNote[0].content).toContain("--- BEGIN OPERATOR LIVE NOTE (JSON STRING) ---");
+    expect(withNote[0].content).toContain(JSON.stringify('The phrase "blue bell" is a name.'));
+    expect(withNote[0].content).toContain("The live note is short situational guidance");
+    expect(withNote[1].content).not.toContain("OPERATOR LIVE NOTE");
+    expect(withNote[1].content).not.toContain("blue bell");
+  });
+
   it("hands off an indecipherable word's final disposition to the active inference level", () => {
     const messages = buildTranslationMessages({
       text: "Grace and peace.",

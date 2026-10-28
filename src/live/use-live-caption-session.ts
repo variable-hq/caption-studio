@@ -49,9 +49,12 @@ import { startSerialPolling } from "@/live/serial-polling";
 import { useMicrophoneInput } from "@/live/use-microphone-input";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
 import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
+import { normalizeLiveNote } from "@/live/live-note";
+import { useRecentOutputs } from "@/live/use-recent-outputs";
 
 interface LiveCaptionSettings extends TranslationSessionSettings {
   saveHistory?: boolean;
+  liveNote?: string;
   style: CaptionStyle;
   outputBufferCount: OutputBufferCount;
   outputBufferDwellMs: OutputBufferDwellMs;
@@ -120,6 +123,7 @@ function isControllerReplaced(error: unknown) {
 }
 
 export function useLiveCaptionSession(settings: LiveCaptionSettings) {
+  const { outputs: recentOutputs, record: recordRecentOutput, reset: resetRecentOutputs } = useRecentOutputs();
   const {
     devices,
     selectedDeviceId,
@@ -321,6 +325,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setControlAction(null);
       stopCapture();
       resetOutputBuffer();
+      resetRecentOutputs();
       clearServiceTimer();
       const service = serviceRef.current;
       if (!service) {
@@ -408,7 +413,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         endingRef.current = false;
       }
     },
-    [clearServiceTimer, handleTakenOver, requireTranslationRefresh, resetOutputBuffer, stopCapture],
+    [clearServiceTimer, handleTakenOver, requireTranslationRefresh, resetOutputBuffer, resetRecentOutputs, stopCapture],
   );
 
   const reconcileExternalTranslationRevision = useCallback(
@@ -476,6 +481,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           publicText: entry.publicText,
         });
         if (!isStillCurrentService()) return;
+        recordRecentOutput({ id: crypto.randomUUID(), at: Date.now(), sourceText: entry.sourceText, publicText: entry.publicText, hidden: entry.hidden, buffered: true });
         setLiveState((state) => ({
           ...state,
           message: entry.hidden
@@ -530,7 +536,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         setLiveState((state) => ({ ...state, message }));
       }
     },
-    [endService, handleTakenOver, reconcileExternalTranslationRevision, outputBufferGenerationRef, resetOutputBuffer, stopCapture],
+    [endService, handleTakenOver, reconcileExternalTranslationRevision, outputBufferGenerationRef, recordRecentOutput, resetOutputBuffer, stopCapture],
   );
   publishBufferedEntryRef.current = publishBufferedEntry;
 
@@ -630,6 +636,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               inferenceLevel: current.inferenceLevel,
               sanitizeLevel: current.sanitizeLevel,
               filterInappropriateLanguage: current.filterInappropriateLanguage,
+              ...(normalizeLiveNote(settingsRef.current.liveNote) ? { liveNote: normalizeLiveNote(settingsRef.current.liveNote) } : {}),
             },
             inferenceContext,
             signal,
@@ -687,6 +694,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           event,
         );
         if (!isCurrentCapture()) return;
+        recordRecentOutput({ id: crypto.randomUUID(), at: Date.now(), sourceText: forms.protectedSourceText, publicText: forms.publicText, hidden: forms.hiddenFromPublicDisplay, buffered: false });
         setLiveState((state) => ({
           ...state,
           message: forms.hiddenFromPublicDisplay
@@ -730,7 +738,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         lastLatencyMs: Math.round(performance.now() - startedAt),
       }));
     },
-    [enqueueOutputBufferEntry, outputBufferGenerationRef, publishBufferedEntry, reconcileExternalTranslationRevision],
+    [enqueueOutputBufferEntry, outputBufferGenerationRef, publishBufferedEntry, recordRecentOutput, reconcileExternalTranslationRevision],
   );
 
   const drainQueue = useCallback(async () => {
@@ -1241,6 +1249,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         recentContextRef.current = [];
         queueRef.current = [];
         resetOutputBuffer();
+        resetRecentOutputs();
         captureGenerationRef.current += 1;
         const generation = captureGenerationRef.current;
         captureAbortRef.current = new AbortController();
@@ -1303,6 +1312,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       liveState.channel?.configured,
       requireTranslationRefresh,
       resetOutputBuffer,
+      resetRecentOutputs,
       selectedDeviceId,
       startRecorder,
       stopMicrophone,
@@ -2066,6 +2076,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     showTestCaption,
     showManualCaption,
     outputBufferQueue,
+    recentOutputs,
     setOutputBufferEntryPaused,
     clearOutputBufferEntry,
     fastForwardOutputBufferEntry,

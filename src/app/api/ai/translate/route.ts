@@ -6,9 +6,11 @@ import {
   translateWithGroq,
 } from "@/ai/server/groq";
 import type { TranslationRequest } from "@/ai/contracts";
+import { MAX_LIVE_NOTE_CHARS } from "@/live/live-note";
 import { normalizeInferenceLevel, normalizeSanitizeLevel } from "@/ai/contracts";
 import {
   InvalidTranslationSystemPromptError,
+  DISALLOWED_CONTROL_CHARACTERS,
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
 import { isLanguageLocale } from "@/domain/languages";
@@ -97,6 +99,9 @@ export async function POST(request: Request) {
     const translationSystemPrompt = normalizeTranslationSystemPrompt(
       body.translationSystemPrompt,
     );
+    if (body.liveNote !== undefined && (typeof body.liveNote !== "string" || body.liveNote.length > MAX_LIVE_NOTE_CHARS || DISALLOWED_CONTROL_CHARACTERS.test(body.liveNote))) {
+      return NextResponse.json({ error: `Live note must be up to ${MAX_LIVE_NOTE_CHARS} characters without control characters.` }, { status: 400 });
+    }
 
     const result = await meteredGroq(request, "translation", (telemetry) => translateWithGroq(
       {
@@ -114,6 +119,7 @@ export async function POST(request: Request) {
         inferenceLevel: normalizeInferenceLevel(body.inferenceLevel),
         sanitizeLevel: normalizeSanitizeLevel(body.sanitizeLevel),
         filterInappropriateLanguage: body.filterInappropriateLanguage !== false,
+        ...(body.liveNote ? { liveNote: body.liveNote.trim() } : {}),
       },
       request.signal,
       telemetry,
