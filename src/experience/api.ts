@@ -42,10 +42,22 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       return env.AI_USAGE ? rpc(env.AI_USAGE, "usage", `/history?after=${encodeURIComponent((url.searchParams.get("after") ?? "").slice(0, 220))}`)
         : json({ error: "Usage history is not configured." }, 503);
     }
-    if (operation === "history" && request.method === "GET") return rpc(env.CAPTION_ROOMS, "channel:main", "/internal/history");
+    if (operation === "history" && request.method === "GET") {
+      const history = await rpc(env.CAPTION_ROOMS, "channel:main", "/internal/history");
+      if (!history.ok || !env.SERMON_JOURNALS) return history;
+      const body = await history.json() as { services: { id: string; startedAt: number }[] };
+      const services = await Promise.all(body.services.slice(0, 50).map(async (entry) => {
+        try {
+          const archive = await rpc(env.SERMON_JOURNALS!, entry.id, "/archive");
+          const details = await archive.json() as { metadata?: unknown };
+          return { ...entry, metadata: details.metadata };
+        } catch { return entry; }
+      }));
+      return json({ ...body, services });
+    }
     const parts = operation.split("/");
     if (parts.length === 3 && parts[0] === "sermons" && UUID_PATTERN.test(parts[1] ?? "") &&
-        ["archive", "summary", "remove", "correct", "delete"].includes(parts[2])) {
+        ["archive", "summary", "remove", "correct", "delete", "metadata"].includes(parts[2])) {
       if (!env.SERMON_JOURNALS) return json({ error: "Sermon archive is not configured." }, 503);
       if (parts[2] === "archive" && request.method === "GET") return rpc(env.SERMON_JOURNALS, parts[1],
         `/archive?after=${Math.max(0, Number(url.searchParams.get("after")) || 0)}&paragraphAfter=${Math.max(0, Number(url.searchParams.get("paragraphAfter")) || 0)}`);

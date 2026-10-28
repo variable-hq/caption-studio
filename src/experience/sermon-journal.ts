@@ -6,6 +6,7 @@ import {
   DAY, HISTORY_RETENTION, MAX_JOURNAL_NOTES, READER_GRACE, READER_INTERVAL, SUMMARY_MODELS, json,
   type AutoSummaryRequest, type ExperienceEnvironment, type JournalState, type ReaderInput, type ReaderNote, type ReaderParagraph,
   type SourceRecord, type SummaryJob, type SummaryOptions, type SummaryPoint,
+  type SessionMetadata, normalizeSessionMetadata,
 } from "./contracts";
 import { optionalInference } from "./provider";
 import { buildReaderPrompt, buildSummaryPrompt } from "./prompt";
@@ -76,6 +77,7 @@ export class SermonJournal {
     const current = await this.configuration();
     if (!current) return json({ error: "Sermon unavailable or expired." }, 410);
     if (path === "/delete" && request.method === "POST") return this.handleDelete(current);
+    if (path === "/metadata" && request.method === "POST") return this.handleMetadata(request, current);
     if (path === "/source" && request.method === "POST") return this.handleSource(request, current);
     if (path === "/gap" && request.method === "POST") return this.handleGap(current);
     if (path === "/append" && request.method === "POST") return this.handleAppend(request, current);
@@ -115,6 +117,13 @@ export class SermonJournal {
     if (!current.endedAt) return json({ error: "End the service before deleting its archive." }, 409);
     await this.erase();
     return json({ deleted: true });
+  }
+
+  private async handleMetadata(request: Request, current: JournalState) {
+    if (!current.saved) return json({ error: "Session details require saved history." }, 409);
+    const metadata = normalizeSessionMetadata(await request.json());
+    await this.state.storage.put("metadata", metadata);
+    return json({ metadata });
   }
 
   private async handleSource(request: Request, current: JournalState) {
@@ -205,7 +214,7 @@ export class SermonJournal {
     const sources = current.saved ? [...(await this.state.storage.list<SourceRecord>({ prefix: "source:", startAfter: key("source", after), limit: 50 })).values()] : [];
     const paragraphs = current.saved ? [...(await this.state.storage.list<ReaderParagraph>({ prefix: "paragraph:", startAfter: key("paragraph", paragraphAfter), limit: 50 })).values()] : this.latest ? [this.latest] : [];
     const details = { ...current, readerHash: undefined };
-    return json({ details, sources, paragraphs, notes: await this.notes(current), summary: await this.state.storage.get("summary") ?? null,
+    return json({ details, metadata: current.saved ? await this.state.storage.get<SessionMetadata>("metadata") ?? normalizeSessionMetadata(null) : normalizeSessionMetadata(null), sources, paragraphs, notes: await this.notes(current), summary: await this.state.storage.get("summary") ?? null,
       more: sources.length === 50, moreParagraphs: paragraphs.length === 50 });
   }
 

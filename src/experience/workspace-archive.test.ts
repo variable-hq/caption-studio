@@ -134,10 +134,16 @@ describe("workspace-wide sermon archives", () => {
   it("lists saved sermons for an operator with no service of their own", async () => {
     const response = await handleExperienceRequest(as(SECOND_OPERATOR, "/api/live/experience/history"), environment);
     expect(response?.status).toBe(200);
-    expect(await response!.json()).toEqual({ services: ARCHIVED });
+    expect(await response!.json()).toEqual({ services: [{ ...ARCHIVED[0], metadata: { topic: "", speaker: "", description: "", sessionAt: null } }] });
     // The identity authorizes the read; it never scopes it, so nothing is forwarded.
     expect(roomRequests[0]?.headers.get("cf-access-jwt-assertion")).toBeNull();
     expect(await roomRequests[0]?.clone().text()).toBe("");
+  });
+
+  it("enforces the 32 KB cap on metadata writes", async () => {
+    const body = { topic: "x".repeat(33_000) };
+    const response = await handleExperienceRequest(as(SECOND_OPERATOR, `/api/live/experience/sermons/${SERVICE_ID}/metadata`, body), environment);
+    expect(response?.status).toBe(413);
   });
 
   it("still refuses an archive request that carries no Access session", async () => {
