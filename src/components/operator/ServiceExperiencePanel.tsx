@@ -96,7 +96,8 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
   }, [view]);
   async function load(id: string) {
     const result = await experienceRequest<Archive>(`sermons/${id}/archive`);
-    setArchive(result); setMetadataDraft(normalizeSessionMetadata(result.metadata)); setEditingMetadata(false); setReviewed(false); setCorrection(null);
+    const loaded = { ...result, metadata: normalizeSessionMetadata(result.metadata) };
+    setArchive(loaded); setMetadataDraft(loaded.metadata); setEditingMetadata(false); setReviewed(false); setCorrection(null);
   }
   async function allSources(id: string) {
     const sources: SourceRecord[] = []; let after = 0;
@@ -149,12 +150,12 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
           <header className="settingsHeader"><h2 id="archive-heading">{services.length ? "Choose a sermon" : "No saved sermons yet"}</h2>
             <p className="settingHint">{services.length ? "Pick one from the list to read its transcript and make a summary." : "Tick “Save the transcript” on the Live screen before you start a service. Saved sermons are kept for 7 days."}</p></header>
         </> : <>
-        <header className="settingsHeader"><h2 id="archive-heading">{metadataDraft.topic || new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(metadataDraft.sessionAt ?? archive.details.startedAt)}</h2>
-          <p className="settingHint">{metadataDraft.sessionAt !== null ? `${new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(metadataDraft.sessionAt)} · ` : ""}{archive.details.status === "ended" ? "Ended" : "Still running"} · kept until {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format((archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION)}</p></header>
+        <header className="settingsHeader"><h2 id="archive-heading">{archive.metadata.topic || new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(archive.metadata.sessionAt ?? archive.details.startedAt)}</h2>
+          <p className="settingHint">{archive.metadata.sessionAt !== null ? `${new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(archive.metadata.sessionAt)} · ` : ""}{archive.details.status === "ended" ? "Ended" : "Still running"} · kept until {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format((archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION)}</p></header>
         {editingMetadata ? <div className="experienceCard"><SessionMetadataFields value={metadataDraft} disabled={busy} onChange={setMetadataDraft} />
           <div className="buttonRow"><button type="button" className="secondaryButton" disabled={busy} onClick={() => { setMetadataDraft(normalizeSessionMetadata(archive.metadata)); setEditingMetadata(false); }}>Cancel</button>
             <button type="button" className="primaryButton" disabled={busy} onClick={() => void perform(async () => { const result = await experienceRequest<{ metadata: SessionMetadata }>(`sermons/${archive.details.id}/metadata`, normalizeSessionMetadata(metadataDraft)); setMetadataDraft(result.metadata); setArchive({ ...archive, metadata: result.metadata }); setEditingMetadata(false); })}>Save details</button></div></div>
-          : <><div className="archiveMetadata">{metadataDraft.speaker ? <p><strong>Speaker</strong> {metadataDraft.speaker}</p> : null}{metadataDraft.description ? <p>{metadataDraft.description}</p> : null}</div>
+          : <><div className="archiveMetadata">{archive.metadata.speaker ? <p><strong>Speaker</strong> {archive.metadata.speaker}</p> : null}{archive.metadata.description ? <p>{archive.metadata.description}</p> : null}</div>
             <button type="button" className="textButton" disabled={busy || !archive.details.saved || !archiveRetained} onClick={() => setEditingMetadata(true)}>Edit details</button></>}
         {archive.details.incomplete && <p className="operatorBanner" data-tone="warn">Parts of this service weren’t captured. Check the gaps in the transcript before sharing.</p>}
         <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(() => load(archive.details.id))}>Refresh</button>

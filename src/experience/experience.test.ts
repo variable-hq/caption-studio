@@ -87,6 +87,7 @@ describe("sermon journals", () => {
     const expiry = (await storage.get<JournalState>("state"))!.expiresAt;
     const response = await journal.fetch(request("/metadata", { topic: "Synthetic topic", speaker: "Synthetic speaker", description: "Record only", sessionAt: 123 }));
     expect(await response.json()).toMatchObject({ metadata: { topic: "Synthetic topic", sessionAt: 123 } });
+    expect(await (await journal.fetch(new Request("https://internal/metadata"))).json()).toMatchObject({ metadata: { topic: "Synthetic topic" } });
     const archive = await (await journal.fetch(request("/archive"))).json() as { metadata: unknown };
     expect(archive.metadata).toMatchObject({ topic: "Synthetic topic" });
     expect((await storage.get<JournalState>("state"))!.expiresAt).toBe(expiry);
@@ -97,9 +98,12 @@ describe("sermon journals", () => {
     expect((await unsaved.journal.fetch(request("/metadata", { topic: "Not retained" }))).status).toBe(409);
     const saved = await fixture();
     await saved.journal.fetch(request("/metadata", { topic: "Synthetic topic" }));
+    await saved.storage.put("summary", { status: "completed", result: [{ text: "Synthetic summary" }] });
+    await saved.storage.put("source:000001", { id: 1, text: "Synthetic source" });
     await saved.journal.fetch(request("/sync", { ...saved.initial, status: "ended", endedAt: Date.now() }));
     await saved.journal.fetch(request("/delete", { confirm: true }));
     expect(await saved.storage.get("metadata")).toBeUndefined();
+    expect([...saved.storage.values.keys()]).toEqual(["deleted"]);
   });
   it("persists source only after opt-in and keeps unsaved text out of durable storage", async () => {
     const { journal, storage } = await fixture(false);

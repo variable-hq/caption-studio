@@ -85,7 +85,7 @@ still consumes its claim; it cannot be replayed to spend again.
 | `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol | OBS and latest-viewer WebSockets |
 | `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation. `…/pair` needs Access only, so any workspace operator can pair a phone; the other operations still need the controller |
 | `GET`/`POST`/`DELETE …/experience/preferences` | Access | The signed-in operator's saved configuration; POST merges a partial record, `null` clears a field |
-| `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index, one sermon's workspace-wide archive |
+| `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/metadata`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index with metadata-only reads, one sermon's workspace-wide archive |
 | `POST …/sermons/{id}/summary`, `…/remove`, `…/correct`, `…/delete`, `…/metadata` | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion, record-only session details |
 | `GET /api/live/reader` | `x-caption-reader` header | Appending reader paragraphs and operator notes, 50 per poll |
 
@@ -94,7 +94,8 @@ for audio and 15 seconds for chat; Durable Object calls after 8 seconds.
 
 Translation requests may include a 500-character `liveNote`; it is validated and placed
 in a second JSON-fenced trusted guidance block, separate from untrusted caption data.
-Session metadata uses the journal's separate `metadata` key and is returned by `/archive`;
+Session metadata uses the journal's separate `metadata` key, is exposed through a small
+`GET /metadata` response for history lists, and is also returned by `/archive`;
 summary prompt construction reads only summary options, transcript segments and evidence
 notes.
 

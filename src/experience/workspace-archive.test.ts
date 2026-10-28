@@ -132,12 +132,15 @@ describe("workspace-wide sermon archives", () => {
   });
 
   it("lists saved sermons for an operator with no service of their own", async () => {
+    const metadataRead = vi.spyOn(journal, "fetch");
     const response = await handleExperienceRequest(as(SECOND_OPERATOR, "/api/live/experience/history"), environment);
     expect(response?.status).toBe(200);
     expect(await response!.json()).toEqual({ services: [{ ...ARCHIVED[0], metadata: { topic: "", speaker: "", description: "", sessionAt: null } }] });
     // The identity authorizes the read; it never scopes it, so nothing is forwarded.
     expect(roomRequests[0]?.headers.get("cf-access-jwt-assertion")).toBeNull();
     expect(await roomRequests[0]?.clone().text()).toBe("");
+    expect(metadataRead).toHaveBeenCalledWith(expect.objectContaining({ url: "https://internal/metadata" }));
+    expect(metadataRead).not.toHaveBeenCalledWith(expect.objectContaining({ url: "https://internal/archive" }));
   });
 
   it("enforces the 32 KB cap on metadata writes", async () => {

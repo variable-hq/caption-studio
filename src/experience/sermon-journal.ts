@@ -77,6 +77,7 @@ export class SermonJournal {
     const current = await this.configuration();
     if (!current) return json({ error: "Sermon unavailable or expired." }, 410);
     if (path === "/delete" && request.method === "POST") return this.handleDelete(current);
+    if (path === "/metadata" && request.method === "GET") return this.handleMetadataRead(current);
     if (path === "/metadata" && request.method === "POST") return this.handleMetadata(request, current);
     if (path === "/source" && request.method === "POST") return this.handleSource(request, current);
     if (path === "/gap" && request.method === "POST") return this.handleGap(current);
@@ -124,6 +125,12 @@ export class SermonJournal {
     const metadata = normalizeSessionMetadata(await request.json());
     await this.state.storage.put("metadata", metadata);
     return json({ metadata });
+  }
+
+  private async handleMetadataRead(current: JournalState) {
+    return json({ metadata: current.saved
+      ? await this.state.storage.get<SessionMetadata>("metadata") ?? normalizeSessionMetadata(null)
+      : normalizeSessionMetadata(null) });
   }
 
   private async handleSource(request: Request, current: JournalState) {
