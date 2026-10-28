@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SermonJournal, parseSummary } from "./sermon-journal";
 import { AiUsageLedger } from "./usage-ledger";
-import { DAY, HISTORY_RETENTION, MAX_JOURNAL_NOTES, READER_GRACE, SUMMARY_MODELS, type ExperienceEnvironment, type JournalState, type Namespace, type UsageRecord } from "./contracts";
+import { DAY, HISTORY_RETENTION, MAX_JOURNAL_NOTES, READER_GRACE, SUMMARY_MODELS, normalizeSessionMetadata, type ExperienceEnvironment, type JournalState, type Namespace, type UsageRecord } from "./contracts";
 import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
 import { normalizeCaptionStyle } from "@/live/contracts";
 import { handleExperienceRequest } from "./api";
@@ -75,6 +75,36 @@ describe("TB2 terminology", () => {
 });
 
 describe("sermon journals", () => {
+  it("normalizes and bounds record-only session metadata", () => {
+    expect(normalizeSessionMetadata({ topic: "  Topic ", speaker: "x".repeat(130), description: "bad\u0000text", sessionAt: -1 })).toEqual({ topic: "Topic", speaker: "x".repeat(120), description: "", sessionAt: null });
+    expect(normalizeSessionMetadata({ topic: "y".repeat(150), description: "d".repeat(1200), sessionAt: 42 })).toMatchObject({ topic: "y".repeat(120), description: "d".repeat(1000), sessionAt: 42 });
+  });
+  it("stores metadata separately, includes it in the archive and preserves service expiry", async () => {
+    const { journal, storage } = await fixture();
+    const stateBeforeEnd = (await storage.get<JournalState>("state"))!;
+    const endedAt = Date.now();
+    await journal.fetch(request("/sync", { ...stateBeforeEnd, status: "ended", endedAt }));
+    const expiry = (await storage.get<JournalState>("state"))!.expiresAt;
+    const response = await journal.fetch(request("/metadata", { topic: "Synthetic topic", speaker: "Synthetic speaker", description: "Record only", sessionAt: 123 }));
+    expect(await response.json()).toMatchObject({ metadata: { topic: "Synthetic topic", sessionAt: 123 } });
+    expect(await (await journal.fetch(new Request("https://internal/metadata"))).json()).toMatchObject({ metadata: { topic: "Synthetic topic" } });
+    const archive = await (await journal.fetch(request("/archive"))).json() as { metadata: unknown };
+    expect(archive.metadata).toMatchObject({ topic: "Synthetic topic" });
+    expect((await storage.get<JournalState>("state"))!.expiresAt).toBe(expiry);
+    expect(await storage.get("metadata")).toMatchObject({ description: "Record only" });
+  });
+  it("rejects metadata for unsaved sessions and clears it on delete", async () => {
+    const unsaved = await fixture(false);
+    expect((await unsaved.journal.fetch(request("/metadata", { topic: "Not retained" }))).status).toBe(409);
+    const saved = await fixture();
+    await saved.journal.fetch(request("/metadata", { topic: "Synthetic topic" }));
+    await saved.storage.put("summary", { status: "completed", result: [{ text: "Synthetic summary" }] });
+    await saved.storage.put("source:000001", { id: 1, text: "Synthetic source" });
+    await saved.journal.fetch(request("/sync", { ...saved.initial, status: "ended", endedAt: Date.now() }));
+    await saved.journal.fetch(request("/delete", { confirm: true }));
+    expect(await saved.storage.get("metadata")).toBeUndefined();
+    expect([...saved.storage.values.keys()]).toEqual(["deleted"]);
+  });
   it("persists source only after opt-in and keeps unsaved text out of durable storage", async () => {
     const { journal, storage } = await fixture(false);
     await journal.fetch(request("/source", { id: 1, text: "Synthetic private source", language: "id", translationRevision: 1 }));
@@ -172,13 +202,16 @@ describe("sermon journals", () => {
   });
   it("revokes reader access after grace while retaining private source for seven days", async () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-13T00:00:00Z"));
-    const { journal, initial } = await fixture();
+    const { journal, initial, storage } = await fixture();
+    await journal.fetch(request("/metadata", { topic: "Synthetic metadata" }));
     await journal.fetch(request("/sync", { ...initial, status: "ended", endedAt: Date.now() }));
     vi.advanceTimersByTime(READER_GRACE);
     expect((await journal.fetch(request("/read", undefined, { "x-reader-hash": readerHash }))).status).toBe(403);
     expect((await journal.fetch(request("/archive"))).status).toBe(200);
     vi.advanceTimersByTime(HISTORY_RETENTION - READER_GRACE);
     expect((await journal.fetch(request("/archive"))).status).toBe(410);
+    expect(await journal.fetch(request("/metadata", { topic: "Late edit" })).then((response) => response.status)).toBe(410);
+    expect(await storage.get("metadata")).toBeUndefined();
   });
   it("deletion blocks late lifecycle messages from resurrecting content", async () => {
     const { journal, initial, storage } = await fixture();
@@ -449,15 +482,17 @@ describe("experience recovery", () => {
     await journal.alarm(); await journal.alarm();
     expect(await storage.get("summary")).toMatchObject({ status: "failed" });
   });
-  it("generates a manual summary in bounded section and synthesis calls", async () => {
+  it("generates a manual summary without putting record-only metadata in the prompt", async () => {
     const run = vi.fn(async () => ({ response: JSON.stringify({ points: [{ text: "Synthetic supported point", sourceIds: [1] }] }),
       usage: { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 } }));
     const { journal, initial, storage } = await fixture(true, optionalEnvironment(run));
+    await journal.fetch(request("/metadata", { topic: "Synthetic record-only detail" }));
     await journal.fetch(request("/source", { id: 1, text: "Synthetic source", language: "id", translationRevision: 1 }));
     await journal.fetch(request("/sync", { ...initial, endedAt: Date.now(), status: "ended" }));
     await journal.fetch(request("/summary", summaryOptions));
     await journal.alarm(); await journal.alarm();
     expect(run).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(run.mock.calls)).not.toContain("Synthetic record-only detail");
     expect(await storage.get("summary")).toMatchObject({ status: "completed", result: [{ sourceIds: [1] }] });
   });
   it("does not recreate deleted content after a summary returns", async () => {

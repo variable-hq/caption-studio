@@ -1,7 +1,7 @@
 # Architecture
 
-Reviewed against merged PR #33 (`abae57b`), 14 September 2026. Cloudflare deployed
-`20597d8` after the proxy fix; later merges have no recorded deployment yet. See the
+Reviewed 28 October 2026 against the Live note, Recent outputs and session metadata
+implementation. Cloudflare deployed `20597d8` after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
 
@@ -9,11 +9,11 @@ physical-device, provider-output or semantic acceptance.
 
 | Component | Responsibility |
 | --- | --- |
-| Capture browser | Audio selection, 6/9/12/15/18-second MediaRecorder chunks, two-chunk queue, source preview, terminology, moderation, output buffer queue, background-tab pause detection, controls and same-tab recovery |
+| Capture browser | Audio selection, 6/9/12/15/18-second MediaRecorder chunks, two-chunk queue, source preview, terminology, moderation, output buffer queue, live note, recent outputs, controls and same-tab recovery |
 | Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
 | `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
-| `SermonJournal` | One service's source/corrections/exclusions, reader paragraphs, operator notes, lifecycle checkpoints and manual summary jobs |
+| `SermonJournal` | One service's source/corrections/exclusions, record-only session metadata, reader paragraphs, operator notes, lifecycle checkpoints and manual summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
 | `OperatorPreferences` | One object per hashed Access email (theme, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and words, output buffer, transcript-saving default and automatic summaries |
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
@@ -85,12 +85,19 @@ still consumes its claim; it cannot be replayed to spend again.
 | `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol | OBS and latest-viewer WebSockets |
 | `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation. `…/pair` needs Access only, so any workspace operator can pair a phone; the other operations still need the controller |
 | `GET`/`POST`/`DELETE …/experience/preferences` | Access | The signed-in operator's saved configuration; POST merges a partial record, `null` clears a field |
-| `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index, one sermon's workspace-wide archive |
-| `POST …/sermons/{id}/summary`, `…/remove`, `…/correct`, `…/delete` | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion |
+| `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/metadata`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index with metadata-only reads, one sermon's workspace-wide archive |
+| `POST …/sermons/{id}/summary`, `…/remove`, `…/correct`, `…/delete`, `…/metadata` | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion, record-only session details |
 | `GET /api/live/reader` | `x-caption-reader` header | Appending reader paragraphs and operator notes, 50 per poll |
 
 Experience JSON bodies are limited to 32,768 bytes. Groq calls time out after 30 seconds
 for audio and 15 seconds for chat; Durable Object calls after 8 seconds.
+
+Translation requests may include a 500-character `liveNote`; it is validated and placed
+in a second JSON-fenced trusted guidance block, separate from untrusted caption data.
+Session metadata uses the journal's separate `metadata` key, is exposed through a small
+`GET /metadata` response for history lists, and is also returned by `/archive`;
+summary prompt construction reads only summary options, transcript segments and evidence
+notes.
 
 ## Credentials and public surfaces
 
@@ -180,11 +187,14 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | --- | --- |
 | Raw audio and queued chunks | Browser/request memory only; never archived |
 | Draft translation settings | Page memory; active snapshot in tab sessionStorage for recovery |
+| Live note | Controlling tab memory and sessionStorage, keyed to the service start time; never journaled or logged |
+| Recent outputs | Controlling tab memory; last 3 published outputs, reset at Start, End and takeover |
 | Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, history-saving default, automatic-summary opt-in (church setup, `workspace:setup`); theme (per operator) | `OperatorPreferences` object keyed by the SHA-256 of the lower-cased Access email, kept until the operator clears it; a browser copy remains in unencrypted localStorage as a fallback, and the shared channel style also persists |
 | OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
 | Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
 | Latest public caption | Main live state; cleared by controls and End/expiry |
 | Source, corrections, exclusions, paragraphs, summaries with saving on | Per-service journal, readable by every workspace operator and by no audience surface; expires seven days after End/expiry |
+| Session metadata | Separate `metadata` key in that service's journal; same Access and seven-day expiry as its saved archive; excluded from summary input |
 | Reader text with saving off | Object/browser memory; may be lost on eviction; no stored source archive |
 | Reader rule snapshot/checkpoint with saving on | Bounded glossary/filter and pending public input in journal while needed for processing/recovery |
 | Numeric usage and deduplication entries | Separate usage object; each expires 30 days after its original attempt |

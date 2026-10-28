@@ -49,9 +49,12 @@ import { startSerialPolling } from "@/live/serial-polling";
 import { useMicrophoneInput } from "@/live/use-microphone-input";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
 import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
+import { normalizeLiveNote } from "@/live/live-note";
+import { useRecentOutputs } from "@/live/use-recent-outputs";
 
 interface LiveCaptionSettings extends TranslationSessionSettings {
   saveHistory?: boolean;
+  liveNote?: string;
   style: CaptionStyle;
   outputBufferCount: OutputBufferCount;
   outputBufferDwellMs: OutputBufferDwellMs;
@@ -66,6 +69,7 @@ const CONTROLLER_STORAGE_KEY = "caption-studio:main-controller:v1";
 const VIEWER_STORAGE_KEY = "caption-studio:main-viewer:v1";
 const TRANSLATION_SETTINGS_STORAGE_KEY =
   "caption-studio:active-translation-settings:v1";
+export const LIVE_NOTE_STORAGE_KEY = "caption-studio:live-note:v1";
 const LEGACY_SPEECH_BUFFER_STORAGE_KEY =
   "caption-studio:speech-buffer:v1";
 
@@ -120,6 +124,7 @@ function isControllerReplaced(error: unknown) {
 }
 
 export function useLiveCaptionSession(settings: LiveCaptionSettings) {
+  const { outputs: recentOutputs, record: recordRecentOutput, reset: resetRecentOutputs } = useRecentOutputs();
   const {
     devices,
     selectedDeviceId,
@@ -272,6 +277,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       loadGenerationRef.current += 1;
       stopCapture();
       resetOutputBuffer();
+      resetRecentOutputs();
       clearServiceTimer();
       window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
       window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
@@ -310,7 +316,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           : current.channel,
       }));
     },
-    [clearServiceTimer, requireTranslationRefresh, resetOutputBuffer, stopCapture],
+    [clearServiceTimer, requireTranslationRefresh, resetOutputBuffer, resetRecentOutputs, stopCapture],
   );
 
   const endService = useCallback(
@@ -321,6 +327,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setControlAction(null);
       stopCapture();
       resetOutputBuffer();
+      resetRecentOutputs();
       clearServiceTimer();
       const service = serviceRef.current;
       if (!service) {
@@ -408,7 +415,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         endingRef.current = false;
       }
     },
-    [clearServiceTimer, handleTakenOver, requireTranslationRefresh, resetOutputBuffer, stopCapture],
+    [clearServiceTimer, handleTakenOver, requireTranslationRefresh, resetOutputBuffer, resetRecentOutputs, stopCapture],
   );
 
   const reconcileExternalTranslationRevision = useCallback(
@@ -476,6 +483,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           publicText: entry.publicText,
         });
         if (!isStillCurrentService()) return;
+        recordRecentOutput({ id: crypto.randomUUID(), at: Date.now(), sourceText: entry.sourceText, publicText: entry.publicText, hidden: entry.hidden });
         setLiveState((state) => ({
           ...state,
           message: entry.hidden
@@ -530,7 +538,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         setLiveState((state) => ({ ...state, message }));
       }
     },
-    [endService, handleTakenOver, reconcileExternalTranslationRevision, outputBufferGenerationRef, resetOutputBuffer, stopCapture],
+    [endService, handleTakenOver, reconcileExternalTranslationRevision, outputBufferGenerationRef, recordRecentOutput, resetOutputBuffer, stopCapture],
   );
   publishBufferedEntryRef.current = publishBufferedEntry;
 
@@ -619,6 +627,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       let translation: TranslationResult = { text: sourceText };
       if (detectedLanguage !== current.targetLanguage) {
         try {
+          const liveNote = normalizeLiveNote(settingsRef.current.liveNote);
           translation = await cloudClientRef.current.translate(
             {
               text: sourceText,
@@ -630,6 +639,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               inferenceLevel: current.inferenceLevel,
               sanitizeLevel: current.sanitizeLevel,
               filterInappropriateLanguage: current.filterInappropriateLanguage,
+              ...(liveNote ? { liveNote } : {}),
             },
             inferenceContext,
             signal,
@@ -687,6 +697,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           event,
         );
         if (!isCurrentCapture()) return;
+        recordRecentOutput({ id: crypto.randomUUID(), at: Date.now(), sourceText: forms.protectedSourceText, publicText: forms.publicText, hidden: forms.hiddenFromPublicDisplay });
         setLiveState((state) => ({
           ...state,
           message: forms.hiddenFromPublicDisplay
@@ -730,7 +741,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         lastLatencyMs: Math.round(performance.now() - startedAt),
       }));
     },
-    [enqueueOutputBufferEntry, outputBufferGenerationRef, publishBufferedEntry, reconcileExternalTranslationRevision],
+    [enqueueOutputBufferEntry, outputBufferGenerationRef, publishBufferedEntry, recordRecentOutput, reconcileExternalTranslationRevision],
   );
 
   const drainQueue = useCallback(async () => {
@@ -1241,6 +1252,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         recentContextRef.current = [];
         queueRef.current = [];
         resetOutputBuffer();
+        resetRecentOutputs();
         captureGenerationRef.current += 1;
         const generation = captureGenerationRef.current;
         captureAbortRef.current = new AbortController();
@@ -1303,6 +1315,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       liveState.channel?.configured,
       requireTranslationRefresh,
       resetOutputBuffer,
+      resetRecentOutputs,
       selectedDeviceId,
       startRecorder,
       stopMicrophone,
@@ -2066,6 +2079,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     showTestCaption,
     showManualCaption,
     outputBufferQueue,
+    recentOutputs,
     setOutputBufferEntryPaused,
     clearOutputBufferEntry,
     fastForwardOutputBufferEntry,

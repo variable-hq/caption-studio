@@ -35,6 +35,10 @@ records to establish release evidence.
   superseded it with the Live, Sermons and Settings layout.
 - [ADR 0022](decisions/0022-shared-church-setup-and-words-list.md) records one church setup
   shared by all operators, the Words list, one summary model and one buffer wait choice.
+- [ADR 0023](decisions/0023-live-note-and-recent-outputs.md) records the immediate, bounded
+  Live note prompt and the controlling tab's display-only Recent outputs strip.
+- [ADR 0024](decisions/0024-session-metadata.md) records optional saved-sermon details and
+  why they remain outside all model prompts.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator, and the default-on operator control for faithful
   rendering when that omission rule is disabled.

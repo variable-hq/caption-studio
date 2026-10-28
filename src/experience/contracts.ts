@@ -6,6 +6,20 @@ export const USAGE_RETENTION = 30 * DAY;
 export const READER_GRACE = 30 * 60_000;
 export const READER_INTERVAL = 30_000;
 export const MAX_JOURNAL_NOTES = 50;
+export const MAX_SESSION_TOPIC_CHARS = 120;
+export const MAX_SESSION_SPEAKER_CHARS = 120;
+export const MAX_SESSION_DESCRIPTION_CHARS = 1_000;
+const SESSION_METADATA_CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u;
+
+export interface SessionMetadata { topic: string; speaker: string; description: string; sessionAt: number | null }
+export const EMPTY_SESSION_METADATA: SessionMetadata = { topic: "", speaker: "", description: "", sessionAt: null };
+export function normalizeSessionMetadata(input: unknown): SessionMetadata {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return { ...EMPTY_SESSION_METADATA };
+  const value = input as Record<string, unknown>;
+  const clean = (raw: unknown, max: number) => typeof raw === "string" && !SESSION_METADATA_CONTROL_CHARACTERS.test(raw) ? raw.trim().slice(0, max).trim() : "";
+  const sessionAt = value.sessionAt === null || value.sessionAt === "" ? null : typeof value.sessionAt === "number" && Number.isInteger(value.sessionAt) && Number.isFinite(value.sessionAt) && value.sessionAt >= 0 ? value.sessionAt : null;
+  return { topic: clean(value.topic, MAX_SESSION_TOPIC_CHARS), speaker: clean(value.speaker, MAX_SESSION_SPEAKER_CHARS), description: clean(value.description, MAX_SESSION_DESCRIPTION_CHARS), sessionAt };
+}
 export const SUMMARY_MODELS = [
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   "@cf/meta/llama-3.1-8b-instruct-fp8",

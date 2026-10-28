@@ -1,18 +1,21 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { LiveObserverDetails, LiveServiceDetails } from "@/live/contracts";
-import { experienceRequest } from "@/experience/client";
-import { HISTORY_RETENTION, type JournalState, type ReaderNote, type ReaderParagraph, type SourceRecord, type SummaryJob, type SummaryModel, type SummaryOptions } from "@/experience/contracts";
+import { experienceRequest, ExperienceRequestError } from "@/experience/client";
+import { HISTORY_RETENTION, EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata, type JournalState, type ReaderNote, type ReaderParagraph, type SourceRecord, type SummaryJob, type SummaryModel, type SummaryOptions } from "@/experience/contracts";
 import { DEFAULT_SUMMARY_OPTIONS } from "@/experience/summary-defaults";
 import { LANGUAGE_OPTIONS } from "@/domain/languages";
 import { SettingGroup } from "@/components/operator/SettingsParts";
+import { SessionMetadataFields } from "@/components/operator/SessionMetadataFields";
 
-interface Archive { details: Omit<JournalState, "readerHash">; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
-interface ServiceEntry { id: string; startedAt: number }
+interface Archive { details: Omit<JournalState, "readerHash">; metadata: SessionMetadata; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
+interface ServiceEntry { id: string; startedAt: number; metadata?: SessionMetadata }
 
 export function ServiceExperiencePanel({ view, service, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; service: LiveServiceDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
   const [services, setServices] = useState<ServiceEntry[]>([]);
   const [archive, setArchive] = useState<Archive | null>(null);
+  const [metadataDraft, setMetadataDraft] = useState<SessionMetadata>({ ...EMPTY_SESSION_METADATA });
+  const [editingMetadata, setEditingMetadata] = useState(false);
   const [issuedLink, setIssuedLink] = useState<{ serviceId: string; url: string } | null>(null);
   const [readerLink, setReaderLink] = useState<{ serviceId: string; url: string } | null>(null);
   // Pairing works for every workspace operator, so the running service may be
@@ -40,6 +43,13 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [correction, setCorrection] = useState<{ id: number; text: string } | null>(null);
   const [reviewed, setReviewed] = useState(false);
+  const [now, setNow] = useState(0);
+  const archiveRetained = Boolean(archive && (archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION > now);
+  useEffect(() => {
+    const initial = setTimeout(() => setNow(Date.now()), 0);
+    const interval = setInterval(() => setNow(Date.now()), 60_000);
+    return () => { clearTimeout(initial); clearInterval(interval); };
+  }, []);
   useEffect(() => {
     if (confirmation) dialogRef.current?.showModal();
     else dialogRef.current?.close();
@@ -62,6 +72,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
   async function perform(work: () => Promise<void>) {
     if (busy) return; setBusy(true); setMessage("");
     try { await work(); } catch (error) {
+      if (error instanceof ExperienceRequestError && error.status === 410) { setArchive(null); setEditingMetadata(false); }
       // A network failure or a non-JSON reply (an HTML error page, a proxy) is a connection
       // problem, not a message to show verbatim.
       setMessage(error instanceof Error && !(error instanceof SyntaxError) && !(error instanceof TypeError) ? error.message : "Couldn’t reach the sermon store. Check the connection, then try again.");
@@ -85,7 +96,8 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
   }, [view]);
   async function load(id: string) {
     const result = await experienceRequest<Archive>(`sermons/${id}/archive`);
-    setArchive(result); setReviewed(false); setCorrection(null);
+    const loaded = { ...result, metadata: normalizeSessionMetadata(result.metadata) };
+    setArchive(loaded); setMetadataDraft(loaded.metadata); setEditingMetadata(false); setReviewed(false); setCorrection(null);
   }
   async function allSources(id: string) {
     const sources: SourceRecord[] = []; let after = 0;
@@ -131,15 +143,20 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
         {loadedList && !services.length && <p className="settingHint">No saved sermons yet.</p>}
         <div className="archiveList">{services.map((entry) => <button type="button" className="sermonListItem" key={entry.id} disabled={busy}
           aria-current={archive?.details.id === entry.id ? "page" : undefined}
-          onClick={() => void perform(() => load(entry.id))}>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(entry.startedAt)}</button>)}</div>
+          onClick={() => void perform(() => load(entry.id))}>{entry.metadata?.topic ? `${entry.metadata.topic} · ` : ""}{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(entry.metadata?.sessionAt ?? entry.startedAt)}</button>)}</div>
       </nav>
       <section className="operatorCard settingsPanel" aria-labelledby="archive-heading">
         {!archive ? <>
           <header className="settingsHeader"><h2 id="archive-heading">{services.length ? "Choose a sermon" : "No saved sermons yet"}</h2>
             <p className="settingHint">{services.length ? "Pick one from the list to read its transcript and make a summary." : "Tick “Save the transcript” on the Live screen before you start a service. Saved sermons are kept for 7 days."}</p></header>
         </> : <>
-        <header className="settingsHeader"><h2 id="archive-heading">{new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(archive.details.startedAt)}</h2>
-          <p className="settingHint">{archive.details.status === "ended" ? "Ended" : "Still running"} · kept until {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format((archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION)}</p></header>
+        <header className="settingsHeader"><h2 id="archive-heading">{archive.metadata.topic || new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(archive.metadata.sessionAt ?? archive.details.startedAt)}</h2>
+          <p className="settingHint">{archive.metadata.sessionAt !== null ? `${new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(archive.metadata.sessionAt)} · ` : ""}{archive.details.status === "ended" ? "Ended" : "Still running"} · kept until {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format((archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION)}</p></header>
+        {editingMetadata ? <div className="experienceCard"><SessionMetadataFields value={metadataDraft} disabled={busy} onChange={setMetadataDraft} />
+          <div className="buttonRow"><button type="button" className="secondaryButton" disabled={busy} onClick={() => { setMetadataDraft(normalizeSessionMetadata(archive.metadata)); setEditingMetadata(false); }}>Cancel</button>
+            <button type="button" className="primaryButton" disabled={busy} onClick={() => void perform(async () => { const result = await experienceRequest<{ metadata: SessionMetadata }>(`sermons/${archive.details.id}/metadata`, normalizeSessionMetadata(metadataDraft)); setMetadataDraft(result.metadata); setArchive({ ...archive, metadata: result.metadata }); setEditingMetadata(false); })}>Save details</button></div></div>
+          : <><div className="archiveMetadata">{archive.metadata.speaker ? <p><strong>Speaker</strong> {archive.metadata.speaker}</p> : null}{archive.metadata.description ? <p>{archive.metadata.description}</p> : null}</div>
+            <button type="button" className="textButton" disabled={busy || !archive.details.saved || !archiveRetained} onClick={() => setEditingMetadata(true)}>Edit details</button></>}
         {archive.details.incomplete && <p className="operatorBanner" data-tone="warn">Parts of this service weren’t captured. Check the gaps in the transcript before sharing.</p>}
         <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(() => load(archive.details.id))}>Refresh</button>
           <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => download("sermon-transcript.json", await allSources(archive.details.id)))}>Export transcript</button>
