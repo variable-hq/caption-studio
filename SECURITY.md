@@ -1,7 +1,7 @@
 # Security policy
 
-Reviewed 14 September 2026 against merged PR #33 (`abae57b`). The 13 September deployment
-retry of `20597d8` succeeded;
+Reviewed 28 October 2026 against the Live note, Recent outputs and session metadata
+implementation. The 13 September deployment retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
 Caption Studio is a pre-release prototype. Security fixes are supported only on
@@ -260,6 +260,8 @@ setting.
 - Validate request size from the received body before parsing JSON or multipart data,
   not only from `Content-Length`.
 - Keep provider prompts, recent context, glossary entries, and output sizes bounded.
+- Live notes are operator-entered prompt text, capped at 500 characters and kept in the controlling tab's `sessionStorage` for the matching service only. They are sent only to the translation provider, never logged, archived, or shared with audience surfaces. Recent outputs stay in that tab's memory and are not sent to a provider or stored in the journal.
+- Session metadata is operator-entered record-keeping data in the same saved-service journal and seven-day retention window as its archive. It is not included in translation or summary prompts and is not logged.
 - Keep the translation-session revision check fail closed so a provider response started
   before refresh cannot publish under the newly active settings.
 - Avoid raw exception details in public responses.

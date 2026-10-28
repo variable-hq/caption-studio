@@ -1,8 +1,8 @@
 # Product specification
 
-Reviewed against merged PR #33 (`abae57b`), 14 September 2026, including the dashboard
-navigation and collapsible service panel. The corrected 13 September deploy of `20597d8`
-succeeded; protected runtime and church-language acceptance remain separate gates.
+Reviewed 28 October 2026 against the Live note, Recent outputs and session metadata
+implementation. The corrected 13 September deploy of `20597d8` succeeded; protected
+runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
 ## Product vision
@@ -297,6 +297,30 @@ belongs in the filter field above.
 Terminology and filter edits made during an active service are drafts until the same
 explicit translation refresh used for language, Inference, Sanitization, recording window,
 and prompt changes.
+
+### Live note and recent outputs
+
+**Live note** is an ephemeral, operator-authored situational hint for an ambiguity in the
+current passage (names, terms, sound words, speaker, or quoted voices). It applies to
+translations that start after the edit without **Apply now** or a context reset. It cannot
+correct a misheard word; use Quick override for a live exact correction or Words for a
+persistent rule. The note is limited to 500 characters, kept only in this tab's
+`sessionStorage` for the matching service, and cleared at Start, End and takeover. It is
+sent in a fenced trusted guidance block beside translator instructions, never as speech
+data, and the server envelope always takes priority.
+
+**Recent outputs** shows the last 3 successfully published captions in the controlling
+tab, newest first, with time, public text and source text. Filtered entries read “Hidden by
+filter”. It records whether the output buffer was active, but does not change or feed later
+translations. Pause and Clear preserve the strip; Start, End and takeover reset it.
+
+| Control | Purpose | When it applies |
+| --- | --- | --- |
+| Words (Settings › Words) | Exact word rules and spelling fixes | After Apply now |
+| Quick override (Live › Quick fixes) | Four live word actions, including hide and spelling correction | Immediately; current service only |
+| Translator instructions (Settings) | Standing guidance for the whole service | After Apply now |
+| Live note | Situational guidance for the passage being spoken now | From the next translation; current service only |
+| Recent outputs | Observe the last 3 published captions | Display only; changes nothing |
 
 ### Output buffer
 
@@ -607,6 +631,12 @@ passage excludes its source IDs and invalidates summaries without deleting origi
 the current live caption uses one of those IDs, removal also requests its clearing; it
 never rewrites OBS.
 Confirmed Delete requires End, removes content and the archive index, and rejects late jobs.
+
+Optional **Session details** (Topic and Speaker up to 120 characters each, Description up
+to 1,000 characters, and an optional session date/time) are saved only with opted-in
+history. They remain editable by any signed-in workspace operator while the seven-day
+archive exists. They are record-keeping only: they are not sent to translation or summary
+models, do not extend retention, and are deleted with the archive.
 
 The paired `/operator/mobile` phone remote offers **Pause**, **Resume** and **Clear
 screen**; Resume stays disabled while the capture computer is disconnected,

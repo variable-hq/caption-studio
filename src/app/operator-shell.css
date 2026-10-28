@@ -221,6 +221,28 @@
   gap: var(--gap-md);
 }
 
+.recentOutputs {
+  display: grid;
+  gap: var(--gap-sm);
+  margin-top: var(--gap-md);
+  padding-top: var(--gap-md);
+  border-top: 1px solid var(--line);
+  min-width: 0;
+}
+.recentOutputs h3 { margin: 0; font-size: var(--text-base); }
+.recentOutputs ol { display: grid; gap: var(--gap-sm); margin: 0; padding: 0; list-style: none; }
+.recentOutputs li { min-width: 0; padding: var(--gap-sm); background: var(--surface-muted); border-radius: var(--radius-md); overflow-wrap: anywhere; }
+.recentOutputs li time { color: var(--muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.recentOutputs li p { margin: var(--space-0) 0 0; }
+.recentOutputs li .settingHint { margin-top: var(--space-0); }
+.sessionMetadataFields { display: grid; gap: var(--gap-md); }
+.sessionMetadataFields h3 { margin: 0; }
+.sessionMetadataFields label { min-width: 0; }
+.sessionMetadataFields input,
+.sessionMetadataFields textarea { width: 100%; }
+.archiveMetadata { min-width: 0; overflow-wrap: anywhere; }
+.archiveMetadata p { margin: var(--space-0) 0; }
+
 .monitorPane {
   display: flex;
   flex-direction: column;
@@ -639,6 +661,7 @@
   display: flex;
   align-items: center;
   width: 100%;
+  min-width: 0;
   min-height: var(--control-height);
   padding: 0 var(--space-2);
   border: 0;
@@ -649,6 +672,8 @@
   font-size: var(--text-base);
   font-weight: var(--weight-bold);
   text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s;
@@ -748,8 +773,8 @@
     scrollbar-width: thin;
   }
 
-  .settingsNav a,
-  .sermonListItem { flex: none; white-space: nowrap; }
+  .settingsNav a { flex: none; white-space: nowrap; }
+  .sermonListItem { flex: 0 0 min(70vw, 18rem); }
   .settingsNav .operatorHint,
   .settingsNav > .settingHint { display: none; }
   .sermonList .archiveList { flex-direction: row; }

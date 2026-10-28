@@ -20,6 +20,9 @@ import { CaptionPreview } from "@/components/operator/CaptionPreview";
 import { ConfirmDialog } from "@/components/operator/ConfirmDialog";
 import { LiveControlBar } from "@/components/operator/LiveControlBar";
 import { LiveOutputsSection } from "@/components/operator/LiveOutputsSection";
+import { LiveNoteControl } from "@/components/operator/LiveNoteControl";
+import { RecentOutputsStrip } from "@/components/operator/RecentOutputsStrip";
+import { SessionMetadataFields } from "@/components/operator/SessionMetadataFields";
 import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
 import { OperatorTopBar, type OperatorScreenId, type StatusTone } from "@/components/operator/OperatorTopBar";
 import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
@@ -77,6 +80,9 @@ import {
 } from "@/live/translation-settings";
 import { useLiveCaptionSession } from "@/live/use-live-caption-session";
 import { useObservedSession } from "@/live/use-observed-session";
+import { normalizeLiveNote } from "@/live/live-note";
+import { EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata } from "@/experience/contracts";
+import { experienceRequest } from "@/experience/client";
 import { ServiceExperiencePanel } from "@/components/operator/ServiceExperiencePanel";
 import { UsageHistory } from "@/components/operator/UsageHistory";
 import { formatCount } from "@/components/operator/format-count";
@@ -174,6 +180,15 @@ export default function OperatorDashboard() {
   );
   const [filterText, setFilterText] = useState("");
   const [saveHistory, setSaveHistory] = useState(false);
+  const [sessionMetadata, setSessionMetadata] = useState<SessionMetadata>({ ...EMPTY_SESSION_METADATA });
+  const [sessionDateEdited, setSessionDateEdited] = useState(false);
+  const [sessionMetadataMessage, setSessionMetadataMessage] = useState("");
+  const [liveNote, setLiveNote] = useState("");
+  const liveNoteRestoredFor = useRef<string | null>(null);
+  const priorServiceStartedAt = useRef<string | null>(null);
+  const metadataPostedFor = useRef<string | null>(null);
+  const metadataWrite = useRef<Promise<void> | null>(null);
+  const shouldAutoSaveMetadata = useRef(false);
   const [saveHistoryDefaultMessage, setSaveHistoryDefaultMessage] = useState("");
   const [autoSummaryMessage, setAutoSummaryMessage] = useState("");
   const [theme, setTheme] = useState<ThemePreference>("system");
@@ -277,10 +292,11 @@ export default function OperatorDashboard() {
       ...draftTranslationSettings,
       style,
       saveHistory,
+      liveNote,
       outputBufferCount,
       outputBufferDwellMs,
     }),
-    [draftTranslationSettings, style, saveHistory, outputBufferCount, outputBufferDwellMs],
+    [draftTranslationSettings, style, saveHistory, liveNote, outputBufferCount, outputBufferDwellMs],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {
@@ -320,6 +336,7 @@ export default function OperatorDashboard() {
     stopSession,
     reloadChannel,
     outputBufferQueue,
+    recentOutputs,
     setOutputBufferEntryPaused,
     clearOutputBufferEntry,
     fastForwardOutputBufferEntry,
@@ -328,6 +345,75 @@ export default function OperatorDashboard() {
     cancelOutputBufferEdit,
     submitOutputBufferEdit,
   } = useLiveCaptionSession(liveSettings);
+  useEffect(() => {
+    const startedAt = liveState.service?.startedAt ?? null;
+    if (!startedAt) {
+      if (priorServiceStartedAt.current) {
+        liveNoteRestoredFor.current = null;
+        window.sessionStorage.removeItem("caption-studio:live-note:v1");
+        priorServiceStartedAt.current = null;
+        const frame = window.requestAnimationFrame(() => {
+          setLiveNote("");
+          setSessionMetadata({ ...EMPTY_SESSION_METADATA, sessionAt: Date.now() });
+          setSessionDateEdited(false);
+          setSessionMetadataMessage("");
+        });
+        return () => window.cancelAnimationFrame(frame);
+      }
+      return;
+    }
+    let restored = "";
+    try {
+      const stored = JSON.parse(window.sessionStorage.getItem("caption-studio:live-note:v1") ?? "null") as { startedAt?: string; value?: unknown } | null;
+      restored = stored?.startedAt === startedAt ? normalizeLiveNote(stored.value) : "";
+    } catch { restored = ""; }
+    const frame = window.requestAnimationFrame(() => {
+      liveNoteRestoredFor.current = startedAt;
+      priorServiceStartedAt.current = startedAt;
+      setLiveNote(restored);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [liveState.service?.startedAt]);
+  useEffect(() => {
+    const startedAt = liveState.service?.startedAt;
+    if (!startedAt || liveNoteRestoredFor.current !== startedAt) return;
+    window.sessionStorage.setItem("caption-studio:live-note:v1", JSON.stringify({ startedAt, value: normalizeLiveNote(liveNote) }));
+  }, [liveNote, liveState.service?.startedAt]);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setSessionMetadata((value) => value.sessionAt === null ? { ...value, sessionAt: Date.now() } : value));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    const startedAt = liveState.service?.startedAt;
+    if (!startedAt || sessionDateEdited) return;
+    const frame = window.requestAnimationFrame(() => setSessionMetadata((value) => ({ ...value, sessionAt: Date.parse(startedAt) })));
+    return () => window.cancelAnimationFrame(frame);
+  }, [liveState.service?.startedAt, sessionDateEdited]);
+  useEffect(() => {
+    const service = liveState.service;
+    if (!service) {
+      if (["error", "idle", "taken-over"].includes(liveState.status)) shouldAutoSaveMetadata.current = false;
+      return;
+    }
+    if (!service.saveHistory) { shouldAutoSaveMetadata.current = false; return; }
+    if (!shouldAutoSaveMetadata.current || !service?.saveHistory || !service.serviceId || metadataPostedFor.current === service.serviceId) return;
+    metadataPostedFor.current = service.serviceId;
+    const metadata = normalizeSessionMetadata({ ...sessionMetadata, sessionAt: sessionDateEdited ? sessionMetadata.sessionAt : Date.parse(service.startedAt) });
+    metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`sermons/${service.serviceId}/metadata`, metadata)
+      .then((result) => { setSessionMetadata(result.metadata); setSessionMetadataMessage("Session details saved."); shouldAutoSaveMetadata.current = false; })
+      .catch(() => { setSessionMetadataMessage("Couldn’t save session details. Start and captions continue; check the connection and save details again."); shouldAutoSaveMetadata.current = false; });
+  }, [liveState.service, liveState.status, sessionMetadata, sessionDateEdited]);
+  async function saveLiveSessionMetadata() {
+    const serviceId = liveState.service?.serviceId;
+    if (!serviceId || !liveState.service?.saveHistory) return;
+    setSessionMetadataMessage("Saving…");
+    try {
+      await metadataWrite.current;
+      const result = await experienceRequest<{ metadata: SessionMetadata }>(`sermons/${serviceId}/metadata`, normalizeSessionMetadata(sessionMetadata));
+      setSessionMetadata(result.metadata);
+      setSessionMetadataMessage("Session details saved.");
+    } catch { setSessionMetadataMessage("Couldn’t save session details. Check the connection, then try again."); }
+  }
   const activeTranslationSettingsFingerprint = useMemo(
     () =>
       activeTranslationSettings
@@ -1168,6 +1254,7 @@ export default function OperatorDashboard() {
                 />
               </div>
             </div>
+            {!observed.observer && <RecentOutputsStrip outputs={recentOutputs} />}
             <div className="levelRow">
               <span>Microphone</span>
               <AudioLevelMeter level={level} />
@@ -1182,7 +1269,7 @@ export default function OperatorDashboard() {
                   className="primaryButton"
                   disabled={startBlocked}
                   aria-describedby="start-help"
-                  onClick={() => void startSession()}
+                  onClick={() => { shouldAutoSaveMetadata.current = true; setLiveNote(""); void startSession(); }}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
                   {liveState.status === "starting" ? "Starting…" : "Start captions"}
@@ -1213,6 +1300,11 @@ export default function OperatorDashboard() {
                   <span className="operatorHint">Needed for Sermons and AI summary. Everyone at {WORKSPACE_NAME} can open it. Tell the congregation when it’s on.</span>
                 </span>
               </label>
+              <SessionMetadataFields value={sessionMetadata} disabled={!saveHistory || isBusy} onChange={(value) => {
+                setSessionMetadata(value);
+                if (value.sessionAt !== sessionMetadata.sessionAt) setSessionDateEdited(true);
+              }} />
+              {!saveHistory ? <p className="settingHint">Turn on transcript saving to keep session details with the sermon.</p> : null}
               {accountPreferences?.saveHistoryDefault !== saveHistory ? (
                 <button className="textButton" type="button" disabled={isBusy} onClick={saveHistoryAsDefault}>
                   Make this the church default
@@ -1248,6 +1340,7 @@ export default function OperatorDashboard() {
                   onSubmitEdit: submitOutputBufferEdit,
                 }}
               />
+              <LiveNoteControl value={liveNote} disabled={observed.observer !== null} onChange={setLiveNote} />
               {isPaused ? (
                 <button type="button" className="secondaryButton" disabled={isBusy || controlAction !== null} onClick={() => void showTestCaption()}>
                   {controlAction === "show-test" ? "Showing…" : "Show a test caption"}
@@ -1285,6 +1378,9 @@ export default function OperatorDashboard() {
               <h2 id="this-service-heading">This service</h2>
               <div className="statRow"><span>Time left</span><span>{minutesLeft} min of {MAX_LIVE_SESSION_MS / 60_000}</span></div>
               <div className="statRow"><span>Transcript saving</span><span>{liveState.service?.saveHistory ? "On" : "Off"}</span></div>
+              <SessionMetadataFields value={sessionMetadata} disabled={!liveState.service?.saveHistory || isBusy} onChange={setSessionMetadata} />
+              <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.service?.saveHistory || !liveState.service.serviceId || isBusy} onClick={() => void saveLiveSessionMetadata()}>Save session details</button></div>
+              <p className="settingHint" role="status" aria-live="polite">{sessionMetadataMessage || (!liveState.service?.saveHistory ? "Turn on transcript saving before Start to keep session details." : "")}</p>
               <details className="advancedActions">
                 <summary>Details</summary>
                 <div className="statRow"><span>Delay after speech</span><span>{liveState.lastLatencyMs === null ? "—" : `${(liveState.lastLatencyMs / 1000).toFixed(1)} s`}</span></div>
