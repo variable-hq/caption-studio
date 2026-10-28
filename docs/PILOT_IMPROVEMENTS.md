@@ -1,10 +1,25 @@
 # Evidence-gated pilot improvements
 
+Reviewed 28 October 2026 against merged PR #75 (`080e6ca`).
+
 Prepared 12 September; scope reconciled 13 September 2026. QR joining, reusable saved
 terminology packs and live public-caption correction remain proposals. Plan 1 has since
 implemented private source corrections, approved recognition aliases and passage exclusion;
 those do not edit an already displayed OBS caption. See [current product scope](PRODUCT_SPEC.md).
 This document adds no runtime feature or new data retention.
+
+Status at the 28 October review, without changing the proposals below:
+
+- **QR joining:** still a proposal. No QR encoder or joining control exists.
+- **Terminology pack:** superseded by a different design. Words are part of the one church
+  setup every signed-in operator shares, stored server-side and edited as the Settings ›
+  Words list ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)); there is
+  no per-browser pack.
+- **Correction:** partly addressed by other controls; correcting a caption already on
+  screen is still not implemented. See the status note under Candidate 3.
+
+The "Current flow" passages describe the code as of 13 September; file names and labels
+there may have changed. See [Product specification](PRODUCT_SPEC.md) for today's flow.
 
 Use this plan after the critical implementation checks and the protected rehearsal in
 [STAKEHOLDER_TEST_GUIDE.md](STAKEHOLDER_TEST_GUIDE.md). It addresses the optional
@@ -68,6 +83,10 @@ of bearer credentials in Git, tickets, or chat for this evaluation.
 
 ## Candidate 1: local QR joining
 
+**Status (28 October 2026):** not implemented. The phone viewer link is now copied with
+**Copy link** in Live's Share card; **Open preview** and the manual-copy field are in
+Settings › OBS & links.
+
 ### Current flow and smallest change
 
 [`page.tsx`](../src/app/page.tsx) already offers Copy mobile link, Open preview, and a
@@ -113,6 +132,13 @@ attendee display is permitted under the existing private-link policy, and whethe
 measured improvement over current private link sharing justifies the encoder footprint.
 
 ## Candidate 2: one explicit terminology pack in this browser
+
+**Status (28 October 2026):** not built as proposed. Repeated setup is now handled by the
+shared church setup: **Save for everyone** stores words, languages and other settings for
+all signed-in operators, and new services start from it
+([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). That answered the
+cross-operator sharing question below with a server-side record rather than `localStorage`;
+it keeps a single setup, not packs per language pair. T1/T2 now measure the Words list.
 
 ### Current flow and smallest change
 
@@ -167,6 +193,25 @@ and whether operators instead require controlled sharing between machines. A nee
 shared profiles belongs to the separate workspace/role/retention design in the roadmap.
 
 ## Candidate 3: pause, review, and publish a correction
+
+**Status (28 October 2026):** the proposal below is not implemented as written, but
+neighbouring controls now ship on Live › Quick fixes:
+
+- **Manual caption** while paused shows up to 240 typed characters in the active target
+  language to OBS and the latest viewer, and archives it as a separate operator note
+  ([ADR 0013](decisions/0013-manual-caption-archived-as-operator-notes.md)). Unlike this
+  proposal, it does not capture or edit the previous caption, has no expected-sequence
+  check, and bypasses the public filter and glossary as already-reviewed operator text.
+- The optional **output buffer** holds each caption 1–5 seconds before Live; the next
+  caption can be paused, edited (re-moderated before it can show), cleared or
+  fast-forwarded ([ADR 0016](decisions/0016-client-side-output-buffer.md)). This is a
+  limited review-before-publication, not correction after publication.
+- **Quick block** hides any later caption containing a word without a refresh, and
+  **Live note** gives situational guidance to later translations
+  ([ADR 0023](decisions/0023-live-note-and-recent-outputs.md)); neither changes a caption
+  already shown.
+
+The pending owner decisions at the end of this section still apply.
 
 ### Current flow and smallest change
 

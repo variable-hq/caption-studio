@@ -2,6 +2,8 @@
 
 Date: 28 October 2026. Status: Accepted and implemented; adds an operator-authored prompt input and an observation strip to the Live screen.
 
+> Clarification, 28 October 2026: "Quick override" below never existed as a control. Live › Quick fixes has Quick block (**Hide any caption containing a word**), which hides a whole caption; exact word replacements live only in Settings › Words. Recent outputs is shown under **Recent captions** in Live's captions card ([PR #75](https://github.com/variable-hq/caption-studio/pull/75)).
+
 ## Decision
 
 - **Live note** is a 500-character maximum situational hint. It lives in the controlling tab, is restored from `sessionStorage` only for the matching service, and clears at Start, End and takeover. It is outside `TranslationSessionSettings`, so edits apply to the next translation request without **Apply now**, a fingerprint change or a context reset.

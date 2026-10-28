@@ -1,20 +1,27 @@
 # Caption Studio: gap analysis and improvement plan
 
-Reviewed 14 September 2026 against merged PR #33 (`abae57b`). Plan 1 (`20597d8`) deployed
-successfully after the Access proxy fix; later merges have no recorded deployment. Deployment identity and commands are in [Deployment](DEPLOYMENT.md).
+Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). Plan 1 (`20597d8`) deployed
+successfully after the Access proxy fix; merges through `080e6ca`, including the rename
+to the `caption-studio` Worker, deployed via Workers Builds on 26–28 October, but none has
+a recorded service rehearsal. Only `main` builds; preview-branch
+builds were turned off on 28 October. Deployment identity and commands are in [Deployment](DEPLOYMENT.md).
 Local checks pass; this is not a production, semantic-quality or accessibility certificate.
 
 ## Assessment
 
 The implementation includes fast captions, separate latest-viewer/reader/remote surfaces,
-opt-in seven-day private journals, manual summaries and rolling 30-day usage. The largest
-remaining gaps concern language quality, actual account configuration, physical devices,
-recovery and full-service measurement. Optional Workers AI remains default-off.
+opt-in seven-day private journals, manual and optional automatic summaries, rolling 30-day
+usage, a shared church setup and Sermons archive, watching/takeover by any workspace
+operator, and live overrides (Quick block, paused Manual caption, output buffer, Live
+note). The largest remaining gaps concern language quality, actual account configuration,
+physical devices, recovery and full-service measurement. Optional Workers AI remains
+default-off.
 
 The first Indonesian→English [30-sample review](evaluation/ID_EN_REVIEW.md) remains
 unscored. [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md) covers 217 tests, mocked browser checks
 and real local Durable Objects. [Cleanup QA](CLEANUP_DEPLOY_QA.md) records the newer
 build/deploy validation; the [older validation report](VALIDATION_REPORT.md) is historical.
+`npm run qa:*` now drives local browser/Axe checks; it is not physical-device evidence.
 
 ## Ranked gaps
 
@@ -31,11 +38,14 @@ See [Worker dispatch](../src/live/inference-request.ts).
 
 ### G02 — P0: complete deployed service rehearsal
 
-The corrected build deployed `20597d8`; that does not prove its microphone, OBS, Access
+Deployments through `080e6ca` succeeded; that does not prove microphone, OBS, Access
 routes, remote acknowledgement, reader lifecycle, alarms or 90-minute endurance.
 Run [the stakeholder script](STAKEHOLDER_TEST_GUIDE.md) on intended hardware with approved
-data and record the final Worker version. Recheck narrow public reader/static bypasses;
-the 12 September account investigation is not current runtime evidence.
+data and record the final Worker version. Recheck narrow public reader/static bypasses
+on the renamed `caption-studio` hostname (Access moved there on 26 October); the
+12 September account investigation is not current runtime evidence. Include a second
+operator watching and taking over, and the Manual caption, output buffer and Live note
+controls in use.
 
 ### G03 — P0: language and theological quality
 
@@ -59,11 +69,13 @@ The default-on Filter inappropriate language toggle also needs real-model checks
 strong profanity, mild crude language, a vulgar euphemism, profanity as the only word, and
 quoted profanity; with the toggle Off, confirm faithful rendering and that `outputLooksUnsafe`
 does not reject the result. This Filter validation remains manual and pending.
+Live note is trusted operator guidance inside the server envelope; check with real models
+that a note cannot change the language direction or justify invented or completed content.
 
 ### G04 — P1: queue and audience latency
 
 The displayed processing metric starts after dequeue and excludes capture time, queue
-wait, output buffer hold time, and audience rendering. Retain content-free timestamps if adding metrics, then
+wait, the output buffer's optional 1–5 second wait, and audience rendering. Retain content-free timestamps if adding metrics, then
 measure word-onset-to-display and utterance-end-to-display separately. Fixed 6- to 18-second
 windows and 30-second reader alarms do not guarantee semantic boundaries or a latency SLA.
 Set approved delay/drop thresholds before the duration test. Separately, and not a pilot
@@ -72,8 +84,9 @@ than a single timer scheduled to the next entry's due time; low-priority, deferr
 
 ### G05 — P1: device and browser recovery
 
-Audio-device enumeration and recorder errors exist; explicit audio-track ended/mute
-handling, hot-swap and complete browser suspension/recovery need focused review and
+Audio-device enumeration and recorder errors exist, and the operator tab pauses itself on
+close/navigation or after 10 seconds in the background. Explicit audio-track ended/mute
+handling, hot-swap and complete browser suspension/recovery still need focused review and
 physical tests. Test lost input, restored tab, network loss, Access expiry and cancellation
 during provider work. Require deliberate reselection/Resume after recovery. The phone
 remote cannot confirm microphone stopping without host acknowledgement.
@@ -88,7 +101,8 @@ coverage is not guaranteed. Reapply/review masking after optional reader phrasin
 ### G07 — P1: output readability and completeness
 
 Nonempty `stop` completions are required; incomplete output is skipped with usage kept.
-This does not certify complete speech or correct meaning. Test long Latin/CJK output at
+This does not certify complete speech or correct meaning. The phone viewer now shrinks a
+long caption down to 18 px to fit one screen; still test long Latin/CJK output at
 font/safe-margin extremes in OBS and both phone surfaces. A line-density policy, speaker
 identification and meaningful non-speech cues remain open accessibility decisions.
 
@@ -103,17 +117,21 @@ Estimate full-service usage from observations, not a monthly multiplication alon
 
 ### G09 — P1: human usability and accessibility
 
-Synthetic browser/Axe checks pass at 1920, 1200, 390 and 320px for operator,
-remote, reader, archives and usage. Physical Safari/phones, actual browser zoom,
-screen readers and volunteer comprehension remain unverified. Have representative
-operators configure a service and explain the difference between Clear, Remove and Delete.
+Synthetic browser/Axe checks (`npm run qa`) pass at 1920, 1200, 390 and 320px for the
+Live, Sermons and Settings screens, remote, reader and viewer. Physical Safari/phones,
+actual browser zoom, screen readers and volunteer comprehension remain unverified. Have
+representative operators configure a service and explain the difference between Clear
+screen, Remove passage and Delete sermon, and between Quick block, Words and Live note.
 Verify that pending phone commands cannot be mistaken for physical microphone confirmation.
 
 ### G10 — P2: market feature gaps need demand and a scope decision
 
-Local QR joining, saved terminology packs and live public-caption correction remain
-proposals in [Pilot improvements](PILOT_IMPROVEMENTS.md). Private source correction,
-passage removal, archives and manual summaries are already implemented under Plan 1.
+Local QR joining remains a proposal in [Pilot improvements](PILOT_IMPROVEMENTS.md).
+Saved terminology is now the shared church setup's Settings › Words list
+([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). Live correction is
+partly covered by editing the next caption in the output buffer, Quick block and a
+paused Manual caption; correcting a caption already on screen remains open. Private source
+correction, passage removal, archives and summaries are already implemented.
 Additional providers, exact Bible retrieval, workspace roles and simultaneous targets
 need separate decisions. The [11 September benchmark](BENCHMARK_RESEARCH.md) is dated
 research, not a description of current feature availability.
@@ -122,7 +140,9 @@ research, not a description of current feature availability.
 
 Rehearse opt-in consent, source preservation, partial-history failures, independent
 pagination, removal/exclusion, summary citations, interrupted jobs, deletion races,
-seven-day content expiry and 30-day usage expiry. Application deletion cannot recall
+seven-day content expiry and 30-day usage expiry. Include automatic summary drafts at End,
+session details, and any signed-in operator reviewing or deleting a shared sermon.
+Application deletion cannot recall
 exports or promise immediate physical erasure of provider recovery copies. Account
 backups and participant notice need explicit operational review.
 
