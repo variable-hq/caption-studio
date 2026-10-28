@@ -621,7 +621,7 @@ export default function OperatorDashboard() {
             ? "Checking the OBS link…"
             : !channelConfigured
               ? "Set up OBS first: press Set up next to OBS."
-              : "Press Start when the sermon begins. The phone viewer link appears once you start.";
+              : "Press Start when the sermon begins.";
   const startBlocked = startDisabled || anotherOperatorActive;
   const viewerUrl = liveState.service?.viewerUrl ?? null;
   const translationChanges = activeTranslationSettings
@@ -1233,170 +1233,172 @@ export default function OperatorDashboard() {
         </p>
       ) : null}
 
-      <div className="operatorColumns">
-        <div className="operatorMainColumn">
-          <section className="operatorCard" aria-label="Captions">
-            <div className="monitorGrid">
-              <div className="monitorPane">
-                <div className="monitorLabel"><span>Heard</span><span>Only you see this</span></div>
-                <p className="heardText" data-empty={!monitorSourceText} lang={displayedTranslationSettings?.sourceLanguage === "auto" ? undefined : displayedTranslationSettings?.sourceLanguage}>
-                  {monitorSourceText || (hasService ? (isPaused ? "Not listening while paused." : "Listening…") : "Nothing yet.")}
-                </p>
-              </div>
-              <div className="monitorPane">
-                <div className="monitorLabel"><span>Audience sees</span><span>{displayedTargetName} · OBS &amp; phones</span></div>
-                <CaptionPreview
-                  caption={monitorCaption}
-                  targetLanguage={monitorLanguage}
-                  style={liveState.channel?.style ?? style}
-                  badge={outputBadge}
-                  live={monitorLive}
-                />
-              </div>
-            </div>
-            {!observed.observer && <RecentOutputsStrip outputs={recentOutputs} />}
-            <div className="levelRow">
-              <span>Microphone</span>
-              <AudioLevelMeter level={level} />
-            </div>
-          </section>
-
-          {!hasService ? (
-            <section className="operatorCard" aria-label="Start">
-              <div className="startActions">
-                <button
-                  type="button"
-                  className="primaryButton"
-                  disabled={startBlocked}
-                  aria-describedby="start-help"
-                  onClick={() => { shouldAutoSaveMetadata.current = true; setLiveNote(""); void startSession(); }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
-                  {liveState.status === "starting" ? "Starting…" : "Start captions"}
-                </button>
-                <button
-                  type="button"
-                  className="secondaryButton"
-                  disabled={!channelConfigured || isBusy || controlAction !== null || anotherOperatorActive}
-                  onClick={() => void showTestCaption()}
-                >
-                  {controlAction === "show-test" ? "Showing…" : "Show a test caption"}
-                </button>
-              </div>
-              <p id="start-help" className="operatorHint" data-tone={(setupBlocked || anotherOperatorActive || liveState.status === "error") && !checkingChannel && cloudState !== "checking" ? "bad" : undefined}>
-                {startHelp}
+      <div className="liveGrid">
+        <section className="operatorCard liveCaptions" aria-label="Captions">
+          <div className="monitorGrid">
+            <div className="monitorPane">
+              <div className="monitorLabel"><span>Heard</span><span>Only you see this</span></div>
+              <p className="heardText" data-empty={!monitorSourceText} lang={displayedTranslationSettings?.sourceLanguage === "auto" ? undefined : displayedTranslationSettings?.sourceLanguage}>
+                {monitorSourceText || (hasService ? (isPaused ? "Not listening while paused." : "Listening…") : "Nothing yet.")}
               </p>
-              <label className="checkLabel">
-                <input
-                  type="checkbox"
-                  name="saveTranscript"
-                  checked={saveHistory}
-                  disabled={isBusy}
-                  onChange={(event) => setSaveHistory(event.target.checked)}
-                />
-                <span>
-                  <strong>Save the transcript for 7 days</strong>
-                  <br />
-                  <span className="operatorHint">Needed for Sermons and AI summary. Everyone at {WORKSPACE_NAME} can open it. Tell the congregation when it’s on.</span>
-                </span>
-              </label>
-              <SessionMetadataFields value={sessionMetadata} disabled={!saveHistory || isBusy} onChange={(value) => {
-                setSessionMetadata(value);
-                if (value.sessionAt !== sessionMetadata.sessionAt) setSessionDateEdited(true);
-              }} />
-              {!saveHistory ? <p className="settingHint">Turn on transcript saving to keep session details with the sermon.</p> : null}
+            </div>
+            <div className="monitorPane">
+              <div className="monitorLabel"><span>Audience sees</span><span>{displayedTargetName} · OBS &amp; phones</span></div>
+              <CaptionPreview
+                caption={monitorCaption}
+                targetLanguage={monitorLanguage}
+                style={liveState.channel?.style ?? style}
+                badge={outputBadge}
+                live={monitorLive}
+              />
+            </div>
+          </div>
+          <div className="levelRow">
+            <span>Microphone</span>
+            <AudioLevelMeter level={level} />
+          </div>
+          {!observed.observer ? (
+            <details className="advancedActions">
+              <summary>Recent captions</summary>
+              <RecentOutputsStrip outputs={recentOutputs} />
+            </details>
+          ) : null}
+        </section>
+
+        <ReadinessChecks title={hasService ? "Setup" : setupBlocked ? "Before you start" : "Ready to go"} checks={readinessChecks} />
+
+        {!hasService ? (
+          <section className="operatorCard liveActions" aria-label="Start">
+            <div className="startActions">
+              <button
+                type="button"
+                className="primaryButton"
+                disabled={startBlocked}
+                aria-describedby="start-help"
+                onClick={() => { shouldAutoSaveMetadata.current = true; setLiveNote(""); void startSession(); }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
+                {liveState.status === "starting" ? "Starting…" : "Start captions"}
+              </button>
+              <button
+                type="button"
+                className="secondaryButton"
+                disabled={!channelConfigured || isBusy || controlAction !== null || anotherOperatorActive}
+                onClick={() => void showTestCaption()}
+              >
+                {controlAction === "show-test" ? "Showing…" : "Show a test caption"}
+              </button>
+            </div>
+            <p id="start-help" className="operatorHint" data-tone={(setupBlocked || anotherOperatorActive || liveState.status === "error") && !checkingChannel && cloudState !== "checking" ? "bad" : undefined}>
+              {startHelp}
+            </p>
+            <label className="checkLabel">
+              <input
+                type="checkbox"
+                name="saveTranscript"
+                checked={saveHistory}
+                disabled={isBusy}
+                onChange={(event) => setSaveHistory(event.target.checked)}
+              />
+              <span>
+                <strong>Save the transcript for 7 days</strong>
+                <br />
+                <span className="operatorHint">For Sermons and AI summary, shared with everyone at {WORKSPACE_NAME}. Tell the congregation when it’s on.</span>
+              </span>
+            </label>
+            <div className="buttonRow">
               {accountPreferences?.saveHistoryDefault !== saveHistory ? (
                 <button className="textButton" type="button" disabled={isBusy} onClick={saveHistoryAsDefault}>
                   Make this the church default
                 </button>
               ) : null}
               <p className="operatorHint" role="status" aria-live="polite">{saveHistoryDefaultMessage}</p>
-              <details className="advancedActions">
-                <summary>Check captions before they show</summary>
-                {outputBufferPanel}
-              </details>
-            </section>
-          ) : (
-            <section className="operatorCard" aria-labelledby="quick-fixes-heading">
-              <h2 id="quick-fixes-heading">Quick fixes</h2>
-              <ManualOverridesGroup
-                quickBlockEntries={quickBlockEntries}
-                onAddQuickBlock={addQuickBlock}
-                onRemoveQuickBlock={removeQuickBlock}
-                isPaused={isPaused}
-                isBusy={isBusy}
-                controlBusy={controlAction !== null}
-                manualCaptionBusy={controlAction === "manual"}
-                onShowManualCaption={(text) => void showManualCaption(text)}
-                outputBuffer={{
-                  show: outputBufferCount > 0,
-                  queue: outputBufferQueue,
-                  onPause: setOutputBufferEntryPaused,
-                  onClear: clearOutputBufferEntry,
-                  onFastForward: fastForwardOutputBufferEntry,
-                  onBeginEdit: beginOutputBufferEdit,
-                  onEditDraftChange: updateOutputBufferEditDraft,
-                  onCancelEdit: cancelOutputBufferEdit,
-                  onSubmitEdit: submitOutputBufferEdit,
-                }}
-              />
-              <LiveNoteControl value={liveNote} disabled={!liveState.service || observed.observer !== null} onChange={setLiveNote} />
-              {isPaused ? (
-                <button type="button" className="secondaryButton" disabled={isBusy || controlAction !== null} onClick={() => void showTestCaption()}>
-                  {controlAction === "show-test" ? "Showing…" : "Show a test caption"}
-                </button>
-              ) : null}
-              <details className="advancedActions">
-                <summary>Check captions before they show</summary>
-                {outputBufferPanel}
-              </details>
-            </section>
-          )}
-        </div>
-
-        <aside className="operatorSideColumn" aria-label="Setup and sharing">
-          <ReadinessChecks title={hasService ? "Setup" : setupBlocked ? "Before you start" : "Ready to go"} checks={readinessChecks} />
-
-          <section className="operatorCard" aria-labelledby="share-heading">
-            <h2 id="share-heading">Share</h2>
-            <div className="shareRow">
-              <span>
-                <strong>Phone viewer</strong>
-                <br />
-                <span className="operatorHint">{viewerUrl ? "Live captions on phones" : "Available once you start"}</span>
-              </span>
-              <button type="button" className="secondaryButton" disabled={!viewerUrl} onClick={() => void copyViewerUrl()}>
-                {viewerCopied ? "Copied" : "Copy link"}
-              </button>
             </div>
-            <ServiceExperiencePanel view="sharing" service={liveState.service} observer={observed.observer} onReaderLink={rememberReaderLink} />
-            <p className="operatorHint" role="status" aria-live="polite">{clipboardMessage}</p>
+            <details className="advancedActions">
+              <summary>Session details</summary>
+              {!saveHistory ? <p className="settingHint">Turn on transcript saving to keep session details with the sermon.</p> : null}
+              <SessionMetadataFields value={sessionMetadata} disabled={!saveHistory || isBusy} onChange={(value) => {
+                setSessionMetadata(value);
+                if (value.sessionAt !== sessionMetadata.sessionAt) setSessionDateEdited(true);
+              }} />
+            </details>
+            <details className="advancedActions">
+              <summary>Check captions before they show</summary>
+              {outputBufferPanel}
+            </details>
           </section>
-
-          {hasService ? (
-            <section className="operatorCard" aria-labelledby="this-service-heading">
-              <h2 id="this-service-heading">This service</h2>
-              <div className="statRow"><span>Time left</span><span>{minutesLeft} min of {MAX_LIVE_SESSION_MS / 60_000}</span></div>
-              <div className="statRow"><span>Transcript saving</span><span>{liveState.service?.saveHistory ? "On" : "Off"}</span></div>
+        ) : (
+          <section className="operatorCard liveActions" aria-labelledby="quick-fixes-heading">
+            <h2 id="quick-fixes-heading">Quick fixes</h2>
+            <ManualOverridesGroup
+              quickBlockEntries={quickBlockEntries}
+              onAddQuickBlock={addQuickBlock}
+              onRemoveQuickBlock={removeQuickBlock}
+              isPaused={isPaused}
+              isBusy={isBusy}
+              controlBusy={controlAction !== null}
+              manualCaptionBusy={controlAction === "manual"}
+              onShowManualCaption={(text) => void showManualCaption(text)}
+              outputBuffer={{
+                show: outputBufferCount > 0,
+                queue: outputBufferQueue,
+                onPause: setOutputBufferEntryPaused,
+                onClear: clearOutputBufferEntry,
+                onFastForward: fastForwardOutputBufferEntry,
+                onBeginEdit: beginOutputBufferEdit,
+                onEditDraftChange: updateOutputBufferEditDraft,
+                onCancelEdit: cancelOutputBufferEdit,
+                onSubmitEdit: submitOutputBufferEdit,
+              }}
+            />
+            <LiveNoteControl value={liveNote} disabled={!liveState.service || observed.observer !== null} onChange={setLiveNote} />
+            {isPaused ? (
+              <button type="button" className="secondaryButton" disabled={isBusy || controlAction !== null} onClick={() => void showTestCaption()}>
+                {controlAction === "show-test" ? "Showing…" : "Show a test caption"}
+              </button>
+            ) : null}
+            <details className="advancedActions">
+              <summary>Session details</summary>
+              {!liveState.service?.saveHistory ? <p className="settingHint">Turn on transcript saving before Start to keep session details.</p> : null}
               <SessionMetadataFields value={sessionMetadata} disabled={!liveState.service?.saveHistory || isBusy} onChange={setSessionMetadata} />
               <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.service?.saveHistory || !liveState.service.serviceId || isBusy} onClick={() => void saveLiveSessionMetadata()}>Save session details</button></div>
-              <p className="settingHint" role="status" aria-live="polite">{sessionMetadataMessage || (!liveState.service?.saveHistory ? "Turn on transcript saving before Start to keep session details." : "")}</p>
-              <details className="advancedActions">
-                <summary>Details</summary>
-                <div className="statRow"><span>Delay after speech</span><span>{liveState.lastLatencyMs === null ? "—" : `${(liveState.lastLatencyMs / 1000).toFixed(1)} s`}</span></div>
-                {activeTranslationSettings?.sanitizeLevel && activeTranslationSettings.sanitizeLevel !== "off" ? (
-                  <div className="statRow"><span>Segments filtered</span><span>{formatCount(liveState.filteredSegments)}</span></div>
-                ) : null}
-                <div className="statRow"><span>Audio chunks dropped</span><span>{formatCount(liveState.droppedChunks)}</span></div>
-                <div className="statRow"><span>Transcriptions</span><span>{formatCount(liveState.transcriptionRequests)}</span></div>
-                <div className="statRow"><span>Translation calls</span><span>{formatCount(liveState.llmUsage.translationRequests)}</span></div>
-                <div className="statRow"><span>Translation tokens</span><span>{formatCount(liveState.llmUsage.totalTokens)}</span></div>
-                <div className="statRow"><span>Speech model</span><span translate="no">{cloudModels?.transcription ?? "—"}</span></div>
-                <div className="statRow"><span>Translation model</span><span translate="no">{cloudModels?.translation ?? "—"}</span></div>
-              </details>
-            </section>
-          ) : null}
-        </aside>
+              <p className="settingHint" role="status" aria-live="polite">{sessionMetadataMessage}</p>
+            </details>
+            <details className="advancedActions">
+              <summary>Check captions before they show</summary>
+              {outputBufferPanel}
+            </details>
+            <details className="advancedActions">
+              <summary>Service details</summary>
+              <div className="statRow"><span>Delay after speech</span><span>{liveState.lastLatencyMs === null ? "—" : `${(liveState.lastLatencyMs / 1000).toFixed(1)} s`}</span></div>
+              {activeTranslationSettings?.sanitizeLevel && activeTranslationSettings.sanitizeLevel !== "off" ? (
+                <div className="statRow"><span>Segments filtered</span><span>{formatCount(liveState.filteredSegments)}</span></div>
+              ) : null}
+              <div className="statRow"><span>Audio chunks dropped</span><span>{formatCount(liveState.droppedChunks)}</span></div>
+              <div className="statRow"><span>Transcriptions</span><span>{formatCount(liveState.transcriptionRequests)}</span></div>
+              <div className="statRow"><span>Translation calls</span><span>{formatCount(liveState.llmUsage.translationRequests)}</span></div>
+              <div className="statRow"><span>Translation tokens</span><span>{formatCount(liveState.llmUsage.totalTokens)}</span></div>
+              <div className="statRow"><span>Speech model</span><span translate="no">{cloudModels?.transcription ?? "—"}</span></div>
+              <div className="statRow"><span>Translation model</span><span translate="no">{cloudModels?.translation ?? "—"}</span></div>
+            </details>
+          </section>
+        )}
+
+        <section className="operatorCard liveShare" aria-labelledby="share-heading">
+          <h2 id="share-heading">Share</h2>
+          <div className="shareRow">
+            <span>
+              <strong>Phone viewer</strong>
+              <br />
+              <span className="operatorHint">{viewerUrl ? "Live captions on phones" : "After you start"}</span>
+            </span>
+            <button type="button" className="secondaryButton" disabled={!viewerUrl} onClick={() => void copyViewerUrl()}>
+              {viewerCopied ? "Copied" : "Copy link"}
+            </button>
+          </div>
+          <ServiceExperiencePanel view="sharing" service={liveState.service} observer={observed.observer} onReaderLink={rememberReaderLink} />
+          <p className="operatorHint" role="status" aria-live="polite">{clipboardMessage}</p>
+        </section>
       </div>
     </main>
   );
@@ -1624,6 +1626,8 @@ export default function OperatorDashboard() {
           isPausing={liveState.status === "pausing"}
           isResuming={liveState.status === "resuming"}
           clearing={controlAction === "clear"}
+          minutesLeft={minutesLeft}
+          transcriptSaved={liveState.service?.saveHistory ?? false}
           controlsDisabled={isBusy || controlAction !== null}
           endRetryRequired={endRetryRequired}
           endDisabled={endActionDisabled}

@@ -117,7 +117,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
   return <div className="experienceStack">
     {view === "sharing" && <>
       <div className="shareRow">
-        <span><strong>Sermon reader</strong><br /><span className="operatorHint">{service ? "Text to scroll and read on a phone" : "Available once you start"}</span></span>
+        <span><strong>Sermon reader</strong><br /><span className="operatorHint">{service ? "Read along on a phone" : "After you start"}</span></span>
         <button className="secondaryButton" disabled={!service || busy} onClick={() => {
           const current = readerLink && readerLink.serviceId === service?.serviceId ? readerLink.url : service?.readerUrl;
           if (current) { setIssuedLink({ serviceId: service!.serviceId!, url: current }); setMessage("Reader link ready to copy."); }
@@ -125,7 +125,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
         }}>Get link</button>
       </div>
       <div className="shareRow">
-        <span><strong>Your phone as a remote</strong><br /><span className="operatorHint">{canPair ? "Pause, resume and clear from the stage" : "Available once you start"}</span></span>
+        <span><strong>Phone remote</strong><br /><span className="operatorHint">{canPair ? "Pause from the stage" : "After you start"}</span></span>
         <button className="secondaryButton" disabled={!canPair || busy} onClick={() => void perform(async () => {
           const result = await experienceRequest<{ url: string }>("pair", {}, service?.controllerToken); setIssuedLink({ serviceId: pairedServiceId, url: result.url }); setMessage("Phone paired. Open the link on your phone; any phone paired before is unpaired.");
         })}>Pair phone</button>

@@ -145,21 +145,39 @@
   gap: var(--gap-lg);
 }
 
-.operatorMainColumn {
-  display: flex;
-  flex: 999 1 560px;
-  flex-direction: column;
+/* Live: two rows of paired cards (captions beside setup, actions beside share). Grid rows
+ * stretch, so each left card is exactly as tall as the card beside it. */
+.liveGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
   gap: var(--gap-lg);
-  min-width: 0;
 }
 
-.operatorSideColumn {
-  display: flex;
-  flex: 1 1 300px;
-  flex-direction: column;
-  gap: var(--gap-lg);
-  min-width: 0;
+.liveGrid > .operatorCard { order: 2; }
+.liveGrid > .liveCaptions { order: 0; }
+.liveGrid > .liveActions { order: 1; }
+
+@media (min-width: 981px) {
+  /* Desktop keeps source order, so the pairs line up row by row. */
+  .liveGrid > .operatorCard { order: 0; }
 }
+
+/* The captions card fills its row: both monitor boxes grow together, and the 16:9 OBS
+ * frame sits centred in a dark letterbox, so Heard and Audience sees stay the same size. */
+.liveCaptions .monitorGrid { flex: 1; }
+.monitorPane > :last-child { flex: 1; }
+
+.monitorPane .previewCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: #111;
+}
+
+.monitorPane .videoFrame { border: 0; border-radius: 0; }
 
 .operatorCard {
   display: flex;
@@ -267,13 +285,13 @@
   text-transform: none;
 }
 
+/* Same shape as the preview's 16:9 frame beside it, so the two boxes are always equal. */
 .heardText {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-sm);
-  min-height: 160px;
+  aspect-ratio: 16 / 9;
   margin: 0;
   padding: var(--space-2);
+  overflow-y: auto;
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-muted);
   overflow-wrap: anywhere;
@@ -332,6 +350,21 @@
 .checkText span:first-child { color: var(--muted); font-size: var(--text-sm); }
 .checkText span:last-child { margin-top: 2px; font-weight: var(--weight-bold); }
 .checkText[data-ok="false"] span:last-child { color: var(--danger); }
+
+.rowLink {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  margin-right: calc(var(--gap-md) * -1);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.rowLink:hover { background: var(--surface-muted); color: var(--ink); }
+.rowLink:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .shareRow {
   display: flex;
@@ -430,7 +463,7 @@
   .liveControlBarInner { padding: var(--gap-md) var(--space-2); }
   .startActions > button,
   .liveControlBarInner > button:not(.dangerOutlineButton):not(.dangerButton) { flex: 1 1 140px; }
-  .liveControlBarInner .operatorHint { display: none; }
+  .liveControlBarInner .operatorHint { flex-basis: 100%; order: 3; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -640,6 +673,9 @@
 }
 
 .operatorShell details.advancedActions[open] { padding-bottom: var(--space-0); }
+/* A closed disclosure is just its summary row; neighbouring ones stack as one list. */
+.operatorShell details.advancedActions:not([open]) { gap: 0; }
+.operatorShell .advancedActions + .advancedActions { margin-top: calc(var(--gap-md) * -1); }
 
 /* Every form control shares the button height. */
 .operatorShell select,
@@ -761,6 +797,8 @@
 /* Narrow screens: Settings and Sermons lists scroll sideways above the content,
    the Words form stacks, and each word becomes a small card. */
 @media (max-width: 980px) {
+  .liveGrid { grid-template-columns: minmax(0, 1fr); }
+
   .wordsAddRow { grid-template-columns: minmax(0, 1fr); }
   .wordsAddRow > button { justify-self: start; }
 
@@ -814,3 +852,8 @@
 
 /* The Sermons view sits in the experience panel's grid; keep its one column within the screen. */
 .operatorScreen .experienceStack { grid-template-columns: minmax(0, 1fr); }
+
+/* Live folds these behind a disclosure whose summary already names them. */
+.advancedActions > .sessionMetadataFields > h3,
+.advancedActions > .recentOutputs > h3 { display: none; }
+.advancedActions > .recentOutputs { margin-top: 0; padding-top: 0; border-top: 0; }

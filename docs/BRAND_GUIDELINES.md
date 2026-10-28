@@ -74,7 +74,7 @@ code, documentation, Usage and diagnostics.
 | Phone viewer, phone viewer link | Mobile translation viewer, viewer URL |
 | Sermon reader, reader link | Reader token, bearer link |
 | OBS link | OBS URL, channel credential, browser source URL |
-| Your phone as a remote, Pair phone | Remote pairing, operator remote credential |
+| Phone remote, Pair phone | Remote pairing, operator remote credential |
 | Words | Glossary, terminology, keyword hints, public caption filter, quick block |
 | Caption speed | Recording window, chunk, audio window |
 | Check captions before they show, Next up | Output buffer, buffer queue, dwell |
@@ -178,8 +178,9 @@ Use the shared classes in the design system before writing a new rule.
 
 - **Buttons.** Primary (`.primaryButton`) for the single main action in a region;
   secondary (`.secondaryButton`) for everything else; text button (`.textButton`) for
-  low-emphasis inline actions such as "Change"; `.dangerOutlineButton` to start a
-  destructive or irreversible action and `.dangerButton` to confirm it. **All buttons are
+  low-emphasis inline actions such as "Make this the church default"; a row that opens
+  where its value is changed (the Live checklist) ends in a chevron link (`.rowLink`);
+  `.dangerOutlineButton` to start a destructive or irreversible action and `.dangerButton` to confirm it. **All buttons are
   the same size** (`--control-height`, `--text-base`); emphasis comes from colour, never
   from size. Never give a button its own height, padding, font size or minimum width, and
   never add a size modifier. A disabled button always has visible text nearby saying why.
