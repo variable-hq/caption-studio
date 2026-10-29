@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 30 October 2026 against open PR #77 (head `c9bc869`). The corrected 13 September
+Reviewed 30 October 2026 against open PR #77. The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
