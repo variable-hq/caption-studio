@@ -15,7 +15,7 @@ implementation; deployment and church-approved quality require separate evidence
   one-time controller/attempt claims and acknowledged usage.
 - Reusable OBS channel, latest-caption viewer (long captions shrink to fit the phone),
   shared styles, safe margins, explicit refresh, Pause/Resume/Clear screen/End, automatic
-  pause when the tab closes or stays in the background, takeover, recovery and link
+  pause when the tab closes, worker-driven timers while backgrounded, takeover, recovery and link
   rotation.
 - Live overrides: Quick block, a paused Manual caption archived as a separate operator
   note ([ADR 0013](decisions/0013-manual-caption-archived-as-operator-notes.md)), an

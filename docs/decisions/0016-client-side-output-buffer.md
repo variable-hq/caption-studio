@@ -1,6 +1,6 @@
 # ADR 0016: client-side output buffer with a hidden backing queue
 
-27 September 2026. Status: accepted, implemented in source; extended by [ADR 0023](0023-live-note-and-recent-outputs.md) for same-tab live note and recent-output state.
+27 September 2026. Status: accepted, implemented in source; extended by [ADR 0023](0023-live-note-and-recent-outputs.md) for same-tab live note and recent-output state; its background-tab pause rationale is superseded in part by [ADR 0025](0025-worker-driven-background-timers.md).
 
 ## Context
 
@@ -98,12 +98,5 @@ separate idea, not part of this feature.
   (enqueue/tick/pause/edit/clear/fast-forward transitions, including draining down to a
   shrunk capacity, headroom before leakage, and a steady-arrivals simulation confirming the
   dwell does not compound into growing lag).
-- Both the buffer's tick and the recorder's own chunk-boundary timer depend on browser
-  timers, which a backgrounded tab throttles unpredictably. Rather than add buffer-specific
-  timer workarounds, the operator tab treats sustained backgrounding (10+ seconds) the same
-  as `pagehide`: an explicit Pause with a clear message, which already discards the buffer
-  along with capture. This closes a pre-existing gap in the capture pipeline more than it
-  patches the buffer specifically — plain tab-switching was not covered by the existing
-  `pagehide`/native-background handling at all — and it also fixes a related inconsistency
-  where that existing lifecycle-pause path did not discard the buffer like every other
-  pause path already did.
+- The original background-tab timer and pause policy is superseded in part by
+  [ADR 0025](0025-worker-driven-background-timers.md).

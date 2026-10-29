@@ -482,14 +482,11 @@ caption writes while keeping the original URL and expiry. Resume clears any synt
 test before capture restarts. Clear does not pause capture, so the next valid live
 caption may replace the blank display.
 
-The operator tab also pauses itself automatically, with the same visible "paused" state
-and message, rather than leaving capture or the output buffer running unobserved: on full
-navigation away or close (`pagehide`), immediately; and after the tab stays in the
-background for 10 seconds, since a backgrounded tab's timers are throttled by the browser
-and both audio-chunk timing and the output buffer's advancement depend on them. A brief
-tab switch under that threshold does not pause anything. Returning to the tab reloads
-channel status but does not resume capture automatically; the operator resumes explicitly,
-as with any other pause.
+Only a full navigation away or close (`pagehide`) pauses the operator tab automatically.
+Backgrounding or losing focus does not stop capture: recorder boundaries, service expiry,
+and output-buffer dwell ticks use a dedicated Web Worker clock to avoid main-thread timer
+throttling. Returning from a bfcache-restored page reloads channel status but does not
+resume capture; the operator resumes explicitly.
 
 While paused, a Manual caption control can show operator-typed text (up to 240
 characters, no AI translation involved) in the session's current target language to OBS

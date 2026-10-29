@@ -51,6 +51,10 @@ import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
 import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
 import { normalizeLiveNote } from "@/live/live-note";
 import { useRecentOutputs } from "@/live/use-recent-outputs";
+import {
+  clearBackgroundTimeout,
+  setBackgroundTimeout,
+} from "@/live/background-timer";
 
 interface LiveCaptionSettings extends TranslationSessionSettings {
   saveHistory?: boolean;
@@ -196,7 +200,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const recentContextRef = useRef<string[]>([]);
   const sessionTimerRef = useRef<number | null>(null);
   const lifecyclePauseRef = useRef(false);
-  const visibilityPauseTimerRef = useRef<number | null>(null);
   const recordingWindowRef = useRef<RecordingWindowMs>(DEFAULT_RECORDING_WINDOW_MS);
   const cloudClientRef = useRef(new CloudProviderClient());
   const liveClientRef = useRef(new LiveSessionClient());
@@ -239,7 +242,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
   const stopRecorder = useCallback(() => {
     if (recorderTimerRef.current !== null) {
-      window.clearTimeout(recorderTimerRef.current);
+      clearBackgroundTimeout(recorderTimerRef.current);
       recorderTimerRef.current = null;
     }
     const recorder = recorderRef.current;
@@ -267,7 +270,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
   const clearServiceTimer = useCallback(() => {
     if (sessionTimerRef.current !== null) {
-      window.clearTimeout(sessionTimerRef.current);
+      clearBackgroundTimeout(sessionTimerRef.current);
       sessionTimerRef.current = null;
     }
   }, []);
@@ -877,7 +880,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           startRecorderChunk();
         };
         recorder.start();
-        recorderTimerRef.current = window.setTimeout(() => {
+        recorderTimerRef.current = setBackgroundTimeout(() => {
           recorderTimerRef.current = null;
           if (recorder.state === "recording") recorder.stop();
         }, recordingWindowMs);
@@ -890,7 +893,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const armServiceTimer = useCallback(
     (service: LiveServiceDetails) => {
       clearServiceTimer();
-      sessionTimerRef.current = window.setTimeout(() => {
+      sessionTimerRef.current = setBackgroundTimeout(() => {
         void endService(
           "The 90-minute free-tier service limit was reached. The reusable OBS URL remains ready.",
           true,
@@ -1960,49 +1963,26 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     };
 
     const reconcileAfterForeground = () => {
-      if (visibilityPauseTimerRef.current !== null) {
-        window.clearTimeout(visibilityPauseTimerRef.current);
-        visibilityPauseTimerRef.current = null;
-      }
       lifecyclePauseRef.current = false;
       void loadChannel();
     };
 
-    // Backgrounded tabs throttle timers that both the tick and the recorder's chunk
-    // boundary depend on, so treat sustained backgrounding as an explicit pause rather
-    // than risk degraded capture. Ignore brief tab switches.
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted && lifecyclePauseRef.current) reconcileAfterForeground();
+    };
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        if (visibilityPauseTimerRef.current !== null) return;
-        visibilityPauseTimerRef.current = window.setTimeout(() => {
-          visibilityPauseTimerRef.current = null;
-          pauseForLifecycle();
-        }, 10_000);
-      } else {
-        if (visibilityPauseTimerRef.current !== null) {
-          window.clearTimeout(visibilityPauseTimerRef.current);
-          visibilityPauseTimerRef.current = null;
-        }
-        if (lifecyclePauseRef.current) reconcileAfterForeground();
+      if (document.visibilityState === "visible" && lifecyclePauseRef.current) {
+        reconcileAfterForeground();
       }
     };
 
     window.addEventListener("pagehide", pauseForLifecycle);
-    window.addEventListener("church-caption-native-background", pauseForLifecycle);
-    window.addEventListener("church-caption-native-foreground", reconcileAfterForeground);
+    window.addEventListener("pageshow", handlePageShow);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       window.removeEventListener("pagehide", pauseForLifecycle);
-      window.removeEventListener("church-caption-native-background", pauseForLifecycle);
-      window.removeEventListener(
-        "church-caption-native-foreground",
-        reconcileAfterForeground,
-      );
+      window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      if (visibilityPauseTimerRef.current !== null) {
-        window.clearTimeout(visibilityPauseTimerRef.current);
-        visibilityPauseTimerRef.current = null;
-      }
     };
   }, [loadChannel, resetOutputBuffer, stopCapture]);
 

@@ -26,6 +26,7 @@ import {
 import { combineFilterText, type QuickBlockEntry } from "@/live/quick-block";
 import { MAX_FILTER_INPUT_CHARS, type TranslationSessionSettings } from "@/live/translation-settings";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
+import { clearBackgroundInterval, setBackgroundInterval } from "@/live/background-timer";
 
 interface SessionSettingsForBuffer extends TranslationSessionSettings {
   outputBufferDwellMs: OutputBufferDwellMs;
@@ -93,7 +94,7 @@ export function useOutputBufferQueue({
 
   useEffect(() => {
     if (count === 0 || !tickEnabled) return;
-    const id = window.setInterval(() => {
+    const id = setBackgroundInterval(() => {
       const outcome = tickOutputBufferQueue(queueRef.current, Date.now(), settingsRef.current.outputBufferDwellMs);
       if (outcome.queue !== queueRef.current) {
         queueRef.current = outcome.queue;
@@ -101,7 +102,7 @@ export function useOutputBufferQueue({
       }
       if (outcome.publish) void publishBufferedEntryRef.current(outcome.publish);
     }, 200);
-    return () => window.clearInterval(id);
+    return () => clearBackgroundInterval(id);
   }, [count, tickEnabled, settingsRef, publishBufferedEntryRef]);
 
   // Shrinking capacity can leave more entries queued than it now allows; enqueueTranslation
