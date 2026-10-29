@@ -1,6 +1,6 @@
 # Design system
 
-Reviewed 28 October 2026 against merged PR #75 (`080e6ca`).
+Reviewed 30 October 2026 against open PR #77 (head `c9bc869`).
 
 Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
@@ -20,7 +20,7 @@ All colour, type, spacing and size values come from custom properties on `:root`
 | Colour | `--ink --muted --line --line-strong --paper --card --surface-muted --surface-strong --accent --accent-hover --on-accent --track --backdrop --focus --danger --danger-bg --on-danger --ok-ink --ok-bg --ok-line --warn-ink --warn-bg --warn-line --shadow --shadow-elevated` |
 | Type | `--text-xs` 11px, `--text-sm` 12px, `--text-base` 14px, `--text-md` 15px, `--text-lg` 18px, `--text-xl` 22px, `--text-2xl` 28px; `--leading-tight` 1.2, `--leading-normal` 1.5; `--weight-regular` 500, `--weight-bold` 700; `--tracking-caps` |
 | Space | `--space-0` 4px to `--space-4` 32px; `--gap-sm` 8px, `--gap-md` 12px, `--gap-lg` 18px |
-| Size | `--control-height` 44px (every button and field), `--control-height-sm` 36px (nav tabs only), `--control-padding-x` 14px, `--radius-sm/md/lg`, `--content-max` 1160px |
+| Size | `--control-height` 44px (every button and field), `--control-height-sm` 36px (nav tabs only), `--control-padding-x` 14px, `--switch-track-width` 44px, `--switch-track-height` 24px, `--switch-thumb-size` 18px, `--switch-checked-offset` 20px, `--radius-sm/md/lg`, `--content-max` 1160px |
 | Icon | `--chevron-right`, `--shield`: inline SVG masks painted in `currentColor`, so a CSS-only marker follows the row's own colour in both themes |
 
 Stylesheets contain no hard-coded colours except the simulated OBS stage, which must stay
@@ -58,6 +58,10 @@ The dashboard theme never changes the configured OBS caption colours.
   only. `.textButton` sits flush with the text around it.
 - Inputs, selects, colour pickers and disclosure summaries share the button height
   (`--control-height`); textareas share padding, radius, border and font size.
+- `.switchControl` is a labelled checkbox with `role="switch"`, `aria-checked`, a tokenized
+  track and thumb, and the shared `--focus` focus-visible outline. Its track uses the
+  current theme's `--accent`, `--surface-strong`, and `--card` colours. It remains at least
+  `--control-height` tall as a target even though the drawn track is smaller.
 - Chips (`.statusChip`, `.characterCount`) share one rule.
 - Disclosure rows (`.outputDestination`, `.advancedActions`, `.credentialDisclosure`,
   `details` inside `.experienceCard`) hide the browser's own marker and draw a chevron

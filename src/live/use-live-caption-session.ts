@@ -224,13 +224,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       const expiresAt = serviceRef.current?.expiresAt;
       return expiresAt ? Math.max(0, new Date(expiresAt).getTime() - Date.now()) : 0;
     },
-    onPartialAudioRejected: () => setLiveState((current) => ({
-      ...current,
-      message: "Live drafts stopped for this service because the provider rejected partial audio.",
-    })),
   });
   const {
     draft: liveDraftPreview,
+    sessionDisabled: liveDraftSessionDisabled,
     beginWindow: beginLiveDraftWindow,
     endWindow: endLiveDraftWindow,
     startSession: startLiveDraftSession,
@@ -2159,6 +2156,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     outputBufferQueue,
     recentOutputs,
     liveDraft: liveDraftPreview,
+    liveDraftSessionDisabled,
     resetLiveDrafts,
     setOutputBufferEntryPaused,
     clearOutputBufferEntry,

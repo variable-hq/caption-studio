@@ -317,6 +317,7 @@ export default function OperatorDashboard() {
     viewerAction,
     activeRecordingWindowMs,
     activeTranslationSettings,
+    liveDraftSessionDisabled,
     translationRefreshRequired,
     endRetryRequired,
     takeoverRequired,
@@ -1275,13 +1276,20 @@ export default function OperatorDashboard() {
           </div>
           {!observed.observer ? (
             <>
-              <LiveDraftLine draft={liveDraft} />
+              <LiveDraftLine
+                draft={liveDraft}
+                enabled={liveDraftsEnabled}
+                sessionDisabled={liveDraftSessionDisabled}
+              />
               <div className="liveDraftSettings">
-                <label className="checkLabel">
+                <label className="switchControl">
                   <input
                     type="checkbox"
+                    role="switch"
                     name="liveDraftsEnabled"
                     checked={liveDraftsEnabled}
+                    aria-checked={liveDraftsEnabled}
+                    aria-describedby={`live-drafts-help${liveDraftSessionDisabled ? " live-drafts-session-status" : ""}`}
                     disabled={isBusy}
                     onChange={(event) => {
                       if (!event.target.checked) resetLiveDrafts();
@@ -1290,10 +1298,16 @@ export default function OperatorDashboard() {
                   />
                   <span>
                     <strong>Live drafts</strong>
-                    <br />
-                    <span className="operatorHint">Uses more free-tier quota: up to 3 transcription and 3 translation calls per caption, and about twice the audio.</span>
                   </span>
                 </label>
+                <p id="live-drafts-help" className="operatorHint">
+                  This per-session choice is not saved automatically. It uses more free-tier quota: up to 3 transcription and 3 translation calls per caption, and about twice the audio.
+                </p>
+                {liveDraftSessionDisabled ? (
+                  <p id="live-drafts-session-status" className="operatorHint" data-tone="warn" role="status" aria-live="polite">
+                    Live drafts stopped for this service because the provider rejected partial audio.
+                  </p>
+                ) : null}
                 <button type="button" className="textButton" disabled={isBusy} onClick={saveLiveDraftsDefault}>Save for everyone</button>
                 <p className="operatorHint" role="status" aria-live="polite">{liveDraftsSavedMessage || (accountPreferences?.liveDraftsEnabled !== null && accountPreferences?.liveDraftsEnabled !== undefined ? "The church setup has a saved choice for this." : "Saves this choice for everyone’s new services.")}</p>
               </div>

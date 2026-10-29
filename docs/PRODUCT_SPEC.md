@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 29 October 2026 against open PR #77 (head `9289631`). The corrected 13 September
+Reviewed 30 October 2026 against open PR #77 (head `c9bc869`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -324,12 +324,19 @@ translations. Pause and Clear preserve the strip; Start, End and takeover reset 
 
 ### Live drafts
 
-**Live drafts** is an optional, default-off church setting that applies immediately. While
-the current recording window is still being captured, the controller may re-transcribe
+**Live drafts** is an optional church default, off unless saved otherwise. The controller-only
+Live card switch starts from that default and is a per-session choice; changing it is not
+saved automatically. Turning it off immediately clears the preview, cancels pending timers,
+and aborts in-flight draft work. Turning it on applies at the next recording window. The
+separate **Save for everyone** action changes the default for future sessions.
+
+While the current recording window is still being captured, the controller may re-transcribe
 the audio already recorded and replace the previous operator-only preview with a newer
-draft. The preview sits below Heard and Audience sees in Live's Captions card. It is never
-published, buffered, added to recent translation context, or sent to OBS, viewers, or the
-sermon journal. The final caption still follows the normal end-of-window path.
+draft. When enabled without a draft yet, the card explains that drafts appear during longer
+windows and that 6-second windows never draft. The preview sits below Heard and Audience
+sees in Live's Captions card. It is never published, buffered, added to recent translation
+context, or sent to OBS, viewers, or the sermon journal. The final caption still follows the
+normal end-of-window path.
 
 Fixed 6-second windows have no draft; 10-second windows may draft at 4 seconds; 14-second
 windows may draft at 4 and 8 seconds. Dynamic initially uses the 14-second offsets and
@@ -343,9 +350,10 @@ more free-tier quota.
 
 Any draft error disables drafts for that window without ending the service or showing an
 operator error; the final caption remains eligible to report its own failure. If the
-provider rejects partial audio with HTTP 400, drafts stay disabled for the service and a
-short status message explains why. Pause, Clear, End, takeover, translation refresh, and
-each window end clear the preview and abort in-flight draft work.
+provider rejects partial audio with HTTP 400, drafts stay disabled for the service even if
+the switch is turned back on; help text by the switch explains why. A new service clears
+that restriction. Pause, Clear, End, takeover, translation refresh, and each window end
+clear the preview and abort in-flight draft work.
 
 | Control | Purpose | When it applies |
 | --- | --- | --- |

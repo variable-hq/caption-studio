@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { canDraft, draftOffsets, DRAFT_END_MARGIN_MS, DRAFT_MIN_NEW_AUDIO_MS, MAX_DRAFTS_PER_CAPTION } from "@/live/live-drafts";
+import {
+  canDraft,
+  createLiveDraftToggle,
+  draftOffsets,
+  DRAFT_END_MARGIN_MS,
+  DRAFT_MIN_NEW_AUDIO_MS,
+  MAX_DRAFTS_PER_CAPTION,
+} from "@/live/live-drafts";
 
 describe("live draft scheduling", () => {
   it("uses bounded offsets for each fixed window and the Dynamic maximum", () => {
@@ -29,5 +36,42 @@ describe("live draft scheduling", () => {
     const base = { maxAttempts: 900, remainingMs: 10_000, windowMs: 14_000, finalBusy: false, draftInFlight: false };
     expect(canDraft({ ...base, attemptsUsed: 0, draftsUsed: MAX_DRAFTS_PER_CAPTION })).toBe(false);
     expect(canDraft({ ...base, attemptsUsed: 900, draftsUsed: 0 })).toBe(false);
+  });
+
+  it("turning drafts off clears timers, aborts active work and blocks later admission", () => {
+    const clearTimers = vi.fn();
+    const abortActiveDraft = vi.fn();
+    const setSessionDisabled = vi.fn();
+    const canDraftSpy = vi.fn(() => true);
+    const toggle = createLiveDraftToggle(true, {
+      invalidatePendingWork: () => {
+        clearTimers();
+        abortActiveDraft();
+      },
+      setSessionDisabled,
+    });
+    const attemptDraft = () => toggle.canRun() && canDraftSpy();
+
+    expect(attemptDraft()).toBe(true);
+    toggle.setEnabled(false);
+    expect(clearTimers).toHaveBeenCalledOnce();
+    expect(abortActiveDraft).toHaveBeenCalledOnce();
+    expect(attemptDraft()).toBe(false);
+    expect(canDraftSpy).toHaveBeenCalledOnce();
+  });
+
+  it("keeps provider-rejected drafts blocked when switched back on until the next session", () => {
+    const toggle = createLiveDraftToggle(true, {
+      invalidatePendingWork: vi.fn(),
+      setSessionDisabled: vi.fn(),
+    });
+
+    toggle.disableForSession();
+    toggle.setEnabled(false);
+    toggle.setEnabled(true);
+
+    expect(toggle.canRun()).toBe(false);
+    toggle.startSession();
+    expect(toggle.canRun()).toBe(true);
   });
 });

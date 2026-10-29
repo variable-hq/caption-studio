@@ -4,7 +4,13 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 
 import { MAX_TRANSCRIPTION_REQUESTS, recordingWindowBoundsMs, type RecordingWindowMs } from "@/live/contracts";
 import { clearBackgroundTimeout, setBackgroundTimeout } from "@/live/background-timer";
-import { canDraft, DRAFT_END_MARGIN_MS, DRAFT_MIN_NEW_AUDIO_MS, draftOffsets } from "@/live/live-drafts";
+import {
+  canDraft,
+  createLiveDraftToggle,
+  DRAFT_END_MARGIN_MS,
+  DRAFT_MIN_NEW_AUDIO_MS,
+  draftOffsets,
+} from "@/live/live-drafts";
 
 export interface LiveDraftPreview {
   sourceText: string;
@@ -38,47 +44,67 @@ interface UseLiveDraftsOptions {
   attemptsUsed: () => number;
   finalBusy: () => boolean;
   remainingServiceMs: () => number;
-  onPartialAudioRejected: () => void;
 }
 
 export function useLiveDrafts(options: UseLiveDraftsOptions) {
   const [draft, setDraft] = useState<LiveDraftPreview | null>(null);
+  const [sessionDisabled, setSessionDisabled] = useState(false);
   const optionsRef = useRef(options);
   const activeWindowRef = useRef<DraftWindow | null>(null);
   const nextWindowIdRef = useRef(0);
   const timersRef = useRef<number[]>([]);
   const controllerRef = useRef<AbortController | null>(null);
-  const sessionDisabledRef = useRef(false);
+  const toggleRef = useRef<ReturnType<typeof createLiveDraftToggle> | null>(null);
 
   const clearTimers = useCallback(() => {
     for (const timer of timersRef.current) clearBackgroundTimeout(timer);
     timersRef.current = [];
   }, []);
 
-  useEffect(() => {
-    optionsRef.current = options;
-  }, [options]);
-
-  const endWindow = useCallback(() => {
-    clearTimers();
+  const invalidateWindow = useCallback(() => {
     activeWindowRef.current = null;
     controllerRef.current?.abort();
     controllerRef.current = null;
     nextWindowIdRef.current += 1;
+  }, []);
+
+  const getToggle = useCallback(() => {
+    if (!toggleRef.current) {
+      toggleRef.current = createLiveDraftToggle(optionsRef.current.enabled, {
+        invalidatePendingWork: () => {
+          clearTimers();
+          invalidateWindow();
+        },
+        setSessionDisabled,
+      });
+    }
+    return toggleRef.current;
+  }, [clearTimers, invalidateWindow, setSessionDisabled]);
+
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
+
+  useEffect(() => {
+    getToggle().setEnabled(options.enabled);
+  }, [getToggle, options.enabled]);
+
+  const endWindow = useCallback(() => {
+    getToggle().reset();
     setDraft(null);
-  }, [clearTimers]);
+  }, [getToggle]);
 
   const startSession = useCallback(() => {
-    sessionDisabledRef.current = false;
-    endWindow();
-  }, [endWindow]);
+    getToggle().startSession();
+    setDraft(null);
+  }, [getToggle]);
 
   const runDraft = useCallback(async (window: DraftWindow, offsetMs: number) => {
     const isCurrent = () =>
       activeWindowRef.current?.id === window.id &&
       !window.disabled &&
-      !sessionDisabledRef.current;
-    if (!isCurrent() || !optionsRef.current.enabled) return;
+      getToggle().canRun();
+    if (!isCurrent()) return;
     if (!window.dynamic && window.maxWindowMs - offsetMs < DRAFT_END_MARGIN_MS) return;
     if (offsetMs - window.lastDraftAtMs < DRAFT_MIN_NEW_AUDIO_MS) return;
     if (!canDraft({
@@ -104,8 +130,8 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
         captureGeneration: window.generation,
         isCurrent: () => isCurrent() && !controller.signal.aborted,
         onPartialAudioRejected: () => {
-          sessionDisabledRef.current = true;
-          optionsRef.current.onPartialAudioRejected();
+          getToggle().disableForSession();
+          setDraft(null);
         },
       });
       if (result && isCurrent() && !controller.signal.aborted) setDraft(result);
@@ -117,15 +143,7 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
     } finally {
       if (controllerRef.current === controller) controllerRef.current = null;
     }
-  }, [clearTimers]);
-
-  useEffect(() => {
-    if (options.enabled) return;
-    clearTimers();
-    activeWindowRef.current = null;
-    controllerRef.current?.abort();
-    controllerRef.current = null;
-  }, [clearTimers, options.enabled]);
+  }, [clearTimers, getToggle]);
 
   const beginWindow = useCallback((input: {
     generation: number;
@@ -133,7 +151,7 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
     snapshotAudio: () => Blob;
   }) => {
     endWindow();
-    if (!optionsRef.current.enabled || sessionDisabledRef.current) return;
+    if (!getToggle().canRun()) return;
     const bounds = recordingWindowBoundsMs(input.recordingWindowMs);
     const window: DraftWindow = {
       id: ++nextWindowIdRef.current,
@@ -152,12 +170,11 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
       }, offsetMs);
       timersRef.current.push(timer);
     }
-  }, [endWindow, runDraft]);
+  }, [endWindow, getToggle, runDraft]);
 
   useEffect(() => () => {
-    clearTimers();
-    controllerRef.current?.abort();
-  }, [clearTimers]);
+    toggleRef.current?.reset();
+  }, []);
 
-  return { draft, beginWindow, endWindow, startSession, reset: endWindow };
+  return { draft, beginWindow, endWindow, startSession, reset: endWindow, sessionDisabled };
 }

@@ -8,13 +8,14 @@ const tooling = process.env.CAPTION_QA_TOOLS_DIR;
 assert.ok(tooling, 'Set CAPTION_QA_TOOLS_DIR to the isolated browser QA installation.');
 const { chromium } = await import(pathToFileURL(path.join(tooling, 'node_modules/playwright/index.mjs')));
 const { default: AxeBuilder } = await import(pathToFileURL(path.join(tooling, 'node_modules/@axe-core/playwright/dist/index.mjs')));
+const colorScheme=process.env.CAPTION_QA_COLOR_SCHEME==='dark'?'dark':'light';
 const output=path.resolve('test-results/operator');
 await fs.mkdir(output,{recursive:true});
 const browser=await chromium.launch({headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
 const results=[];
 try {
  for (const width of QA_VIEWPORT_WIDTHS) {
-  const context=await browser.newContext({viewport:{width,height:width>500?1080:844},permissions:['microphone'],reducedMotion:'reduce'});
+  const context=await browser.newContext({viewport:{width,height:width>500?1080:844},colorScheme,permissions:['microphone'],reducedMotion:'reduce'});
   const page=await context.newPage();
   if(process.env.CAPTION_QA_STUB_MIC){
    // Opt-in for machines where headless Chromium's fake capture device never resolves:
@@ -41,7 +42,10 @@ try {
    let body={};try{body=request.postDataJSON()??{}}catch{}
    let payload={};
    if(path==='/api/ai/health'||path==='/api/ai/readiness')payload=health;
-   else if(path==='/api/live/experience/preferences'||path==='/api/live/experience/setup')payload=method==='GET'?{version:1,theme:'system',translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,updatedAt:null}:{...body,version:1,updatedAt:Date.now()};
+  else if(path==='/api/live/experience/preferences'||path==='/api/live/experience/setup'){
+    if(method!=='GET')controls.push({preferenceWrite:body});
+    payload=method==='GET'?{version:1,theme:'system',translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,liveDraftsEnabled:width===320,updatedAt:null}:{...body,version:1,updatedAt:Date.now()};
+  }
    else if(path==='/api/live/channel')payload={channelId:'main',configured:true,status,overlayUrl:'http://127.0.0.1:3100/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
    else if(path==='/api/live/channel/style'){style=body.style;payload={ok:true}}
    else if(path==='/api/live/channel/service'&&method==='POST'){
@@ -66,6 +70,8 @@ try {
   });
   await page.goto('http://127.0.0.1:3100');
   await page.getByText('Ready to go',{exact:true}).waitFor();
+  const liveDraftSwitch=page.getByRole('switch',{name:'Live drafts',exact:true});
+  await liveDraftSwitch.waitFor();
   const check=async screen=>{
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
@@ -91,7 +97,16 @@ try {
   assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).isEnabled(),true);
   assert.equal(await page.getByRole('region',{name:'Live controls'}).count(),0);
   assert.equal(await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).isChecked(),false);
-  await page.screenshot({path:output+`/live-idle-${width}.png`,fullPage:true});
+  assert.equal(await liveDraftSwitch.isChecked(),width===320,'The session switch starts from the saved church default');
+  await liveDraftSwitch.check();
+  await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor();
+  await check('live-drafts-enabled');
+  await page.screenshot({path:output+`/live-drafts-${colorScheme}-${width}.png`,fullPage:true});
+  await liveDraftSwitch.uncheck();
+  await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor({state:'hidden'});
+  assert.equal(controls.some(entry=>entry.preferenceWrite&&Object.hasOwn(entry.preferenceWrite,'liveDraftsEnabled')),false,'The session switch must not save the church default');
+  assert.equal(inferenceCalls,0,'Toggling drafts must not invoke inference');
+  await page.screenshot({path:output+`/live-idle-${colorScheme}-${width}.png`,fullPage:true});
 
   for(const section of SETTINGS_SECTIONS){
    await openSettings(page,section);
@@ -101,7 +116,7 @@ try {
     await range.fill('64');
     await range.dispatchEvent('input');
     assert.ok((await page.getByTestId('caption-preview').first().getAttribute('style')).includes('64px'));
-    await page.screenshot({path:output+`/settings-look-${width}.png`,fullPage:true});
+    await page.screenshot({path:output+`/settings-look-${colorScheme}-${width}.png`,fullPage:true});
    }
    if(section==='obs') assert.equal(await page.getByRole('button',{name:'Copy OBS link',exact:true}).isVisible(),true);
    if(section==='translator'){
@@ -151,9 +166,13 @@ try {
   const liveControls=page.getByRole('region',{name:'Live controls'});
   await liveControls.getByRole('button',{name:'Pause',exact:true}).waitFor();
   assert.equal(status,'live');
+  await liveDraftSwitch.check();
+  await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor();
+  await liveDraftSwitch.uncheck();
+  await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor({state:'hidden'});
   await check('live-running');
   await barClear('live-running');
-  await page.screenshot({path:output+`/live-running-${width}.png`,fullPage:true});
+  await page.screenshot({path:output+`/live-running-${colorScheme}-${width}.png`,fullPage:true});
   // Moving to Settings and back never pauses or clears capture.
   const controlsBefore=controls.length;
   await openSettings(page,'usage');
@@ -167,6 +186,7 @@ try {
    await other.getByText('operator@example.test is running captions on another computer.',{exact:true}).waitFor();
    assert.equal(await other.getByRole('button',{name:'Take over',exact:true}).count(),1);
    assert.equal(await other.getByRole('button',{name:'Start captions',exact:true}).isDisabled(),true);
+   assert.equal(await other.getByRole('switch',{name:'Live drafts',exact:true}).count(),0,'Observers must not see the controller switch');
    assert.equal(controls.length,controlsBefore);
    await other.close();
   }
@@ -209,10 +229,10 @@ try {
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(status,'idle');
   assert.equal(inferenceCalls,0,'Dashboard checks must not invoke inference');
-  results.push({width,errors,violations,checks:'idle Live, every Settings section, Sermons, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, quick block, no inference, responsive overflow and Axe'});
+  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Sermons, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, quick block, no inference, responsive overflow and Axe'});
   await context.close();
  }
- await fs.writeFile(output+'/operator-results.json',JSON.stringify(results,null,2));
+ await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));
  console.log(JSON.stringify(results,null,2));
  assert.ok(results.every(r=>r.errors.length===0&&r.violations.length===0));
 } catch(error) {

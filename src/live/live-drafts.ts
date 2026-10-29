@@ -4,6 +4,38 @@ export const MAX_DRAFTS_PER_CAPTION = 2;
 export const DRAFT_MIN_NEW_AUDIO_MS = 3_000;
 export const DRAFT_END_MARGIN_MS = 2_000;
 
+export interface LiveDraftToggleEffects {
+  invalidatePendingWork(): void;
+  setSessionDisabled(disabled: boolean): void;
+}
+
+export function createLiveDraftToggle(initialEnabled: boolean, effects: LiveDraftToggleEffects) {
+  let enabled = initialEnabled;
+  let sessionDisabled = false;
+  const invalidate = () => effects.invalidatePendingWork();
+
+  return {
+    canRun: () => enabled && !sessionDisabled,
+    setEnabled(nextEnabled: boolean) {
+      if (enabled === nextEnabled) return;
+      enabled = nextEnabled;
+      if (!enabled) invalidate();
+    },
+    startSession() {
+      sessionDisabled = false;
+      effects.setSessionDisabled(false);
+      invalidate();
+    },
+    disableForSession() {
+      if (sessionDisabled) return;
+      sessionDisabled = true;
+      effects.setSessionDisabled(true);
+      invalidate();
+    },
+    reset: invalidate,
+  };
+}
+
 export function draftOffsets(windowMs: RecordingWindowMs): number[] {
   if (windowMs === 6_000) return [];
   if (windowMs === 10_000) return [4_000];
