@@ -30,6 +30,7 @@ export interface OperatorPreferences {
   translationDefaults: TranslationDefaults | null;
   outputBufferCount: OutputBufferCount | null;
   outputBufferDwellMs: OutputBufferDwellMs | null;
+  liveDraftsEnabled: boolean | null;
   /** Pre-ticks "Save transcript history" at Start; the choice stays visible and changeable. */
   saveHistoryDefault: boolean | null;
   /** Generates an AI summary draft after each saved service this operator ends. */
@@ -46,6 +47,7 @@ export const EMPTY_PREFERENCES: OperatorPreferences = {
   translationDefaults: null,
   outputBufferCount: null,
   outputBufferDwellMs: null,
+  liveDraftsEnabled: null,
   saveHistoryDefault: null,
   autoSummary: false,
   updatedAt: null,
@@ -107,6 +109,7 @@ export function mergeOperatorPreferences(
     translationDefaults: pick("translationDefaults", base.translationDefaults, normalizeTranslationDefaults),
     outputBufferCount: pick("outputBufferCount", base.outputBufferCount, normalizeOutputBufferCount),
     outputBufferDwellMs: pick("outputBufferDwellMs", base.outputBufferDwellMs, normalizeOutputBufferDwellMs),
+    liveDraftsEnabled: pick("liveDraftsEnabled", base.liveDraftsEnabled, (value) => value === true),
     saveHistoryDefault: pick("saveHistoryDefault", base.saveHistoryDefault, (value) => value === true),
     autoSummary: "autoSummary" in input ? input.autoSummary === true : base.autoSummary,
     updatedAt: at,
@@ -143,6 +146,7 @@ export const SHARED_SETUP_FIELDS = [
   "translationDefaults",
   "outputBufferCount",
   "outputBufferDwellMs",
+  "liveDraftsEnabled",
   "saveHistoryDefault",
   "autoSummary",
 ] as const satisfies readonly (keyof OperatorPreferences)[];
@@ -162,6 +166,7 @@ export function effectiveSetup(shared: OperatorPreferences, personal: OperatorPr
     translationDefaults: shared.translationDefaults ?? personal.translationDefaults,
     outputBufferCount: shared.outputBufferCount ?? personal.outputBufferCount,
     outputBufferDwellMs: shared.outputBufferDwellMs ?? personal.outputBufferDwellMs,
+    liveDraftsEnabled: shared.liveDraftsEnabled ?? personal.liveDraftsEnabled,
     saveHistoryDefault: shared.saveHistoryDefault ?? personal.saveHistoryDefault,
     autoSummary: shared.autoSummary,
     updatedAt: shared.updatedAt,

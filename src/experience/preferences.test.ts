@@ -43,6 +43,7 @@ describe("operator preferences", () => {
       captionStyle: { fontSize: 40 },
       outputBufferCount: 1,
       outputBufferDwellMs: 5_000,
+      liveDraftsEnabled: true,
       autoSummary: true,
       injected: "ignored",
     }, 1_000);
@@ -50,24 +51,45 @@ describe("operator preferences", () => {
     expect("sidebarWidth" in first).toBe(false);
     expect(first.translationSystemPrompt).toBe("Keep names.");
     expect(first.summaryDefaults?.model).toBe(SUMMARY_MODELS[0]);
-    expect(first.translationDefaults?.recordingWindowMs).toBe(12_000);
+    expect(first.translationDefaults?.recordingWindowMs).toBe(14_000);
     expect(first.translationDefaults?.inferenceLevel).toBe("high");
     expect(first.translationDefaults?.sanitizeLevel).toBe("balanced");
     expect(first.translationDefaults?.filterInappropriateLanguage).toBe(false);
     expect(first.captionStyle?.fontSize).toBe(40);
     expect(first.outputBufferCount).toBe(1);
     expect(first.outputBufferDwellMs).toBe(5_000);
+    expect(first.liveDraftsEnabled).toBe(true);
     expect("tutorialDismissed" in first).toBe(false);
     expect(first.updatedAt).toBe(1_000);
     expect("injected" in first).toBe(false);
 
-    const second = mergeOperatorPreferences(first, { translationSystemPrompt: null, theme: "purple", outputBufferCount: null, outputBufferDwellMs: null }, 2_000);
+    const second = mergeOperatorPreferences(first, { translationSystemPrompt: null, theme: "purple", outputBufferCount: null, outputBufferDwellMs: null, liveDraftsEnabled: null }, 2_000);
     expect(second.translationSystemPrompt).toBeNull();
     expect(second.theme).toBe("system");
     expect(second.summaryDefaults).toEqual(first.summaryDefaults);
     expect(second.outputBufferCount).toBeNull();
     expect(second.outputBufferDwellMs).toBeNull();
+    expect(second.liveDraftsEnabled).toBeNull();
     expect(second.updatedAt).toBe(2_000);
+  });
+
+  it("round-trips Dynamic as the shared recording-window default", () => {
+    const saved = mergeOperatorPreferences(EMPTY_PREFERENCES, {
+      translationDefaults: {
+        sourceLanguage: "id",
+        targetLanguage: "en",
+        keywordText: "",
+        filterText: "",
+        recordingWindowMs: "dynamic",
+      },
+    });
+    expect(saved.translationDefaults?.recordingWindowMs).toBe("dynamic");
+    expect(mergeOperatorPreferences(EMPTY_PREFERENCES, saved).translationDefaults?.recordingWindowMs).toBe("dynamic");
+  });
+
+  it("keeps the church-wide Live drafts toggle in effective setup", () => {
+    const shared = mergeOperatorPreferences(EMPTY_PREFERENCES, { liveDraftsEnabled: true });
+    expect(effectiveSetup(shared, EMPTY_PREFERENCES).liveDraftsEnabled).toBe(true);
   });
 
   it("drops invalid prompts and malformed records instead of storing them", () => {
@@ -93,7 +115,7 @@ describe("operator preferences", () => {
     const legacy = mergeOperatorPreferences(EMPTY_PREFERENCES, {
       translationDefaults: { sourceLanguage: "id", targetLanguage: "en", keywordText: "", filterText: "", speechBufferMs: 15_000 },
     });
-    expect(legacy.translationDefaults?.recordingWindowMs).toBe(15_000);
+    expect(legacy.translationDefaults?.recordingWindowMs).toBe(14_000);
     expect(legacy.translationDefaults?.sanitizeLevel).toBe("off");
     expect(legacy.translationDefaults?.filterInappropriateLanguage).toBe(true);
 
@@ -101,7 +123,7 @@ describe("operator preferences", () => {
     const both = mergeOperatorPreferences(EMPTY_PREFERENCES, {
       translationDefaults: { sourceLanguage: "id", targetLanguage: "en", keywordText: "", filterText: "", recordingWindowMs: 9_000, speechBufferMs: 15_000 },
     });
-    expect(both.translationDefaults?.recordingWindowMs).toBe(9_000);
+    expect(both.translationDefaults?.recordingWindowMs).toBe(10_000);
   });
 
   it("does not let an unrelated save wipe a legacy-keyed recording window default", async () => {
@@ -113,10 +135,10 @@ describe("operator preferences", () => {
     });
 
     const read = await (await object.fetch(request("GET"))).json() as Record<string, { recordingWindowMs?: number }>;
-    expect(read.translationDefaults?.recordingWindowMs).toBe(15_000);
+    expect(read.translationDefaults?.recordingWindowMs).toBe(14_000);
 
     const afterUnrelatedSave = await (await object.fetch(request("POST", { theme: "dark" }))).json() as Record<string, { recordingWindowMs?: number }>;
-    expect(afterUnrelatedSave.translationDefaults?.recordingWindowMs).toBe(15_000);
+    expect(afterUnrelatedSave.translationDefaults?.recordingWindowMs).toBe(14_000);
   });
 
   it("derives a stable, non-reversible key from the operator identity", async () => {

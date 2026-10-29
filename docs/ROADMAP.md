@@ -7,15 +7,15 @@ implementation; deployment and church-approved quality require separate evidence
 
 - Browser capture, selected audio interface, readiness checklist and Help page
   (replacing the six-step guide), multilingual Whisper/GPT-OSS pipeline with
-  previous-chunk continuity context, one target at a time, 6/9/12/15/18-second recording
-  windows, bounded context, Inference and Sanitization levels
+  previous-chunk continuity context, one target at a time, 6s/10s/14s or Dynamic 6–14s
+  recording windows, bounded context, Inference and Sanitization levels
   ([ADR 0018](decisions/0018-inference-level-as-server-envelope-parameter.md)) and the
   default-on Filter inappropriate language toggle.
 - Reviewed terminology, script-aware public masking, incomplete-output skipping,
   one-time controller/attempt claims and acknowledged usage.
 - Reusable OBS channel, latest-caption viewer (long captions shrink to fit the phone),
   shared styles, safe margins, explicit refresh, Pause/Resume/Clear screen/End, automatic
-  pause when the tab closes or stays in the background, takeover, recovery and link
+  pause when the tab closes, worker-driven timers while backgrounded, takeover, recovery and link
   rotation.
 - Live overrides: Quick block, a paused Manual caption archived as a separate operator
   note ([ADR 0013](decisions/0013-manual-caption-archived-as-operator-notes.md)), an
@@ -32,6 +32,8 @@ implementation; deployment and church-approved quality require separate evidence
   Optional automatic summary drafts at End
   ([ADR 0019](decisions/0019-automatic-post-service-summary.md)) and record-only session
   details ([ADR 0024](decisions/0024-session-metadata.md)).
+- Optional operator-only Live drafts re-transcribe the current audio window within the
+  existing reserved-attempt ceiling ([ADR 0027](decisions/0027-operator-only-live-drafts.md)).
 - Live, Sermons and Settings dashboard for volunteer operators, with a readiness
   checklist, a pinned live control bar and bookmarkable screens
   ([ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)), following

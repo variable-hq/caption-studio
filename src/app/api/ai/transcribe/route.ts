@@ -27,7 +27,10 @@ function errorResponse(error: unknown) {
   }
   if (error instanceof GroqProviderError) {
     return NextResponse.json(
-      { error: error.message },
+      {
+        error: error.message,
+        ...(error.upstreamStatus === 400 ? { code: "provider_request_rejected" } : {}),
+      },
       {
         status: error.status,
         headers: error.retryAfter ? { "retry-after": error.retryAfter } : undefined,

@@ -8,17 +8,16 @@ import {
   type SourceLanguage,
 } from "@/domain/languages";
 import {
-  RECORDING_WINDOW_OPTIONS_MS,
+  RECORDING_WINDOW_OPTIONS,
   normalizeRecordingWindowMs,
   type RecordingWindowMs,
 } from "@/live/contracts";
 
 const RECORDING_WINDOW_LABELS: Record<RecordingWindowMs, string> = {
   6000: "Fastest: listens 6 seconds at a time",
-  9000: "Balanced: listens 9 seconds at a time",
-  12000: "Smooth: listens 12 seconds at a time",
-  15000: "Smoother: listens 15 seconds at a time",
-  18000: "Smoothest: listens 18 seconds at a time",
+  10000: "Balanced: listens 10 seconds at a time",
+  14000: "Smooth: listens 14 seconds at a time",
+  dynamic: "Automatic: listens until a natural pause (6 to 14 seconds)",
 };
 
 interface TranslationSettingsEditorProps {
@@ -92,7 +91,7 @@ export function TranslationSettingsEditor({
             </label>
         </div>
       </SettingGroup>
-      <SettingGroup title="Caption speed" hint="Listening longer gives fuller sentences, but captions appear later.">
+      <SettingGroup title="Caption speed" hint="Listening longer gives fuller sentences, but captions appear later. Automatic ends each window at a natural pause.">
           <label>
             <span className="visuallyHidden">Caption speed</span>
             <select
@@ -105,7 +104,7 @@ export function TranslationSettingsEditor({
                 onRecordingWindowChange(normalizeRecordingWindowMs(event.target.value))
               }
             >
-              {RECORDING_WINDOW_OPTIONS_MS.map((value) => (
+              {RECORDING_WINDOW_OPTIONS.map((value) => (
                 <option value={value} key={value}>
                   {RECORDING_WINDOW_LABELS[value]}{defaultRecordingWindowMs === value ? " · Church default" : ""}
                 </option>

@@ -7,18 +7,19 @@ import {
   CloudProviderClientError,
   isTerminalInferenceControlError,
 } from "@/ai/cloud-provider-client";
-import type { InferenceAttemptContext, TranslationResult } from "@/ai/contracts";
 import {
   accumulateLlmSessionUsage,
   emptyLlmSessionUsage,
   withLlmProviderRateLimit,
 } from "@/ai/usage";
-import { parseGlossaryInput, parseModerationInput, preferredTermMap } from "@/live/config";
+import { parseModerationInput } from "@/live/config";
 import { addQuickBlockEntry, combineFilterText, removeQuickBlockEntry, type QuickBlockEntry } from "@/live/quick-block";
 import {
   DEFAULT_RECORDING_WINDOW_MS,
   MAX_LIVE_SESSION_MS,
   normalizeCaptionStyle,
+  recordingWindowBoundsMs,
+  recordingWindowLabel,
   type CaptionStyle,
   type LiveServiceDetails,
   type LiveSessionControlAction,
@@ -43,14 +44,24 @@ import {
   type TranslationSessionSettings,
 } from "@/live/translation-settings";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
-import { keywordHints } from "@/pipeline/glossary";
 import { experienceRequest } from "@/experience/client";
 import { startSerialPolling } from "@/live/serial-polling";
 import { useMicrophoneInput } from "@/live/use-microphone-input";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
-import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
-import { normalizeLiveNote } from "@/live/live-note";
 import { useRecentOutputs } from "@/live/use-recent-outputs";
+import { runCaptionInference } from "@/live/caption-inference";
+import { useLiveDrafts, type LiveDraftRunner } from "@/live/use-live-drafts";
+import {
+  clearBackgroundTimeout,
+  clearBackgroundInterval,
+  setBackgroundInterval,
+  setBackgroundTimeout,
+} from "@/live/background-timer";
+import {
+  initialWindowPolicyState,
+  nextWindowDecision,
+  DYNAMIC_SAMPLE_MS,
+} from "@/live/window-policy";
 
 interface LiveCaptionSettings extends TranslationSessionSettings {
   saveHistory?: boolean;
@@ -58,6 +69,7 @@ interface LiveCaptionSettings extends TranslationSessionSettings {
   style: CaptionStyle;
   outputBufferCount: OutputBufferCount;
   outputBufferDwellMs: OutputBufferDwellMs;
+  liveDraftsEnabled: boolean;
 }
 
 interface QueuedChunk {
@@ -132,6 +144,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     microphoneState,
     microphoneError,
     level,
+    readLevel,
     streamRef,
     ensureMicrophone,
     stopMicrophone,
@@ -185,6 +198,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   });
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recorderTimerRef = useRef<number | null>(null);
+  const dynamicWindowTimerRef = useRef<number | null>(null);
   const queueRef = useRef<QueuedChunk[]>([]);
   const processingRef = useRef(false);
   const captureAbortRef = useRef<AbortController | null>(null);
@@ -196,14 +210,37 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const recentContextRef = useRef<string[]>([]);
   const sessionTimerRef = useRef<number | null>(null);
   const lifecyclePauseRef = useRef(false);
-  const visibilityPauseTimerRef = useRef<number | null>(null);
   const recordingWindowRef = useRef<RecordingWindowMs>(DEFAULT_RECORDING_WINDOW_MS);
   const cloudClientRef = useRef(new CloudProviderClient());
   const liveClientRef = useRef(new LiveSessionClient());
+  const draftRunnerRef = useRef<LiveDraftRunner>(async () => null);
+  const attemptsUsedRef = useRef(0);
+  const liveDrafts = useLiveDrafts({
+    enabled: settings.liveDraftsEnabled,
+    runnerRef: draftRunnerRef,
+    attemptsUsed: () => attemptsUsedRef.current,
+    finalBusy: () => processingRef.current || queueRef.current.length > 0,
+    remainingServiceMs: () => {
+      const expiresAt = serviceRef.current?.expiresAt;
+      return expiresAt ? Math.max(0, new Date(expiresAt).getTime() - Date.now()) : 0;
+    },
+  });
+  const {
+    draft: liveDraftPreview,
+    sessionDisabled: liveDraftSessionDisabled,
+    beginWindow: beginLiveDraftWindow,
+    endWindow: endLiveDraftWindow,
+    startSession: startLiveDraftSession,
+    reset: resetLiveDrafts,
+  } = liveDrafts;
 
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    attemptsUsedRef.current = liveState.transcriptionRequests;
+  }, [liveState.transcriptionRequests]);
 
   useEffect(() => {
     quickBlockEntriesRef.current = quickBlockEntries;
@@ -238,9 +275,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, [liveState.message, liveState.status, microphoneState]);
 
   const stopRecorder = useCallback(() => {
+    endLiveDraftWindow();
     if (recorderTimerRef.current !== null) {
-      window.clearTimeout(recorderTimerRef.current);
+      clearBackgroundTimeout(recorderTimerRef.current);
       recorderTimerRef.current = null;
+    }
+    if (dynamicWindowTimerRef.current !== null) {
+      clearBackgroundInterval(dynamicWindowTimerRef.current);
+      dynamicWindowTimerRef.current = null;
     }
     const recorder = recorderRef.current;
     recorderRef.current = null;
@@ -249,7 +291,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       recorder.onstop = null;
       recorder.stop();
     }
-  }, []);
+  }, [endLiveDraftWindow]);
 
   const stopTranslationCapture = useCallback(() => {
     capturingRef.current = false;
@@ -267,7 +309,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
   const clearServiceTimer = useCallback(() => {
     if (sessionTimerRef.current !== null) {
-      window.clearTimeout(sessionTimerRef.current);
+      clearBackgroundTimeout(sessionTimerRef.current);
       sessionTimerRef.current = null;
     }
   }, []);
@@ -558,60 +600,51 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       if (!signal) return;
       const serviceAtStart = serviceRef.current;
       if (!serviceAtStart) return;
-      // Reserve quota immediately before quota-consuming provider work. A takeover
-      // therefore stops the displaced tab before its next transcription request.
-      const lease = await liveClientRef.current.reserveTranscriptionAttempt(
-        serviceAtStart.controllerToken,
-      );
-      if (!isCurrentCapture()) return;
-      if (lease.translationRevision !== serviceAtStart.translationRevision) {
-        reconcileExternalTranslationRevision(
-          lease.translationRevision,
-          lease.transcriptionRequests,
-        );
-        return;
-      }
-      const glossary = parseGlossaryInput(current.keywordText, current.targetLanguage);
-      setLiveState((state) => ({
-        ...state,
-        transcriptionRequests: lease.transcriptionRequests,
-      }));
-      const inferenceContext: InferenceAttemptContext = {
+      const inference = await runCaptionInference({
+        audio,
+        settings: current,
         controllerToken: serviceAtStart.controllerToken,
-        transcriptionAttempt: lease.transcriptionRequests,
-      };
-      const transcription = await cloudClientRef.current.transcribe(
-        {
-          audio,
-          sourceLanguage: current.sourceLanguage,
-          keywordHints: keywordHints(glossary.map((entry) => ({ ...entry, variants: [] }))),
-          previousTranscript: recentContextRef.current.at(-1),
-          sanitizeLevel: current.sanitizeLevel,
-        },
-        inferenceContext,
+        recentContext: recentContextRef.current,
+        liveNote: settingsRef.current.liveNote,
         signal,
-      );
-      if (!isCurrentCapture()) return;
-      if (transcription.droppedSegments > 0) {
-        setLiveState((state) => ({
+        isCurrent: isCurrentCapture,
+        currentRevision: serviceAtStart.translationRevision,
+        onRevisionMismatch: (lease) =>
+          reconcileExternalTranslationRevision(lease.translationRevision, lease.transcriptionRequests),
+        onLease: (lease) => {
+          attemptsUsedRef.current = lease.transcriptionRequests;
+          if (isCurrentCapture()) {
+            setLiveState((state) => ({ ...state, transcriptionRequests: lease.transcriptionRequests }));
+          }
+        },
+        onDroppedSegments: (count) => setLiveState((state) => ({
           ...state,
-          filteredSegments: state.filteredSegments + transcription.droppedSegments,
-        }));
-      }
-
-      const finalSegments = transcription.segments.filter(({ isFinal, text }) => isFinal && text.trim());
-      if (!finalSegments.length) return;
-      const originalSource = finalSegments.map(({ text }) => text.trim()).join(" ");
-      const sourceText = correctApprovedRecognitionVariants(originalSource, glossary);
-      const detectedLanguage =
-        current.sourceLanguage === "auto"
-          ? finalSegments.find(({ detectedLanguage: locale }) => locale)?.detectedLanguage
-          : current.sourceLanguage;
-      if (!detectedLanguage) {
-        throw new Error(
-          "The spoken language could not be detected. Select it explicitly and restart.",
-        );
-      }
+          filteredSegments: state.filteredSegments + count,
+        })),
+        onTranslation: (result) => setLiveState((state) => ({
+          ...state,
+          llmUsage: accumulateLlmSessionUsage(state.llmUsage, result),
+        })),
+        onTranslationError: (error) => {
+          if (error instanceof CloudProviderClientError && (error.rateLimit || error.usage)) {
+            setLiveState((state) => ({
+              ...state,
+              llmUsage: error.usage
+                ? accumulateLlmSessionUsage(state.llmUsage, error)
+                : withLlmProviderRateLimit(state.llmUsage, error.rateLimit),
+            }));
+          }
+        },
+        dependencies: {
+          reserve: (token) => liveClientRef.current.reserveTranscriptionAttempt(token),
+          transcribe: (request, context, requestSignal) =>
+            cloudClientRef.current.transcribe(request, context, requestSignal),
+          translate: (request, context, requestSignal) =>
+            cloudClientRef.current.translate(request, context, requestSignal),
+        },
+      });
+      if (!inference) return;
+      const { lease, glossary, originalSource, sourceText, detectedLanguage, translation } = inference;
 
       if (serviceAtStart.saveHistory) {
         try {
@@ -624,45 +657,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         }
       }
 
-      let translation: TranslationResult = { text: sourceText };
-      if (detectedLanguage !== current.targetLanguage) {
-        try {
-          const liveNote = normalizeLiveNote(settingsRef.current.liveNote);
-          translation = await cloudClientRef.current.translate(
-            {
-              text: sourceText,
-              sourceLanguage: detectedLanguage,
-              targetLanguage: current.targetLanguage,
-              recentContext: recentContextRef.current,
-              preferredTerms: preferredTermMap(glossary, current.targetLanguage),
-              translationSystemPrompt: current.translationSystemPrompt,
-              inferenceLevel: current.inferenceLevel,
-              sanitizeLevel: current.sanitizeLevel,
-              filterInappropriateLanguage: current.filterInappropriateLanguage,
-              ...(liveNote ? { liveNote } : {}),
-            },
-            inferenceContext,
-            signal,
-          );
-        } catch (error) {
-          if (
-            error instanceof CloudProviderClientError &&
-            (error.rateLimit || error.usage)
-          ) {
-            setLiveState((state) => ({
-              ...state,
-              llmUsage: error.usage
-                ? accumulateLlmSessionUsage(state.llmUsage, error)
-                : withLlmProviderRateLimit(state.llmUsage, error.rateLimit),
-            }));
-          }
-          throw error;
-        }
-        setLiveState((state) => ({
-          ...state,
-          llmUsage: accumulateLlmSessionUsage(state.llmUsage, translation),
-        }));
-      }
       if (!isCurrentCapture()) return;
 
       const effectiveFilterText = combineFilterText(
@@ -743,6 +737,77 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     },
     [enqueueOutputBufferEntry, outputBufferGenerationRef, publishBufferedEntry, recordRecentOutput, reconcileExternalTranslationRevision],
   );
+
+  const runLiveDraft = useCallback<LiveDraftRunner>(async ({ audio, signal, isCurrent, captureGeneration, onPartialAudioRejected }) => {
+    const current = activeTranslationSettingsRef.current;
+    const serviceAtStart = serviceRef.current;
+    if (!current || !serviceAtStart || !capturingRef.current || !isCurrent()) return null;
+    const isCurrentDraft = () =>
+      isCurrent() &&
+      capturingRef.current &&
+      captureGeneration === captureGenerationRef.current &&
+      serviceRef.current?.controllerToken === serviceAtStart.controllerToken;
+    const inference = await runCaptionInference({
+      audio,
+      settings: current,
+      controllerToken: serviceAtStart.controllerToken,
+      recentContext: recentContextRef.current,
+      liveNote: settingsRef.current.liveNote,
+      signal,
+      isCurrent: isCurrentDraft,
+      currentRevision: serviceAtStart.translationRevision,
+      onRevisionMismatch: (lease) =>
+        reconcileExternalTranslationRevision(lease.translationRevision, lease.transcriptionRequests),
+      onLease: (lease) => {
+        attemptsUsedRef.current = lease.transcriptionRequests;
+        if (isCurrentDraft()) {
+          setLiveState((state) => ({ ...state, transcriptionRequests: lease.transcriptionRequests }));
+        }
+      },
+      onDroppedSegments: () => {},
+      onTranscriptionError: (error) => {
+        if (error instanceof CloudProviderClientError && error.code === "provider_request_rejected") {
+          onPartialAudioRejected();
+        }
+      },
+      onTranslation: (result) => setLiveState((state) => ({
+        ...state,
+        llmUsage: accumulateLlmSessionUsage(state.llmUsage, result),
+      })),
+      onTranslationError: (error) => {
+        if (error instanceof CloudProviderClientError && (error.rateLimit || error.usage)) {
+          setLiveState((state) => ({
+            ...state,
+            llmUsage: error.usage
+              ? accumulateLlmSessionUsage(state.llmUsage, error)
+              : withLlmProviderRateLimit(state.llmUsage, error.rateLimit),
+          }));
+        }
+      },
+      dependencies: {
+        reserve: (token) => liveClientRef.current.reserveTranscriptionAttempt(token),
+        transcribe: (request, context, requestSignal) =>
+          cloudClientRef.current.transcribe(request, context, requestSignal),
+        translate: (request, context, requestSignal) =>
+          cloudClientRef.current.translate(request, context, requestSignal),
+      },
+    });
+    if (!inference || !isCurrentDraft()) return null;
+    const effectiveFilterText = combineFilterText(
+      quickBlockEntriesRef.current,
+      current.filterText,
+      MAX_FILTER_INPUT_CHARS,
+    );
+    const forms = prepareCaptionForms({
+      sourceText: inference.sourceText,
+      translatedText: inference.translation.text,
+      targetLanguage: current.targetLanguage,
+      glossary: inference.glossary,
+      moderationRules: parseModerationInput(effectiveFilterText),
+    });
+    return { sourceText: forms.protectedSourceText, publicText: forms.publicText };
+  }, [reconcileExternalTranslationRevision]);
+  draftRunnerRef.current = runLiveDraft;
 
   const drainQueue = useCallback(async () => {
     if (processingRef.current) return;
@@ -864,6 +929,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           }
         };
         recorder.onstop = () => {
+          endLiveDraftWindow();
           if (recorderRef.current === recorder) recorderRef.current = null;
           if (
             !serviceRef.current ||
@@ -876,21 +942,50 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           enqueueChunk(new Blob(chunks, { type: mimeType }), generation);
           startRecorderChunk();
         };
-        recorder.start();
-        recorderTimerRef.current = window.setTimeout(() => {
+        const bounds = recordingWindowBoundsMs(recordingWindowMs);
+        recorder.start(1_000);
+        beginLiveDraftWindow({
+          generation,
+          recordingWindowMs,
+          snapshotAudio: () => new Blob(chunks, {
+            type: recorder.mimeType || chunks[0]?.type || "audio/webm",
+          }),
+        });
+        if (recordingWindowMs === "dynamic") {
+          let policyState = initialWindowPolicyState();
+          dynamicWindowTimerRef.current = setBackgroundInterval(() => {
+            const result = nextWindowDecision(policyState, readLevel(), bounds);
+            policyState = result.state;
+            if (result.decision !== "cut") return;
+            if (dynamicWindowTimerRef.current !== null) {
+              clearBackgroundInterval(dynamicWindowTimerRef.current);
+              dynamicWindowTimerRef.current = null;
+            }
+            if (recorderTimerRef.current !== null) {
+              clearBackgroundTimeout(recorderTimerRef.current);
+              recorderTimerRef.current = null;
+            }
+            if (recorder.state === "recording") recorder.stop();
+          }, DYNAMIC_SAMPLE_MS);
+        }
+        recorderTimerRef.current = setBackgroundTimeout(() => {
           recorderTimerRef.current = null;
+          if (dynamicWindowTimerRef.current !== null) {
+            clearBackgroundInterval(dynamicWindowTimerRef.current);
+            dynamicWindowTimerRef.current = null;
+          }
           if (recorder.state === "recording") recorder.stop();
-        }, recordingWindowMs);
+        }, bounds.maxMs);
       };
       startRecorderChunk();
     },
-    [endService, enqueueChunk],
+    [beginLiveDraftWindow, endLiveDraftWindow, endService, enqueueChunk, readLevel],
   );
 
   const armServiceTimer = useCallback(
     (service: LiveServiceDetails) => {
       clearServiceTimer();
-      sessionTimerRef.current = window.setTimeout(() => {
+      sessionTimerRef.current = setBackgroundTimeout(() => {
         void endService(
           "The 90-minute free-tier service limit was reached. The reusable OBS URL remains ready.",
           true,
@@ -1192,6 +1287,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const startSession = useCallback(
     async (takeover = false) => {
       if (serviceRef.current || endingRef.current) return;
+      startLiveDraftSession();
+      attemptsUsedRef.current = 0;
       loadGenerationRef.current += 1;
       endRetryRequiredRef.current = false;
       setEndRetryRequired(false);
@@ -1264,7 +1361,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           status: "live",
           message: takeover
             ? "Takeover complete. Listening for the next caption."
-            : `Listening. The first caption appears after the ${recordingWindowMs / 1_000}-second recording window and cloud processing.`,
+            : `Listening. The first caption appears after the ${recordingWindowLabel(recordingWindowMs)} recording window and cloud processing.`,
           service,
           channel: current.channel
             ? {
@@ -1318,6 +1415,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       resetRecentOutputs,
       selectedDeviceId,
       startRecorder,
+      startLiveDraftSession,
       stopMicrophone,
     ],
   );
@@ -1960,49 +2058,26 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     };
 
     const reconcileAfterForeground = () => {
-      if (visibilityPauseTimerRef.current !== null) {
-        window.clearTimeout(visibilityPauseTimerRef.current);
-        visibilityPauseTimerRef.current = null;
-      }
       lifecyclePauseRef.current = false;
       void loadChannel();
     };
 
-    // Backgrounded tabs throttle timers that both the tick and the recorder's chunk
-    // boundary depend on, so treat sustained backgrounding as an explicit pause rather
-    // than risk degraded capture. Ignore brief tab switches.
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted && lifecyclePauseRef.current) reconcileAfterForeground();
+    };
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        if (visibilityPauseTimerRef.current !== null) return;
-        visibilityPauseTimerRef.current = window.setTimeout(() => {
-          visibilityPauseTimerRef.current = null;
-          pauseForLifecycle();
-        }, 10_000);
-      } else {
-        if (visibilityPauseTimerRef.current !== null) {
-          window.clearTimeout(visibilityPauseTimerRef.current);
-          visibilityPauseTimerRef.current = null;
-        }
-        if (lifecyclePauseRef.current) reconcileAfterForeground();
+      if (document.visibilityState === "visible" && lifecyclePauseRef.current) {
+        reconcileAfterForeground();
       }
     };
 
     window.addEventListener("pagehide", pauseForLifecycle);
-    window.addEventListener("church-caption-native-background", pauseForLifecycle);
-    window.addEventListener("church-caption-native-foreground", reconcileAfterForeground);
+    window.addEventListener("pageshow", handlePageShow);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       window.removeEventListener("pagehide", pauseForLifecycle);
-      window.removeEventListener("church-caption-native-background", pauseForLifecycle);
-      window.removeEventListener(
-        "church-caption-native-foreground",
-        reconcileAfterForeground,
-      );
+      window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      if (visibilityPauseTimerRef.current !== null) {
-        window.clearTimeout(visibilityPauseTimerRef.current);
-        visibilityPauseTimerRef.current = null;
-      }
     };
   }, [loadChannel, resetOutputBuffer, stopCapture]);
 
@@ -2080,6 +2155,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     showManualCaption,
     outputBufferQueue,
     recentOutputs,
+    liveDraft: liveDraftPreview,
+    liveDraftSessionDisabled,
+    resetLiveDrafts,
     setOutputBufferEntryPaused,
     clearOutputBufferEntry,
     fastForwardOutputBufferEntry,

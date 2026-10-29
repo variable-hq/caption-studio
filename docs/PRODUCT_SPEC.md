@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). The corrected 13 September
+Reviewed 30 October 2026 against open PR #77. The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -52,8 +52,10 @@ plain words. Nothing opens automatically.
 2. The operator chooses a browser-visible microphone or audio interface and confirms its
    input level.
 3. The operator selects a spoken language or automatic detection, one target language,
-   and a 6-, 9-, 12-, 15-, or 18-second recording window. The UI notes that longer windows reduce
-   chopped sentences but make captions appear later.
+   and a 6-, 10-, or 14-second recording window, or Automatic. Automatic waits at least
+   six seconds, then ends at the first microphone-level pause of about 700ms of silence;
+   it always cuts by 14 seconds. Longer windows can reduce chopped sentences but make
+   captions appear later.
 4. The operator optionally enters bounded keyword/preferred-translation pairs and public
    mask words, and may edit the reviewed operator translation prompt.
 5. The operator configures font, size, colour, line highlight, transparency, position,
@@ -70,7 +72,9 @@ plain words. Nothing opens automatically.
 
 ### During the service
 
-1. The browser records the active 6- to 18-second window at a time.
+1. The browser records a fixed 6-, 10-, or 14-second window, or in Automatic mode records
+   for 6 to 14 seconds and cuts at the first qualifying pause. The pause decision uses raw
+   microphone RMS on the browser and requires no model call or quota.
 2. The protected API transcribes the chunk with bounded church/biblical hints and the end
    of the previous chunk's transcript as continuity context.
 3. If source and target differ, the protected API translates with an immutable server
@@ -144,9 +148,10 @@ Mandarin; Cantonese requires a separate language and model-quality decision.
 
 - Browser permission is explicit and the selected input has a visible level meter.
 - Audio is mono with browser echo cancellation and noise suppression requested.
-- The operator chooses a 6-, 9-, 12-, 15-, or 18-second window. The 6-second default
-  preserves the existing fast path; longer choices can reduce fragmentation but add equal
-  latency. Every option stays inside Whisper's 30-second window and, at the 64 kbps
+- The operator chooses a 6-, 10-, or 14-second fixed window, or Dynamic (the default). A
+  dynamic window cuts at the first pause of about 700ms after at least 6 seconds, with a
+  hard 14-second maximum; its browser microphone-level decision adds no model call or quota.
+  Fixed choices can reduce fragmentation but add equal latency. Every option stays inside Whisper's 30-second window and, at the 64 kbps
   recorder setting, far below the 3 MB audio limit.
 - The active-setting snapshot for each chunk and maximum two-chunk queue bound memory and
   backlog. Pause or confirmed translation refresh discards an unfinished active window,
@@ -317,12 +322,46 @@ Live's captions card. Filtered entries read “Hidden by
 filter”. It records whether the output buffer was active, but does not change or feed later
 translations. Pause and Clear preserve the strip; Start, End and takeover reset it.
 
+### Live drafts
+
+**Live drafts** is an optional church default, off unless saved otherwise. The controller-only
+Live card switch starts from that default and is a per-session choice; changing it is not
+saved automatically. Turning it off immediately clears the preview, cancels pending timers,
+and aborts in-flight draft work. Turning it on applies at the next recording window. The
+separate **Save for everyone** action changes the default for future sessions.
+
+While the current recording window is still being captured, the controller may re-transcribe
+the audio already recorded and replace the previous operator-only preview with a newer
+draft. When enabled without a draft yet, the card explains that drafts appear during longer
+windows and that 6-second windows never draft. The preview sits below Heard and Audience
+sees in Live's Captions card. It is never published, buffered, added to recent translation
+context, or sent to OBS, viewers, or the sermon journal. The final caption still follows the
+normal end-of-window path.
+
+Fixed 6-second windows have no draft; 10-second windows may draft at 4 seconds; 14-second
+windows may draft at 4 and 8 seconds. Dynamic initially uses the 14-second offsets and
+discards any in-flight draft at its natural or hard window end. A draft needs at least 3
+seconds of new audio. At most one runs at a time, at most 2 are allowed per caption, and a
+draft is skipped whenever a final chunk is queued or processing, or the remaining 900
+attempt ceiling is needed for future finals. Draft attempts use the existing protected
+transcription and translation routes. The worst case is 3 transcription and 3 translation
+calls per caption and about twice the audio-seconds, so the setting warns that drafts use
+more free-tier quota.
+
+Any draft error disables drafts for that window without ending the service or showing an
+operator error; the final caption remains eligible to report its own failure. If the
+provider rejects partial audio with HTTP 400, drafts stay disabled for the service even if
+the switch is turned back on; help text by the switch explains why. A new service clears
+that restriction. Pause, Clear, End, takeover, translation refresh, and each window end
+clear the preview and abort in-flight draft work.
+
 | Control | Purpose | When it applies |
 | --- | --- | --- |
 | Words (Settings › Words) | Exact word rules and spelling fixes | After Apply now |
 | Quick block (Live › Quick fixes) | Hide any caption containing a word | Immediately; current service only |
 | Translator instructions (Settings) | Standing guidance for the whole service | After Apply now |
 | Live note | Situational guidance for the passage being spoken now | From the next translation; current service only |
+| Live drafts | In-progress operator preview | Replaces the previous draft; never published |
 | Recent outputs | Observe the last 3 published captions | Display only; changes nothing |
 
 ### Output buffer
@@ -348,6 +387,11 @@ with Quick block and Manual caption. The public caption filter lives in Settings
   "2/4 queued") always shows how much of that headroom is used, and an explicit warning
   appears once the backlog is full and the next-up caption is held, since that is the
   specific state in which the next translation would be dropped.
+- Each caption's dwell starts when it becomes next-up. Back-to-back arrivals therefore
+  remain visible and controllable for at least one full dwell each; in a burst, the wait
+  can grow by one dwell per queued caption, bounded by the four-entry capacity. The
+  intentional early releases are buffer Off, operator Fast-forward, or force-advance when
+  the full unpaused queue needs room for a new caption.
 - The next-up caption can be **paused** (frozen; remaining hold time preserved), **edited**
   (operator override, put back through the same glossary and confirmed-filter moderation
   as every other caption before it can reach Live; auto-resumes on Submit), **cleared**
@@ -482,14 +526,12 @@ caption writes while keeping the original URL and expiry. Resume clears any synt
 test before capture restarts. Clear does not pause capture, so the next valid live
 caption may replace the blank display.
 
-The operator tab also pauses itself automatically, with the same visible "paused" state
-and message, rather than leaving capture or the output buffer running unobserved: on full
-navigation away or close (`pagehide`), immediately; and after the tab stays in the
-background for 10 seconds, since a backgrounded tab's timers are throttled by the browser
-and both audio-chunk timing and the output buffer's advancement depend on them. A brief
-tab switch under that threshold does not pause anything. Returning to the tab reloads
-channel status but does not resume capture automatically; the operator resumes explicitly,
-as with any other pause.
+Only a full navigation away or close (`pagehide`) pauses the operator tab automatically.
+Backgrounding or losing focus does not stop capture: recorder boundaries, service expiry,
+and output-buffer dwell ticks use a dedicated Web Worker clock to avoid main-thread timer
+throttling. If the worker is unavailable or fails, active timers continue on browser timers
+from their next due time. Returning from a bfcache-restored page reloads channel status but
+does not resume capture; the operator resumes explicitly.
 
 While paused, a Manual caption control can show operator-typed text (up to 240
 characters, no AI translation involved) in the session's current target language to OBS
@@ -510,8 +552,9 @@ named display profiles.
 ### Usage and cost controls
 
 - Active services stop after at most 90 minutes; paused time still counts.
-- Audio windows are 6, 9, 12, 15, or 18 seconds. The server ceiling remains 900 reserved
-  transcription attempts in a 90-minute service, derived from the fastest option.
+- Audio windows are 6, 10, or 14 seconds, or Dynamic (6–14 seconds). The server ceiling
+  remains 900 reserved transcription attempts in a 90-minute service, derived from the
+  6-second minimum option.
   Non-silent captions whose source differs from the target can make one additional
   translation call, so there are no more than 900 translation calls. Access is verified
   before a separate one-time claim for each inference stage; direct/replayed calls and
@@ -544,7 +587,7 @@ the 90-minute limit.
 
 Code-level acceptance:
 
-- An operator can select an input, source, target, and 6- to 18-second recording window. During
+- An operator can select an input, source, target, and 6s, 10s, 14s, or Dynamic recording window. During
   live or paused operation, language, terminology, filter, recording window, and custom-prompt edits
   stay draft until the operator presses **Apply now**.
 - Live separates service time (the control bar), reserved transcription

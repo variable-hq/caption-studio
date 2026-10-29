@@ -38,6 +38,12 @@ records to establish release evidence.
   Live note prompt and the controlling tab's display-only Recent outputs strip.
 - [ADR 0024](decisions/0024-session-metadata.md) records optional saved-sermon details and
   why they remain outside all model prompts.
+- [ADR 0025](decisions/0025-worker-driven-background-timers.md) records worker-driven
+  capture timers and continued sessions while the operator tab is backgrounded.
+- [ADR 0026](decisions/0026-pause-driven-recording-windows.md) records fixed and
+  pause-driven recording windows and their request ceiling.
+- [ADR 0027](decisions/0027-operator-only-live-drafts.md) records bounded, operator-only
+  in-progress caption drafts and their quota safeguards.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator, and the default-on operator control for faithful
   rendering when that omission rule is disabled.

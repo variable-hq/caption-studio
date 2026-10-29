@@ -10,16 +10,16 @@ import {
   MAX_LIVE_SESSION_MS,
   MAX_TRANSCRIPTION_REQUESTS,
   MIN_RECORDING_WINDOW_MS,
-  RECORDING_WINDOW_OPTIONS_MS,
+  RECORDING_WINDOW_OPTIONS,
   normalizeCaptionStyle,
   normalizeRecordingWindowMs,
 } from "@/live/contracts";
 
 describe("live caption configuration", () => {
   it("derives the session transcription request cap from the audio cadence", () => {
-    expect(DEFAULT_RECORDING_WINDOW_MS).toBe(6_000);
+    expect(DEFAULT_RECORDING_WINDOW_MS).toBe("dynamic");
     expect(MIN_RECORDING_WINDOW_MS).toBe(6_000);
-    expect(RECORDING_WINDOW_OPTIONS_MS).toEqual([6_000, 9_000, 12_000, 15_000, 18_000]);
+    expect(RECORDING_WINDOW_OPTIONS).toEqual([6_000, 10_000, 14_000, "dynamic"]);
     expect(MAX_TRANSCRIPTION_REQUESTS).toBe(900);
     expect(MAX_TRANSCRIPTION_REQUESTS).toBe(
       MAX_LIVE_SESSION_MS / MIN_RECORDING_WINDOW_MS,
@@ -28,13 +28,16 @@ describe("live caption configuration", () => {
 
   it("accepts only the bounded recording-window options", () => {
     expect(normalizeRecordingWindowMs(6_000)).toBe(6_000);
-    expect(normalizeRecordingWindowMs("9000")).toBe(9_000);
-    expect(normalizeRecordingWindowMs(12_000)).toBe(12_000);
-    expect(normalizeRecordingWindowMs(15_000)).toBe(15_000);
-    expect(normalizeRecordingWindowMs("18000")).toBe(18_000);
-    expect(normalizeRecordingWindowMs(3_000)).toBe(6_000);
-    expect(normalizeRecordingWindowMs(21_000)).toBe(6_000);
-    expect(normalizeRecordingWindowMs("invalid")).toBe(6_000);
+    expect(normalizeRecordingWindowMs("10000")).toBe(10_000);
+    expect(normalizeRecordingWindowMs(14_000)).toBe(14_000);
+    expect(normalizeRecordingWindowMs("dynamic")).toBe("dynamic");
+    expect(normalizeRecordingWindowMs(9_000)).toBe(10_000);
+    expect(normalizeRecordingWindowMs(12_000)).toBe(14_000);
+    expect(normalizeRecordingWindowMs(15_000)).toBe(14_000);
+    expect(normalizeRecordingWindowMs(18_000)).toBe(14_000);
+    expect(normalizeRecordingWindowMs(3_000)).toBe("dynamic");
+    expect(normalizeRecordingWindowMs(21_000)).toBe("dynamic");
+    expect(normalizeRecordingWindowMs("invalid")).toBe("dynamic");
   });
 
   it("parses recognition hints and target-language preferred terms", () => {

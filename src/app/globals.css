@@ -64,6 +64,10 @@
   --control-height: 44px;
   --control-height-sm: 36px;
   --control-padding-x: 14px;
+  --switch-track-width: 44px;
+  --switch-track-height: 24px;
+  --switch-thumb-size: 18px;
+  --switch-checked-offset: 20px;
   --content-max: 1160px;
 }
 
@@ -561,6 +565,41 @@ code {
 .experienceCard button { min-width: 0; }
 .checkLabel { display: flex; flex-direction: row; align-items: center; gap: var(--gap-md); min-height: var(--control-height); cursor: pointer; }
 .checkLabel input[type="checkbox"] { width: 20px; height: 20px; min-height: 20px; flex: 0 0 20px; accent-color: var(--ink); }
+.switchControl { display: flex; flex-direction: row; align-items: center; gap: var(--gap-md); min-height: var(--control-height); width: fit-content; max-width: 100%; cursor: pointer; }
+.switchControl input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  flex: 0 0 var(--switch-track-width);
+  width: var(--switch-track-width);
+  height: var(--switch-track-height);
+  min-height: var(--switch-track-height);
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  cursor: inherit;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.switchControl input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-start: 2px;
+  width: var(--switch-thumb-size);
+  height: var(--switch-thumb-size);
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  transition: transform 120ms ease;
+}
+.switchControl input[type="checkbox"]:checked { border-color: var(--accent); background: var(--accent); }
+.switchControl input[type="checkbox"]:checked::before { transform: translateX(var(--switch-checked-offset)); }
+.switchControl input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.48; }
+@media (prefers-reduced-motion: reduce) {
+  .switchControl input[type="checkbox"],
+  .switchControl input[type="checkbox"]::before { transition: none; }
+}
 .readerText { margin-top: var(--space-3); font-size: 20px; line-height: 1.75; overflow-wrap: anywhere; }
 .readerText.large { font-size: 24px; }
 .readerText.extra { font-size: 28px; }

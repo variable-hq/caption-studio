@@ -22,6 +22,7 @@ import { LiveControlBar } from "@/components/operator/LiveControlBar";
 import { LiveOutputsSection } from "@/components/operator/LiveOutputsSection";
 import { LiveNoteControl } from "@/components/operator/LiveNoteControl";
 import { RecentOutputsStrip } from "@/components/operator/RecentOutputsStrip";
+import { LiveDraftLine } from "@/components/operator/LiveDraftLine";
 import { SessionMetadataFields } from "@/components/operator/SessionMetadataFields";
 import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
 import { OperatorTopBar, type OperatorScreenId, type StatusTone } from "@/components/operator/OperatorTopBar";
@@ -57,6 +58,7 @@ import { WORKSPACE_NAME } from "@/domain/workspace";
 import { wordsFromSettings } from "@/live/words";
 import {
   DEFAULT_RECORDING_WINDOW_MS,
+  recordingWindowLabel,
   MAX_LIVE_SESSION_MS,
   normalizeCaptionStyle,
   type CaptionStyle,
@@ -208,6 +210,8 @@ export default function OperatorDashboard() {
   const [outputBufferDwellMs, setOutputBufferDwellMs] = useState<OutputBufferDwellMs>(
     DEFAULT_OUTPUT_BUFFER_DWELL_MS,
   );
+  const [liveDraftsEnabled, setLiveDraftsEnabled] = useState(false);
+  const [liveDraftsSavedMessage, setLiveDraftsSavedMessage] = useState("");
   const [translationSystemPrompt, setTranslationSystemPrompt] = useState(
     DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   );
@@ -295,8 +299,9 @@ export default function OperatorDashboard() {
       liveNote,
       outputBufferCount,
       outputBufferDwellMs,
+      liveDraftsEnabled,
     }),
-    [draftTranslationSettings, style, saveHistory, liveNote, outputBufferCount, outputBufferDwellMs],
+    [draftTranslationSettings, style, saveHistory, liveNote, outputBufferCount, outputBufferDwellMs, liveDraftsEnabled],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {
@@ -312,6 +317,7 @@ export default function OperatorDashboard() {
     viewerAction,
     activeRecordingWindowMs,
     activeTranslationSettings,
+    liveDraftSessionDisabled,
     translationRefreshRequired,
     endRetryRequired,
     takeoverRequired,
@@ -337,6 +343,8 @@ export default function OperatorDashboard() {
     reloadChannel,
     outputBufferQueue,
     recentOutputs,
+    liveDraft,
+    resetLiveDrafts,
     setOutputBufferEntryPaused,
     clearOutputBufferEntry,
     fastForwardOutputBufferEntry,
@@ -788,6 +796,10 @@ export default function OperatorDashboard() {
           setOutputBufferDwellMs(loaded.outputBufferDwellMs);
           setOutputBufferSavedMessage("Loaded the church setup.");
         }
+        if (loaded.liveDraftsEnabled !== null && !hasServiceRef.current) {
+          setLiveDraftsEnabled(loaded.liveDraftsEnabled);
+          setLiveDraftsSavedMessage("Loaded the church setup.");
+        }
       })
       .catch(() => {
         if (cancelled) return;
@@ -842,6 +854,15 @@ export default function OperatorDashboard() {
         ok
           ? "Saved for everyone. New services start with this choice."
           : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
+      ),
+    );
+  };
+
+  const saveLiveDraftsDefault = () => {
+    setLiveDraftsSavedMessage("Saving for everyone…");
+    void syncAccountPreferences({ liveDraftsEnabled }).then((ok) =>
+      setLiveDraftsSavedMessage(
+        ok ? "Saved for everyone. New services start with this choice." : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
       ),
     );
   };
@@ -1115,7 +1136,7 @@ export default function OperatorDashboard() {
     {
       label: "Languages",
       ok: true,
-      value: `${displayedSourceLabel ?? sourceLanguage} → ${displayedTargetName} · ${(hasService ? activeRecordingWindowMs : recordingWindowMs) / 1000} s`,
+      value: `${displayedSourceLabel ?? sourceLanguage} → ${displayedTargetName} · ${recordingWindowLabel(hasService ? activeRecordingWindowMs : recordingWindowMs)}`,
       href: "#settings=languages",
       fixLabel: "Fix",
     },
@@ -1253,6 +1274,45 @@ export default function OperatorDashboard() {
               />
             </div>
           </div>
+          {!observed.observer ? (
+            <>
+              <LiveDraftLine
+                draft={liveDraft}
+                enabled={liveDraftsEnabled}
+                sessionDisabled={liveDraftSessionDisabled}
+              />
+              <div className="liveDraftSettings">
+                <label className="switchControl">
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    name="liveDraftsEnabled"
+                    checked={liveDraftsEnabled}
+                    aria-checked={liveDraftsEnabled}
+                    aria-describedby={`live-drafts-help${liveDraftSessionDisabled ? " live-drafts-session-status" : ""}`}
+                    disabled={isBusy}
+                    onChange={(event) => {
+                      if (!event.target.checked) resetLiveDrafts();
+                      setLiveDraftsEnabled(event.target.checked);
+                    }}
+                  />
+                  <span>
+                    <strong>Live drafts</strong>
+                  </span>
+                </label>
+                <p id="live-drafts-help" className="operatorHint">
+                  This per-session choice is not saved automatically. It uses more free-tier quota: up to 3 transcription and 3 translation calls per caption, and about twice the audio.
+                </p>
+                {liveDraftSessionDisabled ? (
+                  <p id="live-drafts-session-status" className="operatorHint" data-tone="warn" role="status" aria-live="polite">
+                    Live drafts stopped for this service because the provider rejected partial audio.
+                  </p>
+                ) : null}
+                <button type="button" className="textButton" disabled={isBusy} onClick={saveLiveDraftsDefault}>Save for everyone</button>
+                <p className="operatorHint" role="status" aria-live="polite">{liveDraftsSavedMessage || (accountPreferences?.liveDraftsEnabled !== null && accountPreferences?.liveDraftsEnabled !== undefined ? "The church setup has a saved choice for this." : "Saves this choice for everyone’s new services.")}</p>
+              </div>
+            </>
+          ) : null}
           <div className="levelRow">
             <span>Microphone</span>
             <AudioLevelMeter level={level} />

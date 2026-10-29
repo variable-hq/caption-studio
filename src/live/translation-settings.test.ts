@@ -37,12 +37,12 @@ describe("translation-session settings", () => {
         ...BASE_SETTINGS,
         sourceLanguage: "auto",
         targetLanguage: "zh-Hant",
-        recordingWindowMs: 12_000,
+        recordingWindowMs: 12_000 as never,
       }),
     ).toMatchObject({
       sourceLanguage: "auto",
       targetLanguage: "zh-Hant",
-      recordingWindowMs: 12_000,
+      recordingWindowMs: 14_000,
     });
   });
 
@@ -51,7 +51,7 @@ describe("translation-session settings", () => {
       translationSettingsChanges(BASE_SETTINGS, {
         ...BASE_SETTINGS,
         targetLanguage: "ja",
-        recordingWindowMs: 9_000,
+        recordingWindowMs: 9_000 as never,
         keywordText: "Bethlehem",
         translationSystemPrompt: "Prefer concise, natural captions.",
         inferenceLevel: "high",
@@ -141,6 +141,15 @@ describe("translation-session settings", () => {
         translationRevision: 8,
       }),
     ).toBe(false);
+  });
+
+  it("maps a legacy recording window in an in-flight service snapshot", () => {
+    const snapshot = JSON.parse(
+      serializeTranslationSessionSettings(BASE_SETTINGS, SERVICE_IDENTITY),
+    ) as { settings: Record<string, unknown> };
+    snapshot.settings.recordingWindowMs = 12_000;
+    const stored = JSON.stringify(snapshot);
+    expect(parseStoredTranslationSessionSettings(stored)?.settings.recordingWindowMs).toBe(14_000);
   });
 
   it("fails closed for stale, malformed, or incomplete recovery snapshots", () => {

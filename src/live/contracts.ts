@@ -1,10 +1,11 @@
 import type { LlmSessionUsage } from "@/ai/contracts";
 import type { LanguageLocale } from "@/domain/languages";
 
-export const RECORDING_WINDOW_OPTIONS_MS = [6_000, 9_000, 12_000, 15_000, 18_000] as const;
-export type RecordingWindowMs = (typeof RECORDING_WINDOW_OPTIONS_MS)[number];
-export const DEFAULT_RECORDING_WINDOW_MS: RecordingWindowMs = 6_000;
-export const MIN_RECORDING_WINDOW_MS = RECORDING_WINDOW_OPTIONS_MS[0];
+export const RECORDING_WINDOW_OPTIONS = [6_000, 10_000, 14_000, "dynamic"] as const;
+export type RecordingWindowMs = (typeof RECORDING_WINDOW_OPTIONS)[number];
+export const DEFAULT_RECORDING_WINDOW_MS: RecordingWindowMs = "dynamic";
+export const MIN_RECORDING_WINDOW_MS = 6_000;
+export const DYNAMIC_WINDOW_MAX_MS = 14_000;
 export const MAX_LIVE_SESSION_MS = 90 * 60 * 1_000;
 export const MAX_TRANSCRIPTION_REQUESTS = Math.floor(
   MAX_LIVE_SESSION_MS / MIN_RECORDING_WINDOW_MS,
@@ -198,10 +199,24 @@ function boundedInteger(value: unknown, minimum: number, maximum: number, fallba
 }
 
 export function normalizeRecordingWindowMs(value: unknown): RecordingWindowMs {
+  if (value === "dynamic") return value;
   const number = Number(value);
-  return RECORDING_WINDOW_OPTIONS_MS.includes(number as RecordingWindowMs)
-    ? (number as RecordingWindowMs)
-    : DEFAULT_RECORDING_WINDOW_MS;
+  if (number === 6_000 || number === 10_000) return number;
+  if (number === 14_000 || number === 12_000 || number === 15_000 || number === 18_000) {
+    return 14_000;
+  }
+  if (number === 9_000) return 10_000;
+  return DEFAULT_RECORDING_WINDOW_MS;
+}
+
+export function recordingWindowBoundsMs(setting: RecordingWindowMs) {
+  return setting === "dynamic"
+    ? { minMs: MIN_RECORDING_WINDOW_MS, maxMs: DYNAMIC_WINDOW_MAX_MS }
+    : { minMs: setting, maxMs: setting };
+}
+
+export function recordingWindowLabel(setting: RecordingWindowMs): string {
+  return setting === "dynamic" ? "Dynamic (6-14s)" : `${setting / 1_000}s`;
 }
 
 export function normalizeTranslationRevision(value: unknown) {

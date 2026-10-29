@@ -9,7 +9,7 @@ physical-device, provider-output or semantic acceptance.
 
 | Component | Responsibility |
 | --- | --- |
-| Capture browser | Audio selection, 6/9/12/15/18-second MediaRecorder chunks, two-chunk queue, source preview, terminology, moderation, output buffer queue, live note, recent outputs, controls and same-tab recovery |
+| Capture browser | Audio selection, 6s/10s/14s or pause-driven 6–14s MediaRecorder chunks on worker-driven timers, two-chunk queue, operator-only Live drafts, source preview, terminology, moderation, output buffer queue, live note, recent outputs, controls and same-tab recovery |
 | Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
 | `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
@@ -284,6 +284,10 @@ At most one translation follows an eligible chunk. The latest viewer allows 250 
 Two queued audio chunks bound backlog; additional chunks are dropped with operator feedback.
 The client-side output buffer holds at most 4 entries; only the front is shown or
 individually controllable.
+The recorder emits one-second MediaRecorder slices so Live drafts can re-transcribe the
+current window; drafts use ordinary reserved attempts and are admitted only when the
+remaining-attempt budget still covers future finals. They never enter the journal, recent
+translation context, output buffer, or public room state.
 
 Reader/summary calls are capped at 200/60 per service. The ledger conservatively reserves
 up to 9,000 estimated neurons per UTC day, including a 6,000 reader ceiling. Reservations

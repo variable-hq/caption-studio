@@ -1,0 +1,69 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  DYNAMIC_ABS_SILENCE_RMS,
+  DYNAMIC_PAUSE_MS,
+  DYNAMIC_SAMPLE_MS,
+  initialWindowPolicyState,
+  nextWindowDecision,
+} from "@/live/window-policy";
+
+const BOUNDS = { minMs: 6_000, maxMs: 14_000 };
+
+function advance(state: ReturnType<typeof initialWindowPolicyState>, sample: number, count: number) {
+  let current = state;
+  let decision: "continue" | "cut" = "continue";
+  for (let index = 0; index < count; index += 1) {
+    const next = nextWindowDecision(current, sample, BOUNDS);
+    current = next.state;
+    decision = next.decision;
+    if (decision === "cut") break;
+  }
+  return { state: current, decision };
+}
+
+describe("dynamic recording window policy", () => {
+  it("does not cut continuous speech before the six-second minimum", () => {
+    const result = advance(initialWindowPolicyState(), 0.2, 59);
+    expect(result.state.elapsedMs).toBe(5_900);
+    expect(result.decision).toBe("continue");
+  });
+
+  it("cuts at the first 700ms pause after the six-second minimum", () => {
+    const state = advance(initialWindowPolicyState(), 0.2, 55).state;
+    const result = advance(state, 0, DYNAMIC_PAUSE_MS / DYNAMIC_SAMPLE_MS);
+    expect(result.decision).toBe("cut");
+    expect(result.state.elapsedMs).toBe(6_200);
+    expect(result.state.silenceMs).toBe(DYNAMIC_PAUSE_MS);
+  });
+
+  it("forces a cut at 14 seconds during continuous speech", () => {
+    const result = advance(initialWindowPolicyState(), 0.2, 140);
+    expect(result.decision).toBe("cut");
+    expect(result.state.elapsedMs).toBe(14_000);
+  });
+
+  it("ignores pauses shorter than 700ms", () => {
+    let state = advance(initialWindowPolicyState(), 0.2, 55).state;
+    state = advance(state, 0, 5).state;
+    const resumed = nextWindowDecision(state, 0.2, BOUNDS);
+    expect(resumed.decision).toBe("continue");
+    expect(resumed.state.silenceMs).toBe(0);
+  });
+
+  it("adapts the speech peak for quiet speakers before interpreting silence", () => {
+    let state = initialWindowPolicyState();
+    state = advance(state, 1, 1).state;
+    const quiet = advance(state, 0.1, 120);
+    expect(quiet.state.speechPeakRms).toBeCloseTo(0.1, 1);
+    expect(quiet.state.silenceMs).toBe(0);
+    const silent = nextWindowDecision(quiet.state, DYNAMIC_ABS_SILENCE_RMS / 2, BOUNDS);
+    expect(silent.state.silenceMs).toBe(DYNAMIC_SAMPLE_MS);
+  });
+
+  it("starts each new recording window with clean policy state", () => {
+    const state = advance(initialWindowPolicyState(), 0, 7).state;
+    expect(state.silenceMs).toBe(DYNAMIC_PAUSE_MS);
+    expect(initialWindowPolicyState()).toEqual({ elapsedMs: 0, silenceMs: 0, speechPeakRms: 0 });
+  });
+});
