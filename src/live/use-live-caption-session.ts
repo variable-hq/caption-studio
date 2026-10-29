@@ -7,13 +7,12 @@ import {
   CloudProviderClientError,
   isTerminalInferenceControlError,
 } from "@/ai/cloud-provider-client";
-import type { InferenceAttemptContext, TranslationResult } from "@/ai/contracts";
 import {
   accumulateLlmSessionUsage,
   emptyLlmSessionUsage,
   withLlmProviderRateLimit,
 } from "@/ai/usage";
-import { parseGlossaryInput, parseModerationInput, preferredTermMap } from "@/live/config";
+import { parseModerationInput } from "@/live/config";
 import { addQuickBlockEntry, combineFilterText, removeQuickBlockEntry, type QuickBlockEntry } from "@/live/quick-block";
 import {
   DEFAULT_RECORDING_WINDOW_MS,
@@ -45,14 +44,12 @@ import {
   type TranslationSessionSettings,
 } from "@/live/translation-settings";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
-import { keywordHints } from "@/pipeline/glossary";
 import { experienceRequest } from "@/experience/client";
 import { startSerialPolling } from "@/live/serial-polling";
 import { useMicrophoneInput } from "@/live/use-microphone-input";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
-import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
-import { normalizeLiveNote } from "@/live/live-note";
 import { useRecentOutputs } from "@/live/use-recent-outputs";
+import { runCaptionInference } from "@/live/caption-inference";
 import {
   clearBackgroundTimeout,
   clearBackgroundInterval,
@@ -576,60 +573,46 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       if (!signal) return;
       const serviceAtStart = serviceRef.current;
       if (!serviceAtStart) return;
-      // Reserve quota immediately before quota-consuming provider work. A takeover
-      // therefore stops the displaced tab before its next transcription request.
-      const lease = await liveClientRef.current.reserveTranscriptionAttempt(
-        serviceAtStart.controllerToken,
-      );
-      if (!isCurrentCapture()) return;
-      if (lease.translationRevision !== serviceAtStart.translationRevision) {
-        reconcileExternalTranslationRevision(
-          lease.translationRevision,
-          lease.transcriptionRequests,
-        );
-        return;
-      }
-      const glossary = parseGlossaryInput(current.keywordText, current.targetLanguage);
-      setLiveState((state) => ({
-        ...state,
-        transcriptionRequests: lease.transcriptionRequests,
-      }));
-      const inferenceContext: InferenceAttemptContext = {
+      const inference = await runCaptionInference({
+        audio,
+        settings: current,
         controllerToken: serviceAtStart.controllerToken,
-        transcriptionAttempt: lease.transcriptionRequests,
-      };
-      const transcription = await cloudClientRef.current.transcribe(
-        {
-          audio,
-          sourceLanguage: current.sourceLanguage,
-          keywordHints: keywordHints(glossary.map((entry) => ({ ...entry, variants: [] }))),
-          previousTranscript: recentContextRef.current.at(-1),
-          sanitizeLevel: current.sanitizeLevel,
-        },
-        inferenceContext,
+        recentContext: recentContextRef.current,
+        liveNote: settingsRef.current.liveNote,
         signal,
-      );
-      if (!isCurrentCapture()) return;
-      if (transcription.droppedSegments > 0) {
-        setLiveState((state) => ({
+        isCurrent: isCurrentCapture,
+        currentRevision: serviceAtStart.translationRevision,
+        onRevisionMismatch: (lease) =>
+          reconcileExternalTranslationRevision(lease.translationRevision, lease.transcriptionRequests),
+        onLease: (lease) => setLiveState((state) => ({ ...state, transcriptionRequests: lease.transcriptionRequests })),
+        onDroppedSegments: (count) => setLiveState((state) => ({
           ...state,
-          filteredSegments: state.filteredSegments + transcription.droppedSegments,
-        }));
-      }
-
-      const finalSegments = transcription.segments.filter(({ isFinal, text }) => isFinal && text.trim());
-      if (!finalSegments.length) return;
-      const originalSource = finalSegments.map(({ text }) => text.trim()).join(" ");
-      const sourceText = correctApprovedRecognitionVariants(originalSource, glossary);
-      const detectedLanguage =
-        current.sourceLanguage === "auto"
-          ? finalSegments.find(({ detectedLanguage: locale }) => locale)?.detectedLanguage
-          : current.sourceLanguage;
-      if (!detectedLanguage) {
-        throw new Error(
-          "The spoken language could not be detected. Select it explicitly and restart.",
-        );
-      }
+          filteredSegments: state.filteredSegments + count,
+        })),
+        onTranslation: (result) => setLiveState((state) => ({
+          ...state,
+          llmUsage: accumulateLlmSessionUsage(state.llmUsage, result),
+        })),
+        onTranslationError: (error) => {
+          if (error instanceof CloudProviderClientError && (error.rateLimit || error.usage)) {
+            setLiveState((state) => ({
+              ...state,
+              llmUsage: error.usage
+                ? accumulateLlmSessionUsage(state.llmUsage, error)
+                : withLlmProviderRateLimit(state.llmUsage, error.rateLimit),
+            }));
+          }
+        },
+        dependencies: {
+          reserve: (token) => liveClientRef.current.reserveTranscriptionAttempt(token),
+          transcribe: (request, context, requestSignal) =>
+            cloudClientRef.current.transcribe(request, context, requestSignal),
+          translate: (request, context, requestSignal) =>
+            cloudClientRef.current.translate(request, context, requestSignal),
+        },
+      });
+      if (!inference) return;
+      const { lease, glossary, originalSource, sourceText, detectedLanguage, translation } = inference;
 
       if (serviceAtStart.saveHistory) {
         try {
@@ -642,45 +625,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         }
       }
 
-      let translation: TranslationResult = { text: sourceText };
-      if (detectedLanguage !== current.targetLanguage) {
-        try {
-          const liveNote = normalizeLiveNote(settingsRef.current.liveNote);
-          translation = await cloudClientRef.current.translate(
-            {
-              text: sourceText,
-              sourceLanguage: detectedLanguage,
-              targetLanguage: current.targetLanguage,
-              recentContext: recentContextRef.current,
-              preferredTerms: preferredTermMap(glossary, current.targetLanguage),
-              translationSystemPrompt: current.translationSystemPrompt,
-              inferenceLevel: current.inferenceLevel,
-              sanitizeLevel: current.sanitizeLevel,
-              filterInappropriateLanguage: current.filterInappropriateLanguage,
-              ...(liveNote ? { liveNote } : {}),
-            },
-            inferenceContext,
-            signal,
-          );
-        } catch (error) {
-          if (
-            error instanceof CloudProviderClientError &&
-            (error.rateLimit || error.usage)
-          ) {
-            setLiveState((state) => ({
-              ...state,
-              llmUsage: error.usage
-                ? accumulateLlmSessionUsage(state.llmUsage, error)
-                : withLlmProviderRateLimit(state.llmUsage, error.rateLimit),
-            }));
-          }
-          throw error;
-        }
-        setLiveState((state) => ({
-          ...state,
-          llmUsage: accumulateLlmSessionUsage(state.llmUsage, translation),
-        }));
-      }
       if (!isCurrentCapture()) return;
 
       const effectiveFilterText = combineFilterText(
