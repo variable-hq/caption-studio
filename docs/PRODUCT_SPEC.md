@@ -521,8 +521,9 @@ caption may replace the blank display.
 Only a full navigation away or close (`pagehide`) pauses the operator tab automatically.
 Backgrounding or losing focus does not stop capture: recorder boundaries, service expiry,
 and output-buffer dwell ticks use a dedicated Web Worker clock to avoid main-thread timer
-throttling. Returning from a bfcache-restored page reloads channel status but does not
-resume capture; the operator resumes explicitly.
+throttling. If the worker is unavailable or fails, active timers continue on browser timers
+from their next due time. Returning from a bfcache-restored page reloads channel status but
+does not resume capture; the operator resumes explicitly.
 
 While paused, a Manual caption control can show operator-typed text (up to 240
 characters, no AI translation involved) in the session's current target language to OBS

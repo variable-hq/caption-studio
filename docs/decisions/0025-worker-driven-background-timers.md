@@ -6,8 +6,9 @@ Date: 29 October 2026. Status: accepted, implemented in source.
 
 Recorder chunk boundaries, service expiry, and output-buffer dwell ticks use a dedicated
 Web Worker as their clock. The worker owns only timer scheduling; microphone capture,
-recording, and buffer state remain on the main thread. When workers are unavailable or
-cannot be constructed, these timers fall back to browser timers.
+recording, and buffer state remain on the main thread. When workers are unavailable,
+cannot be constructed, or report an error, these timers fall back to browser timers. Active
+timers are re-armed for their remaining delay during this fallback.
 
 Backgrounding or losing focus no longer pauses a session. Closing or navigating away still
 pauses through `pagehide`. When a page returns from the back-forward cache, or a
