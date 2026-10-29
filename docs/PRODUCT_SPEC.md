@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). The corrected 13 September
+Reviewed 29 October 2026 against open PR #77 (head `9289631`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -543,8 +543,9 @@ named display profiles.
 ### Usage and cost controls
 
 - Active services stop after at most 90 minutes; paused time still counts.
-- Audio windows are 6, 9, 12, 15, or 18 seconds. The server ceiling remains 900 reserved
-  transcription attempts in a 90-minute service, derived from the fastest option.
+- Audio windows are 6, 10, or 14 seconds, or Dynamic (6–14 seconds). The server ceiling
+  remains 900 reserved transcription attempts in a 90-minute service, derived from the
+  6-second minimum option.
   Non-silent captions whose source differs from the target can make one additional
   translation call, so there are no more than 900 translation calls. Access is verified
   before a separate one-time claim for each inference stage; direct/replayed calls and

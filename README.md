@@ -19,9 +19,9 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
 ## Overview
 
 - **Capture and transcription**: browser-based microphone selection with a level meter, a
-  readiness checklist, and a 6- to 18-second recording window transcribed by Groq Whisper
-  with bounded biblical/church-name hints, approved recognition aliases, and the end of
-  the previous chunk's transcript as continuity context.
+  readiness checklist, and a 6- to 14-second recording window (or Dynamic) transcribed by
+  Groq Whisper with bounded biblical/church-name hints, approved recognition aliases, and
+  the end of the previous chunk's transcript as continuity context.
 - **Translation**: GPT-OSS 20B translates through an immutable safety envelope and
   approved terminology. **Settings › AI translator** sets **How closely to follow the
   words** (Close, Balanced or Free), **Sanitization** of filler (Off by default; Low,
