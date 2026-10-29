@@ -76,8 +76,9 @@ that a note cannot change the language direction or justify invented or complete
 
 The displayed processing metric starts after dequeue and excludes capture time, queue
 wait, the output buffer's optional 1–5 second wait, and audience rendering. Retain content-free timestamps if adding metrics, then
-measure word-onset-to-display and utterance-end-to-display separately. Fixed 6- to 18-second
-windows and 30-second reader alarms do not guarantee semantic boundaries or a latency SLA.
+measure word-onset-to-display and utterance-end-to-display separately. Fixed 6–14-second
+windows, Dynamic's pause heuristic and 30-second reader alarms do not guarantee semantic
+boundaries or a latency SLA.
 Set approved delay/drop thresholds before the duration test. Separately, and not a pilot
 gate: the output buffer's advancement polls every 200ms on a fixed `setInterval` rather
 than a single timer scheduled to the next entry's due time; low-priority, deferred.

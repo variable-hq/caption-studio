@@ -52,8 +52,10 @@ plain words. Nothing opens automatically.
 2. The operator chooses a browser-visible microphone or audio interface and confirms its
    input level.
 3. The operator selects a spoken language or automatic detection, one target language,
-   and a 6-, 9-, 12-, 15-, or 18-second recording window. The UI notes that longer windows reduce
-   chopped sentences but make captions appear later.
+   and a 6-, 10-, or 14-second recording window, or Automatic. Automatic waits at least
+   six seconds, then ends at the first microphone-level pause of about 700ms of silence;
+   it always cuts by 14 seconds. Longer windows can reduce chopped sentences but make
+   captions appear later.
 4. The operator optionally enters bounded keyword/preferred-translation pairs and public
    mask words, and may edit the reviewed operator translation prompt.
 5. The operator configures font, size, colour, line highlight, transparency, position,
@@ -70,7 +72,9 @@ plain words. Nothing opens automatically.
 
 ### During the service
 
-1. The browser records the active 6- to 18-second window at a time.
+1. The browser records a fixed 6-, 10-, or 14-second window, or in Automatic mode records
+   for 6 to 14 seconds and cuts at the first qualifying pause. The pause decision uses raw
+   microphone RMS on the browser and requires no model call or quota.
 2. The protected API transcribes the chunk with bounded church/biblical hints and the end
    of the previous chunk's transcript as continuity context.
 3. If source and target differ, the protected API translates with an immutable server
@@ -144,9 +148,10 @@ Mandarin; Cantonese requires a separate language and model-quality decision.
 
 - Browser permission is explicit and the selected input has a visible level meter.
 - Audio is mono with browser echo cancellation and noise suppression requested.
-- The operator chooses a 6-, 9-, 12-, 15-, or 18-second window. The 6-second default
-  preserves the existing fast path; longer choices can reduce fragmentation but add equal
-  latency. Every option stays inside Whisper's 30-second window and, at the 64 kbps
+- The operator chooses a 6-, 10-, or 14-second fixed window, or Dynamic (the default). A
+  dynamic window cuts at the first pause of about 700ms after at least 6 seconds, with a
+  hard 14-second maximum; its browser microphone-level decision adds no model call or quota.
+  Fixed choices can reduce fragmentation but add equal latency. Every option stays inside Whisper's 30-second window and, at the 64 kbps
   recorder setting, far below the 3 MB audio limit.
 - The active-setting snapshot for each chunk and maximum two-chunk queue bound memory and
   backlog. Pause or confirmed translation refresh discards an unfinished active window,
@@ -546,7 +551,7 @@ the 90-minute limit.
 
 Code-level acceptance:
 
-- An operator can select an input, source, target, and 6- to 18-second recording window. During
+- An operator can select an input, source, target, and 6s, 10s, 14s, or Dynamic recording window. During
   live or paused operation, language, terminology, filter, recording window, and custom-prompt edits
   stay draft until the operator presses **Apply now**.
 - Live separates service time (the control bar), reserved transcription

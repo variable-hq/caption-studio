@@ -20,7 +20,6 @@ import {
 } from "@/domain/languages";
 import {
   DEFAULT_RECORDING_WINDOW_MS,
-  RECORDING_WINDOW_OPTIONS_MS,
   normalizeRecordingWindowMs,
   type RecordingWindowMs,
 } from "@/live/contracts";
@@ -191,9 +190,6 @@ export function parseStoredTranslationSessionSettings(
       settings.keywordText.length > MAX_TERMINOLOGY_INPUT_CHARS ||
       typeof settings.filterText !== "string" ||
       settings.filterText.length > MAX_FILTER_INPUT_CHARS ||
-      !RECORDING_WINDOW_OPTIONS_MS.includes(
-        Number(settings.recordingWindowMs) as RecordingWindowMs,
-      ) ||
       typeof settings.translationSystemPrompt !== "string" ||
       !INFERENCE_LEVEL_OPTIONS.includes(settings.inferenceLevel as InferenceLevel) ||
       !validTranslationSessionIdentity(payload)

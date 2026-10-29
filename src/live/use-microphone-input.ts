@@ -25,6 +25,8 @@ export function useMicrophoneInput() {
 
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const rmsSamplesRef = useRef<Float32Array<ArrayBuffer> | null>(null);
   const animationRef = useRef<number | null>(null);
 
   const stopMicrophone = useCallback(() => {
@@ -34,6 +36,8 @@ export function useMicrophoneInput() {
     }
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    analyserRef.current = null;
+    rmsSamplesRef.current = null;
     void audioContextRef.current?.close();
     audioContextRef.current = null;
     setLevel(0);
@@ -86,6 +90,8 @@ export function useMicrophoneInput() {
         source.connect(analyser);
 
         const samples = new Uint8Array(analyser.fftSize);
+        analyserRef.current = analyser;
+        rmsSamplesRef.current = new Float32Array(analyser.fftSize);
         const updateLevel = () => {
           analyser.getByteTimeDomainData(samples);
           const sumSquares = samples.reduce((sum, sample) => {
@@ -112,6 +118,15 @@ export function useMicrophoneInput() {
     [refreshDevices, stopMicrophone],
   );
 
+  const readLevel = useCallback(() => {
+    const analyser = analyserRef.current;
+    const samples = rmsSamplesRef.current;
+    if (!analyser || !samples) return 0;
+    analyser.getFloatTimeDomainData(samples);
+    const sumSquares = samples.reduce((sum, sample) => sum + sample * sample, 0);
+    return Math.sqrt(sumSquares / samples.length);
+  }, []);
+
   return {
     devices,
     selectedDeviceId,
@@ -119,6 +134,7 @@ export function useMicrophoneInput() {
     microphoneState,
     microphoneError,
     level,
+    readLevel,
     streamRef,
     ensureMicrophone,
     stopMicrophone,

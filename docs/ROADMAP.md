@@ -7,8 +7,8 @@ implementation; deployment and church-approved quality require separate evidence
 
 - Browser capture, selected audio interface, readiness checklist and Help page
   (replacing the six-step guide), multilingual Whisper/GPT-OSS pipeline with
-  previous-chunk continuity context, one target at a time, 6/9/12/15/18-second recording
-  windows, bounded context, Inference and Sanitization levels
+  previous-chunk continuity context, one target at a time, 6s/10s/14s or Dynamic 6–14s
+  recording windows, bounded context, Inference and Sanitization levels
   ([ADR 0018](decisions/0018-inference-level-as-server-envelope-parameter.md)) and the
   default-on Filter inappropriate language toggle.
 - Reviewed terminology, script-aware public masking, incomplete-output skipping,

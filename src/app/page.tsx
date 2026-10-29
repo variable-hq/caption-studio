@@ -57,6 +57,7 @@ import { WORKSPACE_NAME } from "@/domain/workspace";
 import { wordsFromSettings } from "@/live/words";
 import {
   DEFAULT_RECORDING_WINDOW_MS,
+  recordingWindowLabel,
   MAX_LIVE_SESSION_MS,
   normalizeCaptionStyle,
   type CaptionStyle,
@@ -1115,7 +1116,7 @@ export default function OperatorDashboard() {
     {
       label: "Languages",
       ok: true,
-      value: `${displayedSourceLabel ?? sourceLanguage} → ${displayedTargetName} · ${(hasService ? activeRecordingWindowMs : recordingWindowMs) / 1000} s`,
+      value: `${displayedSourceLabel ?? sourceLanguage} → ${displayedTargetName} · ${recordingWindowLabel(hasService ? activeRecordingWindowMs : recordingWindowMs)}`,
       href: "#settings=languages",
       fixLabel: "Fix",
     },

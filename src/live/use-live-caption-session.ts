@@ -19,6 +19,8 @@ import {
   DEFAULT_RECORDING_WINDOW_MS,
   MAX_LIVE_SESSION_MS,
   normalizeCaptionStyle,
+  recordingWindowBoundsMs,
+  recordingWindowLabel,
   type CaptionStyle,
   type LiveServiceDetails,
   type LiveSessionControlAction,
@@ -53,8 +55,15 @@ import { normalizeLiveNote } from "@/live/live-note";
 import { useRecentOutputs } from "@/live/use-recent-outputs";
 import {
   clearBackgroundTimeout,
+  clearBackgroundInterval,
+  setBackgroundInterval,
   setBackgroundTimeout,
 } from "@/live/background-timer";
+import {
+  initialWindowPolicyState,
+  nextWindowDecision,
+  DYNAMIC_SAMPLE_MS,
+} from "@/live/window-policy";
 
 interface LiveCaptionSettings extends TranslationSessionSettings {
   saveHistory?: boolean;
@@ -136,6 +145,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     microphoneState,
     microphoneError,
     level,
+    readLevel,
     streamRef,
     ensureMicrophone,
     stopMicrophone,
@@ -189,6 +199,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   });
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recorderTimerRef = useRef<number | null>(null);
+  const dynamicWindowTimerRef = useRef<number | null>(null);
   const queueRef = useRef<QueuedChunk[]>([]);
   const processingRef = useRef(false);
   const captureAbortRef = useRef<AbortController | null>(null);
@@ -244,6 +255,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     if (recorderTimerRef.current !== null) {
       clearBackgroundTimeout(recorderTimerRef.current);
       recorderTimerRef.current = null;
+    }
+    if (dynamicWindowTimerRef.current !== null) {
+      clearBackgroundInterval(dynamicWindowTimerRef.current);
+      dynamicWindowTimerRef.current = null;
     }
     const recorder = recorderRef.current;
     recorderRef.current = null;
@@ -879,15 +894,37 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           enqueueChunk(new Blob(chunks, { type: mimeType }), generation);
           startRecorderChunk();
         };
+        const bounds = recordingWindowBoundsMs(recordingWindowMs);
         recorder.start();
+        if (recordingWindowMs === "dynamic") {
+          let policyState = initialWindowPolicyState();
+          dynamicWindowTimerRef.current = setBackgroundInterval(() => {
+            const result = nextWindowDecision(policyState, readLevel(), bounds);
+            policyState = result.state;
+            if (result.decision !== "cut") return;
+            if (dynamicWindowTimerRef.current !== null) {
+              clearBackgroundInterval(dynamicWindowTimerRef.current);
+              dynamicWindowTimerRef.current = null;
+            }
+            if (recorderTimerRef.current !== null) {
+              clearBackgroundTimeout(recorderTimerRef.current);
+              recorderTimerRef.current = null;
+            }
+            if (recorder.state === "recording") recorder.stop();
+          }, DYNAMIC_SAMPLE_MS);
+        }
         recorderTimerRef.current = setBackgroundTimeout(() => {
           recorderTimerRef.current = null;
+          if (dynamicWindowTimerRef.current !== null) {
+            clearBackgroundInterval(dynamicWindowTimerRef.current);
+            dynamicWindowTimerRef.current = null;
+          }
           if (recorder.state === "recording") recorder.stop();
-        }, recordingWindowMs);
+        }, bounds.maxMs);
       };
       startRecorderChunk();
     },
-    [endService, enqueueChunk],
+    [endService, enqueueChunk, readLevel],
   );
 
   const armServiceTimer = useCallback(
@@ -1267,7 +1304,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           status: "live",
           message: takeover
             ? "Takeover complete. Listening for the next caption."
-            : `Listening. The first caption appears after the ${recordingWindowMs / 1_000}-second recording window and cloud processing.`,
+            : `Listening. The first caption appears after the ${recordingWindowLabel(recordingWindowMs)} recording window and cloud processing.`,
           service,
           channel: current.channel
             ? {
