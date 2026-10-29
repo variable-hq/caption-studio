@@ -41,6 +41,7 @@ interface RunCaptionInferenceOptions {
   onRevisionMismatch: (lease: TranscriptionLease) => void;
   onLease: (lease: TranscriptionLease) => void;
   onDroppedSegments: (count: number) => void;
+  onTranscriptionError?: (error: unknown) => void;
   onTranslation: (translation: TranslationResult) => void;
   onTranslationError: (error: unknown) => void;
   dependencies: CaptionInferenceDependencies;
@@ -51,30 +52,35 @@ export async function runCaptionInference(
   options: RunCaptionInferenceOptions,
 ): Promise<CaptionInferenceResult | null> {
   const lease = await options.dependencies.reserve(options.controllerToken);
+  options.onLease(lease);
   if (!options.isCurrent()) return null;
   if (lease.translationRevision !== options.currentRevision) {
     options.onRevisionMismatch(lease);
     return null;
   }
-  options.onLease(lease);
-
   const current = options.settings;
   const glossary = parseGlossaryInput(current.keywordText, current.targetLanguage);
   const inferenceContext: InferenceAttemptContext = {
     controllerToken: options.controllerToken,
     transcriptionAttempt: lease.transcriptionRequests,
   };
-  const transcription: TranscriptionResult = await options.dependencies.transcribe(
-    {
-      audio: options.audio,
-      sourceLanguage: current.sourceLanguage,
-      keywordHints: keywordHints(glossary.map((entry) => ({ ...entry, variants: [] }))),
-      previousTranscript: options.recentContext.at(-1),
-      sanitizeLevel: current.sanitizeLevel,
-    },
-    inferenceContext,
-    options.signal,
-  );
+  let transcription: TranscriptionResult;
+  try {
+    transcription = await options.dependencies.transcribe(
+      {
+        audio: options.audio,
+        sourceLanguage: current.sourceLanguage,
+        keywordHints: keywordHints(glossary.map((entry) => ({ ...entry, variants: [] }))),
+        previousTranscript: options.recentContext.at(-1),
+        sanitizeLevel: current.sanitizeLevel,
+      },
+      inferenceContext,
+      options.signal,
+    );
+  } catch (error) {
+    options.onTranscriptionError?.(error);
+    throw error;
+  }
   if (!options.isCurrent()) return null;
   if (transcription.droppedSegments > 0) options.onDroppedSegments(transcription.droppedSegments);
 

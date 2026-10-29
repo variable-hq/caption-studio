@@ -50,6 +50,7 @@ import { useMicrophoneInput } from "@/live/use-microphone-input";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
 import { useRecentOutputs } from "@/live/use-recent-outputs";
 import { runCaptionInference } from "@/live/caption-inference";
+import { useLiveDrafts, type LiveDraftRunner } from "@/live/use-live-drafts";
 import {
   clearBackgroundTimeout,
   clearBackgroundInterval,
@@ -68,6 +69,7 @@ interface LiveCaptionSettings extends TranslationSessionSettings {
   style: CaptionStyle;
   outputBufferCount: OutputBufferCount;
   outputBufferDwellMs: OutputBufferDwellMs;
+  liveDraftsEnabled: boolean;
 }
 
 interface QueuedChunk {
@@ -211,10 +213,37 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const recordingWindowRef = useRef<RecordingWindowMs>(DEFAULT_RECORDING_WINDOW_MS);
   const cloudClientRef = useRef(new CloudProviderClient());
   const liveClientRef = useRef(new LiveSessionClient());
+  const draftRunnerRef = useRef<LiveDraftRunner>(async () => null);
+  const attemptsUsedRef = useRef(0);
+  const liveDrafts = useLiveDrafts({
+    enabled: settings.liveDraftsEnabled,
+    runnerRef: draftRunnerRef,
+    attemptsUsed: () => attemptsUsedRef.current,
+    finalBusy: () => processingRef.current || queueRef.current.length > 0,
+    remainingServiceMs: () => {
+      const expiresAt = serviceRef.current?.expiresAt;
+      return expiresAt ? Math.max(0, new Date(expiresAt).getTime() - Date.now()) : 0;
+    },
+    onPartialAudioRejected: () => setLiveState((current) => ({
+      ...current,
+      message: "Live drafts stopped for this service because the provider rejected partial audio.",
+    })),
+  });
+  const {
+    draft: liveDraftPreview,
+    beginWindow: beginLiveDraftWindow,
+    endWindow: endLiveDraftWindow,
+    startSession: startLiveDraftSession,
+    reset: resetLiveDrafts,
+  } = liveDrafts;
 
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    attemptsUsedRef.current = liveState.transcriptionRequests;
+  }, [liveState.transcriptionRequests]);
 
   useEffect(() => {
     quickBlockEntriesRef.current = quickBlockEntries;
@@ -249,6 +278,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, [liveState.message, liveState.status, microphoneState]);
 
   const stopRecorder = useCallback(() => {
+    endLiveDraftWindow();
     if (recorderTimerRef.current !== null) {
       clearBackgroundTimeout(recorderTimerRef.current);
       recorderTimerRef.current = null;
@@ -264,7 +294,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       recorder.onstop = null;
       recorder.stop();
     }
-  }, []);
+  }, [endLiveDraftWindow]);
 
   const stopTranslationCapture = useCallback(() => {
     capturingRef.current = false;
@@ -584,7 +614,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         currentRevision: serviceAtStart.translationRevision,
         onRevisionMismatch: (lease) =>
           reconcileExternalTranslationRevision(lease.translationRevision, lease.transcriptionRequests),
-        onLease: (lease) => setLiveState((state) => ({ ...state, transcriptionRequests: lease.transcriptionRequests })),
+        onLease: (lease) => {
+          attemptsUsedRef.current = lease.transcriptionRequests;
+          if (isCurrentCapture()) {
+            setLiveState((state) => ({ ...state, transcriptionRequests: lease.transcriptionRequests }));
+          }
+        },
         onDroppedSegments: (count) => setLiveState((state) => ({
           ...state,
           filteredSegments: state.filteredSegments + count,
@@ -706,6 +741,77 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     [enqueueOutputBufferEntry, outputBufferGenerationRef, publishBufferedEntry, recordRecentOutput, reconcileExternalTranslationRevision],
   );
 
+  const runLiveDraft = useCallback<LiveDraftRunner>(async ({ audio, signal, isCurrent, captureGeneration, onPartialAudioRejected }) => {
+    const current = activeTranslationSettingsRef.current;
+    const serviceAtStart = serviceRef.current;
+    if (!current || !serviceAtStart || !capturingRef.current || !isCurrent()) return null;
+    const isCurrentDraft = () =>
+      isCurrent() &&
+      capturingRef.current &&
+      captureGeneration === captureGenerationRef.current &&
+      serviceRef.current?.controllerToken === serviceAtStart.controllerToken;
+    const inference = await runCaptionInference({
+      audio,
+      settings: current,
+      controllerToken: serviceAtStart.controllerToken,
+      recentContext: recentContextRef.current,
+      liveNote: settingsRef.current.liveNote,
+      signal,
+      isCurrent: isCurrentDraft,
+      currentRevision: serviceAtStart.translationRevision,
+      onRevisionMismatch: (lease) =>
+        reconcileExternalTranslationRevision(lease.translationRevision, lease.transcriptionRequests),
+      onLease: (lease) => {
+        attemptsUsedRef.current = lease.transcriptionRequests;
+        if (isCurrentDraft()) {
+          setLiveState((state) => ({ ...state, transcriptionRequests: lease.transcriptionRequests }));
+        }
+      },
+      onDroppedSegments: () => {},
+      onTranscriptionError: (error) => {
+        if (error instanceof CloudProviderClientError && error.code === "provider_request_rejected") {
+          onPartialAudioRejected();
+        }
+      },
+      onTranslation: (result) => setLiveState((state) => ({
+        ...state,
+        llmUsage: accumulateLlmSessionUsage(state.llmUsage, result),
+      })),
+      onTranslationError: (error) => {
+        if (error instanceof CloudProviderClientError && (error.rateLimit || error.usage)) {
+          setLiveState((state) => ({
+            ...state,
+            llmUsage: error.usage
+              ? accumulateLlmSessionUsage(state.llmUsage, error)
+              : withLlmProviderRateLimit(state.llmUsage, error.rateLimit),
+          }));
+        }
+      },
+      dependencies: {
+        reserve: (token) => liveClientRef.current.reserveTranscriptionAttempt(token),
+        transcribe: (request, context, requestSignal) =>
+          cloudClientRef.current.transcribe(request, context, requestSignal),
+        translate: (request, context, requestSignal) =>
+          cloudClientRef.current.translate(request, context, requestSignal),
+      },
+    });
+    if (!inference || !isCurrentDraft()) return null;
+    const effectiveFilterText = combineFilterText(
+      quickBlockEntriesRef.current,
+      current.filterText,
+      MAX_FILTER_INPUT_CHARS,
+    );
+    const forms = prepareCaptionForms({
+      sourceText: inference.sourceText,
+      translatedText: inference.translation.text,
+      targetLanguage: current.targetLanguage,
+      glossary: inference.glossary,
+      moderationRules: parseModerationInput(effectiveFilterText),
+    });
+    return { sourceText: forms.protectedSourceText, publicText: forms.publicText };
+  }, [reconcileExternalTranslationRevision]);
+  draftRunnerRef.current = runLiveDraft;
+
   const drainQueue = useCallback(async () => {
     if (processingRef.current) return;
     processingRef.current = true;
@@ -826,6 +932,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           }
         };
         recorder.onstop = () => {
+          endLiveDraftWindow();
           if (recorderRef.current === recorder) recorderRef.current = null;
           if (
             !serviceRef.current ||
@@ -839,7 +946,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           startRecorderChunk();
         };
         const bounds = recordingWindowBoundsMs(recordingWindowMs);
-        recorder.start();
+        recorder.start(1_000);
+        beginLiveDraftWindow({
+          generation,
+          recordingWindowMs,
+          snapshotAudio: () => new Blob(chunks, {
+            type: recorder.mimeType || chunks[0]?.type || "audio/webm",
+          }),
+        });
         if (recordingWindowMs === "dynamic") {
           let policyState = initialWindowPolicyState();
           dynamicWindowTimerRef.current = setBackgroundInterval(() => {
@@ -868,7 +982,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       };
       startRecorderChunk();
     },
-    [endService, enqueueChunk, readLevel],
+    [beginLiveDraftWindow, endLiveDraftWindow, endService, enqueueChunk, readLevel],
   );
 
   const armServiceTimer = useCallback(
@@ -1176,6 +1290,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const startSession = useCallback(
     async (takeover = false) => {
       if (serviceRef.current || endingRef.current) return;
+      startLiveDraftSession();
+      attemptsUsedRef.current = 0;
       loadGenerationRef.current += 1;
       endRetryRequiredRef.current = false;
       setEndRetryRequired(false);
@@ -1302,6 +1418,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       resetRecentOutputs,
       selectedDeviceId,
       startRecorder,
+      startLiveDraftSession,
       stopMicrophone,
     ],
   );
@@ -2041,6 +2158,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     showManualCaption,
     outputBufferQueue,
     recentOutputs,
+    liveDraft: liveDraftPreview,
+    resetLiveDrafts,
     setOutputBufferEntryPaused,
     clearOutputBufferEntry,
     fastForwardOutputBufferEntry,

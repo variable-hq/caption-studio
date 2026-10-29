@@ -134,7 +134,7 @@ Treat these as sensitive even when the app does not persist them:
 
 Current behavior:
 
-- raw audio is captured in a selected 6- to 18-second browser window, forwarded for
+- raw audio is captured in a selected or pause-driven 6- to 14-second browser window, forwarded for
   active inference,
   and not stored by this application;
 - protected source and translated text remain in active browser memory; explicit
@@ -172,6 +172,9 @@ Current behavior:
 - the active translation prompt crosses the protected API/Groq boundary and is not
   stored in the room or sent to audience clients. The journal receives glossary/filter
   context for reader work; opted-in checkpoints retain that bounded context while needed.
+- Live drafts re-use the protected inference routes with ordinary reserved attempts. Draft
+  source and public forms remain only in the controlling tab's memory and are never stored
+  in the journal, room, session snapshot, or audience surfaces;
   Summary settings/guidance are separately retained with opted-in private summary jobs;
 - acknowledged translation usage is reduced to bounded numeric token totals plus the latest
   sanitized Groq daily-request/per-minute-token headroom. These service counters are

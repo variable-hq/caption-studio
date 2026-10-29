@@ -32,6 +32,8 @@ implementation; deployment and church-approved quality require separate evidence
   Optional automatic summary drafts at End
   ([ADR 0019](decisions/0019-automatic-post-service-summary.md)) and record-only session
   details ([ADR 0024](decisions/0024-session-metadata.md)).
+- Optional operator-only Live drafts re-transcribe the current audio window within the
+  existing reserved-attempt ceiling ([ADR 0027](decisions/0027-operator-only-live-drafts.md)).
 - Live, Sermons and Settings dashboard for volunteer operators, with a readiness
   checklist, a pinned live control bar and bookmarkable screens
   ([ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)), following

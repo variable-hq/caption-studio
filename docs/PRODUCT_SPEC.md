@@ -322,12 +322,38 @@ Live's captions card. Filtered entries read “Hidden by
 filter”. It records whether the output buffer was active, but does not change or feed later
 translations. Pause and Clear preserve the strip; Start, End and takeover reset it.
 
+### Live drafts
+
+**Live drafts** is an optional, default-off church setting that applies immediately. While
+the current recording window is still being captured, the controller may re-transcribe
+the audio already recorded and replace the previous operator-only preview with a newer
+draft. The preview sits below Heard and Audience sees in Live's Captions card. It is never
+published, buffered, added to recent translation context, or sent to OBS, viewers, or the
+sermon journal. The final caption still follows the normal end-of-window path.
+
+Fixed 6-second windows have no draft; 10-second windows may draft at 4 seconds; 14-second
+windows may draft at 4 and 8 seconds. Dynamic initially uses the 14-second offsets and
+discards any in-flight draft at its natural or hard window end. A draft needs at least 3
+seconds of new audio. At most one runs at a time, at most 2 are allowed per caption, and a
+draft is skipped whenever a final chunk is queued or processing, or the remaining 900
+attempt ceiling is needed for future finals. Draft attempts use the existing protected
+transcription and translation routes. The worst case is 3 transcription and 3 translation
+calls per caption and about twice the audio-seconds, so the setting warns that drafts use
+more free-tier quota.
+
+Any draft error disables drafts for that window without ending the service or showing an
+operator error; the final caption remains eligible to report its own failure. If the
+provider rejects partial audio with HTTP 400, drafts stay disabled for the service and a
+short status message explains why. Pause, Clear, End, takeover, translation refresh, and
+each window end clear the preview and abort in-flight draft work.
+
 | Control | Purpose | When it applies |
 | --- | --- | --- |
 | Words (Settings › Words) | Exact word rules and spelling fixes | After Apply now |
 | Quick block (Live › Quick fixes) | Hide any caption containing a word | Immediately; current service only |
 | Translator instructions (Settings) | Standing guidance for the whole service | After Apply now |
 | Live note | Situational guidance for the passage being spoken now | From the next translation; current service only |
+| Live drafts | In-progress operator preview | Replaces the previous draft; never published |
 | Recent outputs | Observe the last 3 published captions | Display only; changes nothing |
 
 ### Output buffer

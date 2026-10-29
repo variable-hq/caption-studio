@@ -66,6 +66,7 @@ export class GroqProviderError extends Error {
     readonly status: number,
     readonly retryAfter?: string,
     readonly rateLimit?: LlmProviderRateLimitSnapshot,
+    readonly upstreamStatus?: number,
   ) {
     super(message);
   }
@@ -157,6 +158,7 @@ async function groqFetch(
         ? providerRateLimitFromHeaders(response.headers, rateLimitModel) ??
           undefined
         : undefined,
+      response.status,
     );
   }
 

@@ -63,6 +63,7 @@ export class CloudProviderClientError extends Error {
     readonly code?: string,
     readonly rateLimit?: LlmProviderRateLimitSnapshot,
     readonly usage?: LlmTokenUsage,
+    readonly status?: number,
   ) {
     super(message);
   }
@@ -163,6 +164,9 @@ export class CloudProviderClient
       throw new CloudProviderClientError(
         payload?.error ?? "Cloud transcription failed.",
         normalizeCloudErrorCode(payload?.code),
+        undefined,
+        undefined,
+        response.status,
       );
     }
 
@@ -207,6 +211,7 @@ export class CloudProviderClient
         payload?.code === "translation_incomplete"
           ? normalizeLlmTokenUsage(payload.usage) ?? undefined
           : undefined,
+        response.status,
       );
     }
 
