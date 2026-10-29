@@ -47,6 +47,7 @@ export interface OutputBufferEntry {
   editing: boolean;
   /** Captured at translation time; publish uses `publicText` above in its place. */
   request: PublicCaptionRequest;
+  /** Non-null only while this unpaused entry is at the front of the queue. */
   dueAt: number | null;
   remainingMs: number | null;
   manuallyPaused: boolean;
@@ -80,7 +81,6 @@ function mapEntry(
 function withPauseFlag(
   entry: OutputBufferEntry,
   now: number,
-  dwellMs: OutputBufferDwellMs,
   flag: "manuallyPaused" | "pausedForEdit",
   value: boolean,
 ): OutputBufferEntry {
@@ -96,22 +96,30 @@ function withPauseFlag(
       remainingMs: next.dueAt !== null ? Math.max(0, next.dueAt - now) : next.remainingMs,
     };
   }
-  return {
-    ...next,
-    dueAt: now + (next.remainingMs ?? dwellMs),
-    remainingMs: null,
-  };
+  return next;
 }
 
 /** Restores the invariant that a front entry mid-edit is always paused, after any mutation that could change the front. */
-function applyFrontEditGuard(
+function settleFront(
   queue: OutputBufferQueueState,
   now: number,
   dwellMs: OutputBufferDwellMs,
 ): OutputBufferQueueState {
-  const front = queue.entries[0];
-  if (!front || !front.editing || front.pausedForEdit) return queue;
-  return { entries: [withPauseFlag(front, now, dwellMs, "pausedForEdit", true), ...queue.entries.slice(1)] };
+  const entries = queue.entries.map((entry, index) => {
+    let settled = entry;
+    if (index === 0 && entry.editing && !entry.pausedForEdit) {
+      settled = withPauseFlag(entry, now, "pausedForEdit", true);
+    }
+    if (index > 0) return settled.dueAt === null ? settled : { ...settled, dueAt: null };
+    if (isOutputBufferEntryPaused(settled)) {
+      return settled.dueAt === null ? settled : { ...settled, dueAt: null };
+    }
+    if (settled.dueAt !== null) {
+      return settled.remainingMs === null ? settled : { ...settled, remainingMs: null };
+    }
+    return { ...settled, dueAt: now + (settled.remainingMs ?? dwellMs), remainingMs: null };
+  });
+  return entries.every((entry, index) => entry === queue.entries[index]) ? queue : { entries };
 }
 
 export type NewOutputBufferEntry = Pick<
@@ -144,12 +152,12 @@ export function enqueueTranslation(
     manuallyPaused: false,
     pausedForEdit: false,
     remainingMs: null,
-    dueAt: now + dwellMs,
+    dueAt: null,
   };
 
   if (queue.entries.length < count) {
     return {
-      queue: applyFrontEditGuard({ entries: [...queue.entries, entry] }, now, dwellMs),
+      queue: settleFront({ entries: [...queue.entries, entry] }, now, dwellMs),
       publishNow: [],
       dropped: false,
     };
@@ -169,7 +177,7 @@ export function enqueueTranslation(
     return { queue: { entries }, publishNow, dropped: true };
   }
   return {
-    queue: applyFrontEditGuard({ entries: [...entries, entry] }, now, dwellMs),
+    queue: settleFront({ entries: [...entries, entry] }, now, dwellMs),
     publishNow,
     dropped: false,
   };
@@ -190,7 +198,7 @@ export function tick(
   if (!front || isOutputBufferEntryPaused(front) || front.dueAt === null || front.dueAt > now) {
     return { queue, publish: null };
   }
-  return { queue: applyFrontEditGuard({ entries: queue.entries.slice(1) }, now, dwellMs), publish: front };
+  return { queue: settleFront({ entries: queue.entries.slice(1) }, now, dwellMs), publish: front };
 }
 
 export function setManualPause(
@@ -200,7 +208,11 @@ export function setManualPause(
   now: number,
   dwellMs: OutputBufferDwellMs = DEFAULT_OUTPUT_BUFFER_DWELL_MS,
 ): OutputBufferQueueState {
-  return mapEntry(queue, id, (entry) => withPauseFlag(entry, now, dwellMs, "manuallyPaused", paused));
+  return settleFront(
+    mapEntry(queue, id, (entry) => withPauseFlag(entry, now, "manuallyPaused", paused)),
+    now,
+    dwellMs,
+  );
 }
 
 export function clearEntry(
@@ -211,7 +223,7 @@ export function clearEntry(
 ): OutputBufferQueueState {
   const entries = queue.entries.filter((entry) => entry.id !== id);
   if (entries.length === queue.entries.length) return queue;
-  return applyFrontEditGuard({ entries }, now, dwellMs);
+  return settleFront({ entries }, now, dwellMs);
 }
 
 export interface FastForwardOutcome {
@@ -228,7 +240,7 @@ export function fastForwardEntry(
   const target = queue.entries.find((entry) => entry.id === id) ?? null;
   if (!target) return { queue, publish: null };
   const entries = queue.entries.filter((entry) => entry.id !== id);
-  return { queue: applyFrontEditGuard({ entries }, now, dwellMs), publish: target };
+  return { queue: settleFront({ entries }, now, dwellMs), publish: target };
 }
 
 export function beginEdit(
@@ -240,7 +252,7 @@ export function beginEdit(
   const withEditing = mapEntry(queue, id, (entry) =>
     entry.editing ? entry : { ...entry, editing: true, editedDraft: entry.publicText },
   );
-  return applyFrontEditGuard(withEditing, now, dwellMs);
+  return settleFront(withEditing, now, dwellMs);
 }
 
 export function updateEditDraft(
@@ -257,11 +269,11 @@ export function cancelEdit(
   now: number,
   dwellMs: OutputBufferDwellMs = DEFAULT_OUTPUT_BUFFER_DWELL_MS,
 ): OutputBufferQueueState {
-  return mapEntry(queue, id, (entry) =>
+  return settleFront(mapEntry(queue, id, (entry) =>
     entry.editing
-      ? { ...withPauseFlag(entry, now, dwellMs, "pausedForEdit", false), editing: false, editedDraft: null }
+      ? { ...withPauseFlag(entry, now, "pausedForEdit", false), editing: false, editedDraft: null }
       : entry,
-  );
+  ), now, dwellMs);
 }
 
 /** Applies the operator's edited text (already moderated by the caller) and releases the edit hold. */
@@ -273,15 +285,15 @@ export function submitEdit(
   now: number,
   dwellMs: OutputBufferDwellMs = DEFAULT_OUTPUT_BUFFER_DWELL_MS,
 ): OutputBufferQueueState {
-  return mapEntry(queue, id, (entry) =>
+  return settleFront(mapEntry(queue, id, (entry) =>
     entry.editing
       ? {
-          ...withPauseFlag(entry, now, dwellMs, "pausedForEdit", false),
+          ...withPauseFlag(entry, now, "pausedForEdit", false),
           editing: false,
           editedDraft: null,
           publicText: finalPublicText,
           hidden: finalHidden,
         }
       : entry,
-  );
+  ), now, dwellMs);
 }

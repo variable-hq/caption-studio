@@ -69,7 +69,7 @@ describe("enqueueTranslation", () => {
     expect(outcome.queue).toEqual(EMPTY_OUTPUT_BUFFER_QUEUE);
   });
 
-  it("admits entries up to capacity with a flat dwell time", () => {
+  it("starts the front entry's dwell immediately", () => {
     const { queue, publishNow, dropped } = enqueueTranslation(
       EMPTY_OUTPUT_BUFFER_QUEUE,
       4,
@@ -80,6 +80,17 @@ describe("enqueueTranslation", () => {
     expect(publishNow).toEqual([]);
     expect(queue.entries).toHaveLength(1);
     expect(queue.entries[0].dueAt).toBe(1_000 + DEFAULT_OUTPUT_BUFFER_DWELL_MS);
+  });
+
+  it("starts a queued entry's dwell only when it becomes the front", () => {
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 4, candidate("a", "First"), 0).queue;
+    queue = enqueueTranslation(queue, 4, candidate("b", "Second"), 100).queue;
+    expect(queue.entries[0].dueAt).toBe(DEFAULT_OUTPUT_BUFFER_DWELL_MS);
+    expect(queue.entries[1].dueAt).toBeNull();
+
+    const first = tick(queue, DEFAULT_OUTPUT_BUFFER_DWELL_MS);
+    expect(first.publish?.id).toBe("a");
+    expect(first.queue.entries[0].dueAt).toBe(DEFAULT_OUTPUT_BUFFER_DWELL_MS * 2);
   });
 
   it("force-advances the front entry to make room when the queue is full", () => {
@@ -180,18 +191,31 @@ describe("tick", () => {
     const paused = setManualPause(queue, "a", true, 10);
     expect(tick(paused, 10_000).publish).toBeNull();
   });
+
+  it("releases only one entry after a late tick and starts the next full dwell then", () => {
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 4, candidate("a", "First"), 0).queue;
+    queue = enqueueTranslation(queue, 4, candidate("b", "Second"), 100).queue;
+    const late = tick(queue, 10_000);
+    expect(late.publish?.id).toBe("a");
+    expect(late.queue.entries.map((entry) => entry.id)).toEqual(["b"]);
+    expect(late.queue.entries[0].dueAt).toBe(10_000 + DEFAULT_OUTPUT_BUFFER_DWELL_MS);
+    expect(tick(late.queue, 10_000).publish).toBeNull();
+  });
 });
 
 describe("pause and resume", () => {
   it("freezes and restores the remaining dwell time", () => {
-    const queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 1, candidate("a", "Hi"), 0).queue;
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, candidate("a", "Hi"), 0).queue;
+    queue = enqueueTranslation(queue, 2, candidate("b", "There"), 0).queue;
     const paused = setManualPause(queue, "a", true, DEFAULT_OUTPUT_BUFFER_DWELL_MS - 500);
     expect(isOutputBufferEntryPaused(paused.entries[0])).toBe(true);
     expect(paused.entries[0].dueAt).toBeNull();
     expect(paused.entries[0].remainingMs).toBe(500);
+    expect(paused.entries[1].dueAt).toBeNull();
     const resumed = setManualPause(paused, "a", false, 10_000);
     expect(isOutputBufferEntryPaused(resumed.entries[0])).toBe(false);
     expect(resumed.entries[0].dueAt).toBe(10_500);
+    expect(resumed.entries[1].dueAt).toBeNull();
   });
 });
 
@@ -218,6 +242,7 @@ describe("edit lifecycle", () => {
     expect(queue.entries[0].hidden).toBe(false);
     expect(queue.entries[0].editing).toBe(false);
     expect(isOutputBufferEntryPaused(queue.entries[0])).toBe(false);
+    expect(queue.entries[0].dueAt).toBe(5_000 + DEFAULT_OUTPUT_BUFFER_DWELL_MS);
   });
 
   it("cancelling an edit discards the draft and releases any auto-pause", () => {
@@ -254,6 +279,14 @@ describe("clear and fast-forward", () => {
     queue = enqueueTranslation(queue, 2, candidate("b", "There"), 0).queue;
     queue = clearEntry(queue, "a", 100);
     expect(queue.entries.map((entry) => entry.id)).toEqual(["b"]);
+    expect(queue.entries[0].dueAt).toBe(100 + DEFAULT_OUTPUT_BUFFER_DWELL_MS);
+  });
+
+  it("starts the next entry's full dwell when the front is fast-forwarded", () => {
+    let queue = enqueueTranslation(EMPTY_OUTPUT_BUFFER_QUEUE, 2, candidate("a", "Hi"), 0).queue;
+    queue = enqueueTranslation(queue, 2, candidate("b", "There"), 10).queue;
+    const outcome = fastForwardEntry(queue, "a", 500);
+    expect(outcome.queue.entries[0].dueAt).toBe(500 + DEFAULT_OUTPUT_BUFFER_DWELL_MS);
   });
 
   it("fast-forwards a non-front entry immediately, ahead of its position", () => {
@@ -262,5 +295,6 @@ describe("clear and fast-forward", () => {
     const outcome = fastForwardEntry(queue, "b", 100);
     expect(outcome.publish?.id).toBe("b");
     expect(outcome.queue.entries.map((entry) => entry.id)).toEqual(["a"]);
+    expect(outcome.queue.entries[0].dueAt).toBe(queue.entries[0].dueAt);
   });
 });

@@ -348,6 +348,11 @@ with Quick block and Manual caption. The public caption filter lives in Settings
   "2/4 queued") always shows how much of that headroom is used, and an explicit warning
   appears once the backlog is full and the next-up caption is held, since that is the
   specific state in which the next translation would be dropped.
+- Each caption's dwell starts when it becomes next-up. Back-to-back arrivals therefore
+  remain visible and controllable for at least one full dwell each; in a burst, the wait
+  can grow by one dwell per queued caption, bounded by the four-entry capacity. The
+  intentional early releases are buffer Off, operator Fast-forward, or force-advance when
+  the full unpaused queue needs room for a new caption.
 - The next-up caption can be **paused** (frozen; remaining hold time preserved), **edited**
   (operator override, put back through the same glossary and confirmed-filter moderation
   as every other caption before it can reach Live; auto-resumes on Submit), **cleared**

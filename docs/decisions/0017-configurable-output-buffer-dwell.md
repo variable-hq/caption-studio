@@ -49,3 +49,18 @@ without extra clamping logic, and matches how the recording window
   (1-5s), not just the 3-second default; the rest of the suite's fixed-dwell tests are
   unchanged, since a caller that omits `dwellMs` still gets the same 3-second default
   ADR 0016 shipped.
+
+## Amendment (29 October 2026)
+
+The dwell clock now starts when an entry becomes the visible, controllable front of the
+queue, rather than when it is enqueued. The previous enqueue-time clock let a hidden entry
+spend most or all of its dwell behind a slower front, then release about one tick after it
+became visible. Queue bursts therefore violated the operator-facing promise that each
+caption waits next-up for its selected dwell.
+
+`dueAt` is non-null only for an unpaused front entry. Later entries start a full dwell as
+they move to the front; pause/resume retains the front's remaining dwell. This intentionally
+adds one dwell per queued caption during a burst, bounded by the four-entry capacity. The
+steady state is unchanged when recording windows are at least six seconds and dwell is at
+most five seconds. Buffer Off, Fast-forward, full-queue force-advance, and capacity-shrink
+flush retain their explicit early-release behavior.
