@@ -22,11 +22,12 @@ import {
 import { outputLooksUnsafe } from "@/ai/output-guard";
 
 describe("Groq cloud provider prompts", () => {
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    vi.resetModules();
   });
 
   it("includes church keyword hints in the transcription prompt", () => {
@@ -632,6 +633,8 @@ describe("Groq cloud provider prompts", () => {
   });
 
   it("retries a rejected expanded prompt once with the legacy budget and remembers it for the isolate", async () => {
+    vi.resetModules();
+    const { transcribeWithGroq: transcribeInFreshModule } = await import("@/ai/server/groq");
     vi.stubEnv("GROQ_API_KEY", "test-key");
     const responses = [
       new Response(JSON.stringify({ error: { message: "synthetic prompt rejection" } }), { status: 400 }),
@@ -656,7 +659,7 @@ describe("Groq cloud provider prompts", () => {
       return (init?.body as FormData).get("prompt") as string;
     };
 
-    await expect(transcribeWithGroq(input)).resolves.toMatchObject({
+    await expect(transcribeInFreshModule(input)).resolves.toMatchObject({
       segments: [expect.objectContaining({ text: "Synthetic transcript" })],
       droppedSegments: 0,
     });
@@ -667,7 +670,7 @@ describe("Groq cloud provider prompts", () => {
     expect(promptAt(1)).toContain("last phrase");
     expect(telemetry.dispatch).toHaveBeenCalledOnce();
 
-    await expect(transcribeWithGroq(input)).resolves.toMatchObject({
+    await expect(transcribeInFreshModule(input)).resolves.toMatchObject({
       segments: [expect.objectContaining({ text: "Next synthetic transcript" })],
     });
     expect(fetchMock).toHaveBeenCalledTimes(3);
