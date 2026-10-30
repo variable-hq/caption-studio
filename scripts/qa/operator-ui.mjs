@@ -218,6 +218,7 @@ try {
   await page.locator('select[name="liveWordAction"]').selectOption('fix');
   await page.locator('input[name="liveWordWith"]').fill('synthetic-canonical-term');
   await page.getByRole('button',{name:'Add quick override',exact:true}).click();
+  if(width===1920) await page.screenshot({path:output+`/quick-override-${colorScheme}-${width}.png`,fullPage:true});
   await page.getByRole('button',{name:'Keep in Words',exact:true}).click();
   await page.getByText('Kept for Apply now',{exact:true}).waitFor();
   await openSettings(page,'words');
