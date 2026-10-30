@@ -88,6 +88,7 @@ import { experienceRequest } from "@/experience/client";
 import { ServiceExperiencePanel } from "@/components/operator/ServiceExperiencePanel";
 import { UsageHistory } from "@/components/operator/UsageHistory";
 import { formatCount } from "@/components/operator/format-count";
+import { formatClock } from "@/components/operator/format-clock";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
 import { I18nProvider, useI18n } from "@/i18n/provider";
@@ -148,14 +149,6 @@ function routeFromHash(hash: string): { screen: OperatorScreenId; section: Setti
   if (screen === "sermons" || screen === "help") return { screen, section: settingsSection };
   if (screen === "settings") return { screen, section: settingsSection };
   return { screen: "live", section: settingsSection };
-}
-
-function formatClock(ms: number, locale: "en" | "id") {
-  const minutes = Math.floor(ms / 60_000);
-  const seconds = Math.floor((ms % 60_000) / 1_000);
-  const minuteNumber = new Intl.NumberFormat(locale, { useGrouping: false });
-  const secondNumber = new Intl.NumberFormat(locale, { useGrouping: false, minimumIntegerDigits: 2 });
-  return `${minuteNumber.format(minutes)}:${secondNumber.format(seconds)}`;
 }
 
 export default function OperatorDashboard() {

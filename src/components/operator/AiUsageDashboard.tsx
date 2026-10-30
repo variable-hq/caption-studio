@@ -4,6 +4,7 @@ import {
   type ProviderRateLimitWindow,
 } from "@/ai/contracts";
 import { formatCount } from "@/components/operator/format-count";
+import { formatObservedAt } from "@/components/operator/format-observed-at";
 import { SettingGroup } from "@/components/operator/SettingsParts";
 import { useI18n } from "@/i18n/provider";
 
@@ -29,7 +30,7 @@ export function AiUsageDashboard({ llmUsage }: AiUsageDashboardProps) {
     <SettingGroup
       title="Translation service right now"
       hint={provider
-        ? `As reported with the last translation, ${new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(provider.observedAt))}. Other apps on the same account share these limits.`
+        ? `As reported with the last translation, ${formatObservedAt(new Date(provider.observedAt), locale)}. Other apps on the same account share these limits.`
         : "Shown after the first translated caption of a service."}
     >
       <div className="statTiles">
