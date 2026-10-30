@@ -43,7 +43,7 @@ describe("live words", () => {
     });
   });
 
-  it("allows different actions for one word, caps at 20, and removes by id", () => {
+  it("allows different actions for one word, preserves entries at the cap, and removes by id", () => {
     let entries = addLiveWord([], { word: "name", action: "recognise", with: "" });
     entries = addLiveWord(entries, { word: "name", action: "hide", with: "" });
     expect(entries).toHaveLength(2);
@@ -51,8 +51,14 @@ describe("live words", () => {
       entries = addLiveWord(entries, { word: `word-${index}`, action: "recognise", with: "" });
     }
     expect(entries).toHaveLength(MAX_LIVE_WORD_ENTRIES);
-    expect(entries[0].row.word).toBe("word-5");
-    expect(removeLiveWord(entries, entries[0].id)).toHaveLength(MAX_LIVE_WORD_ENTRIES - 1);
+    expect(entries[0].row).toEqual({ word: "name", action: "recognise", with: "" });
+    expect(entries[1].row).toEqual({ word: "name", action: "hide", with: "" });
+    const fullList = entries;
+    entries = addLiveWord(entries, { word: "twenty-first", action: "hide", with: "" });
+    expect(entries).toEqual(fullList);
+    entries = removeLiveWord(entries, entries[0].id);
+    expect(entries).toHaveLength(MAX_LIVE_WORD_ENTRIES - 1);
+    expect(addLiveWord(entries, { word: "twenty-first", action: "hide", with: "" })).toHaveLength(MAX_LIVE_WORD_ENTRIES);
   });
 
   it("combines live text first and truncates the saved tail", () => {

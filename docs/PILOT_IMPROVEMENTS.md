@@ -1,6 +1,6 @@
 # Evidence-gated pilot improvements
 
-Reviewed 28 October 2026 against merged PR #75 (`080e6ca`).
+Reviewed 30 October 2026 against merged PR #77 (`e242c1c`).
 
 Prepared 12 September; scope reconciled 13 September 2026. QR joining, reusable saved
 terminology packs and live public-caption correction remain proposals. Plan 1 has since
@@ -8,7 +8,7 @@ implemented private source corrections, approved recognition aliases and passage
 those do not edit an already displayed OBS caption. See [current product scope](PRODUCT_SPEC.md).
 This document adds no runtime feature or new data retention.
 
-Status at the 28 October review, without changing the proposals below:
+Status at the 30 October review, without changing the proposals below:
 
 - **QR joining:** still a proposal. No QR encoder or joining control exists.
 - **Terminology pack:** superseded by a different design. Words are part of the one church

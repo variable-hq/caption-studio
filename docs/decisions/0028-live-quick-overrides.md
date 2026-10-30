@@ -23,7 +23,8 @@ through the existing Words serializers.
 
 - The list is capped at 20 rows and each value uses the existing 100-character Words bound.
   Duplicate rows with the same action and case-insensitive word replace one another; the
-  four live actions exclude masking and arbitrary replacement.
+  four live actions exclude masking and arbitrary replacement. At capacity, adding is
+  disabled until an entry is removed, so an active hide rule cannot be silently evicted.
 - Live rules can affect a caption only after its processing starts, which keeps each
   in-flight inference internally consistent. Edited output-buffer captions use the live
   entries present when the edit is submitted.

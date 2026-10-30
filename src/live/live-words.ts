@@ -32,7 +32,8 @@ export function addLiveWord(entries: readonly LiveWordEntry[], row: WordRow): Li
   const withoutDuplicate = entries.filter((entry) =>
     entry.row.action !== nextRow.action || entry.row.word.toLowerCase() !== word.toLowerCase(),
   );
-  return [...withoutDuplicate, { id: crypto.randomUUID(), row: nextRow }].slice(-MAX_LIVE_WORD_ENTRIES);
+  if (withoutDuplicate.length >= MAX_LIVE_WORD_ENTRIES) return [...entries];
+  return [...withoutDuplicate, { id: crypto.randomUUID(), row: nextRow }];
 }
 
 export function removeLiveWord(entries: readonly LiveWordEntry[], id: string): LiveWordEntry[] {

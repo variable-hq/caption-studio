@@ -2,7 +2,12 @@
 
 import { useId, useState } from "react";
 
-import { LIVE_WORD_ACTIONS, MAX_LIVE_WORD_CHARS, type LiveWordEntry } from "@/live/live-words";
+import {
+  LIVE_WORD_ACTIONS,
+  MAX_LIVE_WORD_CHARS,
+  MAX_LIVE_WORD_ENTRIES,
+  type LiveWordEntry,
+} from "@/live/live-words";
 import { WORD_ACTIONS, cleanWordValue, type WordRow } from "@/live/words";
 
 interface LiveWordControlProps {
@@ -32,8 +37,10 @@ export function LiveWordControl({
   const [keptEntryIds, setKeptEntryIds] = useState<ReadonlySet<string>>(() => new Set());
   const errorId = useId();
   const needsWith = action === "fix" || action === "translate";
+  const atCapacity = entries.length >= MAX_LIVE_WORD_ENTRIES;
 
   const add = () => {
+    if (atCapacity) return;
     const cleanWord = cleanWordValue(word);
     const cleanWith = needsWith ? cleanWordValue(withValue) : "";
     if (!cleanWord) return setError("Type the word first.");
@@ -101,10 +108,15 @@ export function LiveWordControl({
             />
           </label>
         ) : null}
-        <button type="submit" className="primaryButton" disabled={disabled}>
+        <button type="submit" className="primaryButton" disabled={disabled || atCapacity}>
           Add quick override
         </button>
       </form>
+      {atCapacity ? (
+        <p className="settingHint" role="status">
+          20 quick overrides in use. Remove one before adding another.
+        </p>
+      ) : null}
       {error ? <p className="errorText" id={errorId} role="alert">{error}</p> : null}
       <div className="liveWordEntries">
         <h4>Quick overrides in use</h4>

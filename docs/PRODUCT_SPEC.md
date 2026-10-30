@@ -300,8 +300,9 @@ Rule scopes/priorities and persistent workspace packs remain deferred.
 
 **Quick override** in Live › Quick fixes provides four live actions: **Hide the whole
 caption**, **Fix spelling to…**, **Always translate as…**, and **Help the AI recognise it**.
-The controlling tab keeps up to 20 entries in memory and shows them for removal. They apply
-from the next caption whose processing starts; a caption already processing keeps its
+The controlling tab keeps up to 20 entries in memory and shows them for removal. At the cap,
+Add is disabled with a prompt to remove an entry; existing overrides are not evicted. They
+apply from the next caption whose processing starts; a caption already processing keeps its
 existing rules. Entries remain active until removed, including across End in the same tab.
 Live entries take priority over saved Words for recognition and filtering;
 a live spelling or translation replaces the saved action for the same word, and approved
