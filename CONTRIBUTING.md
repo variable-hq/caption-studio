@@ -1,6 +1,6 @@
 # Contributing
 
-Last reviewed 28 October 2026 against merged PR #75 (`080e6ca`).
+Last reviewed 30 October 2026 against merged PR #80 (`3a7d1d2`).
 
 Thank you for helping build Caption Studio. The repository is private and has no
 open-source license; access to collaborate does not grant permission to redistribute
@@ -120,6 +120,12 @@ next number after the highest in `docs/decisions/`, follow the shape in
 [documentation index](docs/README.md); `npm run check:adrs` rejects duplicate numbers.
 
 ## Engineering rules
+
+- New operator-facing UI text belongs in `src/i18n/messages/en.ts` with a matching
+  Indonesian entry in `src/i18n/messages/id.ts`; use typed, component-namespaced keys
+  and named placeholders. Keep messages whole instead of concatenating translated
+  fragments. Indonesian copy remains pending native-speaker review until a fluent
+  reviewer approves it.
 
 - Keep provider credentials and Cloudflare Access verification server-side.
 - Fail closed in production when Access configuration is missing.

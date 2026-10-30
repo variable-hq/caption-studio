@@ -1,6 +1,7 @@
 "use client";
 
 import type { LiveSessionState } from "@/live/contracts";
+import { useI18n } from "@/i18n/provider";
 
 interface StatusBannerProps {
   status: LiveSessionState["status"];
@@ -32,6 +33,7 @@ export function StatusBanner({
   onRotateChannel,
   onReloadChannel,
 }: StatusBannerProps) {
+  const { t } = useI18n();
   return (
     <section
       className={status === "error" ? "operatorBanner" : "visuallyHidden"}
@@ -44,13 +46,13 @@ export function StatusBanner({
         <strong>
           {hasService
             ? liveNeedsAttention
-              ? "The service needs attention"
+              ? t("shell.banner.needsAttention")
               : isRefreshing
-                ? "Applying your changes"
+                ? t("shell.banner.applyingChanges")
               : isPaused
-                ? "Paused"
-                : "Live"
-            : "Can’t start yet"}
+                ? t("shell.banner.paused")
+                : t("shell.banner.live")
+            : t("shell.banner.cannotStart")}
         </strong>
         <br />
         {message}
@@ -59,7 +61,7 @@ export function StatusBanner({
         confirmRotate ? (
           <span className="buttonRow">
             <button className="secondaryButton" onClick={() => onConfirmRotateChange(false)}>
-              Cancel
+              {t("shell.banner.cancel")}
             </button>
             <button
               className="dangerButton"
@@ -69,17 +71,17 @@ export function StatusBanner({
                 onRotateChannel();
               }}
             >
-              Replace OBS link
+              {t("shell.banner.replaceObsLink")}
             </button>
           </span>
         ) : (
           <button className="dangerOutlineButton" onClick={() => onConfirmRotateChange(true)}>
-            Replace OBS link…
+            {t("shell.banner.replaceObsLinkEllipsis")}
           </button>
         )
       ) : status === "error" && !hasService ? (
         <button className="secondaryButton" onClick={onReloadChannel}>
-          Try again
+          {t("shell.banner.tryAgain")}
         </button>
       ) : null}
     </section>

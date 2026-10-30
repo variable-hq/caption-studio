@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/provider";
+
 interface LiveControlBarProps {
   isPaused: boolean;
   isPausing: boolean;
@@ -37,9 +39,11 @@ export function LiveControlBar({
   onEnd,
   onRetryEnd,
 }: LiveControlBarProps) {
+  const { locale, t } = useI18n();
   const resumeShown = isPaused || isResuming;
+  const formattedMinutesLeft = new Intl.NumberFormat(locale).format(minutesLeft);
   return (
-    <section className="liveControlBar" aria-label="Live controls">
+    <section className="liveControlBar" aria-label={t("shell.controls.label")}>
       <div className="liveControlBarInner">
         <button
           type="button"
@@ -52,22 +56,25 @@ export function LiveControlBar({
           ) : (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1" /><rect x="14" y="4.5" width="4" height="15" rx="1" /></svg>
           )}
-          {isResuming ? "Resuming…" : isPausing ? "Pausing…" : resumeShown ? "Resume" : "Pause"}
+          {isResuming ? t("shell.controls.resuming") : isPausing ? t("shell.controls.pausing") : resumeShown ? t("shell.controls.resume") : t("shell.controls.pause")}
         </button>
         <button type="button" className="secondaryButton" disabled={controlsDisabled} onClick={onClear}>
-          {clearing ? "Clearing…" : "Clear screen"}
+          {clearing ? t("shell.controls.clearing") : t("shell.controls.clearScreen")}
         </button>
         <p className="operatorHint">
-          {resumeShown ? "Paused: nothing is shown and the microphone is off. " : ""}
-          {minutesLeft} min left · Transcript {transcriptSaved ? "saving" : "not saved"}
+          {resumeShown ? <span>{t("shell.controls.pausedHint")} </span> : null}
+          <span>{t("shell.controls.sessionStatus", {
+            minutes: formattedMinutesLeft,
+            transcriptState: t(transcriptSaved ? "shell.controls.saving" : "shell.controls.notSaved"),
+          })}</span>
         </p>
         {endRetryRequired ? (
           <button type="button" className="dangerButton" disabled={endDisabled} onClick={onRetryEnd}>
-            Try End again
+            {t("shell.controls.tryEndAgain")}
           </button>
         ) : (
           <button type="button" className="dangerOutlineButton" disabled={endDisabled} onClick={onEnd}>
-            End service
+            {t("shell.controls.endService")}
           </button>
         )}
       </div>

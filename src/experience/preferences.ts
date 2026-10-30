@@ -13,6 +13,7 @@ import {
   type TranslationSessionSettings,
 } from "@/live/translation-settings";
 import { normalizeTranslationSystemPrompt } from "@/ai/translation-prompt";
+import type { UiLocalePreference } from "@/i18n";
 
 /** Bounds a preference record; every field is optional and independently valid. */
 export const PREFERENCES_VERSION = 1;
@@ -24,6 +25,7 @@ export type TranslationDefaults = Omit<TranslationSessionSettings, "translationS
 export interface OperatorPreferences {
   version: typeof PREFERENCES_VERSION;
   theme: ThemePreference;
+  uiLocale: UiLocalePreference;
   translationSystemPrompt: string | null;
   summaryDefaults: SummaryOptions | null;
   captionStyle: CaptionStyle | null;
@@ -41,6 +43,7 @@ export interface OperatorPreferences {
 export const EMPTY_PREFERENCES: OperatorPreferences = {
   version: PREFERENCES_VERSION,
   theme: "system",
+  uiLocale: null,
   translationSystemPrompt: null,
   summaryDefaults: null,
   captionStyle: null,
@@ -102,6 +105,13 @@ export function mergeOperatorPreferences(
   return {
     version: PREFERENCES_VERSION,
     theme: "theme" in input ? normalizeTheme(input.theme) : base.theme,
+    uiLocale: "uiLocale" in input
+      ? input.uiLocale === null
+        ? null
+        : input.uiLocale === "en" || input.uiLocale === "id"
+          ? input.uiLocale
+          : null
+      : base.uiLocale,
     translationSystemPrompt: pick("translationSystemPrompt", base.translationSystemPrompt, normalizePrompt),
     summaryDefaults: pick("summaryDefaults", base.summaryDefaults, normalizeSummaryOptions),
     captionStyle: pick("captionStyle", base.captionStyle, (value) =>
@@ -134,11 +144,11 @@ export function normalizeOperatorPreferences(value: unknown): OperatorPreference
 
 /**
  * The church-wide setup every operator shares (ADR 0022): the same record shape, stored
- * once for the workspace. Only `theme` stays per operator.
+ * once for the workspace. `theme` and `uiLocale` stay per operator.
  */
 export const WORKSPACE_SETUP_KEY = "workspace:setup";
 
-/** Fields the church setup owns; the rest of a record (theme) stays personal. */
+/** Fields the church setup owns; theme and interface language stay personal. */
 export const SHARED_SETUP_FIELDS = [
   "translationSystemPrompt",
   "summaryDefaults",

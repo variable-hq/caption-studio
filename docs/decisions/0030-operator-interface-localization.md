@@ -1,6 +1,6 @@
 # ADR 0030: operator interface localization
 
-Date: 30 October 2026. Status: accepted; implementation pending.
+Date: 30 October 2026. Status: accepted, Phase 1 implemented; Indonesian pending native review.
 
 ## Decision
 

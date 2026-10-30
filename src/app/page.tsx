@@ -25,7 +25,7 @@ import { RecentOutputsStrip } from "@/components/operator/RecentOutputsStrip";
 import { LiveDraftLine } from "@/components/operator/LiveDraftLine";
 import { SessionMetadataFields } from "@/components/operator/SessionMetadataFields";
 import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
-import { OperatorTopBar, type OperatorScreenId, type StatusTone } from "@/components/operator/OperatorTopBar";
+import { OperatorTopBar, type OperatorScreenId, type OperatorStatusLabel, type StatusTone } from "@/components/operator/OperatorTopBar";
 import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
 import { ReadinessChecks, type ReadinessCheck } from "@/components/operator/ReadinessChecks";
 import { PromptEditor } from "@/components/operator/PromptEditor";
@@ -90,6 +90,8 @@ import { UsageHistory } from "@/components/operator/UsageHistory";
 import { formatCount } from "@/components/operator/format-count";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
+import { I18nProvider, useI18n } from "@/i18n/provider";
+import type { UiLocalePreference } from "@/i18n";
 import "./operator-shell.css";
 
 interface CloudModels {
@@ -148,13 +150,30 @@ function routeFromHash(hash: string): { screen: OperatorScreenId; section: Setti
   return { screen: "live", section: settingsSection };
 }
 
-function formatClock(ms: number) {
+function formatClock(ms: number, locale: "en" | "id") {
   const minutes = Math.floor(ms / 60_000);
   const seconds = Math.floor((ms % 60_000) / 1_000);
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  const number = new Intl.NumberFormat(locale, { useGrouping: false, minimumIntegerDigits: 2 });
+  return `${number.format(minutes)}:${number.format(seconds)}`;
 }
 
 export default function OperatorDashboard() {
+  return (
+    <I18nProvider>
+      <OperatorDashboardContent />
+    </I18nProvider>
+  );
+}
+
+function OperatorDashboardContent() {
+  const {
+    locale,
+    uiLocalePreference,
+    setUiLocalePreference,
+    setAccountUiLocale,
+    setBrowserFallbackPreference,
+    t,
+  } = useI18n();
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>(
     DEFAULT_SOURCE_LANGUAGE,
   );
@@ -742,7 +761,15 @@ export default function OperatorDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadOperatorPreferences(), loadSharedSetup()])
+    const personalPreferencesRequest = loadOperatorPreferences();
+    void personalPreferencesRequest
+      .then((personal) => {
+        if (!cancelled) setAccountUiLocale(personal.uiLocale);
+      })
+      .catch(() => {
+        if (!cancelled) setBrowserFallbackPreference();
+      });
+    Promise.all([personalPreferencesRequest, loadSharedSetup()])
       .then(([personal, shared]) => {
         if (cancelled) return;
         setPersonalPreferences(personal);
@@ -815,17 +842,17 @@ export default function OperatorDashboard() {
       cancelled = true;
     };
     // Runs once; the setters are stable and the live-service guard uses a ref.
-  }, []);
+  }, [setAccountUiLocale, setBrowserFallbackPreference]);
 
   /**
-   * Best-effort sync; callers report the browser-only fallback themselves. The theme is
-   * saved to the operator's own record, everything else to the church setup. The first
-   * church-setup save carries this operator's earlier saved setup with it, so values saved
-   * before the setup was shared are not lost.
+   * Best-effort sync; callers report the browser-only fallback themselves. Theme and
+   * interface language are saved to the operator's own record; other settings use the
+   * church setup. The first church-setup save carries this operator's earlier saved setup,
+   * so values saved before the setup was shared are not lost.
    */
   const syncAccountPreferences = async (patch: Partial<OperatorPreferences>) => {
     try {
-      if (Object.keys(patch).every((key) => key === "theme")) {
+      if (Object.keys(patch).every((key) => key === "theme" || key === "uiLocale")) {
         setPersonalPreferences(await saveOperatorPreferences(patch));
         return true;
       }
@@ -838,6 +865,12 @@ export default function OperatorDashboard() {
       return false;
     }
   };
+
+  function chooseUiLocale(value: string) {
+    const preference: UiLocalePreference = value === "en" || value === "id" ? value : null;
+    setUiLocalePreference(preference);
+    void syncAccountPreferences({ uiLocale: preference });
+  }
 
   const saveTranslationDefaults = () => {
     setTranslationDefaultsMessage("Saving for everyone…");
@@ -1162,23 +1195,23 @@ export default function OperatorDashboard() {
   ];
   const setupBlocked = readinessChecks.some((check) => !check.ok);
 
-  const status: { label: string; tone: StatusTone; detail?: string } = hasService
+  const status: { label: OperatorStatusLabel; tone: StatusTone; detail?: string } = hasService
     ? liveState.status === "ending"
-      ? { label: "Ending…", tone: "muted" }
+      ? { label: "ending", tone: "muted" }
       : liveNeedsAttention
-        ? { label: "Needs attention", tone: "bad" }
+        ? { label: "needsAttention", tone: "bad" }
         : isRefreshing
-          ? { label: "Applying changes…", tone: "warn" }
+          ? { label: "applyingChanges", tone: "warn" }
           : isPaused
-            ? { label: "Paused", tone: "warn", detail: formatClock(elapsedServiceMs) }
-            : { label: "Live", tone: "live", detail: formatClock(elapsedServiceMs) }
+            ? { label: "paused", tone: "warn", detail: formatClock(elapsedServiceMs, locale) }
+            : { label: "live", tone: "live", detail: formatClock(elapsedServiceMs, locale) }
     : anotherOperatorActive
-      ? { label: "Live on another computer", tone: "warn" }
+      ? { label: "liveAnotherComputer", tone: "warn" }
       : setupBlocked || liveState.status === "error"
-        ? { label: "Not ready", tone: "bad" }
+        ? { label: "notReady", tone: "bad" }
         : checkingChannel || cloudState === "checking"
-          ? { label: "Checking…", tone: "muted" }
-          : { label: "Ready", tone: "ok" };
+          ? { label: "checking", tone: "muted" }
+          : { label: "ready", tone: "ok" };
 
   const minutesLeft = Math.max(0, Math.ceil((MAX_LIVE_SESSION_MS - elapsedServiceMs) / 60_000));
   const pendingBanner = hasPendingTranslationChanges ? (
@@ -1438,12 +1471,12 @@ export default function OperatorDashboard() {
               <summary>Service details</summary>
               <div className="statRow"><span>Delay after speech</span><span>{liveState.lastLatencyMs === null ? "—" : `${(liveState.lastLatencyMs / 1000).toFixed(1)} s`}</span></div>
               {activeTranslationSettings?.sanitizeLevel && activeTranslationSettings.sanitizeLevel !== "off" ? (
-                <div className="statRow"><span>Segments filtered</span><span>{formatCount(liveState.filteredSegments)}</span></div>
+                <div className="statRow"><span>Segments filtered</span><span>{formatCount(liveState.filteredSegments, locale)}</span></div>
               ) : null}
-              <div className="statRow"><span>Audio chunks dropped</span><span>{formatCount(liveState.droppedChunks)}</span></div>
-              <div className="statRow"><span>Transcriptions</span><span>{formatCount(liveState.transcriptionRequests)}</span></div>
-              <div className="statRow"><span>Translation calls</span><span>{formatCount(liveState.llmUsage.translationRequests)}</span></div>
-              <div className="statRow"><span>Translation tokens</span><span>{formatCount(liveState.llmUsage.totalTokens)}</span></div>
+              <div className="statRow"><span>Audio chunks dropped</span><span>{formatCount(liveState.droppedChunks, locale)}</span></div>
+              <div className="statRow"><span>Transcriptions</span><span>{formatCount(liveState.transcriptionRequests, locale)}</span></div>
+              <div className="statRow"><span>Translation calls</span><span>{formatCount(liveState.llmUsage.translationRequests, locale)}</span></div>
+              <div className="statRow"><span>Translation tokens</span><span>{formatCount(liveState.llmUsage.totalTokens, locale)}</span></div>
               <div className="statRow"><span>Speech model</span><span translate="no">{cloudModels?.transcription ?? "—"}</span></div>
               <div className="statRow"><span>Translation model</span><span translate="no">{cloudModels?.translation ?? "—"}</span></div>
             </details>
@@ -1523,13 +1556,28 @@ export default function OperatorDashboard() {
               {hasService && isLive ? (
                 <p className="settingHint">Pause before changing the microphone.</p>
               ) : null}
-              <SettingGroup title="Light or dark" hint="Only changes how this dashboard looks on this computer.">
+              <SettingGroup title={t("settings.interfaceLanguage.title")} hint={t("settings.interfaceLanguage.hint")}>
                 <label>
-                  <span className="visuallyHidden">Light or dark</span>
+                  <span className="visuallyHidden">{t("settings.interfaceLanguage.title")}</span>
+                  <select
+                    name="uiLocale"
+                    autoComplete="off"
+                    value={uiLocalePreference ?? ""}
+                    onChange={(event) => chooseUiLocale(event.target.value)}
+                  >
+                    <option value="">{t("settings.interfaceLanguage.matchBrowser")}</option>
+                    <option value="en">{t("settings.interfaceLanguage.english")}</option>
+                    <option value="id">{t("settings.interfaceLanguage.indonesian")}</option>
+                  </select>
+                </label>
+              </SettingGroup>
+              <SettingGroup title={t("settings.appearance.title")} hint={t("settings.appearance.hint")}>
+                <label>
+                  <span className="visuallyHidden">{t("settings.appearance.title")}</span>
                   <select name="theme" autoComplete="off" value={theme} onChange={(event) => chooseTheme(event.target.value)}>
-                    <option value="system">Match this computer</option>
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
+                    <option value="system">{t("settings.appearance.matchComputer")}</option>
+                    <option value="light">{t("settings.appearance.light")}</option>
+                    <option value="dark">{t("settings.appearance.dark")}</option>
                   </select>
                 </label>
               </SettingGroup>

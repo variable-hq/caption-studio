@@ -14,7 +14,7 @@ const SETTINGS_LABELS = {
 
 // Opens a top-level screen through its tab, as an operator would.
 export async function openScreen(page, name) {
-  await page.getByRole("navigation", { name: "Main", exact: true })
+  await page.locator(".operatorTabs")
     .getByRole("link", { name, exact: true }).click();
   await page.waitForFunction((label) => {
     const current = document.querySelector('.operatorTab[aria-current="page"]');

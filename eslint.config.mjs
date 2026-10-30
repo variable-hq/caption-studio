@@ -5,6 +5,19 @@ import nextTypeScript from "eslint-config-next/typescript";
 export default defineConfig([
   ...nextVitals,
   ...nextTypeScript,
+  {
+    files: [
+      "src/components/operator/OperatorTopBar.tsx",
+      "src/components/operator/LiveControlBar.tsx",
+      "src/components/operator/StatusBanner.tsx",
+    ],
+    rules: {
+      "react/jsx-no-literals": [
+        "error",
+        { noStrings: true, ignoreProps: true, allowedStrings: ["·", "CS", "Caption Studio"] },
+      ],
+    },
+  },
   globalIgnores([
     ".next/**",
     ".open-next/**",

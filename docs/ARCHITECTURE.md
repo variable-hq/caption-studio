@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 30 October 2026 against merged PR #79 (`66c64a6`). Cloudflare deployed `20597d8`
+Reviewed 30 October 2026 against merged PR #80 (`3a7d1d2`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -15,13 +15,20 @@ physical-device, provider-output or semantic acceptance.
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
 | `SermonJournal` | One service's source/corrections/exclusions, record-only session metadata, reader paragraphs, operator notes, lifecycle checkpoints and manual or automatic summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
-| `OperatorPreferences` | One object per hashed Access email (theme, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and words, output buffer, transcript-saving default and automatic summaries |
+| `OperatorPreferences` | One object per hashed Access email (theme, interface language, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and words, output buffer, transcript-saving default and automatic summaries |
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
 | Workers AI | Optional shared reader phrasing and bounded manual summaries |
 
 The browser is the sole client platform; the deferred iOS shell was removed
 ([ADR 0020](decisions/0020-remove-ios-shell.md)). There is no audio object
 store, D1, Queues, Supabase, analytics SDK, local model runtime or paid fallback.
+
+The operator dashboard's typed `src/i18n/` lookup uses English source messages and
+Indonesian overrides without a runtime library. `uiLocale` is a personal preference,
+never part of `workspace:setup`; an account value wins, with its browser copy used only
+when account preferences are unavailable. A null value follows `navigator.languages` with
+English fallback, and the active locale updates `<html lang>`. Phase 1 localizes the shell;
+operator panels, help/mobile, and audience surfaces are migrated in later phases.
 
 GitHub handles source review. Cloudflare Workers Builds builds OpenNext and deploys
 `custom-worker.ts` plus assets after merges to main. There is no GitHub Actions workflow.
@@ -190,7 +197,7 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | Draft translation settings | Page memory; active snapshot in tab sessionStorage for recovery |
 | Live note | Controlling tab memory and sessionStorage, keyed to the service start time; never journaled or logged |
 | Recent outputs | Controlling tab memory; last 3 published outputs, reset at Start, End and takeover |
-| Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, history-saving default, automatic-summary opt-in (church setup, `workspace:setup`); theme (per operator) | `OperatorPreferences`: the church setup in the one shared `workspace:setup` object, the theme in an object keyed by the SHA-256 of the lower-cased Access email, kept until cleared; a browser copy remains in unencrypted localStorage as a fallback, and the shared channel style also persists |
+| Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, history-saving default, automatic-summary opt-in (church setup, `workspace:setup`); theme and interface language (per operator) | `OperatorPreferences`: the church setup in the one shared `workspace:setup` object, personal preferences in an object keyed by the SHA-256 of the lower-cased Access email, kept until cleared; the theme's localStorage copy is applied before account loading and then overridden by the account value, while the interface-language copy is used only when account preferences are unavailable; the shared channel style also persists |
 | OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
 | Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
 | Latest public caption | Main live state; cleared by controls and End/expiry |
