@@ -55,7 +55,7 @@ import {
   type SourceLanguage,
 } from "@/domain/languages";
 import { WORKSPACE_NAME } from "@/domain/workspace";
-import { wordsFromSettings } from "@/live/words";
+import { wordsFromSettings, wordsToSettings, type WordRow } from "@/live/words";
 import {
   DEFAULT_RECORDING_WINDOW_MS,
   recordingWindowLabel,
@@ -332,9 +332,9 @@ export default function OperatorDashboard() {
     pauseSession,
     resumeSession,
     clearCaption,
-    quickBlockEntries,
-    addQuickBlock,
-    removeQuickBlock,
+    liveWordEntries,
+    addLiveWordEntry,
+    removeLiveWordEntry,
     rememberReaderLink,
     showTestCaption,
     showManualCaption,
@@ -573,6 +573,11 @@ export default function OperatorDashboard() {
     () => wordsFromSettings(keywordText, filterText).length,
     [keywordText, filterText],
   );
+  const keepLiveWordInWords = (row: WordRow) => {
+    const next = wordsToSettings([...wordsFromSettings(keywordText, filterText), row]);
+    setKeywordText(next.keywordText);
+    setFilterText(next.filterText);
+  };
   const hasService = Boolean(liveState.service);
   const isLive = liveState.status === "live";
   const isPaused = liveState.status === "paused";
@@ -1391,9 +1396,10 @@ export default function OperatorDashboard() {
           <section className="operatorCard liveActions" aria-labelledby="quick-fixes-heading">
             <h2 id="quick-fixes-heading">Quick fixes</h2>
             <ManualOverridesGroup
-              quickBlockEntries={quickBlockEntries}
-              onAddQuickBlock={addQuickBlock}
-              onRemoveQuickBlock={removeQuickBlock}
+              liveWordEntries={liveWordEntries}
+              onAddLiveWord={addLiveWordEntry}
+              onRemoveLiveWord={removeLiveWordEntry}
+              onKeepLiveWordInWords={keepLiveWordInWords}
               isPaused={isPaused}
               isBusy={isBusy}
               controlBusy={controlAction !== null}

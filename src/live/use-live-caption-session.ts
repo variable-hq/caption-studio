@@ -12,8 +12,9 @@ import {
   emptyLlmSessionUsage,
   withLlmProviderRateLimit,
 } from "@/ai/usage";
-import { parseModerationInput } from "@/live/config";
-import { addQuickBlockEntry, combineFilterText, removeQuickBlockEntry, type QuickBlockEntry } from "@/live/quick-block";
+import { parseGlossaryInput, parseModerationInput } from "@/live/config";
+import { addLiveWord, combineFilterText, combineKeywordText, liveWordsToSettings, mergeGlossaries, removeLiveWord, type LiveWordEntry } from "@/live/live-words";
+import type { WordRow } from "@/live/words";
 import {
   DEFAULT_RECORDING_WINDOW_MS,
   MAX_LIVE_SESSION_MS,
@@ -37,6 +38,7 @@ import { LiveApiError, LiveSessionClient } from "@/live/session-client";
 import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import {
   MAX_FILTER_INPUT_CHARS,
+  MAX_TERMINOLOGY_INPUT_CHARS,
   normalizeTranslationSessionSettings,
   parseStoredTranslationSessionSettings,
   serializeTranslationSessionSettings,
@@ -169,7 +171,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     useState<TranslationSessionSettings | null>(null);
   const [translationRefreshRequired, setTranslationRefreshRequired] =
     useState(false);
-  const [quickBlockEntries, setQuickBlockEntries] = useState<QuickBlockEntry[]>([]);
+  const [liveWordEntries, setLiveWordEntries] = useState<LiveWordEntry[]>([]);
 
   const settingsRef = useRef(settings);
   const endRetryRequiredRef = useRef(false);
@@ -178,7 +180,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const translationRefreshRequiredRef = useRef(false);
   const refreshShouldResumeRef = useRef(false);
   const translationRefreshRequestIdRef = useRef<string | null>(null);
-  const quickBlockEntriesRef = useRef<QuickBlockEntry[]>([]);
+  const liveWordEntriesRef = useRef<LiveWordEntry[]>([]);
   const publishBufferedEntryRef = useRef<(entry: OutputBufferEntry) => Promise<void>>(async () => {});
   const {
     queue: outputBufferQueue,
@@ -198,7 +200,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     settingsRef,
     publishBufferedEntryRef,
     activeTranslationSettingsRef,
-    quickBlockEntriesRef,
+    liveWordEntriesRef,
   });
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recorderTimerRef = useRef<number | null>(null);
@@ -248,18 +250,22 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, [liveState.transcriptionRequests]);
 
   useEffect(() => {
-    quickBlockEntriesRef.current = quickBlockEntries;
-  }, [quickBlockEntries]);
+    liveWordEntriesRef.current = liveWordEntries;
+  }, [liveWordEntries]);
 
 
 
-  const addQuickBlock = useCallback((term: string) => {
-    setQuickBlockEntries((current) => addQuickBlockEntry(current, term));
+  const addLiveWordEntry = useCallback((row: WordRow) => {
+    const next = addLiveWord(liveWordEntriesRef.current, row);
+    liveWordEntriesRef.current = next;
+    setLiveWordEntries(next);
   }, []);
 
 
-  const removeQuickBlock = useCallback((id: string) => {
-    setQuickBlockEntries((current) => removeQuickBlockEntry(current, id));
+  const removeLiveWordEntry = useCallback((id: string) => {
+    const next = removeLiveWord(liveWordEntriesRef.current, id);
+    liveWordEntriesRef.current = next;
+    setLiveWordEntries(next);
   }, []);
 
   const requireTranslationRefresh = useCallback((required: boolean) => {
@@ -601,6 +607,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       const startedAt = performance.now();
       const current = activeTranslationSettingsRef.current;
       if (!current) return;
+      const liveSettings = liveWordsToSettings(liveWordEntriesRef.current);
+      const activeGlossary = mergeGlossaries(
+        parseGlossaryInput(current.keywordText, current.targetLanguage),
+        parseGlossaryInput(liveSettings.keywordText, current.targetLanguage),
+      );
       const signal = captureAbortRef.current?.signal;
       if (!signal) return;
       const serviceAtStart = serviceRef.current;
@@ -608,6 +619,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       const inference = await runCaptionInference({
         audio,
         settings: current,
+        glossary: activeGlossary,
         controllerToken: serviceAtStart.controllerToken,
         recentContext: recentContextRef.current,
         liveNote: settingsRef.current.liveNote,
@@ -665,7 +677,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       if (!isCurrentCapture()) return;
 
       const effectiveFilterText = combineFilterText(
-        quickBlockEntriesRef.current,
+        liveSettings.filterText,
         current.filterText,
         MAX_FILTER_INPUT_CHARS,
       );
@@ -679,7 +691,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       const event: PublicCaptionRequest = {
         captionEpoch: lease.captionEpoch ?? 0,
         transcriptionAttempt: lease.transcriptionRequests,
-        reader: { filterText: effectiveFilterText, keywordText: current.keywordText },
+        reader: {
+          filterText: effectiveFilterText,
+          keywordText: combineKeywordText(
+            liveSettings.keywordText,
+            current.keywordText,
+            MAX_TERMINOLOGY_INPUT_CHARS,
+          ),
+        },
         publicText: forms.publicText,
         targetLanguage: current.targetLanguage,
         style: normalizeCaptionStyle(settingsRef.current.style),
@@ -747,6 +766,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     const current = activeTranslationSettingsRef.current;
     const serviceAtStart = serviceRef.current;
     if (!current || !serviceAtStart || !capturingRef.current || !isCurrent()) return null;
+    const liveSettings = liveWordsToSettings(liveWordEntriesRef.current);
+    const activeGlossary = mergeGlossaries(
+      parseGlossaryInput(current.keywordText, current.targetLanguage),
+      parseGlossaryInput(liveSettings.keywordText, current.targetLanguage),
+    );
     const isCurrentDraft = () =>
       isCurrent() &&
       capturingRef.current &&
@@ -755,6 +779,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     const inference = await runCaptionInference({
       audio,
       settings: current,
+      glossary: activeGlossary,
       controllerToken: serviceAtStart.controllerToken,
       recentContext: recentContextRef.current,
       liveNote: settingsRef.current.liveNote,
@@ -799,7 +824,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     });
     if (!inference || !isCurrentDraft()) return null;
     const effectiveFilterText = combineFilterText(
-      quickBlockEntriesRef.current,
+      liveSettings.filterText,
       current.filterText,
       MAX_FILTER_INPUT_CHARS,
     );
@@ -2191,9 +2216,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     resumeSession,
     refreshTranslationSession,
     clearCaption,
-    quickBlockEntries,
-    addQuickBlock,
-    removeQuickBlock,
+    liveWordEntries,
+    addLiveWordEntry,
+    removeLiveWordEntry,
     rememberReaderLink,
     showTestCaption,
     showManualCaption,

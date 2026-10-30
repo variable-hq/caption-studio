@@ -23,7 +23,7 @@ import {
   type OutputBufferEntry,
   type OutputBufferQueueState,
 } from "@/live/output-buffer";
-import { combineFilterText, type QuickBlockEntry } from "@/live/quick-block";
+import { combineFilterText, liveWordsToSettings, mergeGlossaries, type LiveWordEntry } from "@/live/live-words";
 import { MAX_FILTER_INPUT_CHARS, type TranslationSessionSettings } from "@/live/translation-settings";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { clearBackgroundInterval, setBackgroundInterval } from "@/live/background-timer";
@@ -46,7 +46,7 @@ interface UseOutputBufferQueueParams {
   publishBufferedEntryRef: RefObject<(entry: OutputBufferEntry) => Promise<void>>;
   /** Re-moderates a submitted edit against the confirmed session settings, not an unconfirmed draft. */
   activeTranslationSettingsRef: RefObject<TranslationSessionSettings | null>;
-  quickBlockEntriesRef: RefObject<QuickBlockEntry[]>;
+  liveWordEntriesRef: RefObject<LiveWordEntry[]>;
 }
 
 /**
@@ -66,7 +66,7 @@ export function useOutputBufferQueue({
   settingsRef,
   publishBufferedEntryRef,
   activeTranslationSettingsRef,
-  quickBlockEntriesRef,
+  liveWordEntriesRef,
 }: UseOutputBufferQueueParams) {
   const [queue, setQueue] = useState<OutputBufferQueueState>(EMPTY_OUTPUT_BUFFER_QUEUE);
   const queueRef = useRef<OutputBufferQueueState>(EMPTY_OUTPUT_BUFFER_QUEUE);
@@ -189,13 +189,17 @@ export function useOutputBufferQueue({
       if (!entry || entry.editedDraft === null) return;
       // Re-moderates against the confirmed session settings, not the unconfirmed draft.
       const current = activeTranslationSettingsRef.current ?? settingsRef.current;
-      const effectiveFilterText = combineFilterText(quickBlockEntriesRef.current, current.filterText, MAX_FILTER_INPUT_CHARS);
+      const liveWordSettings = liveWordsToSettings(liveWordEntriesRef.current);
+      const effectiveFilterText = combineFilterText(liveWordSettings.filterText, current.filterText, MAX_FILTER_INPUT_CHARS);
       // Same glossary + moderation pass every other caption gets, via prepareCaptionForms.
       const forms = prepareCaptionForms({
         sourceText: entry.sourceText,
         translatedText: entry.editedDraft,
         targetLanguage: current.targetLanguage,
-        glossary: parseGlossaryInput(current.keywordText, current.targetLanguage),
+        glossary: mergeGlossaries(
+          parseGlossaryInput(current.keywordText, current.targetLanguage),
+          parseGlossaryInput(liveWordSettings.keywordText, current.targetLanguage),
+        ),
         moderationRules: parseModerationInput(effectiveFilterText),
       });
       const next = submitOutputBufferEntryEdit(
@@ -209,7 +213,7 @@ export function useOutputBufferQueue({
       queueRef.current = next;
       setQueue(next);
     },
-    [activeTranslationSettingsRef, quickBlockEntriesRef, settingsRef],
+    [activeTranslationSettingsRef, liveWordEntriesRef, settingsRef],
   );
 
   return {

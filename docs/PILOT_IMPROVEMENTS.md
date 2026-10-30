@@ -1,6 +1,6 @@
 # Evidence-gated pilot improvements
 
-Reviewed 28 October 2026 against merged PR #75 (`080e6ca`).
+Reviewed 30 October 2026 against merged PR #77 (`e242c1c`).
 
 Prepared 12 September; scope reconciled 13 September 2026. QR joining, reusable saved
 terminology packs and live public-caption correction remain proposals. Plan 1 has since
@@ -8,7 +8,7 @@ implemented private source corrections, approved recognition aliases and passage
 those do not edit an already displayed OBS caption. See [current product scope](PRODUCT_SPEC.md).
 This document adds no runtime feature or new data retention.
 
-Status at the 28 October review, without changing the proposals below:
+Status at the 30 October review, without changing the proposals below:
 
 - **QR joining:** still a proposal. No QR encoder or joining control exists.
 - **Terminology pack:** superseded by a different design. Words are part of the one church
@@ -194,7 +194,7 @@ shared profiles belongs to the separate workspace/role/retention design in the r
 
 ## Candidate 3: pause, review, and publish a correction
 
-**Status (28 October 2026):** the proposal below is not implemented as written, but
+**Status (30 October 2026):** the proposal below is not implemented as written, but
 neighbouring controls now ship on Live › Quick fixes:
 
 - **Manual caption** while paused shows up to 240 typed characters in the active target
@@ -206,8 +206,9 @@ neighbouring controls now ship on Live › Quick fixes:
   caption can be paused, edited (re-moderated before it can show), cleared or
   fast-forwarded ([ADR 0016](decisions/0016-client-side-output-buffer.md)). This is a
   limited review-before-publication, not correction after publication.
-- **Quick block** hides any later caption containing a word without a refresh, and
-  **Live note** gives situational guidance to later translations
+- **Quick override** can fix spelling, set a translation, help recognition, or hide a
+  whole caption from the next caption onward without a refresh. **Live note** gives
+  situational guidance to later translations
   ([ADR 0023](decisions/0023-live-note-and-recent-outputs.md)); neither changes a caption
   already shown.
 

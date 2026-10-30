@@ -2,9 +2,10 @@
 
 import { ManualCaptionControl } from "@/components/operator/ManualCaptionControl";
 import { OutputBufferQueueControl } from "@/components/operator/OutputBufferQueueControl";
-import { QuickBlockControl } from "@/components/operator/QuickBlockControl";
+import { LiveWordControl } from "@/components/operator/LiveWordControl";
+import type { LiveWordEntry } from "@/live/live-words";
 import type { OutputBufferQueueState } from "@/live/output-buffer";
-import type { QuickBlockEntry } from "@/live/quick-block";
+import type { WordRow } from "@/live/words";
 
 interface OutputBufferQueueProps {
   show: boolean;
@@ -19,9 +20,10 @@ interface OutputBufferQueueProps {
 }
 
 interface ManualOverridesGroupProps {
-  quickBlockEntries: readonly QuickBlockEntry[];
-  onAddQuickBlock: (term: string) => void;
-  onRemoveQuickBlock: (id: string) => void;
+  liveWordEntries: readonly LiveWordEntry[];
+  onAddLiveWord: (row: WordRow) => void;
+  onRemoveLiveWord: (id: string) => void;
+  onKeepLiveWordInWords: (row: WordRow) => void;
   isPaused: boolean;
   isBusy: boolean;
   controlBusy: boolean;
@@ -30,13 +32,14 @@ interface ManualOverridesGroupProps {
   outputBuffer: OutputBufferQueueProps;
 }
 
-/** Operator overrides of what the pipeline would otherwise publish: instant word block,
+/** Operator overrides of what the pipeline would otherwise publish: immediate word fixes,
  * a typed replacement caption while paused, or the output buffer's queued caption.
  * Only shown in the expanded panel. */
 export function ManualOverridesGroup({
-  quickBlockEntries,
-  onAddQuickBlock,
-  onRemoveQuickBlock,
+  liveWordEntries,
+  onAddLiveWord,
+  onRemoveLiveWord,
+  onKeepLiveWordInWords,
   isPaused,
   isBusy,
   controlBusy,
@@ -45,12 +48,13 @@ export function ManualOverridesGroup({
   outputBuffer,
 }: ManualOverridesGroupProps) {
   return (
-    <div className="manualOverrides" aria-label="Manual overrides">
-      <span className="manualOverridesLabel">Manual overrides</span>
-      <QuickBlockControl
-        entries={quickBlockEntries}
-        onAdd={onAddQuickBlock}
-        onRemove={onRemoveQuickBlock}
+    <div className="manualOverrides" role="group" aria-label="Caption controls">
+      <span className="manualOverridesLabel">Caption controls</span>
+      <LiveWordControl
+        entries={liveWordEntries}
+        onAdd={onAddLiveWord}
+        onRemove={onRemoveLiveWord}
+        onKeepInWords={onKeepLiveWordInWords}
         disabled={isBusy}
       />
       {isPaused && (

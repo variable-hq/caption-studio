@@ -429,7 +429,6 @@
 
 /* Quick fixes already sit in their own card: drop the overrides group's inner frame. */
 .operatorCard .manualOverrides { padding: 0; border: 0; }
-.operatorCard .manualOverridesLabel { display: none; }
 
 .settingsNav {
   display: flex;
@@ -756,7 +755,7 @@
 
 .settingsPanel .readerNote { margin: 0; }
 
-/* A field with its action beside it (quick block, own message). */
+/* A field with its action beside it (live word or own message). */
 .operatorShell .inlineForm {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -769,7 +768,7 @@
   .operatorShell .inlineForm > button { justify-self: start; }
 }
 
-.quickBlockControl,
+.liveWordControl,
 .manualCaptionControl {
   display: flex;
   flex-direction: column;
@@ -777,6 +776,58 @@
   padding: 0;
   border: 0;
 }
+
+.liveWordControl h3,
+.liveWordEntries h4 { margin: 0; }
+
+.liveWordForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: var(--gap-sm);
+}
+
+.liveWordForm > button { justify-self: start; }
+
+.liveWordEntries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+  min-width: 0;
+}
+
+.liveWordList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.liveWordList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-sm);
+  min-width: 0;
+  padding: var(--space-0) 0;
+  border-top: 1px solid var(--line);
+}
+
+.liveWordEntryDetails,
+.liveWordEntryActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-sm);
+  min-width: 0;
+}
+
+.liveWordEntryDetails { overflow-wrap: anywhere; }
+
+.liveWordEntryActions { justify-content: flex-end; }
 
 .operatorShell .shareRow { flex-wrap: nowrap; }
 .operatorShell .shareRow > span { flex: 1 1 auto; min-width: 0; }
@@ -790,25 +841,6 @@
 }
 
 .settingsPanel .archiveRecords article > p:not(.settingHint) { margin: 0; color: var(--ink); }
-
-.quickBlockList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--gap-sm);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.quickBlockList li {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gap-sm);
-  padding-left: var(--space-2);
-  border-radius: var(--radius-md);
-  background: var(--surface-muted);
-  font-weight: var(--weight-bold);
-}
 
 /* Narrow screens: Settings and Sermons lists scroll sideways above the content,
    the Words form stacks, and each word becomes a small card. */
@@ -836,6 +868,8 @@
 
 @media (max-width: 680px) {
   .wordsTable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .liveWordForm { grid-template-columns: minmax(0, 1fr); }
+  .liveWordForm > button { justify-self: start; }
   .wordsTable tr {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
