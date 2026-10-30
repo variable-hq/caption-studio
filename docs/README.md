@@ -1,6 +1,6 @@
 # Documentation index
 
-Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). Maintained specifications
+Reviewed 30 October 2026 against merged PR #80 (`3a7d1d2`). Maintained specifications
 describe merged source, not an assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
 records to establish release evidence.
 
@@ -48,6 +48,8 @@ records to establish release evidence.
   corrections, their priority over saved Words, and the Keep in Words flow.
 - [ADR 0029](decisions/0029-transcription-prompt-budget.md) records the conservative
   transcription prompt byte budget and its fallback for provider 400 responses.
+- [ADR 0030](decisions/0030-operator-interface-localization.md) records the typed
+  English/Indonesian interface lookup, per-operator language choice, and phased scope.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator, and the default-on operator control for faithful
   rendering when that omission rule is disabled.
