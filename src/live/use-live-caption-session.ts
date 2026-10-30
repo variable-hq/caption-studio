@@ -60,9 +60,11 @@ import {
 import {
   initialWindowPolicyState,
   nextWindowDecision,
+  dynamicDraftResult,
+  dynamicPauseAction,
   draftEndsWithTerminalPunctuation,
-  isDynamicPauseCandidate,
   DYNAMIC_SAMPLE_MS,
+  type DynamicDraftHold,
 } from "@/live/window-policy";
 
 interface LiveCaptionSettings extends TranslationSessionSettings {
@@ -956,25 +958,37 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         });
         if (recordingWindowMs === "dynamic") {
           let policyState = initialWindowPolicyState();
+          let draftHold: DynamicDraftHold = "idle";
+          let silenceRun = 0;
           dynamicWindowTimerRef.current = setBackgroundInterval(() => {
+            const previousSilenceMs = policyState.silenceMs;
             const result = nextWindowDecision(policyState, readLevel(), bounds);
+            if (previousSilenceMs > 0 && result.state.silenceMs === 0) {
+              silenceRun += 1;
+              draftHold = "idle";
+            }
             policyState = result.state;
-            if (result.decision !== "cut") return;
-            if (
-              recordingWindowMs === "dynamic" &&
-              isDynamicPauseCandidate(result.state, bounds)
-            ) {
+            const action = dynamicPauseAction(result, bounds, draftHold);
+            if (action === "continue" || action === "hold") return;
+            if (action === "run-draft") {
+              const candidateSilenceRun = silenceRun;
+              draftHold = "pending";
               void runDraftAtPauseCandidate(result.state.elapsedMs).then((attempt) => {
                 if (
                   generation !== captureGenerationRef.current ||
                   !capturingRef.current ||
                   recorderRef.current !== recorder ||
-                  recorder.state !== "recording"
+                  recorder.state !== "recording" ||
+                  candidateSilenceRun !== silenceRun
                 ) return;
-                if (
-                  attempt.available && attempt.preview &&
-                  !draftEndsWithTerminalPunctuation(attempt.preview.sourceText)
-                ) return;
+                const outcome = dynamicDraftResult(
+                  attempt.available && attempt.preview !== null,
+                  attempt.preview !== null && draftEndsWithTerminalPunctuation(attempt.preview.sourceText),
+                );
+                if (outcome === "hold") {
+                  draftHold = "rejected";
+                  return;
+                }
                 if (dynamicWindowTimerRef.current !== null) {
                   clearBackgroundInterval(dynamicWindowTimerRef.current);
                   dynamicWindowTimerRef.current = null;

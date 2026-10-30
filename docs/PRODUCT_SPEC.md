@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 30 October 2026 against open PR #77. The corrected 13 September
+Reviewed 30 October 2026 against merged PR #77 (`e242c1c`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -345,8 +345,11 @@ Fixed 6-second windows have no draft; 10-second windows may draft at 4 seconds; 
 windows may draft at 4 and 8 seconds. Dynamic requests drafts at qualifying pause candidates
 instead of fixed offsets. At an admitted candidate, a source draft ending in terminal
 punctuation (including closing quotes or brackets) cuts the window; otherwise recording
-continues to the next pause or the 14-second maximum. If a draft cannot run, the pause-only
-cut applies. An in-flight draft is discarded at the window end. A draft needs at least 3
+continues through the rest of that silence run and waits for speech to resume before another
+candidate. The 14-second maximum always cuts. If a draft cannot run, the pause-only cut
+applies; a candidate reached while another draft is still in flight is unavailable and
+therefore uses that fallback. A late result from an earlier silence run cannot cut a later
+one. An in-flight draft is discarded at the window end. A draft needs at least 3
 seconds of new audio. At most one runs at a time, at most 2 are allowed per caption, and a
 draft is skipped whenever a final chunk is queued or processing, or the remaining 900
 attempt ceiling is needed for future finals. Draft attempts use the existing protected

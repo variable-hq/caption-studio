@@ -19,8 +19,9 @@ Dynamic ends at the first qualifying pause after 6 seconds, or at 14 seconds. Wi
 drafts enabled and admitted, a draft of the audio at the pause candidate confirms an early
 cut only when its source text ends in terminal punctuation (`.`, `?`, `!`, `…`, `。`, `？`,
 `！`), optionally followed by closing quotes or brackets. An unfinished clause keeps
-recording for another pause. When drafts are off or unavailable, the pause-only behavior
-applies. No extra language-model call is introduced.
+recording through the rest of that silence run and waits for speech to resume before another
+candidate. The 14-second maximum always cuts. When drafts are off or unavailable, the
+pause-only behavior applies. No extra language-model call is introduced.
 
 ## Tradeoffs and verification
 

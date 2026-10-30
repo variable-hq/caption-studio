@@ -4,6 +4,8 @@ import {
   DYNAMIC_ABS_SILENCE_RMS,
   DYNAMIC_PAUSE_MS,
   DYNAMIC_SAMPLE_MS,
+  dynamicDraftResult,
+  dynamicPauseAction,
   draftEndsWithTerminalPunctuation,
   initialWindowPolicyState,
   isDynamicPauseCandidate,
@@ -39,6 +41,43 @@ describe("dynamic recording window policy", () => {
     expect(isDynamicPauseCandidate(candidate, BOUNDS)).toBe(true);
     expect(isDynamicPauseCandidate({ ...candidate, silenceMs: DYNAMIC_PAUSE_MS + DYNAMIC_SAMPLE_MS }, BOUNDS)).toBe(false);
     expect(isDynamicPauseCandidate({ ...candidate, elapsedMs: BOUNDS.maxMs }, BOUNDS)).toBe(false);
+  });
+
+  it("holds a sustained pause after an unfinished draft until speech resumes or the hard limit", () => {
+    let draftHold: "idle" | "pending" | "rejected" = "idle";
+    const candidate = {
+      decision: "cut" as const,
+      state: { elapsedMs: 6_200, silenceMs: DYNAMIC_PAUSE_MS, speechPeakRms: 0.2 },
+    };
+
+    expect(dynamicPauseAction(candidate, BOUNDS, draftHold)).toBe("run-draft");
+    draftHold = "pending";
+    expect(dynamicPauseAction({ ...candidate, state: { ...candidate.state, silenceMs: 800 } }, BOUNDS, draftHold)).toBe("hold");
+    expect(dynamicDraftResult(true, false)).toBe("hold");
+    draftHold = "rejected";
+    for (const elapsedMs of [6_400, 8_000, 13_900]) {
+      expect(dynamicPauseAction({
+        decision: "cut",
+        state: { elapsedMs, silenceMs: elapsedMs - 5_500, speechPeakRms: 0.2 },
+      }, BOUNDS, draftHold)).toBe("hold");
+    }
+
+    // Speech resets this silence run. If the old request is still in flight at the
+    // next candidate, admission is unavailable and the pause-only fallback cuts.
+    draftHold = "idle";
+    expect(dynamicPauseAction(candidate, BOUNDS, draftHold)).toBe("run-draft");
+    expect(dynamicDraftResult(false, false)).toBe("cut");
+
+    // An admitted terminal draft confirms its candidate immediately.
+    draftHold = "idle";
+    expect(dynamicPauseAction(candidate, BOUNDS, draftHold)).toBe("run-draft");
+    expect(dynamicDraftResult(true, true)).toBe("cut");
+
+    // The 14s cap always wins, even while a draft is pending.
+    expect(dynamicPauseAction({
+      decision: "cut",
+      state: { elapsedMs: BOUNDS.maxMs, silenceMs: 8_500, speechPeakRms: 0.2 },
+    }, BOUNDS, "pending")).toBe("cut");
   });
 
   it("does not cut continuous speech before the six-second minimum", () => {

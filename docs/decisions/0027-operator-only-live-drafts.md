@@ -23,9 +23,11 @@ changing the final-output contract. Drafts never enter history, recent translati
 the output buffer, publication, OBS, or viewer state. Final captions still pass through the
 existing end-of-window path. In Dynamic mode, drafts are requested at qualifying pause
 candidates rather than fixed offsets. A draft ending in terminal punctuation confirms the
-cut; an unfinished clause keeps recording until another pause or the 14-second limit.
-When a draft is off or unavailable, Dynamic uses its pause-only cut. This adds no language-
-model call.
+cut; an unfinished clause keeps recording through the rest of that silence run and waits for
+speech to resume before another candidate or the 14-second limit. A candidate reached while
+another draft is in flight is unavailable and uses the pause-only cut; a late result from an
+earlier silence run cannot cut a later one. When a draft is off or otherwise unavailable,
+Dynamic uses its pause-only cut. This adds no language-model call.
 
 ## Tradeoffs and verification
 
