@@ -46,6 +46,8 @@ records to establish release evidence.
   in-progress caption drafts and their quota safeguards.
 - [ADR 0028](decisions/0028-live-quick-overrides.md) records the in-memory live word
   corrections, their priority over saved Words, and the Keep in Words flow.
+- [ADR 0029](decisions/0029-transcription-prompt-budget.md) records the conservative
+  transcription prompt byte budget and its fallback for provider 400 responses.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator, and the default-on operator control for faithful
   rendering when that omission rule is disabled.

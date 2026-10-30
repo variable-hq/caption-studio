@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 30 October 2026 against merged PR #77 (`e242c1c`). Cloudflare deployed `20597d8`
+Reviewed 30 October 2026 against merged PR #79 (`66c64a6`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -218,10 +218,12 @@ normal readiness and quality review.
 Transcription accepts WebM/Ogg/MP4, at most 3 MB of audio, bounded hints, the previous
 chunk's corrected transcript (at most 1,000 characters accepted), and a Sanitization level
 (Off, Low, Balanced, High; omitted or invalid values normalize to Off). The provider prompt
-uses a conservative 224 UTF-8-byte budget: when a previous transcript exists, its last whole
-words (at most 96 bytes) end the prompt as Whisper's preceding-speech context and hints fill
-the rest. Start, translation refresh and Clear reset it together with the translation context.
-Only canonical names enter ASR hints; approved whole-word recognition variants are
+uses a conservative 448 UTF-8-byte budget, with the last whole words of the previous
+transcript (at most 160 bytes) retained as Whisper's preceding-speech context and hints
+filling the rest. If Groq rejects a transcription with HTTP 400, one retry uses the former
+224-byte/96-byte budgets; a successful fallback selects those smaller budgets for later
+requests in the same Worker isolate. Start, translation refresh and Clear reset the transcript
+context. Only canonical names enter ASR hints; approved whole-word recognition variants are
 deterministic corrections, not training.
 
 Groq `verbose_json` segment metadata (`no_speech_prob`, `avg_logprob`,
