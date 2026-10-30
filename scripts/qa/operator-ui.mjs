@@ -206,12 +206,26 @@ try {
   await page.getByRole('button',{name:'Undo changes',exact:true}).click();
   await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor({state:'hidden'});
 
-  // Quick fixes during the service.
-  await page.locator('input[name="quickBlockTerm"]').fill('synthetic-block-term');
-  await page.getByRole('button',{name:'Hide captions with it',exact:true}).click();
-  assert.equal(await page.getByText('synthetic-block-term',{exact:true}).isVisible(),true);
-  await page.getByRole('button',{name:'Remove',exact:true}).click();
-  assert.equal(await page.getByText('synthetic-block-term',{exact:true}).count(),0);
+  // Quick override actions apply immediately; Keep in Words follows the Apply now flow.
+  await page.locator('input[name="liveWord"]').fill('synthetic-hide-term');
+  await page.locator('select[name="liveWordAction"]').selectOption('hide');
+  await page.getByRole('button',{name:'Add quick override',exact:true}).click();
+  assert.equal(await page.getByText('synthetic-hide-term',{exact:true}).isVisible(),true);
+  assert.equal(await page.getByText('Your changes aren’t in use yet.',{exact:true}).count(),0);
+  await page.getByRole('button',{name:'Remove synthetic-hide-term quick override',exact:true}).click();
+
+  await page.locator('input[name="liveWord"]').fill('synthetic-fix-term');
+  await page.locator('select[name="liveWordAction"]').selectOption('fix');
+  await page.locator('input[name="liveWordWith"]').fill('synthetic-canonical-term');
+  await page.getByRole('button',{name:'Add quick override',exact:true}).click();
+  await page.getByRole('button',{name:'Keep in Words',exact:true}).click();
+  await page.getByText('Kept for Apply now',{exact:true}).waitFor();
+  await openSettings(page,'words');
+  await page.locator('.wordsTable').getByText('synthetic-fix-term',{exact:true}).waitFor();
+  await openScreen(page,'Live');
+  await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Undo changes',exact:true}).click();
+  await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor({state:'hidden'});
 
   await liveControls.getByRole('button',{name:'Clear screen',exact:true}).click();
   await page.waitForFunction(()=>true);
@@ -229,7 +243,7 @@ try {
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(status,'idle');
   assert.equal(inferenceCalls,0,'Dashboard checks must not invoke inference');
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Sermons, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, quick block, no inference, responsive overflow and Axe'});
+  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Sermons, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Words, no inference, responsive overflow and Axe'});
   await context.close();
  }
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));

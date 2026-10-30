@@ -217,7 +217,7 @@ implemented.
   the existing envelope rule omits profanity, slurs, and vulgar language, using `[...]` only
   when omission would leave no caption content. When Off, the translator renders those words
   as spoken without softening, omission, or censorship. The deterministic public Filter and
-  Quick block rules still apply in either state, so source text remains separate from
+  Quick override hide rules still apply in either state, so source text remains separate from
   moderated public text. Only explicit `false` disables this setting in new and stored
   snapshots; an absent or invalid value falls back to On. Changes use the translation refresh
   confirmation and are saved with shared church defaults. Sanitization does not control
@@ -298,11 +298,19 @@ and English target. It supplies canonical names only; incorrect aliases are not 
 in transcription hints. This is not model training or fuzzy identity resolution.
 Rule scopes/priorities and persistent workspace packs remain deferred.
 
-A separate **quick block** control lets an operator instantly hide any caption
-containing a chosen word for the remainder of the service, without the translation
-refresh other filter edits require. It always hides rather than masks or replaces, is
-session-only, and does not persist between services; a term meant to persist still
-belongs in the filter field above.
+**Quick override** in Live › Quick fixes provides four live actions: **Hide the whole
+caption**, **Fix spelling to…**, **Always translate as…**, and **Help the AI recognise it**.
+The controlling tab keeps up to 20 entries in memory and shows them for removal. They apply
+from the next caption whose processing starts; a caption already processing keeps its
+existing rules. Entries remain active until removed, including across End in the same tab.
+Live entries take priority over saved Words for recognition and filtering;
+a live spelling or translation replaces the saved action for the same word, and approved
+recognition variants are combined. These actions do not use **Apply now**. **Keep in Words**
+adds the row to the draft Words list; the live entry remains active, while the saved row
+follows the usual **Apply now** and **Save for everyone** choices. The live list is not
+saved as a setting or logged. If transcript saving is enabled, compiled rules accompany
+the caption through the existing private reader flow. Live entries are separate from the
+translation settings fingerprint and are never parsed as raw filter syntax.
 
 Terminology and filter edits made during an active service are drafts until the same
 explicit translation refresh used for language, Inference, Sanitization, recording window,
@@ -313,8 +321,8 @@ and prompt changes.
 **Live note** is an ephemeral, operator-authored situational hint for an ambiguity in the
 current passage (names, terms, sound words, speaker, or quoted voices). It applies to
 translations that start after the edit without **Apply now** or a context reset. It cannot
-correct a misheard word; exact replacements belong in Settings › Words, and Live's quick
-block can hide a whole caption straight away. The note is limited to 500 characters, kept only in this tab's
+correct a misheard word; use **Quick override** to fix spelling, set a translation, help
+recognition, or hide a whole caption. The note is limited to 500 characters, kept only in this tab's
 `sessionStorage` for the matching service, and cleared at Start, End and takeover. It is
 sent in a fenced trusted guidance block beside translator instructions, never as speech
 data, and the server envelope always takes priority.
@@ -367,7 +375,7 @@ clear the preview and abort in-flight draft work.
 | Control | Purpose | When it applies |
 | --- | --- | --- |
 | Words (Settings › Words) | Exact word rules and spelling fixes | After Apply now |
-| Quick block (Live › Quick fixes) | Hide any caption containing a word | Immediately; current service only |
+| Quick override (Live › Quick fixes) | Fix, translate, recognise, or hide a whole caption | From the next caption; controller tab until removed |
 | Translator instructions (Settings) | Standing guidance for the whole service | After Apply now |
 | Live note | Situational guidance for the passage being spoken now | From the next translation; current service only |
 | Live drafts | In-progress operator preview | Replaces the previous draft; never published |
@@ -382,8 +390,9 @@ immediately without a translation refresh, and is unrelated to the recording win
 duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md) and
 [ADR 0017](decisions/0017-configurable-output-buffer-dwell.md). The setting and its church
 default sit under **Check captions before they show** on the Live screen, both before Start and
-during a service; the queued captions and their controls appear in Live's **Quick fixes**
-with Quick block and Manual caption. The public caption filter lives in Settings › Words.
+during a service; the queued captions and their controls appear under **Caption controls**
+in Live's **Quick fixes**, alongside Quick override and Manual caption. The public caption
+filter lives in Settings › Words.
 
 - One choice, **Wait before showing each caption**: Off (the default, matching behavior
   before this feature existed) or Wait 1, 2, 3, 4 or 5 seconds before each caption advances
@@ -405,7 +414,7 @@ with Quick block and Manual caption. The public caption filter lives in Settings
   (operator override, put back through the same glossary and confirmed-filter moderation
   as every other caption before it can reach Live; auto-resumes on Submit), **cleared**
   (removed from the queue), or **fast-forwarded** (shown on Live immediately). These are
-  separate from the quick block above: pausing the service, clearing the current Live
+  separate from Quick override: pausing the service, clearing the current Live
   caption, a translation refresh, takeover, and End all discard the whole buffer.
 - **Save for everyone** stores the choice in the church setup; new services start from it.
 
@@ -428,7 +437,8 @@ distinct from the current draft.
 and public-filter text described above, so drafts, **Apply now** and saved setups treat
 them exactly as before; the pipeline reads at most 40 glossary and 40 filter entries, and
 the editor warns past that. **Import Bible names** adds the TB2 list once for Indonesian →
-English. Live's quick block stays separate because it applies without a refresh.
+English. Live Quick overrides stay active without a refresh; **Keep in Words** also adds
+the row to the draft Words list and leaves the live entry active.
 
 ### Caption display, OBS, and mobile viewing
 
@@ -461,7 +471,8 @@ English. Live's quick block stays separate because it applies without a refresh.
   screen**, the minutes left and whether the transcript is being saved, and **End service**
   (or **Try End again** when End could not be confirmed); the
   page reserves scroll space so the bar never covers a focused control. **Quick fixes**
-  replaces the Start card: Quick block, Manual caption while paused, the queued captions,
+  replaces the Start card: **Caption controls** (Quick override, Manual caption while
+  paused, and queued captions),
   **Live note**, a test caption while paused, **Session details** (with **Save session
   details**), and under **Service
   details** the delay after speech, segments filtered (when filtering is on), dropped audio

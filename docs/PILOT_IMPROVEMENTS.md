@@ -194,7 +194,7 @@ shared profiles belongs to the separate workspace/role/retention design in the r
 
 ## Candidate 3: pause, review, and publish a correction
 
-**Status (28 October 2026):** the proposal below is not implemented as written, but
+**Status (30 October 2026):** the proposal below is not implemented as written, but
 neighbouring controls now ship on Live › Quick fixes:
 
 - **Manual caption** while paused shows up to 240 typed characters in the active target
@@ -206,8 +206,9 @@ neighbouring controls now ship on Live › Quick fixes:
   caption can be paused, edited (re-moderated before it can show), cleared or
   fast-forwarded ([ADR 0016](decisions/0016-client-side-output-buffer.md)). This is a
   limited review-before-publication, not correction after publication.
-- **Quick block** hides any later caption containing a word without a refresh, and
-  **Live note** gives situational guidance to later translations
+- **Quick override** can fix spelling, set a translation, help recognition, or hide a
+  whole caption from the next caption onward without a refresh. **Live note** gives
+  situational guidance to later translations
   ([ADR 0023](decisions/0023-live-note-and-recent-outputs.md)); neither changes a caption
   already shown.
 

@@ -1,6 +1,6 @@
 # Caption Studio: gap analysis and improvement plan
 
-Reviewed 29 October 2026 against open PR #77 (head `9289631`). Plan 1 (`20597d8`) deployed
+Reviewed 30 October 2026 against merged PR #77 (`e242c1c`). Plan 1 (`20597d8`) deployed
 successfully after the Access proxy fix; merges through `080e6ca`, including the rename
 to the `caption-studio` Worker, deployed via Workers Builds on 26–28 October, but none has
 a recorded service rehearsal. Only `main` builds; preview-branch
@@ -12,7 +12,7 @@ Local checks pass; this is not a production, semantic-quality or accessibility c
 The implementation includes fast captions, separate latest-viewer/reader/remote surfaces,
 opt-in seven-day private journals, manual and optional automatic summaries, rolling 30-day
 usage, a shared church setup and Sermons archive, watching/takeover by any workspace
-operator, and live overrides (Quick block, paused Manual caption, output buffer, Live
+operator, and live overrides (Quick override, paused Manual caption, output buffer, Live
 note). The largest remaining gaps concern language quality, actual account configuration,
 physical devices, recovery and full-service measurement. Optional Workers AI remains
 default-off.
@@ -122,7 +122,7 @@ Synthetic browser/Axe checks (`npm run qa`) pass at 1920, 1200, 390 and 320px fo
 Live, Sermons and Settings screens, remote, reader and viewer. Physical Safari/phones,
 actual browser zoom, screen readers and volunteer comprehension remain unverified. Have
 representative operators configure a service and explain the difference between Clear
-screen, Remove passage and Delete sermon, and between Quick block, Words and Live note.
+screen, Remove passage and Delete sermon, and between Quick override, Words and Live note.
 Verify that pending phone commands cannot be mistaken for physical microphone confirmation.
 
 ### G10 — P2: market feature gaps need demand and a scope decision
@@ -130,8 +130,9 @@ Verify that pending phone commands cannot be mistaken for physical microphone co
 Local QR joining remains a proposal in [Pilot improvements](PILOT_IMPROVEMENTS.md).
 Saved terminology is now the shared church setup's Settings › Words list
 ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). Live correction is
-partly covered by editing the next caption in the output buffer, Quick block and a
-paused Manual caption; correcting a caption already on screen remains open. Private source
+covered from the next caption by Quick override, and before publication by editing the
+next caption in the output buffer or showing a paused Manual caption; correcting a caption
+already on screen remains open. Private source
 correction, passage removal, archives and summaries are already implemented.
 Additional providers, exact Bible retrieval, workspace roles and simultaneous targets
 need separate decisions. The [11 September benchmark](BENCHMARK_RESEARCH.md) is dated

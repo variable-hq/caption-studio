@@ -22,7 +22,7 @@ interface OutputBufferQueueControlProps {
 }
 
 /** The output buffer's next-up caption and its Pause/Edit/Fast-forward/Clear controls —
- * an operator override of queued caption content, grouped under Manual overrides. */
+ * an operator override of queued caption content, grouped under Caption controls. */
 export function OutputBufferQueueControl({
   queue,
   disabled = false,

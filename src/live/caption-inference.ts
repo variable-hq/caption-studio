@@ -32,6 +32,7 @@ interface CaptionInferenceDependencies {
 interface RunCaptionInferenceOptions {
   audio: Blob;
   settings: TranslationSessionSettings;
+  glossary?: ReturnType<typeof parseGlossaryInput>;
   controllerToken: string;
   recentContext: string[];
   liveNote?: string;
@@ -59,7 +60,7 @@ export async function runCaptionInference(
     return null;
   }
   const current = options.settings;
-  const glossary = parseGlossaryInput(current.keywordText, current.targetLanguage);
+  const glossary = options.glossary ?? parseGlossaryInput(current.keywordText, current.targetLanguage);
   const inferenceContext: InferenceAttemptContext = {
     controllerToken: options.controllerToken,
     transcriptionAttempt: lease.transcriptionRequests,

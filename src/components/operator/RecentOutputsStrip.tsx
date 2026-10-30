@@ -11,5 +11,6 @@ export function RecentOutputsStrip({ outputs }: { outputs: readonly RecentOutput
         <p className="settingHint">{entry.sourceText}</p>
       </li>)}
     </ol>}
+    <p className="settingHint">Wrong word? Use Quick override.</p>
   </section>;
 }

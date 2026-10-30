@@ -18,7 +18,9 @@ implementation; deployment and church-approved quality require separate evidence
   shared styles, safe margins, explicit refresh, Pause/Resume/Clear screen/End, automatic
   pause when the tab closes, worker-driven timers while backgrounded, takeover, recovery and link
   rotation.
-- Live overrides: Quick block, a paused Manual caption archived as a separate operator
+- Live overrides: Quick override for spelling, translation, recognition, or whole-caption
+  hiding ([ADR 0028](decisions/0028-live-quick-overrides.md)); a paused Manual caption
+  archived as a separate operator
   note ([ADR 0013](decisions/0013-manual-caption-archived-as-operator-notes.md)), an
   optional output buffer whose next caption can be paused, edited, cleared or
   fast-forwarded ([ADR 0016](decisions/0016-client-side-output-buffer.md),
