@@ -60,7 +60,11 @@ import {
 import {
   initialWindowPolicyState,
   nextWindowDecision,
+  dynamicDraftResult,
+  dynamicPauseAction,
+  draftEndsWithTerminalPunctuation,
   DYNAMIC_SAMPLE_MS,
+  type DynamicDraftHold,
 } from "@/live/window-policy";
 
 interface LiveCaptionSettings extends TranslationSessionSettings {
@@ -232,6 +236,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     endWindow: endLiveDraftWindow,
     startSession: startLiveDraftSession,
     reset: resetLiveDrafts,
+    runAtPauseCandidate: runDraftAtPauseCandidate,
   } = liveDrafts;
 
   useEffect(() => {
@@ -953,10 +958,49 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         });
         if (recordingWindowMs === "dynamic") {
           let policyState = initialWindowPolicyState();
+          let draftHold: DynamicDraftHold = "idle";
+          let silenceRun = 0;
           dynamicWindowTimerRef.current = setBackgroundInterval(() => {
+            const previousSilenceMs = policyState.silenceMs;
             const result = nextWindowDecision(policyState, readLevel(), bounds);
+            if (previousSilenceMs > 0 && result.state.silenceMs === 0) {
+              silenceRun += 1;
+              draftHold = "idle";
+            }
             policyState = result.state;
-            if (result.decision !== "cut") return;
+            const action = dynamicPauseAction(result, bounds, draftHold);
+            if (action === "continue" || action === "hold") return;
+            if (action === "run-draft") {
+              const candidateSilenceRun = silenceRun;
+              draftHold = "pending";
+              void runDraftAtPauseCandidate(result.state.elapsedMs).then((attempt) => {
+                if (
+                  generation !== captureGenerationRef.current ||
+                  !capturingRef.current ||
+                  recorderRef.current !== recorder ||
+                  recorder.state !== "recording" ||
+                  candidateSilenceRun !== silenceRun
+                ) return;
+                const outcome = dynamicDraftResult(
+                  attempt.available && attempt.preview !== null,
+                  attempt.preview !== null && draftEndsWithTerminalPunctuation(attempt.preview.sourceText),
+                );
+                if (outcome === "hold") {
+                  draftHold = "rejected";
+                  return;
+                }
+                if (dynamicWindowTimerRef.current !== null) {
+                  clearBackgroundInterval(dynamicWindowTimerRef.current);
+                  dynamicWindowTimerRef.current = null;
+                }
+                if (recorderTimerRef.current !== null) {
+                  clearBackgroundTimeout(recorderTimerRef.current);
+                  recorderTimerRef.current = null;
+                }
+                recorder.stop();
+              });
+              return;
+            }
             if (dynamicWindowTimerRef.current !== null) {
               clearBackgroundInterval(dynamicWindowTimerRef.current);
               dynamicWindowTimerRef.current = null;
@@ -979,7 +1023,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       };
       startRecorderChunk();
     },
-    [beginLiveDraftWindow, endLiveDraftWindow, endService, enqueueChunk, readLevel],
+    [beginLiveDraftWindow, endLiveDraftWindow, endService, enqueueChunk, readLevel, runDraftAtPauseCandidate],
   );
 
   const armServiceTimer = useCallback(

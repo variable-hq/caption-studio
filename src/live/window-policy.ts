@@ -20,6 +20,37 @@ export interface WindowDecision {
   state: WindowPolicyState;
 }
 
+export type DynamicDraftHold = "idle" | "pending" | "rejected";
+export type DynamicPauseAction = "continue" | "run-draft" | "hold" | "cut";
+
+const TERMINAL_PUNCTUATION = /[.!?…。？！]\s*["'”’»›)\]}】》」』〕〉〗〙〛]*$/u;
+
+export function draftEndsWithTerminalPunctuation(text: string): boolean {
+  return TERMINAL_PUNCTUATION.test(text.trimEnd());
+}
+
+export function isDynamicPauseCandidate(state: WindowPolicyState, bounds: WindowBounds): boolean {
+  return state.elapsedMs < bounds.maxMs && state.silenceMs === DYNAMIC_PAUSE_MS;
+}
+
+/** Choose what to do when Dynamic's pause policy would cut the current window. */
+export function dynamicPauseAction(
+  decision: WindowDecision,
+  bounds: WindowBounds,
+  draftHold: DynamicDraftHold,
+): DynamicPauseAction {
+  if (decision.decision !== "cut") return "continue";
+  if (decision.state.elapsedMs >= bounds.maxMs) return "cut";
+  if (draftHold === "pending" || draftHold === "rejected") return "hold";
+  if (isDynamicPauseCandidate(decision.state, bounds)) return "run-draft";
+  return "cut";
+}
+
+/** Unavailable drafts retain pause-only behavior; unfinished drafts reject this silence run. */
+export function dynamicDraftResult(available: boolean, endsWithTerminalPunctuation: boolean): "cut" | "hold" {
+  return available && !endsWithTerminalPunctuation ? "hold" : "cut";
+}
+
 export function initialWindowPolicyState(): WindowPolicyState {
   return { elapsedMs: 0, silenceMs: 0, speechPeakRms: 0 };
 }

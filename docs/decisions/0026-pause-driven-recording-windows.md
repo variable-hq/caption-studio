@@ -15,10 +15,13 @@ Stored values migrate as follows: 6s stays 6s; 9s becomes 10s; 12s, 15s and 18s 
 14s. Missing or invalid values become Dynamic. The minimum remains 6s, so the 90-minute
 service ceiling stays at 900 transcription attempts regardless of the selected option.
 
-Dynamic may end a sentence only at a natural pause and never later than 14 seconds. A
-later phase, after Live drafts, can use a draft's Whisper punctuation to confirm a pause
-before cutting. It must keep the same pause-only behavior when drafts are off or
-unavailable; no extra language-model call is introduced.
+Dynamic ends at the first qualifying pause after 6 seconds, or at 14 seconds. With Live
+drafts enabled and admitted, a draft of the audio at the pause candidate confirms an early
+cut only when its source text ends in terminal punctuation (`.`, `?`, `!`, `…`, `。`, `？`,
+`！`), optionally followed by closing quotes or brackets. An unfinished clause keeps
+recording through the rest of that silence run and waits for speech to resume before another
+candidate. The 14-second maximum always cuts. When drafts are off or unavailable, the
+pause-only behavior applies. No extra language-model call is introduced.
 
 ## Tradeoffs and verification
 
@@ -28,6 +31,8 @@ unavailable; no extra language-model call is introduced.
 - Fixed windows keep their one hard timer. Dynamic uses the worker clock to sample the
   existing microphone analyser every 100ms and also keeps a 14-second hard timer, so a
   missed sample cannot extend the window.
+- Fixed-window draft offsets stay unchanged. Dynamic drafts run at pause candidates, use
+  the same admission rules and cap of two per caption, and cannot delay the 14-second cut.
 - The thresholds are starting values and require manual tuning with synthetic speech and
   pauses. Verify fixed and Dynamic timing, the continuous-speech hard cut, and saved legacy
   values in a live browser session before release.

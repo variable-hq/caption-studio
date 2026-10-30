@@ -21,13 +21,19 @@ The browser re-transcribes the current recording rather than streaming ASR. This
 existing MediaRecorder chunks and provider path without introducing a second transport or
 changing the final-output contract. Drafts never enter history, recent translation context,
 the output buffer, publication, OBS, or viewer state. Final captions still pass through the
-existing end-of-window path. Early finalization is deferred; Dynamic windows may later use
-draft Whisper punctuation to confirm pause candidates, without another language-model call.
+existing end-of-window path. In Dynamic mode, drafts are requested at qualifying pause
+candidates rather than fixed offsets. A draft ending in terminal punctuation confirms the
+cut; an unfinished clause keeps recording through the rest of that silence run and waits for
+speech to resume before another candidate or the 14-second limit. A candidate reached while
+another draft is in flight is unavailable and uses the pause-only cut; a late result from an
+earlier silence run cannot cut a later one. When a draft is off or otherwise unavailable,
+Dynamic uses its pause-only cut. This adds no language-model call.
 
 ## Tradeoffs and verification
 
 - Fixed windows schedule at most two drafts: none for 6s, one at 4s for 10s, and two at 4s
-  and 8s for 14s. Dynamic uses the 14s offsets until pause-candidate scheduling is added.
+  and 8s for 14s. Dynamic schedules at pause candidates, with the same two-draft cap and
+  existing future-final attempt admission.
 - Drafts are disabled for the rest of a window after any failure, and a provider rejection
   of partial audio disables them for the session with one concise operator message. A
   window-end abort must never delay its final caption.

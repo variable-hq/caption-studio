@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). Cloudflare deployed `20597d8`
+Reviewed 30 October 2026 against merged PR #77 (`e242c1c`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -286,8 +286,11 @@ The client-side output buffer holds at most 4 entries; only the front is shown o
 individually controllable.
 The recorder emits one-second MediaRecorder slices so Live drafts can re-transcribe the
 current window; drafts use ordinary reserved attempts and are admitted only when the
-remaining-attempt budget still covers future finals. They never enter the journal, recent
-translation context, output buffer, or public room state.
+remaining-attempt budget still covers future finals. Fixed windows use their scheduled
+draft offsets. In Dynamic mode drafts run at qualifying pause candidates; a pure terminal-
+punctuation check on source text confirms early cuts, while unavailable drafts retain the
+pause-only behavior. Both modes cap drafts at two per caption. Drafts never enter the
+journal, recent translation context, output buffer, or public room state.
 
 Reader/summary calls are capped at 200/60 per service. The ledger conservatively reserves
 up to 9,000 estimated neurons per UTC day, including a 6,000 reader ceiling. Reservations
