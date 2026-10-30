@@ -60,6 +60,8 @@ import {
 import {
   initialWindowPolicyState,
   nextWindowDecision,
+  draftEndsWithTerminalPunctuation,
+  isDynamicPauseCandidate,
   DYNAMIC_SAMPLE_MS,
 } from "@/live/window-policy";
 
@@ -232,6 +234,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     endWindow: endLiveDraftWindow,
     startSession: startLiveDraftSession,
     reset: resetLiveDrafts,
+    runAtPauseCandidate: runDraftAtPauseCandidate,
   } = liveDrafts;
 
   useEffect(() => {
@@ -957,6 +960,33 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             const result = nextWindowDecision(policyState, readLevel(), bounds);
             policyState = result.state;
             if (result.decision !== "cut") return;
+            if (
+              recordingWindowMs === "dynamic" &&
+              isDynamicPauseCandidate(result.state, bounds)
+            ) {
+              void runDraftAtPauseCandidate(result.state.elapsedMs).then((attempt) => {
+                if (
+                  generation !== captureGenerationRef.current ||
+                  !capturingRef.current ||
+                  recorderRef.current !== recorder ||
+                  recorder.state !== "recording"
+                ) return;
+                if (
+                  attempt.available && attempt.preview &&
+                  !draftEndsWithTerminalPunctuation(attempt.preview.sourceText)
+                ) return;
+                if (dynamicWindowTimerRef.current !== null) {
+                  clearBackgroundInterval(dynamicWindowTimerRef.current);
+                  dynamicWindowTimerRef.current = null;
+                }
+                if (recorderTimerRef.current !== null) {
+                  clearBackgroundTimeout(recorderTimerRef.current);
+                  recorderTimerRef.current = null;
+                }
+                recorder.stop();
+              });
+              return;
+            }
             if (dynamicWindowTimerRef.current !== null) {
               clearBackgroundInterval(dynamicWindowTimerRef.current);
               dynamicWindowTimerRef.current = null;
@@ -979,7 +1009,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       };
       startRecorderChunk();
     },
-    [beginLiveDraftWindow, endLiveDraftWindow, endService, enqueueChunk, readLevel],
+    [beginLiveDraftWindow, endLiveDraftWindow, endService, enqueueChunk, readLevel, runDraftAtPauseCandidate],
   );
 
   const armServiceTimer = useCallback(

@@ -20,6 +20,16 @@ export interface WindowDecision {
   state: WindowPolicyState;
 }
 
+const TERMINAL_PUNCTUATION = /[.!?…。？！]\s*["'”’»›)\]}】》」』〕〉〗〙〛]*$/u;
+
+export function draftEndsWithTerminalPunctuation(text: string): boolean {
+  return TERMINAL_PUNCTUATION.test(text.trimEnd());
+}
+
+export function isDynamicPauseCandidate(state: WindowPolicyState, bounds: WindowBounds): boolean {
+  return state.elapsedMs < bounds.maxMs && state.silenceMs === DYNAMIC_PAUSE_MS;
+}
+
 export function initialWindowPolicyState(): WindowPolicyState {
   return { elapsedMs: 0, silenceMs: 0, speechPeakRms: 0 };
 }

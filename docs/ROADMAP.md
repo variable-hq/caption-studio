@@ -1,6 +1,6 @@
 # Roadmap
 
-Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). Status describes source
+Reviewed 30 October 2026 against merged PR #77 (`e242c1c`). Status describes source
 implementation; deployment and church-approved quality require separate evidence.
 
 ## Implemented baseline
@@ -8,7 +8,8 @@ implementation; deployment and church-approved quality require separate evidence
 - Browser capture, selected audio interface, readiness checklist and Help page
   (replacing the six-step guide), multilingual Whisper/GPT-OSS pipeline with
   previous-chunk continuity context, one target at a time, 6s/10s/14s or Dynamic 6–14s
-  recording windows, bounded context, Inference and Sanitization levels
+  recording windows (Dynamic pause cuts can be confirmed by Live draft punctuation),
+  bounded context, Inference and Sanitization levels
   ([ADR 0018](decisions/0018-inference-level-as-server-envelope-parameter.md)) and the
   default-on Filter inappropriate language toggle.
 - Reviewed terminology, script-aware public masking, incomplete-output skipping,

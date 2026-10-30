@@ -37,6 +37,7 @@ export function createLiveDraftToggle(initialEnabled: boolean, effects: LiveDraf
 }
 
 export function draftOffsets(windowMs: RecordingWindowMs): number[] {
+  if (windowMs === "dynamic") return [];
   if (windowMs === 6_000) return [];
   if (windowMs === 10_000) return [4_000];
   return [4_000, 8_000];

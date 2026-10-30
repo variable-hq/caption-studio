@@ -4,7 +4,9 @@ import {
   DYNAMIC_ABS_SILENCE_RMS,
   DYNAMIC_PAUSE_MS,
   DYNAMIC_SAMPLE_MS,
+  draftEndsWithTerminalPunctuation,
   initialWindowPolicyState,
+  isDynamicPauseCandidate,
   nextWindowDecision,
 } from "@/live/window-policy";
 
@@ -23,6 +25,22 @@ function advance(state: ReturnType<typeof initialWindowPolicyState>, sample: num
 }
 
 describe("dynamic recording window policy", () => {
+  it("recognizes terminal punctuation followed by closing quotes or brackets", () => {
+    for (const text of ["Done.", "Done? ”", "Done!】", "完了。』", "完了？】", "Done…)"]) {
+      expect(draftEndsWithTerminalPunctuation(text)).toBe(true);
+    }
+    for (const text of ["An unfinished clause", "Done,", "", "Done. then more"]) {
+      expect(draftEndsWithTerminalPunctuation(text)).toBe(false);
+    }
+  });
+
+  it("marks only the first qualifying pause before the hard limit as a draft candidate", () => {
+    const candidate = { elapsedMs: 6_200, silenceMs: DYNAMIC_PAUSE_MS, speechPeakRms: 0.2 };
+    expect(isDynamicPauseCandidate(candidate, BOUNDS)).toBe(true);
+    expect(isDynamicPauseCandidate({ ...candidate, silenceMs: DYNAMIC_PAUSE_MS + DYNAMIC_SAMPLE_MS }, BOUNDS)).toBe(false);
+    expect(isDynamicPauseCandidate({ ...candidate, elapsedMs: BOUNDS.maxMs }, BOUNDS)).toBe(false);
+  });
+
   it("does not cut continuous speech before the six-second minimum", () => {
     const result = advance(initialWindowPolicyState(), 0.2, 59);
     expect(result.state.elapsedMs).toBe(5_900);

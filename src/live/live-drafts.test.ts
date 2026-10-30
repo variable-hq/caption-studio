@@ -10,11 +10,11 @@ import {
 } from "@/live/live-drafts";
 
 describe("live draft scheduling", () => {
-  it("uses bounded offsets for each fixed window and the Dynamic maximum", () => {
+  it("uses bounded offsets for fixed windows and leaves Dynamic drafts to pause candidates", () => {
     expect(draftOffsets(6_000)).toEqual([]);
     expect(draftOffsets(10_000)).toEqual([4_000]);
     expect(draftOffsets(14_000)).toEqual([4_000, 8_000]);
-    expect(draftOffsets("dynamic")).toEqual([4_000, 8_000]);
+    expect(draftOffsets("dynamic")).toEqual([]);
     expect(MAX_DRAFTS_PER_CAPTION).toBe(2);
     expect(DRAFT_MIN_NEW_AUDIO_MS).toBe(3_000);
     expect(DRAFT_END_MARGIN_MS).toBe(2_000);

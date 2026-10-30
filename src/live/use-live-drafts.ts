@@ -38,6 +38,11 @@ interface DraftWindow {
   disabled: boolean;
 }
 
+export interface LiveDraftAttempt {
+  available: boolean;
+  preview: LiveDraftPreview | null;
+}
+
 interface UseLiveDraftsOptions {
   enabled: boolean;
   runnerRef: MutableRefObject<LiveDraftRunner>;
@@ -99,14 +104,14 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
     setDraft(null);
   }, [getToggle]);
 
-  const runDraft = useCallback(async (window: DraftWindow, offsetMs: number) => {
+  const runDraft = useCallback(async (window: DraftWindow, offsetMs: number): Promise<LiveDraftAttempt> => {
     const isCurrent = () =>
       activeWindowRef.current?.id === window.id &&
       !window.disabled &&
       getToggle().canRun();
-    if (!isCurrent()) return;
-    if (!window.dynamic && window.maxWindowMs - offsetMs < DRAFT_END_MARGIN_MS) return;
-    if (offsetMs - window.lastDraftAtMs < DRAFT_MIN_NEW_AUDIO_MS) return;
+    if (!isCurrent()) return { available: false, preview: null };
+    if (!window.dynamic && window.maxWindowMs - offsetMs < DRAFT_END_MARGIN_MS) return { available: false, preview: null };
+    if (offsetMs - window.lastDraftAtMs < DRAFT_MIN_NEW_AUDIO_MS) return { available: false, preview: null };
     if (!canDraft({
       attemptsUsed: optionsRef.current.attemptsUsed(),
       maxAttempts: MAX_TRANSCRIPTION_REQUESTS,
@@ -115,10 +120,10 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
       draftsUsed: window.draftsUsed,
       finalBusy: optionsRef.current.finalBusy(),
       draftInFlight: controllerRef.current !== null,
-    })) return;
+    })) return { available: false, preview: null };
 
     const audio = window.snapshotAudio();
-    if (!audio.size) return;
+    if (!audio.size) return { available: false, preview: null };
     const controller = new AbortController();
     controllerRef.current = controller;
     window.draftsUsed += 1;
@@ -134,16 +139,27 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
           setDraft(null);
         },
       });
-      if (result && isCurrent() && !controller.signal.aborted) setDraft(result);
+      const preview = result && isCurrent() && !controller.signal.aborted ? result : null;
+      if (preview) setDraft(preview);
+      return { available: preview !== null, preview };
     } catch {
-      if (activeWindowRef.current?.id !== window.id || controller.signal.aborted) return;
+      if (activeWindowRef.current?.id !== window.id || controller.signal.aborted) {
+        return { available: false, preview: null };
+      }
       window.disabled = true;
       clearTimers();
       setDraft(null);
+      return { available: false, preview: null };
     } finally {
       if (controllerRef.current === controller) controllerRef.current = null;
     }
   }, [clearTimers, getToggle]);
+
+  const runAtPauseCandidate = useCallback(async (elapsedMs: number): Promise<LiveDraftAttempt> => {
+    const window = activeWindowRef.current;
+    if (!window?.dynamic) return { available: false, preview: null };
+    return runDraft(window, elapsedMs);
+  }, [runDraft]);
 
   const beginWindow = useCallback((input: {
     generation: number;
@@ -176,5 +192,5 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
     toggleRef.current?.reset();
   }, []);
 
-  return { draft, beginWindow, endWindow, startSession, reset: endWindow, sessionDisabled };
+  return { draft, beginWindow, endWindow, startSession, reset: endWindow, sessionDisabled, runAtPauseCandidate };
 }
