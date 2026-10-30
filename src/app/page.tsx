@@ -153,8 +153,9 @@ function routeFromHash(hash: string): { screen: OperatorScreenId; section: Setti
 function formatClock(ms: number, locale: "en" | "id") {
   const minutes = Math.floor(ms / 60_000);
   const seconds = Math.floor((ms % 60_000) / 1_000);
-  const number = new Intl.NumberFormat(locale, { useGrouping: false, minimumIntegerDigits: 2 });
-  return `${number.format(minutes)}:${number.format(seconds)}`;
+  const minuteNumber = new Intl.NumberFormat(locale, { useGrouping: false });
+  const secondNumber = new Intl.NumberFormat(locale, { useGrouping: false, minimumIntegerDigits: 2 });
+  return `${minuteNumber.format(minutes)}:${secondNumber.format(seconds)}`;
 }
 
 export default function OperatorDashboard() {

@@ -29,7 +29,7 @@ export function AiUsageDashboard({ llmUsage }: AiUsageDashboardProps) {
     <SettingGroup
       title="Translation service right now"
       hint={provider
-        ? `As reported with the last translation, ${new Intl.DateTimeFormat(locale).format(new Date(provider.observedAt))}. Other apps on the same account share these limits.`
+        ? `As reported with the last translation, ${new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(provider.observedAt))}. Other apps on the same account share these limits.`
         : "Shown after the first translated caption of a service."}
     >
       <div className="statTiles">

@@ -98,3 +98,7 @@ export function useI18n() {
   if (!value) throw new Error("useI18n must be used within I18nProvider.");
   return value;
 }
+
+export function useT() {
+  return useI18n().t;
+}

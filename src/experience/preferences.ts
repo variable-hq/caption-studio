@@ -13,7 +13,7 @@ import {
   type TranslationSessionSettings,
 } from "@/live/translation-settings";
 import { normalizeTranslationSystemPrompt } from "@/ai/translation-prompt";
-import type { UiLocalePreference } from "@/i18n";
+import { normalizeUiLocalePreference, type UiLocalePreference } from "@/i18n";
 
 /** Bounds a preference record; every field is optional and independently valid. */
 export const PREFERENCES_VERSION = 1;
@@ -105,13 +105,7 @@ export function mergeOperatorPreferences(
   return {
     version: PREFERENCES_VERSION,
     theme: "theme" in input ? normalizeTheme(input.theme) : base.theme,
-    uiLocale: "uiLocale" in input
-      ? input.uiLocale === null
-        ? null
-        : input.uiLocale === "en" || input.uiLocale === "id"
-          ? input.uiLocale
-          : null
-      : base.uiLocale,
+    uiLocale: "uiLocale" in input ? normalizeUiLocalePreference(input.uiLocale) : base.uiLocale,
     translationSystemPrompt: pick("translationSystemPrompt", base.translationSystemPrompt, normalizePrompt),
     summaryDefaults: pick("summaryDefaults", base.summaryDefaults, normalizeSummaryOptions),
     captionStyle: pick("captionStyle", base.captionStyle, (value) =>
