@@ -67,10 +67,10 @@ describe("TB2 terminology", () => {
     expect(correctApprovedRecognitionVariants("swauf, swaufish and Saul", terms)).toBe("Saul, swaufish and Saul");
     expect(correctApprovedRecognitionVariants("swauf", parseGlossaryInput("Saul => Saul", "en"))).toBe("swauf");
   });
-  it("keeps multilingual transcription hints inside a conservative byte budget", () => {
+  it("keeps multilingual transcription hints inside the expanded byte budget", () => {
     const prompt = buildTranscriptionPrompt(["Saul", ...Array(40).fill("非常長的名字")], "id");
     expect(prompt).toContain("Khotbah"); expect(prompt).toContain("Saul");
-    expect(new TextEncoder().encode(prompt).length).toBeLessThanOrEqual(224);
+    expect(new TextEncoder().encode(prompt).length).toBeLessThanOrEqual(448);
   });
 });
 

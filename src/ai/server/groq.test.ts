@@ -34,28 +34,57 @@ describe("Groq cloud provider prompts", () => {
 
     expect(prompt).toContain("biblical names");
     expect(prompt).toContain("Nebuchadnezzar");
-    expect(prompt.length).toBeLessThanOrEqual(900);
+    expect(new TextEncoder().encode(prompt).length).toBeLessThanOrEqual(448);
   });
 
   it("ends the transcription prompt with the tail of the previous transcript", () => {
     const previous = `${"kata ".repeat(60)}dan Yesus berkata kepada murid-murid-Nya`;
     const prompt = buildTranscriptionPrompt(["Yohanes", "Korintus"], "id", previous);
     const bytes = new TextEncoder().encode(prompt).length;
+    const contextTail = prompt.slice(prompt.indexOf("Korintus ") + "Korintus ".length);
 
     expect(prompt.startsWith("Khotbah gereja.")).toBe(true);
     expect(prompt).toContain("Yohanes");
     expect(prompt.endsWith("dan Yesus berkata kepada murid-murid-Nya")).toBe(true);
-    expect(prompt).not.toContain("kata kata kata kata kata kata kata kata kata kata kata kata kata kata kata kata kata kata");
-    expect(bytes).toBeLessThanOrEqual(224);
+    expect(new TextEncoder().encode(contextTail).length).toBeGreaterThan(96);
+    expect(new TextEncoder().encode(contextTail).length).toBeLessThanOrEqual(160);
+    expect(bytes).toBeLessThanOrEqual(448);
   });
 
   it("keeps the whole transcription prompt within budget when hints and context compete", () => {
     const hints = Array.from({ length: 40 }, (_, index) => `Nama${index}`);
     const prompt = buildTranscriptionPrompt(hints, "id", "Roh Kudus menyertai kita semua");
 
-    expect(new TextEncoder().encode(prompt).length).toBeLessThanOrEqual(224);
+    expect(new TextEncoder().encode(prompt).length).toBeLessThanOrEqual(448);
     expect(prompt.endsWith("Roh Kudus menyertai kita semua")).toBe(true);
     expect(prompt).toContain("Nama0");
+  });
+
+  it("uses the expanded byte budget for single-byte and multi-byte names", () => {
+    const singleByte = buildTranscriptionPrompt(
+      Array.from({ length: 40 }, (_, index) => `SyntheticName${index.toString().padStart(2, "0")}`),
+    );
+    const multiByte = buildTranscriptionPrompt(
+      Array.from({ length: 40 }, (_, index) => `牧師名${index}`),
+      "zh-Hans",
+      `${"此前讲道内容 ".repeat(30)}最后一句`,
+    );
+
+    expect(new TextEncoder().encode(singleByte).length).toBeGreaterThan(224);
+    expect(new TextEncoder().encode(singleByte).length).toBeLessThanOrEqual(448);
+    expect(new TextEncoder().encode(multiByte).length).toBeLessThanOrEqual(448);
+    expect(multiByte).toContain("牧師名0");
+    expect(multiByte.endsWith("此前讲道内容 最后一句")).toBe(true);
+  });
+
+  it("skips an oversized hint whole instead of truncating it mid-term", () => {
+    const oversizedHint = "名".repeat(200);
+    const prompt = buildTranscriptionPrompt(["Yohanes", oversizedHint, "Bethlehem"]);
+
+    expect(prompt).toContain("Yohanes");
+    expect(prompt).toContain("Bethlehem");
+    expect(prompt).not.toContain("名");
+    expect(new TextEncoder().encode(prompt).length).toBeLessThanOrEqual(448);
   });
 
   it("leaves the transcription prompt unchanged without a previous transcript", () => {
@@ -581,6 +610,69 @@ describe("Groq cloud provider prompts", () => {
       segments: [expect.objectContaining({ text: "silence-like" })],
       droppedSegments: 0,
     });
+  });
+
+  it("surfaces the generic provider error when the one legacy-budget retry also fails", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ error: { message: "private synthetic detail" } }), { status: 400 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const error = await transcribeWithGroq({
+      audio: new Blob(["synthetic audio"], { type: "audio/webm" }),
+      sourceLanguage: "en",
+      keywordHints: ["SyntheticName"],
+    }).catch((caught: unknown) => caught);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(error).toBeInstanceOf(GroqProviderError);
+    expect(error).toMatchObject({ upstreamStatus: 400 });
+    expect(String(error)).not.toContain("private synthetic detail");
+  });
+
+  it("retries a rejected expanded prompt once with the legacy budget and remembers it for the isolate", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const responses = [
+      new Response(JSON.stringify({ error: { message: "synthetic prompt rejection" } }), { status: 400 }),
+      Response.json({ text: "Synthetic transcript", language: "english" }),
+      Response.json({ text: "Next synthetic transcript", language: "english" }),
+    ];
+    const fetchMock = vi.fn(async (...request: [RequestInfo | URL, RequestInit?]) => {
+      void request;
+      return responses.shift()!;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const telemetry = { dispatch: vi.fn(async () => {}) };
+    const input = {
+      audio: new Blob(["synthetic audio"], { type: "audio/webm" }),
+      sourceLanguage: "en" as const,
+      keywordHints: Array.from({ length: 40 }, (_, index) => `SyntheticName${index.toString().padStart(2, "0")}`),
+      previousTranscript: `${"previous context ".repeat(30)}last phrase`,
+      telemetry,
+    };
+    const promptAt = (index: number) => {
+      const init = fetchMock.mock.calls[index][1];
+      return (init?.body as FormData).get("prompt") as string;
+    };
+
+    await expect(transcribeWithGroq(input)).resolves.toMatchObject({
+      segments: [expect.objectContaining({ text: "Synthetic transcript" })],
+      droppedSegments: 0,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(new TextEncoder().encode(promptAt(0)).length).toBeGreaterThan(224);
+    expect(new TextEncoder().encode(promptAt(0)).length).toBeLessThanOrEqual(448);
+    expect(new TextEncoder().encode(promptAt(1)).length).toBeLessThanOrEqual(224);
+    expect(promptAt(1)).toContain("last phrase");
+    expect(telemetry.dispatch).toHaveBeenCalledOnce();
+
+    await expect(transcribeWithGroq(input)).resolves.toMatchObject({
+      segments: [expect.objectContaining({ text: "Next synthetic transcript" })],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(new TextEncoder().encode(promptAt(2)).length).toBeLessThanOrEqual(224);
+    expect(telemetry.dispatch).toHaveBeenCalledTimes(2);
   });
 
   it("builds cumulative Sanitization rules without moving cleanup into Inference", () => {
