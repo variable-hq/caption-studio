@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 30 October 2026 against merged PR #77 (`e242c1c`). The corrected 13 September
+Reviewed 30 October 2026 against merged PR #80 (`3a7d1d2`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -141,6 +141,22 @@ Source audio and target text support:
 “South Korean” is not a separate language option. Both Chinese choices use Chinese
 speech recognition and differ in output-script instruction. The Phase 1 assumption is
 Mandarin; Cantonese requires a separate language and model-quality decision.
+
+## Operator interface language
+
+**Settings › This computer › Interface language** selects English, Indonesian, or
+**Match this computer**. The choice is personal to the signed-in operator and is kept
+separate from the shared caption source and target languages. Match this computer uses
+the browser's `navigator.languages` preference, choosing Indonesian when an Indonesian
+language is listed and English otherwise. An account preference takes precedence; a
+browser copy is used only when account preferences cannot be reached. The active language
+is reflected in the document's `lang` attribute.
+
+The first localization phase covers the operator shell: top navigation, status labels,
+the live control bar, its status banner labels, and the language selector. Remaining
+operator panels, help and mobile remote, then public reader surfaces are separate planned
+phases. Caption-language names, AI prompts and server error text are not translated by
+the interface language setting.
 
 ## Current functional requirements
 
@@ -421,11 +437,12 @@ filter lives in Settings › Words.
 
 ### Church setup and Words
 
-Every saved setting except the theme belongs to one **church setup** shared by all
-signed-in operators ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)):
-languages, caption speed, words, Inference and Sanitization; the translator instructions; the
-caption style; the summary defaults and automatic summaries; the output buffer; and the
-transcript-saving default. **Save for everyone** (and **Make this the church default**
+One **church setup** is shared by all signed-in operators
+([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). It includes languages,
+caption speed, Words, Inference and Sanitization; translator instructions; caption style;
+summary defaults and automatic summaries; the output buffer; and the transcript-saving
+default. Theme and interface language remain personal preferences. **Save for everyone**
+(and **Make this the church default**
 beside the transcript choice) writes it. Until anyone saves it, each operator keeps the
 setup they saved earlier; afterwards a value the church setup has never set still falls
 back to the operator's own, and the first save carries the saving operator's earlier

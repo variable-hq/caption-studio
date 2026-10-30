@@ -34,6 +34,8 @@ try {
   const health={status:'ready',hosting:'cloudflare',access:{ready:true,provider:'Cloudflare Access'},transcription:{ready:true,model:'whisper-large-v3-turbo'},translation:{ready:true,model:'openai/gpt-oss-20b'}};
   const emptyUsage={promptTokens:0,completionTokens:0,totalTokens:0,translationRequests:0,providerRateLimit:null};
   const controls=[];
+  let accountUiLocale=null;
+  let accountPreferencesUnavailable=false;
   await context.route('**/*',async route=>{
    const url=new URL(route.request().url());
    if(url.origin!=='http://127.0.0.1:3100') return route.abort();
@@ -41,10 +43,15 @@ try {
    const request=route.request(),path=new URL(request.url()).pathname,method=request.method();
    let body={};try{body=request.postDataJSON()??{}}catch{}
    let payload={};
+   if(path==='/api/live/experience/preferences'&&accountPreferencesUnavailable){
+    await route.fulfill({status:503,json:{error:'Synthetic account preferences unavailable'}});
+    return;
+   }
    if(path==='/api/ai/health'||path==='/api/ai/readiness')payload=health;
   else if(path==='/api/live/experience/preferences'||path==='/api/live/experience/setup'){
     if(method!=='GET')controls.push({preferenceWrite:body});
-    payload=method==='GET'?{version:1,theme:'system',translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,liveDraftsEnabled:width===320,updatedAt:null}:{...body,version:1,updatedAt:Date.now()};
+    if(path==='/api/live/experience/preferences'&&method==='POST'&&Object.hasOwn(body,'uiLocale'))accountUiLocale=body.uiLocale;
+    payload=method==='GET'?{version:1,theme:'system',uiLocale:path==='/api/live/experience/preferences'?accountUiLocale:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,liveDraftsEnabled:width===320,updatedAt:null}:{...body,uiLocale:path==='/api/live/experience/preferences'?accountUiLocale:null,version:1,updatedAt:Date.now()};
   }
    else if(path==='/api/live/channel')payload={channelId:'main',configured:true,status,overlayUrl:'http://127.0.0.1:3100/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
    else if(path==='/api/live/channel/style'){style=body.style;payload={ok:true}}
@@ -265,7 +272,24 @@ try {
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(status,'idle');
   assert.equal(inferenceCalls,0,'Dashboard checks must not invoke inference');
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Sermons, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Words, Quick override capacity and no silent eviction, no inference, responsive overflow and Axe'});
+  await openSettings(page,'computer');
+  await page.getByRole('combobox',{name:'Interface language',exact:true}).selectOption('id');
+  await page.waitForFunction(()=>document.documentElement.lang==='id');
+  assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1);
+  assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Khotbah',exact:true}).count(),1);
+  await check('settings-interface-language-id');
+  await page.evaluate(()=>localStorage.setItem('caption-studio:ui-locale:v1','en'));
+  await page.reload();
+  await page.waitForFunction(()=>document.documentElement.lang==='id');
+  assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1,'Account locale persists after reload');
+  accountPreferencesUnavailable=true;
+  await page.evaluate(()=>localStorage.setItem('caption-studio:ui-locale:v1','id'));
+  await page.reload();
+  await page.waitForFunction(()=>document.documentElement.lang==='id');
+  assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1,'Browser copy applies when account preferences are unavailable');
+  await page.getByRole('combobox',{name:'Bahasa antarmuka',exact:true}).selectOption('');
+  await page.waitForFunction(()=>document.documentElement.lang==='en');
+  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Sermons, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Words, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, no inference, responsive overflow and Axe'});
   await context.close();
  }
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));

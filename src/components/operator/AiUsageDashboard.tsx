@@ -4,30 +4,33 @@ import {
   type ProviderRateLimitWindow,
 } from "@/ai/contracts";
 import { formatCount } from "@/components/operator/format-count";
+import { formatObservedAt } from "@/components/operator/format-observed-at";
 import { SettingGroup } from "@/components/operator/SettingsParts";
+import { useI18n } from "@/i18n/provider";
 
 interface AiUsageDashboardProps {
   llmUsage: LlmSessionUsage;
 }
 
-function remaining(window: ProviderRateLimitWindow | null) {
+function remaining(window: ProviderRateLimitWindow | null, locale: "en" | "id") {
   if (!window) return { value: "—", detail: "Not reported" };
   return {
-    value: formatCount(window.remaining),
-    detail: `of ${formatCount(window.limit)}${window.reset ? ` · resets in ${window.reset}` : ""}`,
+    value: formatCount(window.remaining, locale),
+    detail: `of ${formatCount(window.limit, locale)}${window.reset ? ` · resets in ${window.reset}` : ""}`,
   };
 }
 
 /** Settings › Usage: how much the translation service has left, as last reported. */
 export function AiUsageDashboard({ llmUsage }: AiUsageDashboardProps) {
+  const { locale } = useI18n();
   const provider = llmUsage.providerRateLimit;
-  const requests = remaining(provider?.requestsPerDay ?? null);
-  const tokens = remaining(provider?.tokensPerMinute ?? null);
+  const requests = remaining(provider?.requestsPerDay ?? null, locale);
+  const tokens = remaining(provider?.tokensPerMinute ?? null, locale);
   return (
     <SettingGroup
       title="Translation service right now"
       hint={provider
-        ? `As reported with the last translation, ${new Date(provider.observedAt).toLocaleString()}. Other apps on the same account share these limits.`
+        ? `As reported with the last translation, ${formatObservedAt(new Date(provider.observedAt), locale)}. Other apps on the same account share these limits.`
         : "Shown after the first translated caption of a service."}
     >
       <div className="statTiles">

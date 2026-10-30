@@ -1,6 +1,6 @@
 # Design system
 
-Reviewed 30 October 2026 against open PR #77.
+Reviewed 30 October 2026 against merged PR #80 (`3a7d1d2`).
 
 Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
@@ -127,6 +127,12 @@ Text selection, the caret and the scrollbars are themed from the palette
 - Keep a heading unlabelled; do not reintroduce a kicker above one.
 - Draw icons and markers; no Unicode glyph or emoji stands in for an icon.
 - Use the shared button, input, chip and card classes instead of new one-off rules.
+- Put new operator-facing copy in `src/i18n/messages/en.ts` and add its Indonesian
+  translation in `id.ts`; use flat, component-namespaced keys and named placeholders.
+  Keep meaning in one message rather than assembling translated fragments, and leave
+  about 30% length headroom for Indonesian labels and controls.
+- Indonesian copy is an implementation draft pending native-speaker review; track that
+  status in the PR and localization ADR.
 - Check every visible change in both themes at 1920, 1200, 390 and 320px. `npm run qa`
   automates all four widths, including the 320px minimum where a prior regression was found.
 - Keep class names, `data-testid` values and labels that `scripts/qa/*.mjs` reference.

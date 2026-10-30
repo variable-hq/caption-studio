@@ -5,6 +5,7 @@ import { SUMMARY_MODELS } from "@/experience/contracts";
 import { OperatorPreferences as OperatorPreferencesObject } from "@/experience/operator-preferences";
 import {
   EMPTY_PREFERENCES,
+  SHARED_SETUP_FIELDS,
   effectiveSetup,
   mergeOperatorPreferences,
   normalizeOperatorPreferences,
@@ -36,6 +37,7 @@ describe("operator preferences", () => {
   it("merges partial updates, clears fields with null, and ignores unknown values", () => {
     const first = mergeOperatorPreferences(EMPTY_PREFERENCES, {
       theme: "dark",
+      uiLocale: "id",
       sidebarWidth: 9_999,
       translationSystemPrompt: " Keep names. ",
       summaryDefaults: { model: SUMMARY_MODELS[1], language: "en", length: "detailed", guidance: "Short." },
@@ -48,6 +50,7 @@ describe("operator preferences", () => {
       injected: "ignored",
     }, 1_000);
     expect(first.theme).toBe("dark");
+    expect(first.uiLocale).toBe("id");
     expect("sidebarWidth" in first).toBe(false);
     expect(first.translationSystemPrompt).toBe("Keep names.");
     expect(first.summaryDefaults?.model).toBe(SUMMARY_MODELS[0]);
@@ -63,9 +66,10 @@ describe("operator preferences", () => {
     expect(first.updatedAt).toBe(1_000);
     expect("injected" in first).toBe(false);
 
-    const second = mergeOperatorPreferences(first, { translationSystemPrompt: null, theme: "purple", outputBufferCount: null, outputBufferDwellMs: null, liveDraftsEnabled: null }, 2_000);
+    const second = mergeOperatorPreferences(first, { translationSystemPrompt: null, theme: "purple", uiLocale: "fr", outputBufferCount: null, outputBufferDwellMs: null, liveDraftsEnabled: null }, 2_000);
     expect(second.translationSystemPrompt).toBeNull();
     expect(second.theme).toBe("system");
+    expect(second.uiLocale).toBeNull();
     expect(second.summaryDefaults).toEqual(first.summaryDefaults);
     expect(second.outputBufferCount).toBeNull();
     expect(second.outputBufferDwellMs).toBeNull();
@@ -153,8 +157,9 @@ describe("operator preferences", () => {
     const { object, storage } = preferencesObject();
     expect(await (await object.fetch(request("GET"))).json()).toEqual(EMPTY_PREFERENCES);
 
-    const saved = await (await object.fetch(request("POST", { theme: "dark", autoSummary: true }))).json() as Record<string, unknown>;
+    const saved = await (await object.fetch(request("POST", { theme: "dark", uiLocale: "id", autoSummary: true }))).json() as Record<string, unknown>;
     expect(saved.theme).toBe("dark");
+    expect(saved.uiLocale).toBe("id");
     expect(saved.autoSummary).toBe(true);
     expect(storage.values.has("preferences")).toBe(true);
 
@@ -184,6 +189,7 @@ describe("operator preferences", () => {
 describe("church setup", () => {
   const personal = mergeOperatorPreferences(EMPTY_PREFERENCES, {
     theme: "dark",
+    uiLocale: "id",
     translationSystemPrompt: "Mine.",
     captionStyle: { fontSize: 40 },
     autoSummary: true,
@@ -191,6 +197,7 @@ describe("church setup", () => {
 
   it("keeps an operator's own setup until anyone saves the church setup", () => {
     expect(effectiveSetup(EMPTY_PREFERENCES, personal)).toEqual(personal);
+    expect(SHARED_SETUP_FIELDS).not.toContain("uiLocale");
   });
 
   it("prefers the church setup, falls back per field, and keeps the theme personal", () => {
@@ -200,6 +207,7 @@ describe("church setup", () => {
     expect(setup.translationSystemPrompt).toBe("Mine.");
     expect(setup.autoSummary).toBe(false);
     expect(setup.theme).toBe("dark");
+    expect(setup.uiLocale).toBe("id");
     expect(setup.updatedAt).toBe(2_000);
   });
 });

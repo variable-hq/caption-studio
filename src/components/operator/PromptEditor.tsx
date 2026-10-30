@@ -10,6 +10,7 @@ import {
 } from "@/ai/contracts";
 import { ID_EN_ADDRESS_TERM_GUIDANCE, MAX_TRANSLATION_SYSTEM_PROMPT_CHARS } from "@/ai/translation-prompt";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
+import { useI18n } from "@/i18n/provider";
 
 const SANITIZE_LEVEL_LABELS: Record<SanitizeLevel, string> = {
   off: "Off",
@@ -83,6 +84,8 @@ export function PromptEditor({
   savedMessage,
   disabled = false,
 }: PromptEditorProps) {
+  const { locale } = useI18n();
+  const numberFormatter = new Intl.NumberFormat(locale);
   const addressTermsAvailable = targetLanguage === "en" && ["id", "auto"].includes(sourceLanguage);
   return (
     <>
@@ -163,7 +166,7 @@ export function PromptEditor({
             />
           </label>
           <p className="settingHint">
-            {value.length.toLocaleString()} of {MAX_TRANSLATION_SYSTEM_PROMPT_CHARS.toLocaleString()} characters
+            {numberFormatter.format(value.length)} of {numberFormatter.format(MAX_TRANSLATION_SYSTEM_PROMPT_CHARS)} characters
           </p>
           <div className="buttonRow">
             <button
