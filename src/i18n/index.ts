@@ -35,6 +35,29 @@ export function normalizeUiLocalePreference(value: unknown): UiLocalePreference 
   return value === "en" || value === "id" ? value : null;
 }
 
+export function localeFromAcceptLanguage(header: string | null | undefined): UiLocale {
+  if (!header) return "en";
+  const languages = header
+    .split(",")
+    .map((part) => {
+      const [tag, ...parameters] = part.trim().split(";");
+      const qualityParameter = parameters.find((parameter) =>
+        parameter.trim().startsWith("q="),
+      );
+      const quality = qualityParameter
+        ? Number(qualityParameter.trim().slice(2))
+        : 1;
+      return {
+        tag: tag?.trim() ?? "",
+        quality: Number.isFinite(quality) ? quality : 0,
+      };
+    })
+    .filter(({ tag, quality }) => tag !== "" && tag !== "*" && quality > 0)
+    .sort((left, right) => right.quality - left.quality)
+    .map(({ tag }) => tag);
+  return normalizeUiLocale(null, languages);
+}
+
 export function translate(
   locale: UiLocale,
   key: MessageKey,

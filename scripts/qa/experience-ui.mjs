@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
 const tooling = process.env.CAPTION_QA_TOOLS_DIR;
 assert.ok(tooling, 'Set CAPTION_QA_TOOLS_DIR to the isolated browser QA installation.');
 const { chromium } = await import(pathToFileURL(path.join(tooling, 'node_modules/playwright/index.mjs')));
@@ -13,8 +14,34 @@ const output = path.resolve('test-results/live-session-plan-1');
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const results = [];
+
+function loadTypeScriptModule(source, stubs = {}) {
+ const loadedModule = { exports: {} };
+ const javascript = ts.transpileModule(source, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+ }).outputText;
+ runInNewContext(
+  `(function(require,module,exports){${javascript}})(require,module,exports);`,
+  { require: stubs.require ?? (() => ({})), module: loadedModule, exports: loadedModule.exports, Response, Request },
+ );
+ return loadedModule.exports;
+}
+
+const en = loadTypeScriptModule(await fs.readFile('src/i18n/messages/en.ts', 'utf8')).en;
+const idMessages = loadTypeScriptModule(await fs.readFile('src/i18n/messages/id.ts', 'utf8')).id;
 const viewerSource = await fs.readFile('src/live/viewer-document.ts', 'utf8');
-const viewerHtml = await runInNewContext(viewerSource.replace('export function', 'function') + ';viewerDocumentResponse()', { Response }).text();
+function viewerHtml(locale) {
+ const messages = locale === 'id' ? idMessages : en;
+ const loadedModule = loadTypeScriptModule(viewerSource, {
+  require: () => ({
+   translate: (_locale, key) => messages[key] ?? en[key] ?? key,
+   localeFromAcceptLanguage: () => locale,
+  }),
+ });
+ return loadedModule.viewerDocumentResponse().text();
+}
+const viewerHtmlEn = await viewerHtml('en');
+const viewerHtmlId = await viewerHtml('id');
 const id = '12345678-1234-1234-1234-123456789012';
 const origin = 'http://127.0.0.1:3100';
 const source = { id: 1, text: 'Synthetic sermon source about patience.', language: 'id', at: Date.now(), epoch: 0, translationRevision: 1 };
@@ -30,7 +57,7 @@ try {
   await page.route('**/*', async (route) => {
    const request = route.request(); const url = new URL(request.url());
    if (url.origin !== origin) return route.abort();
-   if (url.pathname === '/view') return route.fulfill({ contentType: 'text/html', body: viewerHtml });
+   if (url.pathname === '/view') return route.fulfill({ contentType: 'text/html', body: (request.headers()['accept-language'] ?? '').toLowerCase().includes('id') ? viewerHtmlId : viewerHtmlEn });
    if (!url.pathname.startsWith('/api/')) return route.continue();
    requests.push(url.pathname);
    let body = {}; try { body = request.postDataJSON() ?? {}; } catch {}
@@ -75,6 +102,16 @@ try {
   readerRemoved = true; await page.getByText('Waiting for the next readable paragraph…').waitFor();
   readerExpired = true; await page.getByText('Reader link expired or replaced', { exact: true }).waitFor();
   assert.ok(requests.every((url) => url === '/api/live/reader'));
+  await page.setExtraHTTPHeaders({ 'accept-language': 'id-ID,id;q=0.9' });
+  readerStatus = 'live'; readerExpired = false; readerRemoved = false;
+  await page.goto(origin + '/view#main.' + 'v'.repeat(43));
+  await page.getByText('Terjemahan Live', { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.lang), 'id'); await check('viewer-id');
+  await page.goto(origin + '/read#' + id + '.' + 'r'.repeat(43));
+  await page.getByText('Pembaca khotbah', { exact: true }).waitFor();
+  await page.getByText('Live · teks muncul setelah sekitar 30 detik', { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.lang), 'id'); await check('reader-id');
+  await page.setExtraHTTPHeaders({ 'accept-language': 'en-US,en;q=0.9' });
   requests.length = 0;
   await page.evaluate(() => localStorage.setItem('caption-studio:ui-locale:v1', 'id'));
   await page.goto(origin + '/operator/mobile#' + id + '.' + 'p'.repeat(43));

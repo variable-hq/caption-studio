@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 31 October 2026 against merged PR #83 (`4602588`). The corrected 13 September
+Reviewed 31 October 2026 against merged PR #84 (`1f16a3b`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -152,14 +152,16 @@ language is listed and English otherwise. An account preference takes precedence
 browser copy is used only when account preferences cannot be reached. The active language
 is reflected in the document's `lang` attribute.
 
-The first three localization phases cover the operator interface. Phase 1 provides the
-typed lookup and translates the shell: top navigation, status labels, the live control
-bar, its status banner labels, and the language selector. Phase 2 translates the operator
-panels, page messages, and the live-session hook and request fallbacks. Phase 3 translates
-the Help screen and phone remote. Public reader surfaces are a separate planned phase.
-Caption-language names, AI prompts and server error text are not translated by the
-interface language setting. The phone remote does not load account preferences, so it
-follows that browser's saved interface-language copy or browser language, then English.
+The first four localization phases cover the operator interface and public reader
+surfaces. Phase 1 provides the typed lookup and translates the shell: top navigation,
+status labels, the live control bar, its status banner labels, and the language selector.
+Phase 2 translates the operator panels, page messages, and the live-session hook and
+request fallbacks. Phase 3 translates the Help screen and phone remote. Phase 4 translates
+the public sermon reader and the Worker-rendered viewer document from the request's
+`Accept-Language`, never operator preferences. Caption-language names, AI prompts and
+server error text are not translated by the interface language setting. The phone remote
+does not load account preferences, so it follows that browser's saved interface-language
+copy or browser language, then English.
 
 ## Current functional requirements
 

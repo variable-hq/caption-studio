@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { viewerDocumentResponse } from "@/live/viewer-document";
 
-async function viewer(hash = `#main.${"t".repeat(43)}`, globals: Record<string, unknown> = {}) {
+async function viewer(hash = `#main.${"t".repeat(43)}`, globals: Record<string, unknown> = {}, acceptLanguage?: string) {
   const elements = new Map<string, ReturnType<typeof element>>();
   function element() {
     return {
@@ -16,8 +16,11 @@ async function viewer(hash = `#main.${"t".repeat(43)}`, globals: Record<string, 
       onchange: () => {}, onclick: () => {},
     };
   }
+  const html = await viewerDocumentResponse(new Request("https://caption.example/view", {
+    headers: acceptLanguage ? { "accept-language": acceptLanguage } : undefined,
+  })).text();
   const document = {
-    documentElement: { lang: "en" },
+    documentElement: { lang: html.match(/<html lang="([^"]+)"/u)?.[1] ?? "en" },
     querySelector(selector: string) {
       if (!elements.has(selector)) elements.set(selector, element());
       return elements.get(selector)!;
@@ -33,7 +36,6 @@ async function viewer(hash = `#main.${"t".repeat(43)}`, globals: Record<string, 
     close() {}
   }
   const location = { hash, protocol: "https:", host: "caption.example", reload: vi.fn() };
-  const html = await viewerDocumentResponse().text();
   const script = html.match(/<script>([\s\S]*?)<\/script>/u)![1];
   runInNewContext(script, {
     document, location, WebSocket: Socket,
@@ -108,5 +110,18 @@ describe("audience viewer controls and recovery", () => {
     expect(revoked.get(".status").textContent).toBe("Link replaced");
     expect(revoked.get("#reconnect").hidden).toBe(true);
     expect(revoked.timers).toHaveLength(0);
+  });
+
+  it("uses the request Accept-Language for the viewer copy", async () => {
+    const response = await viewerDocumentResponse(new Request("https://caption.example/view", {
+      headers: { "accept-language": "id-ID,id;q=0.9,en;q=0.8" },
+    }));
+    const html = await response.text();
+    expect(html).toContain('<html lang="id">');
+    expect(html).toContain("Ukuran teks");
+    const page = await viewer("", {}, "id-ID,id;q=0.9,en;q=0.8");
+    expect(page.document.documentElement.lang).toBe("id");
+    expect(page.get(".status").textContent).toBe("Tautan tidak valid");
+    expect(page.get(".caption").textContent).toBe("Minta operator tautan penonton ponsel yang berlaku.");
   });
 });

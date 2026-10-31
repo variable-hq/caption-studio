@@ -627,7 +627,7 @@ export async function handleLiveApiRequest(
   }
   if (url.pathname === "/view") {
     return request.method === "GET"
-      ? viewerDocumentResponse()
+      ? viewerDocumentResponse(request)
       : json({ error: "Unsupported mobile viewer operation." }, 405);
   }
   if (url.pathname === "/api/live/overlay" && request.method === "GET") {
