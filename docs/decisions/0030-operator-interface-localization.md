@@ -1,6 +1,6 @@
 # ADR 0030: operator interface localization
 
-Date: 30 October 2026. Status: accepted, Phase 1 implemented; Indonesian pending native review.
+Date: 30 October 2026. Status: accepted, Phases 1–2 implemented; Indonesian pending native review.
 
 ## Decision
 
@@ -49,6 +49,9 @@ review**. Reviewers should use this terminology consistently:
 - English is always available if a translation is missing. Automated tests compare
   translation keys and placeholder sets, reject empty messages, and exercise fallback,
   interpolation, plural rules and browser-locale normalization.
-- Phase 1 only localizes the shell and the Interface language setting. The remaining UI
-  migrations and responsive Indonesian review are follow-up phases. Indonesian copy and
+- Phase 1 localizes the shell and the Interface language setting; Phase 2 localizes the
+  operator panels, page messages, and their hook and request fallbacks. The Help screen
+  and mobile remote remain English until Phase 3, so the JSX literal guard currently
+  covers `src/components/operator/` and is extended to `src/app/page.tsx` when that screen
+  migrates. Responsive Indonesian review is still required, and Indonesian copy and
   terminology require review by a native speaker before the locale is considered complete.

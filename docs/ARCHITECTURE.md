@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 30 October 2026 against merged PR #80 (`3a7d1d2`). Cloudflare deployed `20597d8`
+Reviewed 31 October 2026 against merged PR #82 (`54abcb0`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -27,8 +27,9 @@ The operator dashboard's typed `src/i18n/` lookup uses English source messages a
 Indonesian overrides without a runtime library. `uiLocale` is a personal preference,
 never part of `workspace:setup`; an account value wins, with its browser copy used only
 when account preferences are unavailable. A null value follows `navigator.languages` with
-English fallback, and the active locale updates `<html lang>`. Phase 1 localizes the shell;
-operator panels, help/mobile, and audience surfaces are migrated in later phases.
+English fallback, and the active locale updates `<html lang>`. Phases 1 and 2 localize the
+shell and operator panels, including live-session hook and request fallbacks; the Help
+screen, mobile remote, and audience surfaces are migrated in later phases.
 
 GitHub handles source review. Cloudflare Workers Builds builds OpenNext and deploys
 `custom-worker.ts` plus assets after merges to main. There is no GitHub Actions workflow.
