@@ -41,7 +41,7 @@ export const en = {
   "settings.interfaceLanguage.hint": "Choose the language for this operator interface.",
   "settings.interfaceLanguage.matchBrowser": "Match this computer",
   "settings.interfaceLanguage.english": "English",
-  "settings.interfaceLanguage.indonesian": "Indonesian",
+  "settings.interfaceLanguage.indonesian": "Bahasa Indonesia",
   "settings.appearance.title": "Light or dark",
   "settings.appearance.hint": "Only changes how this dashboard looks on this computer.",
   "settings.appearance.matchComputer": "Match this computer",

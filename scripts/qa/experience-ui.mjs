@@ -87,6 +87,7 @@ try {
   await page.getByRole('button', { name: 'Bersihkan layar', exact: true }).click();
   await page.getByText('Bersihkan layar: dikonfirmasi oleh komputer caption.', { exact: true }).waitFor(); await check('remote');
   assert.ok(requests.every((url) => url === '/api/live/experience/remote'));
+  await page.evaluate(() => localStorage.removeItem('caption-studio:ui-locale:v1'));
   await page.goto(origin + '/#sermons'); await page.getByRole('heading', { name: 'Sermons', exact: true }).waitFor();
   await page.locator('.archiveList button').first().click();
   await page.getByText('Show the transcript', { exact: true }).click();
