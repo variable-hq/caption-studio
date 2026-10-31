@@ -15,6 +15,9 @@ export default function ReaderPage({ locale }: { locale: UiLocale }) {
   const following = useRef(true);
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+  useEffect(() => {
     let cancelled = false;
     let stopped = false;
     let after = 0;

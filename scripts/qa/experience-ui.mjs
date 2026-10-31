@@ -105,10 +105,12 @@ try {
   await page.setExtraHTTPHeaders({ 'accept-language': 'id-ID,id;q=0.9' });
   readerStatus = 'live'; readerExpired = false; readerRemoved = false;
   await page.goto(origin + '/view#main.' + 'v'.repeat(43));
-  await page.getByText('Terjemahan Live', { exact: true }).waitFor(); await check('viewer-id');
+  await page.getByText('Terjemahan Live', { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.lang), 'id'); await check('viewer-id');
   await page.goto(origin + '/read#' + id + '.' + 'r'.repeat(43));
   await page.getByText('Pembaca khotbah', { exact: true }).waitFor();
-  await page.getByText('Live · teks muncul setelah sekitar 30 detik', { exact: true }).waitFor(); await check('reader-id');
+  await page.getByText('Live · teks muncul setelah sekitar 30 detik', { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.lang), 'id'); await check('reader-id');
   await page.setExtraHTTPHeaders({ 'accept-language': 'en-US,en;q=0.9' });
   requests.length = 0;
   await page.evaluate(() => localStorage.setItem('caption-studio:ui-locale:v1', 'id'));
