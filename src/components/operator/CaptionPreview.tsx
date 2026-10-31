@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
+import { useT } from "@/i18n/provider";
 import type { CaptionStyle } from "@/live/contracts";
 
 const CAPTION_FONT_STACKS: Record<CaptionStyle["fontFamily"], string> = {
@@ -44,6 +45,7 @@ export function CaptionPreview({
   targetLanguage,
   sourceLanguage,
 }: PreviewProps) {
+  const t = useT();
   const frameRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.25);
 
@@ -63,7 +65,7 @@ export function CaptionPreview({
   const marginX = `${Math.round((style.horizontalMarginPercent / 100) * OBS_CANVAS_WIDTH)}px`;
 
   return (
-    <section className="previewCard" aria-label={`Caption preview: ${badge}`}>
+    <section className="previewCard" aria-label={t("captionPreview.label", { badge })}>
       <div className="videoFrame" ref={frameRef}>
         <div
           className="previewStage"
@@ -107,15 +109,15 @@ export function CaptionPreview({
         </div>
         {!caption ? (
           <p className="previewEmpty">
-            Nothing on screen
-            <span>{live ? "Listening for the next caption" : "The screen is clear"}</span>
+            {t("captionPreview.emptyTitle")}
+            <span>{live ? t("captionPreview.emptyListening") : t("captionPreview.emptyClear")}</span>
           </p>
         ) : null}
       </div>
-      <p className="previewHelp">A scaled copy of the 1920 × 1080 OBS screen. Check the real Browser Source in OBS.</p>
+      <p className="previewHelp">{t("captionPreview.help")}</p>
       {sourceText ? (
         <div className="sourceTranscript">
-          <strong>Heard · only you see this</strong>
+          <strong>{t("captionPreview.heardLabel")}</strong>
           <p lang={sourceLanguage === "auto" ? undefined : sourceLanguage}>{sourceText}</p>
         </div>
       ) : null}

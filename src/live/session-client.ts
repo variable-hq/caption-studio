@@ -8,6 +8,11 @@ import type {
   ObsChannelDetails,
   PublicCaptionRequest,
 } from "@/live/contracts";
+import { translate, type MessageKey } from "@/i18n";
+
+type TranslateMessage = (key: MessageKey) => string;
+
+const defaultTranslate: TranslateMessage = (key) => translate("en", key);
 
 interface ErrorPayload {
   error?: string;
@@ -47,11 +52,13 @@ function controllerHeaders(controllerToken?: string) {
 }
 
 export class LiveSessionClient {
+  constructor(private readonly message: TranslateMessage = defaultTranslate) {}
+
   async getChannel(): Promise<ObsChannelDetails> {
     const response = await fetch("/api/live/channel", {
       signal: AbortSignal.timeout(8_000),
     });
-    await requireSuccess(response, "Could not load the Main OBS channel.");
+    await requireSuccess(response, this.message("request.channelLoad"));
     return (await response.json()) as ObsChannelDetails;
   }
 
@@ -62,7 +69,7 @@ export class LiveSessionClient {
       body: JSON.stringify({ style }),
       signal: AbortSignal.timeout(10_000),
     });
-    await requireSuccess(response, "Could not create the Main OBS channel.");
+    await requireSuccess(response, this.message("request.channelCreate"));
     return (await response.json()) as ObsChannelDetails;
   }
 
@@ -71,7 +78,7 @@ export class LiveSessionClient {
       method: "POST",
       signal: AbortSignal.timeout(10_000),
     });
-    await requireSuccess(response, "Could not rotate the Main OBS channel URL.");
+    await requireSuccess(response, this.message("request.channelRotate"));
     return (await response.json()) as ObsChannelDetails;
   }
 
@@ -86,7 +93,7 @@ export class LiveSessionClient {
       body: JSON.stringify({ style, takeover, saveHistory }),
       signal: AbortSignal.timeout(10_000),
     });
-    await requireSuccess(response, "Could not start the live service.");
+    await requireSuccess(response, this.message("request.serviceStart"));
     return (await response.json()) as LiveServiceDetails;
   }
 
@@ -96,7 +103,7 @@ export class LiveSessionClient {
       headers: controllerHeaders(controllerToken),
       signal: AbortSignal.timeout(5_000),
     });
-    await requireSuccess(response, "Could not end the live service.");
+    await requireSuccess(response, this.message("request.serviceEnd"));
   }
 
   /** Read-only watcher credential for the service another operator controls. */
@@ -105,7 +112,7 @@ export class LiveSessionClient {
       method: "POST",
       signal: AbortSignal.timeout(8_000),
     });
-    await requireSuccess(response, "Could not watch the running service.");
+    await requireSuccess(response, this.message("request.watchService"));
     return (await response.json()) as LiveObserverDetails;
   }
 
@@ -115,7 +122,7 @@ export class LiveSessionClient {
       headers: controllerHeaders(controllerToken),
       signal: AbortSignal.timeout(5_000),
     });
-    await requireSuccess(response, "Could not replace the mobile viewer link.");
+    await requireSuccess(response, this.message("request.viewerReplace"));
     return (await response.json()) as { viewerUrl: string };
   }
 
@@ -129,7 +136,7 @@ export class LiveSessionClient {
       body: JSON.stringify(event),
       signal: AbortSignal.timeout(10_000),
     });
-    await requireSuccess(response, "Could not publish the OBS caption.");
+    await requireSuccess(response, this.message("request.captionPublish"));
     return (await response.json()) as { published: true; sequence: number; historyIncomplete?: boolean };
   }
 
@@ -139,7 +146,7 @@ export class LiveSessionClient {
       headers: controllerHeaders(controllerToken),
       signal: AbortSignal.timeout(5_000),
     });
-    await requireSuccess(response, "Could not reserve this transcription attempt.");
+    await requireSuccess(response, this.message("request.lease"));
     return (await response.json()) as {
       valid: true;
       status: "live";
@@ -171,7 +178,7 @@ export class LiveSessionClient {
       body: JSON.stringify({ style }),
       signal: AbortSignal.timeout(5_000),
     });
-    await requireSuccess(response, "Could not update the OBS style.");
+    await requireSuccess(response, this.message("request.styleUpdate"));
   }
 
   async control(
@@ -194,7 +201,7 @@ export class LiveSessionClient {
       body: JSON.stringify({ action, ...options }),
       signal: AbortSignal.timeout(5_000),
     });
-    await requireSuccess(response, "Could not update the live caption controls.");
+    await requireSuccess(response, this.message("request.control"));
     return (await response.json()) as LiveSessionControlResponse;
   }
 }

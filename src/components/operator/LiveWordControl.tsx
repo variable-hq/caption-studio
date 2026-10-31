@@ -2,13 +2,15 @@
 
 import { useId, useState } from "react";
 
+import type { MessageKey } from "@/i18n";
+import { useT } from "@/i18n/provider";
 import {
   LIVE_WORD_ACTIONS,
   MAX_LIVE_WORD_CHARS,
   MAX_LIVE_WORD_ENTRIES,
   type LiveWordEntry,
 } from "@/live/live-words";
-import { WORD_ACTIONS, cleanWordValue, type WordRow } from "@/live/words";
+import { cleanWordValue, type WordRow } from "@/live/words";
 
 interface LiveWordControlProps {
   entries: readonly LiveWordEntry[];
@@ -18,9 +20,14 @@ interface LiveWordControlProps {
   disabled?: boolean;
 }
 
-const LIVE_ACTION_OPTIONS = LIVE_WORD_ACTIONS
-  .map((value) => WORD_ACTIONS.find((option) => option.value === value))
-  .filter((option): option is (typeof WORD_ACTIONS)[number] => Boolean(option));
+const LIVE_ACTION_LABEL_KEYS: Record<string, MessageKey> = {
+  recognise: "wordAction.recognise",
+  fix: "wordAction.fix",
+  translate: "wordAction.translate",
+  mask: "wordAction.mask",
+  replace: "wordAction.replace",
+  hide: "wordAction.hide",
+};
 
 /** Quick corrections that apply to captions starting after the operator adds them. */
 export function LiveWordControl({
@@ -30,6 +37,7 @@ export function LiveWordControl({
   onKeepInWords,
   disabled = false,
 }: LiveWordControlProps) {
+  const t = useT();
   const [word, setWord] = useState("");
   const [action, setAction] = useState<(typeof LIVE_WORD_ACTIONS)[number]>("hide");
   const [withValue, setWithValue] = useState("");
@@ -38,13 +46,15 @@ export function LiveWordControl({
   const errorId = useId();
   const needsWith = action === "fix" || action === "translate";
   const atCapacity = entries.length >= MAX_LIVE_WORD_ENTRIES;
+  const actionLabel = (value: string) => t(LIVE_ACTION_LABEL_KEYS[value] ?? "wordAction.recognise");
+  const actionSummary = (value: string) => actionLabel(value).replace(/…$/u, "");
 
   const add = () => {
     if (atCapacity) return;
     const cleanWord = cleanWordValue(word);
     const cleanWith = needsWith ? cleanWordValue(withValue) : "";
-    if (!cleanWord) return setError("Type the word first.");
-    if (needsWith && !cleanWith) return setError("Fill in “With” for this action.");
+    if (!cleanWord) return setError(t("common.typeWordFirst"));
+    if (needsWith && !cleanWith) return setError(t("common.fillWith"));
     onAdd({ word: cleanWord, action, with: cleanWith });
     setWord("");
     setWithValue("");
@@ -53,9 +63,9 @@ export function LiveWordControl({
 
   return (
     <section className="liveWordControl" aria-labelledby="live-word-control-heading">
-      <h3 id="live-word-control-heading">Quick override</h3>
+      <h3 id="live-word-control-heading">{t("liveWord.title")}</h3>
       <p className="settingHint">
-        Applies from the next caption, without Apply now. Keep in Words saves it for future services.
+        {t("liveWord.hint")}
       </p>
       <form
         className="liveWordForm"
@@ -65,7 +75,7 @@ export function LiveWordControl({
         }}
       >
         <label>
-          Word
+          {t("liveWord.word")}
           <input
             name="liveWord"
             autoComplete="off"
@@ -74,12 +84,12 @@ export function LiveWordControl({
             maxLength={MAX_LIVE_WORD_CHARS}
             disabled={disabled}
             aria-describedby={error ? errorId : undefined}
-            placeholder="e.g. Pastor Ken…"
+            placeholder={t("liveWord.placeholderWord")}
             onChange={(event) => setWord(event.target.value)}
           />
         </label>
         <label>
-          What to do
+          {t("liveWord.action")}
           <select
             name="liveWordAction"
             autoComplete="off"
@@ -87,14 +97,14 @@ export function LiveWordControl({
             disabled={disabled}
             onChange={(event) => setAction(event.target.value as (typeof LIVE_WORD_ACTIONS)[number])}
           >
-            {LIVE_ACTION_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+            {LIVE_WORD_ACTIONS.map((value) => (
+              <option key={value} value={value}>{actionLabel(value)}</option>
             ))}
           </select>
         </label>
         {needsWith ? (
           <label>
-            With
+            {t("liveWord.with")}
             <input
               name="liveWordWith"
               autoComplete="off"
@@ -103,37 +113,36 @@ export function LiveWordControl({
               maxLength={MAX_LIVE_WORD_CHARS}
               disabled={disabled}
               aria-describedby={error ? errorId : undefined}
-              placeholder={action === "fix" ? "e.g. Pastor Kenneth…" : "e.g. Rahmat…"}
+              placeholder={action === "fix" ? t("liveWord.placeholderFix") : t("liveWord.placeholderTranslate")}
               onChange={(event) => setWithValue(event.target.value)}
             />
           </label>
         ) : null}
         <button type="submit" className="primaryButton" disabled={disabled || atCapacity}>
-          Add quick override
+          {t("liveWord.add")}
         </button>
       </form>
       {atCapacity ? (
         <p className="settingHint" role="status">
-          20 quick overrides in use. Remove one before adding another.
+          {t("liveWord.capacity", { max: MAX_LIVE_WORD_ENTRIES })}
         </p>
       ) : null}
       {error ? <p className="errorText" id={errorId} role="alert">{error}</p> : null}
       <div className="liveWordEntries">
-        <h4>Quick overrides in use</h4>
+        <h4>{t("liveWord.inUse")}</h4>
         {entries.length ? (
           <ul className="liveWordList">
             {entries.map(({ id, row }) => {
-              const actionLabel = LIVE_ACTION_OPTIONS.find(({ value }) => value === row.action)?.label.replace(/…$/u, "");
               const kept = keptEntryIds.has(id);
               return (
                 <li key={id}>
                   <div className="liveWordEntryDetails">
                     <strong>{row.word}</strong>
-                    <span>{actionLabel}{row.with ? ` ${row.with}` : ""}</span>
+                    <span>{actionSummary(row.action)}{row.with ? ` ${row.with}` : ""}</span>
                   </div>
                   <div className="liveWordEntryActions">
                     {kept ? (
-                      <span role="status" aria-live="polite">Kept for Apply now</span>
+                      <span role="status" aria-live="polite">{t("liveWord.kept")}</span>
                     ) : (
                       <button
                         type="button"
@@ -144,13 +153,13 @@ export function LiveWordControl({
                           setKeptEntryIds((current) => new Set(current).add(id));
                         }}
                       >
-                        Keep in Words
+                        {t("liveWord.keep")}
                       </button>
                     )}
                     <button
                       type="button"
                       className="textButton"
-                      aria-label={`Remove ${row.word} quick override`}
+                      aria-label={t("liveWord.removeLabel", { word: row.word })}
                       disabled={disabled}
                       onClick={() => {
                         onRemove(id);
@@ -161,7 +170,7 @@ export function LiveWordControl({
                         });
                       }}
                     >
-                      Remove
+                      {t("common.remove")}
                     </button>
                   </div>
                 </li>
@@ -169,7 +178,7 @@ export function LiveWordControl({
             })}
           </ul>
         ) : (
-          <p className="emptyState">No quick overrides in use. Add a word and choose what to do.</p>
+          <p className="emptyState">{t("liveWord.empty")}</p>
         )}
       </div>
     </section>

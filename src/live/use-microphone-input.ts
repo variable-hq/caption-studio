@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { chooseAudioInputDevice } from "@/live/audio-devices";
+import { microphoneErrorMessage } from "@/live/microphone-error";
+import { useI18n } from "@/i18n/provider";
 
 export type MicrophoneState = "idle" | "requesting" | "active" | "error";
 
@@ -17,6 +19,11 @@ export type MicrophoneState = "idle" | "requesting" | "active" | "error";
  * `ensureMicrophone`'s return value.
  */
 export function useMicrophoneInput() {
+  const { t } = useI18n();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [microphoneState, setMicrophoneState] = useState<MicrophoneState>("idle");
@@ -109,7 +116,7 @@ export function useMicrophoneInput() {
         await refreshDevices(stream.getAudioTracks()[0]?.getSettings().deviceId);
         return stream;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Microphone access failed.";
+        const message = microphoneErrorMessage(error, tRef.current);
         setMicrophoneState("error");
         setMicrophoneError(message);
         throw new Error(message);

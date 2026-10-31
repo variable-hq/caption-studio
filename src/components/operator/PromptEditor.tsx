@@ -11,39 +11,41 @@ import {
 import { ID_EN_ADDRESS_TERM_GUIDANCE, MAX_TRANSLATION_SYSTEM_PROMPT_CHARS } from "@/ai/translation-prompt";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { useI18n } from "@/i18n/provider";
+import type { MessageKey } from "@/i18n";
 
-const SANITIZE_LEVEL_LABELS: Record<SanitizeLevel, string> = {
-  off: "Off",
-  low: "Low",
-  balanced: "Balanced · recommended",
-  high: "High · may drop soft speech",
+const SANITIZE_LEVEL_LABELS: Record<SanitizeLevel, MessageKey> = {
+  off: "sanitize.off",
+  low: "sanitize.low",
+  balanced: "sanitize.balanced",
+  high: "sanitize.high",
 };
 
-const SANITIZE_LEVEL_DESCRIPTIONS: Record<SanitizeLevel, string[]> = {
-  off: ["No cleanup. Captions keep everything transcribed."],
-  low: ["Removes filler sounds and clear non-speech noise."],
-  balanced: ["Also removes filler words and keeps only the final version of a self-correction."],
-  high: ["Also removes empty openers and tags. May drop very soft speech."],
+const SANITIZE_LEVEL_DESCRIPTIONS: Record<SanitizeLevel, MessageKey> = {
+  off: "sanitize.off.detail",
+  low: "sanitize.low.detail",
+  balanced: "sanitize.balanced.detail",
+  high: "sanitize.high.detail",
 };
 
-const INFERENCE_LEVEL_DESCRIPTIONS: Record<InferenceLevel, string[]> = {
-  low: ["Closest to the spoken words; fixes only clear errors."],
-  balanced: ["Keeps captions clear and complete; fills small gaps from context."],
-  high: ["Favors the speaker's intended meaning over exact wording; may reword boldly."],
+const INFERENCE_LEVEL_DESCRIPTIONS: Record<InferenceLevel, MessageKey> = {
+  low: "inference.low.detail",
+  balanced: "inference.balanced.detail",
+  high: "inference.high.detail",
 };
 
-function LevelDescription({ lines, id }: { lines: string[]; id?: string }) {
+function LevelDescription({ messageKey, id }: { messageKey: MessageKey; id?: string }) {
+  const t = useI18n().t;
   return (
     <ul id={id} className="helpText levelDescription" aria-live="polite">
-      {lines.map((line) => <li key={line}>{line}</li>)}
+      <li>{t(messageKey)}</li>
     </ul>
   );
 }
 
-const INFERENCE_LEVEL_LABELS: Record<InferenceLevel, string> = {
-  low: "Close: nearly word for word",
-  balanced: "Balanced: clear captions, same meaning",
-  high: "Free: natural speech, bolder rewording",
+const INFERENCE_LEVEL_LABELS: Record<InferenceLevel, MessageKey> = {
+  low: "inference.low",
+  balanced: "inference.balanced",
+  high: "inference.high",
 };
 
 interface PromptEditorProps {
@@ -84,14 +86,14 @@ export function PromptEditor({
   savedMessage,
   disabled = false,
 }: PromptEditorProps) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const numberFormatter = new Intl.NumberFormat(locale);
   const addressTermsAvailable = targetLanguage === "en" && ["id", "auto"].includes(sourceLanguage);
   return (
     <>
-      <SettingGroup title="How closely to follow the words">
+      <SettingGroup title={t("promptEditor.inferenceTitle")}>
         <label>
-          <span className="visuallyHidden">How closely to follow the words</span>
+          <span className="visuallyHidden">{t("promptEditor.inferenceTitle")}</span>
           <select
             name="inferenceLevel"
             autoComplete="off"
@@ -103,16 +105,16 @@ export function PromptEditor({
           >
             {INFERENCE_LEVEL_OPTIONS.map((level) => (
               <option value={level} key={level}>
-                {INFERENCE_LEVEL_LABELS[level]}{defaultInferenceLevel === level ? " · Church default" : ""}
+                {t(INFERENCE_LEVEL_LABELS[level])}{defaultInferenceLevel === level ? t("common.churchDefaultBadge") : ""}
               </option>
             ))}
           </select>
         </label>
-        <LevelDescription id="inference-level-description" lines={INFERENCE_LEVEL_DESCRIPTIONS[inferenceLevel]} />
+        <LevelDescription id="inference-level-description" messageKey={INFERENCE_LEVEL_DESCRIPTIONS[inferenceLevel]} />
       </SettingGroup>
-      <SettingGroup title="Sanitization">
+      <SettingGroup title={t("promptEditor.sanitizeTitle")}>
         <label>
-          <span className="visuallyHidden">Sanitization</span>
+          <span className="visuallyHidden">{t("promptEditor.sanitizeTitle")}</span>
           <select
             name="sanitizeLevel"
             autoComplete="off"
@@ -124,14 +126,14 @@ export function PromptEditor({
           >
             {SANITIZE_LEVEL_OPTIONS.map((level) => (
               <option value={level} key={level}>
-                {SANITIZE_LEVEL_LABELS[level]}{defaultSanitizeLevel === level ? " · Church default" : ""}
+                {t(SANITIZE_LEVEL_LABELS[level])}{defaultSanitizeLevel === level ? t("common.churchDefaultBadge") : ""}
               </option>
             ))}
           </select>
         </label>
-        <LevelDescription id="sanitize-level-description" lines={SANITIZE_LEVEL_DESCRIPTIONS[sanitizeLevel]} />
+        <LevelDescription id="sanitize-level-description" messageKey={SANITIZE_LEVEL_DESCRIPTIONS[sanitizeLevel]} />
       </SettingGroup>
-      <SettingGroup title="Filter inappropriate language">
+      <SettingGroup title={t("promptEditor.filterTitle")}>
         <label className="checkLabel">
           <input
             type="checkbox"
@@ -141,18 +143,18 @@ export function PromptEditor({
             disabled={disabled}
             onChange={(event) => onFilterInappropriateLanguageChange(event.target.checked)}
           />
-          Filter inappropriate language
+          {t("promptEditor.filterTitle")}
         </label>
-        <p id="filter-inappropriate-language-help" className="settingHint">On: omits profanity, slurs, and vulgar language from captions. Off: translates them as spoken.</p>
+        <p id="filter-inappropriate-language-help" className="settingHint">{t("promptEditor.filterHint")}</p>
       </SettingGroup>
       <SettingGroup
-        title="Instructions for the translator"
-        hint="For the person who looks after the setup; volunteers don’t need to change this. Fixed safety rules always apply on top. Don’t include private notes or personal details."
+        title={t("promptEditor.instructionsTitle")}
+        hint={t("promptEditor.instructionsHint")}
       >
         <details className="advancedActions">
-          <summary>Edit the instructions</summary>
+          <summary>{t("promptEditor.editInstructions")}</summary>
           <label>
-            <span className="visuallyHidden">Instructions for the translator</span>
+            <span className="visuallyHidden">{t("promptEditor.instructionsTitle")}</span>
             <textarea
               name="translationGuidance"
               autoComplete="off"
@@ -166,7 +168,10 @@ export function PromptEditor({
             />
           </label>
           <p className="settingHint">
-            {numberFormatter.format(value.length)} of {numberFormatter.format(MAX_TRANSLATION_SYSTEM_PROMPT_CHARS)} characters
+            {t("promptEditor.characters", {
+              count: numberFormatter.format(value.length),
+              max: numberFormatter.format(MAX_TRANSLATION_SYSTEM_PROMPT_CHARS),
+            })}
           </p>
           <div className="buttonRow">
             <button
@@ -175,10 +180,10 @@ export function PromptEditor({
               disabled={disabled || !addressTermsAvailable}
               onClick={() => onChange([value, ID_EN_ADDRESS_TERM_GUIDANCE].filter(Boolean).join("\n\n"))}
             >
-              Add Indonesian forms of address
+              {t("promptEditor.addAddressForms")}
             </button>
             <button className="secondaryButton" type="button" disabled={disabled} onClick={onReset}>
-              Restore the default
+              {t("common.restoreDefault")}
             </button>
           </div>
         </details>

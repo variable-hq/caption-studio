@@ -2,6 +2,7 @@
 
 import { AudioLevelMeter } from "@/components/operator/AudioLevelMeter";
 import { SettingGroup } from "@/components/operator/SettingsParts";
+import { useT } from "@/i18n/provider";
 import type { MicrophoneState } from "@/live/use-microphone-input";
 
 interface AudioInputSectionProps {
@@ -26,18 +27,19 @@ export function AudioInputSection({
   level,
   onStartAudioTest,
 }: AudioInputSectionProps) {
+  const t = useT();
   return (
     <SettingGroup
-      title="Microphone"
-      hint="Choose the input that hears the preacher, press Test, and speak: the bar should reach the middle. The test stays on this computer."
+      title={t("audio.title")}
+      hint={t("audio.hint")}
     >
       {microphoneError ? (
         <p className="operatorBanner" data-tone="bad" role="alert">
-          {microphoneError} Click the microphone icon in the browser’s address bar, choose Allow, then test again.
+          {t("audio.permissionHint", { detail: microphoneError })}
         </p>
       ) : null}
       <label>
-        <span className="visuallyHidden">Microphone or audio interface</span>
+        <span className="visuallyHidden">{t("audio.deviceLabel")}</span>
         <select
           name="microphone"
           autoComplete="off"
@@ -46,11 +48,11 @@ export function AudioInputSection({
           onChange={(event) => onDeviceChange(event.target.value)}
         >
           {devices.length === 0 ? (
-            <option value="">Test the microphone to see the list</option>
+            <option value="">{t("audio.emptyDevices")}</option>
           ) : (
             devices.map((device, index) => (
               <option value={device.deviceId} key={device.deviceId}>
-                {device.label || `Audio input ${index + 1}`}
+                {device.label || t("audio.inputNumber", { number: index + 1 })}
               </option>
             ))
           )}
@@ -64,7 +66,7 @@ export function AudioInputSection({
           onClick={onStartAudioTest}
           disabled={microphoneState === "active" || microphoneState === "requesting" || disabled}
         >
-          {microphoneState === "active" ? "Microphone connected" : microphoneState === "requesting" ? "Asking…" : "Test the microphone"}
+          {microphoneState === "active" ? t("audio.connected") : microphoneState === "requesting" ? t("audio.asking") : t("audio.test")}
         </button>
       </div>
     </SettingGroup>

@@ -58,7 +58,6 @@ import { WORKSPACE_NAME } from "@/domain/workspace";
 import { wordsFromSettings, wordsToSettings, type WordRow } from "@/live/words";
 import {
   DEFAULT_RECORDING_WINDOW_MS,
-  recordingWindowLabel,
   MAX_LIVE_SESSION_MS,
   normalizeCaptionStyle,
   type CaptionStyle,
@@ -87,12 +86,12 @@ import { EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata 
 import { experienceRequest } from "@/experience/client";
 import { ServiceExperiencePanel } from "@/components/operator/ServiceExperiencePanel";
 import { UsageHistory } from "@/components/operator/UsageHistory";
-import { formatCount } from "@/components/operator/format-count";
+import { formatCount, formatDecimal } from "@/components/operator/format-count";
 import { formatClock } from "@/components/operator/format-clock";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
 import { I18nProvider, useI18n } from "@/i18n/provider";
-import type { UiLocalePreference } from "@/i18n";
+import { translatePlural, type MessageKey, type UiLocalePreference } from "@/i18n";
 import "./operator-shell.css";
 
 interface CloudModels {
@@ -114,15 +113,15 @@ type SettingsSectionId =
   | "summary"
   | "usage";
 
-const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; label: string; description: string }[] = [
-  { id: "computer", label: "This computer", description: "The microphone and light or dark mode on this computer only." },
-  { id: "languages", label: "Languages & timing", description: "What the preacher speaks, what captions show, and how quickly." },
-  { id: "words", label: "Words", description: "Names the AI should know, and words to keep off the screen." },
-  { id: "look", label: "Caption look", description: "How captions look in OBS and on phones." },
-  { id: "obs", label: "OBS & links", description: "The OBS link and the phone viewer link." },
-  { id: "translator", label: "AI translator", description: "How freely the AI translates." },
-  { id: "summary", label: "AI summary", description: "How sermon summaries are made." },
-  { id: "usage", label: "Usage", description: "How much of the free AI allowance is used." },
+const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey; descriptionKey: MessageKey }[] = [
+  { id: "computer", titleKey: "settings.section.computer.title", descriptionKey: "settings.section.computer.description" },
+  { id: "languages", titleKey: "settings.section.languages.title", descriptionKey: "settings.section.languages.description" },
+  { id: "words", titleKey: "settings.section.words.title", descriptionKey: "settings.section.words.description" },
+  { id: "look", titleKey: "settings.section.look.title", descriptionKey: "settings.section.look.description" },
+  { id: "obs", titleKey: "settings.section.obs.title", descriptionKey: "settings.section.obs.description" },
+  { id: "translator", titleKey: "settings.section.translator.title", descriptionKey: "settings.section.translator.description" },
+  { id: "summary", titleKey: "settings.section.summary.title", descriptionKey: "settings.section.summary.description" },
+  { id: "usage", titleKey: "settings.section.usage.title", descriptionKey: "settings.section.usage.description" },
 ];
 
 // Bookmarks from the old sidebar layout still land on the matching screen.
@@ -168,6 +167,10 @@ function OperatorDashboardContent() {
     setBrowserFallbackPreference,
     t,
   } = useI18n();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>(
     DEFAULT_SOURCE_LANGUAGE,
   );
@@ -421,19 +424,19 @@ function OperatorDashboardContent() {
     metadataPostedFor.current = service.serviceId;
     const metadata = normalizeSessionMetadata({ ...sessionMetadata, sessionAt: sessionDateEdited ? sessionMetadata.sessionAt : Date.parse(service.startedAt) });
     metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`sermons/${service.serviceId}/metadata`, metadata)
-      .then((result) => { setSessionMetadata(result.metadata); setSessionMetadataMessage("Session details saved."); shouldAutoSaveMetadata.current = false; })
-      .catch(() => { setSessionMetadataMessage("Couldn’t save session details. Start and captions continue; check the connection and save details again."); shouldAutoSaveMetadata.current = false; });
-  }, [liveState.service, liveState.status, sessionMetadata, sessionDateEdited]);
+      .then((result) => { setSessionMetadata(result.metadata); setSessionMetadataMessage(t("live.sessionDetailsSaved")); shouldAutoSaveMetadata.current = false; })
+      .catch(() => { setSessionMetadataMessage(t("live.sessionDetailsAutoSaveFailed")); shouldAutoSaveMetadata.current = false; });
+  }, [liveState.service, liveState.status, sessionMetadata, sessionDateEdited, t]);
   async function saveLiveSessionMetadata() {
     const serviceId = liveState.service?.serviceId;
     if (!serviceId || !liveState.service?.saveHistory) return;
-    setSessionMetadataMessage("Saving…");
+    setSessionMetadataMessage(t("common.saving"));
     try {
       await metadataWrite.current;
       const result = await experienceRequest<{ metadata: SessionMetadata }>(`sermons/${serviceId}/metadata`, normalizeSessionMetadata(sessionMetadata));
       setSessionMetadata(result.metadata);
-      setSessionMetadataMessage("Session details saved.");
-    } catch { setSessionMetadataMessage("Couldn’t save session details. Check the connection, then try again."); }
+      setSessionMetadataMessage(t("live.sessionDetailsSaved"));
+    } catch { setSessionMetadataMessage(t("live.sessionDetailsSaveFailed")); }
   }
   const activeTranslationSettingsFingerprint = useMemo(
     () =>
@@ -529,7 +532,7 @@ function OperatorDashboardContent() {
       return () => window.clearTimeout(timeout);
     } catch {
       const timeout = window.setTimeout(
-        () => setPreferenceError("Saved settings couldn’t be loaded; using the defaults."),
+        () => setPreferenceError(tRef.current("settings.error.loadedSettings")),
         0,
       );
       return () => window.clearTimeout(timeout);
@@ -546,14 +549,14 @@ function OperatorDashboardContent() {
       const timeout = window.setTimeout(() => {
         setTranslationSystemPrompt(loaded);
         setSavedPromptFingerprint(loaded);
-        setPromptStorageMessage("Loaded the saved settings.");
+        setPromptStorageMessage(tRef.current("settings.message.loadedSaved"));
       }, 0);
       return () => window.clearTimeout(timeout);
     } catch {
       const timeout = window.setTimeout(
         () =>
           setPromptStorageMessage(
-            "The saved instructions couldn’t be read; using the default.",
+            tRef.current("settings.error.promptRead"),
           ),
         0,
       );
@@ -636,18 +639,18 @@ function OperatorDashboardContent() {
     isBusy ||
     channelAction !== null;
   const startHelp = anotherOperatorActive
-    ? `${runningOperator ?? "Another operator"} is running captions on another computer. Take over to control them here.`
+    ? t("live.startHelp.otherOperator", { operator: runningOperator ?? t("live.otherOperatorDefault") })
     : liveState.status === "error"
-      ? "Fix the problem shown above, then press Start."
+      ? t("live.startHelp.error")
       : cloudState === "checking"
-        ? "Checking the caption service…"
+        ? t("live.startHelp.checkingService")
         : cloudState !== "ready"
-          ? "The caption service isn’t set up for this deployment. Ask the person who looks after Caption Studio."
+          ? t("live.startHelp.notConfigured")
           : checkingChannel
-            ? "Checking the OBS link…"
+            ? t("live.startHelp.checkingChannel")
             : !channelConfigured
-              ? "Set up OBS first: press Set up next to OBS."
-              : "Press Start when the sermon begins.";
+              ? t("live.startHelp.setUpObs")
+              : t("live.startHelp.ready");
   const startBlocked = startDisabled || anotherOperatorActive;
   const viewerUrl = liveState.service?.viewerUrl ?? null;
   const translationChanges = activeTranslationSettings
@@ -667,7 +670,7 @@ function OperatorDashboardContent() {
     ? activeTranslationSettings
     : draftTranslationSettings;
   const displayedSourceLabel = displayedTranslationSettings?.sourceLanguage === "auto"
-    ? "Automatic detection"
+    ? t("live.autoDetection")
     : LANGUAGE_OPTIONS.find(({ locale }) => locale === displayedTranslationSettings?.sourceLanguage)?.label;
   const displayedTargetLabel = LANGUAGE_OPTIONS.find(({ locale }) => locale === displayedTranslationSettings?.targetLanguage)?.label;
 
@@ -724,10 +727,10 @@ function OperatorDashboardContent() {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      setClipboardMessage("OBS link copied. Keep it private: anyone with it can show captions.");
+      setClipboardMessage(t("page.clipboard.obsCopied"));
       window.setTimeout(() => setCopied(false), 1_500);
     } catch {
-      setClipboardMessage("The OBS link couldn’t be copied. Open Settings › OBS & links and copy it from the field.");
+      setClipboardMessage(t("page.clipboard.obsCopyFailed"));
     }
   };
 
@@ -736,10 +739,10 @@ function OperatorDashboardContent() {
     try {
       await navigator.clipboard.writeText(viewerUrl);
       setViewerCopied(true);
-      setClipboardMessage("Phone viewer link copied.");
+      setClipboardMessage(t("page.clipboard.viewerCopied"));
       window.setTimeout(() => setViewerCopied(false), 1_500);
     } catch {
-      setClipboardMessage("The phone viewer link couldn’t be copied. Open Settings › OBS & links and copy it from the field.");
+      setClipboardMessage(t("page.clipboard.viewerCopyFailed"));
     }
   };
 
@@ -772,12 +775,12 @@ function OperatorDashboardContent() {
         if (loaded.translationSystemPrompt !== null) {
           setTranslationSystemPrompt(loaded.translationSystemPrompt);
           setSavedPromptFingerprint(loaded.translationSystemPrompt);
-          setPromptStorageMessage("Loaded the church setup.");
+          setPromptStorageMessage(tRef.current("settings.message.loadedChurchSetup"));
         }
         if (loaded.summaryDefaults) {
           setSummaryDefaults(loaded.summaryDefaults);
           setSavedSummaryDefaults(loaded.summaryDefaults);
-          setSummaryStorageMessage("Loaded the church setup.");
+          setSummaryStorageMessage(tRef.current("settings.message.loadedChurchSetup"));
         }
         if (loaded.captionStyle) {
           const saved = loaded.captionStyle;
@@ -809,22 +812,22 @@ function OperatorDashboardContent() {
           setInferenceLevel(defaults.inferenceLevel);
           setSanitizeLevel(defaults.sanitizeLevel);
           setFilterInappropriateLanguage(defaults.filterInappropriateLanguage);
-          setTranslationDefaultsMessage("Loaded the church setup.");
+          setTranslationDefaultsMessage(tRef.current("settings.message.loadedChurchSetup"));
         }
         if (loaded.saveHistoryDefault !== null && !hasServiceRef.current) {
           setSaveHistory(loaded.saveHistoryDefault);
         }
         if (loaded.outputBufferCount !== null && !hasServiceRef.current) {
           setOutputBufferCount(loaded.outputBufferCount);
-          setOutputBufferSavedMessage("Loaded the church setup.");
+          setOutputBufferSavedMessage(tRef.current("settings.message.loadedChurchSetup"));
         }
         if (loaded.outputBufferDwellMs !== null && !hasServiceRef.current) {
           setOutputBufferDwellMs(loaded.outputBufferDwellMs);
-          setOutputBufferSavedMessage("Loaded the church setup.");
+          setOutputBufferSavedMessage(tRef.current("settings.message.loadedChurchSetup"));
         }
         if (loaded.liveDraftsEnabled !== null && !hasServiceRef.current) {
           setLiveDraftsEnabled(loaded.liveDraftsEnabled);
-          setLiveDraftsSavedMessage("Loaded the church setup.");
+          setLiveDraftsSavedMessage(tRef.current("settings.message.loadedChurchSetup"));
         }
       })
       .catch(() => {
@@ -867,34 +870,34 @@ function OperatorDashboardContent() {
   }
 
   const saveTranslationDefaults = () => {
-    setTranslationDefaultsMessage("Saving for everyone…");
+    setTranslationDefaultsMessage(t("common.savingForEveryone"));
     void syncAccountPreferences({
       translationDefaults: { sourceLanguage, targetLanguage, keywordText, filterText, recordingWindowMs, inferenceLevel, sanitizeLevel, filterInappropriateLanguage },
     }).then((ok) =>
       setTranslationDefaultsMessage(
         ok
-          ? "Saved for everyone. New services start with these languages, caption speed, Words, caption cleanup, and language filtering."
-          : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
+          ? t("settings.message.savedTranslationDefaults")
+          : t("settings.error.churchSetup"),
       ),
     );
   };
 
   const saveOutputBufferDefault = () => {
-    setOutputBufferSavedMessage("Saving for everyone…");
+    setOutputBufferSavedMessage(t("common.savingForEveryone"));
     void syncAccountPreferences({ outputBufferCount, outputBufferDwellMs }).then((ok) =>
       setOutputBufferSavedMessage(
         ok
-          ? "Saved for everyone. New services start with this choice."
-          : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
+          ? t("settings.message.savedDefaultChoice")
+          : t("settings.error.churchSetup"),
       ),
     );
   };
 
   const saveLiveDraftsDefault = () => {
-    setLiveDraftsSavedMessage("Saving for everyone…");
+    setLiveDraftsSavedMessage(t("common.savingForEveryone"));
     void syncAccountPreferences({ liveDraftsEnabled }).then((ok) =>
       setLiveDraftsSavedMessage(
-        ok ? "Saved for everyone. New services start with this choice." : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
+        ok ? t("settings.message.savedDefaultChoice") : t("settings.error.churchSetup"),
       ),
     );
   };
@@ -907,7 +910,7 @@ function OperatorDashboardContent() {
       const timeout = window.setTimeout(() => {
         setSummaryDefaults(loaded);
         setSavedSummaryDefaults(loaded);
-        setSummaryStorageMessage("Loaded the saved settings.");
+        setSummaryStorageMessage(tRef.current("settings.message.loadedSaved"));
       }, 0);
       return () => window.clearTimeout(timeout);
     } catch {
@@ -921,35 +924,35 @@ function OperatorDashboardContent() {
       window.localStorage.setItem(SUMMARY_DEFAULTS_PREFERENCE_KEY, JSON.stringify(normalized));
       setSummaryDefaults(normalized);
       setSavedSummaryDefaults(normalized);
-      setSummaryStorageMessage("Saved in this browser. Saving for everyone…");
+      setSummaryStorageMessage(t("settings.message.savedBrowserSaving"));
       void syncAccountPreferences({ summaryDefaults: normalized }).then((ok) =>
-        setSummaryStorageMessage(ok ? "Saved for everyone." : "Saved in this browser only; couldn’t reach the church setup."),
+        setSummaryStorageMessage(ok ? t("settings.message.savedForEveryone") : t("settings.error.savedBrowserOnly")),
       );
     } catch {
-      setSummaryStorageMessage("Couldn’t save. Try again.");
+      setSummaryStorageMessage(t("settings.error.save"));
     }
   };
 
   const saveHistoryAsDefault = () => {
-    setSaveHistoryDefaultMessage("Saving for everyone…");
+    setSaveHistoryDefaultMessage(t("common.savingForEveryone"));
     void syncAccountPreferences({ saveHistoryDefault: saveHistory }).then((ok) =>
       setSaveHistoryDefaultMessage(
         ok
-          ? `Saved. New services start with transcript saving ${saveHistory ? "on" : "off"}; you can still change it before Start.`
-          : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
+          ? t("settings.message.savedTranscriptDefault", { state: saveHistory ? t("common.on") : t("common.off") })
+          : t("settings.error.churchSetup"),
       ),
     );
   };
 
   const changeAutoSummary = (enabled: boolean) => {
-    setAutoSummaryMessage("Saving…");
+    setAutoSummaryMessage(t("common.saving"));
     void syncAccountPreferences({ autoSummary: enabled }).then((ok) =>
       setAutoSummaryMessage(
         ok
           ? enabled
-            ? "On. After you end a service with transcript saving, its summary draft appears in Sermons."
-            : "Off. Summaries are only generated when you choose Generate summary."
-          : "Couldn’t reach the church setup, so this wasn’t saved. Try again.",
+            ? t("settings.message.autoSummaryOn")
+            : t("settings.message.autoSummaryOff")
+          : t("settings.error.churchSetup"),
       ),
     );
   };
@@ -962,7 +965,7 @@ function OperatorDashboardContent() {
     }
     setSummaryDefaults(DEFAULT_SUMMARY_OPTIONS);
     setSavedSummaryDefaults(null);
-    setSummaryStorageMessage("Restored the built-in settings. Save to apply them for everyone.");
+    setSummaryStorageMessage(t("settings.message.restoredBuiltIn"));
     void syncAccountPreferences({ summaryDefaults: null });
   };
 
@@ -975,9 +978,9 @@ function OperatorDashboardContent() {
     summaryStorageMessage ||
     (savedSummaryDefaults
       ? summaryOptionsEqual(savedSummaryDefaults, summaryDefaults)
-        ? "Saved for everyone."
-        : "You have unsaved changes."
-      : "Using the built-in settings.");
+        ? t("settings.message.savedForEveryone")
+        : t("settings.message.unsaved")
+      : t("settings.message.usingBuiltIn"));
 
   const savePromptBrowserDefault = () => {
     try {
@@ -990,12 +993,12 @@ function OperatorDashboardContent() {
       );
       setTranslationSystemPrompt(normalized);
       setSavedPromptFingerprint(normalized);
-      setPromptStorageMessage("Saved in this browser. Saving for everyone…");
+      setPromptStorageMessage(t("settings.message.savedBrowserSaving"));
       void syncAccountPreferences({ translationSystemPrompt: normalized }).then((ok) =>
-        setPromptStorageMessage(ok ? "Saved for everyone." : "Saved in this browser only; couldn’t reach the church setup."),
+        setPromptStorageMessage(ok ? t("settings.message.savedForEveryone") : t("settings.error.savedBrowserOnly")),
       );
     } catch {
-      setPromptStorageMessage("Couldn’t save. Try again.");
+      setPromptStorageMessage(t("settings.error.save"));
     }
   };
 
@@ -1006,12 +1009,12 @@ function OperatorDashboardContent() {
       setTranslationSystemPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT);
       setSavedPromptFingerprint("");
       setPromptStorageMessage(
-        "Restored the default instructions for everyone.",
+        t("settings.message.restoredDefaults"),
       );
     } catch {
       setTranslationSystemPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT);
       setPromptStorageMessage(
-        "Restored the default instructions.",
+        t("settings.message.restoredDefaultsLocal"),
       );
     }
   };
@@ -1045,11 +1048,11 @@ function OperatorDashboardContent() {
       setSavedStyleFingerprint(serialized);
       setPreferenceError("");
       void syncAccountPreferences({ captionStyle: style }).then((ok) => {
-        if (!ok) setPreferenceError("Saved in this browser only; couldn’t reach the church setup.");
+        if (!ok) setPreferenceError(t("settings.error.savedBrowserOnly"));
       });
       if (liveState.channel?.configured) void saveChannelStyle();
     } catch {
-      setPreferenceError("Couldn’t save. Try again.");
+      setPreferenceError(t("settings.error.save"));
     }
   };
 
@@ -1058,14 +1061,14 @@ function OperatorDashboardContent() {
     (savedStyleFingerprint === styleFingerprint
       ? liveState.channel?.configured
         ? channelAction === "save-style"
-          ? "Saving…"
+          ? t("common.saving")
           : sharedStyleFingerprint === styleFingerprint
-            ? "Saved for everyone and sent to OBS."
-            : "Saved here, but OBS hasn’t confirmed it yet."
-        : "Saved for everyone."
+            ? t("settings.message.savedObsConfirmed")
+            : t("settings.message.savedObsPending")
+        : t("settings.message.savedForEveryone")
       : savedStyleFingerprint
-        ? "You have unsaved changes."
-        : "Not saved yet.");
+        ? t("settings.message.unsaved")
+        : t("settings.message.notSavedYet"));
 
   const styleEditorProps: StyleEditorProps = {
     style,
@@ -1088,11 +1091,11 @@ function OperatorDashboardContent() {
     promptStorageMessage ||
     (savedPromptFingerprint
       ? savedPromptFingerprint === translationSystemPrompt
-        ? "Saved for everyone."
-        : "You have unsaved changes."
+        ? t("settings.message.savedForEveryone")
+        : t("settings.message.unsaved")
       : translationSystemPrompt === DEFAULT_TRANSLATION_SYSTEM_PROMPT
-        ? "Using the default instructions."
-        : "You have unsaved changes.");
+        ? t("settings.message.usingDefaultInstructions")
+        : t("settings.message.unsaved"));
 
   const translationEditorProps = {
     sourceLanguage,
@@ -1109,7 +1112,7 @@ function OperatorDashboardContent() {
 
   const overlayUrlField = (
     <label>
-      OBS link
+      {t("liveOutputs.obsLink")}
       <input
         value={liveState.channel?.overlayUrl ?? ""}
         readOnly
@@ -1135,56 +1138,63 @@ function OperatorDashboardContent() {
     (hasService && isLive) || (watchingOther && liveState.channel?.status === "live");
   const outputBadge = hasService
     ? liveNeedsAttention
-      ? "Needs attention"
+      ? t("live.badge.needsAttention")
       : isRefreshing
-        ? "Applying changes"
+        ? t("live.badge.applyingChanges")
         : isPaused
-          ? "Paused"
-          : "On screen"
+          ? t("live.badge.paused")
+          : t("live.badge.onScreen")
     : anotherOperatorActive
-      ? "From another computer"
+      ? t("live.badge.fromAnotherComputer")
       : liveState.latestPublicText
-        ? "Test caption"
-        : "Clear";
+        ? t("live.badge.testCaption")
+        : t("live.badge.clear");
   const displayedTargetName = displayedTargetLabel ?? targetLanguage;
 
   const selectedMicrophone =
-    devices.find((device) => device.deviceId === selectedDeviceId)?.label || "Default microphone";
+    devices.find((device) => device.deviceId === selectedDeviceId)?.label || t("live.defaultMicrophone");
+  const recordingWindowShort = (value: RecordingWindowMs) => value === "dynamic"
+    ? t("recordingWindow.dynamicShort")
+    : t("recordingWindow.secondsShort", { seconds: value / 1_000 });
   const readinessChecks: ReadinessCheck[] = [
     {
-      label: "Caption service",
+      label: t("readiness.service"),
       ok: cloudState === "ready" || cloudState === "checking",
-      value: cloudState === "ready" ? "Connected" : cloudState === "checking" ? "Checking…" : "Not set up",
+      value: cloudState === "ready" ? t("readiness.connected") : cloudState === "checking" ? t("common.checking") : t("readiness.notSetUp"),
       href: "#help",
-      fixLabel: "Help",
+      fixLabel: t("readiness.help"),
     },
     {
-      label: "Microphone",
+      label: t("readiness.microphone"),
       ok: microphoneState !== "error",
-      value: microphoneState === "error" ? microphoneError || "Not available" : selectedMicrophone,
+      value: microphoneState === "error" ? microphoneError || t("readiness.unavailable") : selectedMicrophone,
       href: "#settings=computer",
-      fixLabel: "Fix",
+      fixLabel: t("readiness.fix"),
     },
     {
-      label: "Languages",
+      label: t("readiness.languages"),
       ok: true,
-      value: `${displayedSourceLabel ?? sourceLanguage} → ${displayedTargetName} · ${recordingWindowLabel(hasService ? activeRecordingWindowMs : recordingWindowMs)}`,
+      value: t("readiness.languagesValue", {
+        source: displayedSourceLabel ?? sourceLanguage,
+        target: displayedTargetName,
+        speed: recordingWindowShort(hasService ? activeRecordingWindowMs : recordingWindowMs),
+      }),
       href: "#settings=languages",
-      fixLabel: "Fix",
+      fixLabel: t("readiness.fix"),
     },
     {
-      label: "Words",
+      label: t("readiness.words"),
       ok: true,
-      value: `${wordCount} ${wordCount === 1 ? "word" : "words"}`,
+      value: translatePlural(locale, "readiness.wordCount", wordCount),
       href: "#settings=words",
-      fixLabel: "Fix",
+      fixLabel: t("readiness.fix"),
     },
     {
-      label: "OBS",
+      label: t("readiness.obs"),
       ok: channelConfigured || checkingChannel,
-      value: checkingChannel ? "Checking…" : channelConfigured ? "Set up" : "Not set up yet",
+      value: checkingChannel ? t("common.checking") : channelConfigured ? t("readiness.setUp") : t("readiness.notSetUpYet"),
       href: "#settings=obs",
-      fixLabel: "Set up",
+      fixLabel: t("readiness.setUp"),
     },
   ];
   const setupBlocked = readinessChecks.some((check) => !check.ok);
@@ -1208,12 +1218,26 @@ function OperatorDashboardContent() {
           : { label: "ready", tone: "ok" };
 
   const minutesLeft = Math.max(0, Math.ceil((MAX_LIVE_SESSION_MS - elapsedServiceMs) / 60_000));
+  const translationChangeLabels = translationChanges.map((change) => {
+    switch (change) {
+      case "Spoken language": return t("translationChange.spokenLanguage");
+      case "Translation language": return t("translationChange.translationLanguage");
+      case "Recording window": return t("translationChange.recordingWindow");
+      case "Terminology": return t("translationChange.terminology");
+      case "Public filter": return t("translationChange.publicFilter");
+      case "System prompt": return t("translationChange.systemPrompt");
+      case "Inference level": return t("translationChange.inferenceLevel");
+      case "Sanitization": return t("translationChange.sanitization");
+      case "Inappropriate language filter": return t("translationChange.inappropriateLanguageFilter");
+    }
+  });
   const pendingBanner = hasPendingTranslationChanges ? (
     <div className="operatorBanner" role="status">
-      <strong>Your changes aren’t in use yet.</strong>
+      <strong>{t("live.pendingTitle")}</strong>
       <span>
-        {translationChanges.length ? `${translationChanges.join(" · ")}. ` : ""}
-        Applying clears the current caption and the queue. The service keeps running.
+        {translationChangeLabels.length
+          ? t("live.pendingBodyWithChanges", { changes: translationChangeLabels.join(t("common.listSeparator")) })
+          : t("live.pendingBody")}
       </span>
       <button
         type="button"
@@ -1221,7 +1245,7 @@ function OperatorDashboardContent() {
         disabled={translationChanges.length === 0 || translationActionBusy}
         onClick={restoreActiveTranslationDraft}
       >
-        Undo changes
+        {t("live.undoChanges")}
       </button>
       <button
         type="button"
@@ -1229,7 +1253,7 @@ function OperatorDashboardContent() {
         disabled={translationActionBusy}
         onClick={() => void refreshTranslationSession()}
       >
-        {translationActionBusy ? "Applying…" : "Apply now"}
+        {translationActionBusy ? t("live.applying") : t("live.applyNow")}
       </button>
     </div>
   ) : null;
@@ -1244,8 +1268,8 @@ function OperatorDashboardContent() {
       savedMessage={
         outputBufferSavedMessage ||
         (accountPreferences && accountPreferences.outputBufferCount !== null
-          ? "The church setup has a saved choice for this."
-          : "Saves this choice for everyone’s new services.")
+          ? t("live.outputBufferSavedChoice")
+          : t("live.outputBufferSavesForEveryone"))
       }
       disabled={isBusy}
       defaultCount={accountPreferences?.outputBufferCount ?? null}
@@ -1255,7 +1279,7 @@ function OperatorDashboardContent() {
 
   const liveScreen = (
     <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
-      <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1} className="visuallyHidden">Live</h1>
+      <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1} className="visuallyHidden">{t("live.title")}</h1>
       <StatusBanner
         status={liveState.status}
         message={liveState.message}
@@ -1272,31 +1296,31 @@ function OperatorDashboardContent() {
       />
       {anotherOperatorActive ? (
         <div className="operatorBanner" data-tone="warn">
-          <strong>{runningOperator ?? "Another operator"} is running captions on another computer.</strong>
-          <span>{observed.message || "You can watch here. Taking over clears the screen and moves control to this computer."}</span>
+          <strong>{t("live.otherOperatorTitle", { operator: runningOperator ?? t("live.otherOperatorDefault") })}</strong>
+          <span>{observed.message || t("live.otherOperatorMessage")}</span>
           <button type="button" className="secondaryButton" disabled={isBusy || cloudState !== "ready"} onClick={() => takeoverDialogRef.current?.showModal()}>
-            Take over
+            {t("live.takeOver")}
           </button>
         </div>
       ) : null}
       {pendingBanner}
       {liveState.historyIncomplete ? (
         <p className="operatorBanner" data-tone="warn" role="alert">
-          Part of this service wasn’t saved to the transcript. Check the gaps in Sermons before making a summary.
+          {t("live.historyIncomplete")}
         </p>
       ) : null}
 
       <div className="liveGrid">
-        <section className="operatorCard liveCaptions" aria-label="Captions">
+        <section className="operatorCard liveCaptions" aria-label={t("live.captionsCard")}>
           <div className="monitorGrid">
             <div className="monitorPane">
-              <div className="monitorLabel"><span>Heard</span><span>Only you see this</span></div>
+              <div className="monitorLabel"><span>{t("live.heard")}</span><span>{t("live.onlyYou")}</span></div>
               <p className="heardText" data-empty={!monitorSourceText} lang={displayedTranslationSettings?.sourceLanguage === "auto" ? undefined : displayedTranslationSettings?.sourceLanguage}>
-                {monitorSourceText || (hasService ? (isPaused ? "Not listening while paused." : "Listening…") : "Nothing yet.")}
+                {monitorSourceText || (hasService ? (isPaused ? t("live.notListening") : t("live.listening")) : t("live.nothingYet"))}
               </p>
             </div>
             <div className="monitorPane">
-              <div className="monitorLabel"><span>Audience sees</span><span>{displayedTargetName} · OBS &amp; phones</span></div>
+              <div className="monitorLabel"><span>{t("live.audienceSees")}</span><span>{t("live.audienceMeta", { language: displayedTargetName })}</span></div>
               <CaptionPreview
                 caption={monitorCaption}
                 targetLanguage={monitorLanguage}
@@ -1329,38 +1353,38 @@ function OperatorDashboardContent() {
                     }}
                   />
                   <span>
-                    <strong>Live drafts</strong>
+                    <strong>{t("live.draftsTitle")}</strong>
                   </span>
                 </label>
                 <p id="live-drafts-help" className="operatorHint">
-                  This per-session choice is not saved automatically. It uses more free-tier quota: up to 3 transcription and 3 translation calls per caption, and about twice the audio.
+                  {t("live.draftsHint")}
                 </p>
                 {liveDraftSessionDisabled ? (
                   <p id="live-drafts-session-status" className="operatorHint" data-tone="warn" role="status" aria-live="polite">
-                    Live drafts stopped for this service because the provider rejected partial audio.
+                    {t("live.draftsStopped")}
                   </p>
                 ) : null}
-                <button type="button" className="textButton" disabled={isBusy} onClick={saveLiveDraftsDefault}>Save for everyone</button>
-                <p className="operatorHint" role="status" aria-live="polite">{liveDraftsSavedMessage || (accountPreferences?.liveDraftsEnabled !== null && accountPreferences?.liveDraftsEnabled !== undefined ? "The church setup has a saved choice for this." : "Saves this choice for everyone’s new services.")}</p>
+                <button type="button" className="textButton" disabled={isBusy} onClick={saveLiveDraftsDefault}>{t("common.saveForEveryone")}</button>
+                <p className="operatorHint" role="status" aria-live="polite">{liveDraftsSavedMessage || (accountPreferences?.liveDraftsEnabled !== null && accountPreferences?.liveDraftsEnabled !== undefined ? t("live.draftsSavedChoice") : t("live.draftsSavesForEveryone"))}</p>
               </div>
             </>
           ) : null}
           <div className="levelRow">
-            <span>Microphone</span>
+            <span>{t("live.microphone")}</span>
             <AudioLevelMeter level={level} />
           </div>
           {!observed.observer ? (
             <details className="advancedActions">
-              <summary>Recent captions</summary>
+              <summary>{t("live.recentCaptions")}</summary>
               <RecentOutputsStrip outputs={recentOutputs} />
             </details>
           ) : null}
         </section>
 
-        <ReadinessChecks title={hasService ? "Setup" : setupBlocked ? "Before you start" : "Ready to go"} checks={readinessChecks} />
+        <ReadinessChecks title={hasService ? t("readiness.titleSetup") : setupBlocked ? t("readiness.titleBeforeStart") : t("readiness.titleReady")} checks={readinessChecks} />
 
         {!hasService ? (
-          <section className="operatorCard liveActions" aria-label="Start">
+          <section className="operatorCard liveActions" aria-label={t("live.startCard")}>
             <div className="startActions">
               <button
                 type="button"
@@ -1370,7 +1394,7 @@ function OperatorDashboardContent() {
                 onClick={() => { shouldAutoSaveMetadata.current = true; setLiveNote(""); void startSession(); }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
-                {liveState.status === "starting" ? "Starting…" : "Start captions"}
+                {liveState.status === "starting" ? t("live.starting") : t("live.start")}
               </button>
               <button
                 type="button"
@@ -1378,7 +1402,7 @@ function OperatorDashboardContent() {
                 disabled={!channelConfigured || isBusy || controlAction !== null || anotherOperatorActive}
                 onClick={() => void showTestCaption()}
               >
-                {controlAction === "show-test" ? "Showing…" : "Show a test caption"}
+                {controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
               </button>
             </div>
             <p id="start-help" className="operatorHint" data-tone={(setupBlocked || anotherOperatorActive || liveState.status === "error") && !checkingChannel && cloudState !== "checking" ? "bad" : undefined}>
@@ -1393,35 +1417,35 @@ function OperatorDashboardContent() {
                 onChange={(event) => setSaveHistory(event.target.checked)}
               />
               <span>
-                <strong>Save the transcript for 7 days</strong>
+                <strong>{t("live.saveTranscript")}</strong>
                 <br />
-                <span className="operatorHint">For Sermons and AI summary, shared with everyone at {WORKSPACE_NAME}. Tell the congregation when it’s on.</span>
+                <span className="operatorHint">{t("live.saveTranscriptHint", { workspace: WORKSPACE_NAME })}</span>
               </span>
             </label>
             <div className="buttonRow">
               {accountPreferences?.saveHistoryDefault !== saveHistory ? (
                 <button className="textButton" type="button" disabled={isBusy} onClick={saveHistoryAsDefault}>
-                  Make this the church default
+                  {t("live.makeDefault")}
                 </button>
               ) : null}
               <p className="operatorHint" role="status" aria-live="polite">{saveHistoryDefaultMessage}</p>
             </div>
             <details className="advancedActions">
-              <summary>Session details</summary>
-              {!saveHistory ? <p className="settingHint">Turn on transcript saving to keep session details with the sermon.</p> : null}
+              <summary>{t("live.sessionDetails")}</summary>
+              {!saveHistory ? <p className="settingHint">{t("live.sessionDetailsNeedsSaving")}</p> : null}
               <SessionMetadataFields value={sessionMetadata} disabled={!saveHistory || isBusy} onChange={(value) => {
                 setSessionMetadata(value);
                 if (value.sessionAt !== sessionMetadata.sessionAt) setSessionDateEdited(true);
               }} />
             </details>
             <details className="advancedActions">
-              <summary>Check captions before they show</summary>
+              <summary>{t("live.checkBeforeShow")}</summary>
               {outputBufferPanel}
             </details>
           </section>
         ) : (
           <section className="operatorCard liveActions" aria-labelledby="quick-fixes-heading">
-            <h2 id="quick-fixes-heading">Quick fixes</h2>
+            <h2 id="quick-fixes-heading">{t("live.quickFixes")}</h2>
             <ManualOverridesGroup
               liveWordEntries={liveWordEntries}
               onAddLiveWord={addLiveWordEntry}
@@ -1447,46 +1471,46 @@ function OperatorDashboardContent() {
             <LiveNoteControl value={liveNote} disabled={!liveState.service || observed.observer !== null} onChange={setLiveNote} />
             {isPaused ? (
               <button type="button" className="secondaryButton" disabled={isBusy || controlAction !== null} onClick={() => void showTestCaption()}>
-                {controlAction === "show-test" ? "Showing…" : "Show a test caption"}
+                {controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
               </button>
             ) : null}
             <details className="advancedActions">
-              <summary>Session details</summary>
-              {!liveState.service?.saveHistory ? <p className="settingHint">Turn on transcript saving before Start to keep session details.</p> : null}
+              <summary>{t("live.sessionDetails")}</summary>
+              {!liveState.service?.saveHistory ? <p className="settingHint">{t("live.sessionDetailsBeforeStart")}</p> : null}
               <SessionMetadataFields value={sessionMetadata} disabled={!liveState.service?.saveHistory || isBusy} onChange={setSessionMetadata} />
-              <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.service?.saveHistory || !liveState.service.serviceId || isBusy} onClick={() => void saveLiveSessionMetadata()}>Save session details</button></div>
+              <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.service?.saveHistory || !liveState.service.serviceId || isBusy} onClick={() => void saveLiveSessionMetadata()}>{t("live.saveSessionDetails")}</button></div>
               <p className="settingHint" role="status" aria-live="polite">{sessionMetadataMessage}</p>
             </details>
             <details className="advancedActions">
-              <summary>Check captions before they show</summary>
+              <summary>{t("live.checkBeforeShow")}</summary>
               {outputBufferPanel}
             </details>
             <details className="advancedActions">
-              <summary>Service details</summary>
-              <div className="statRow"><span>Delay after speech</span><span>{liveState.lastLatencyMs === null ? "—" : `${(liveState.lastLatencyMs / 1000).toFixed(1)} s`}</span></div>
+              <summary>{t("live.serviceDetails")}</summary>
+              <div className="statRow"><span>{t("live.delay")}</span><span>{liveState.lastLatencyMs === null ? "—" : t("live.seconds", { value: formatDecimal(liveState.lastLatencyMs / 1000, locale) })}</span></div>
               {activeTranslationSettings?.sanitizeLevel && activeTranslationSettings.sanitizeLevel !== "off" ? (
-                <div className="statRow"><span>Segments filtered</span><span>{formatCount(liveState.filteredSegments, locale)}</span></div>
+                <div className="statRow"><span>{t("live.filteredSegments")}</span><span>{formatCount(liveState.filteredSegments, locale)}</span></div>
               ) : null}
-              <div className="statRow"><span>Audio chunks dropped</span><span>{formatCount(liveState.droppedChunks, locale)}</span></div>
-              <div className="statRow"><span>Transcriptions</span><span>{formatCount(liveState.transcriptionRequests, locale)}</span></div>
-              <div className="statRow"><span>Translation calls</span><span>{formatCount(liveState.llmUsage.translationRequests, locale)}</span></div>
-              <div className="statRow"><span>Translation tokens</span><span>{formatCount(liveState.llmUsage.totalTokens, locale)}</span></div>
-              <div className="statRow"><span>Speech model</span><span translate="no">{cloudModels?.transcription ?? "—"}</span></div>
-              <div className="statRow"><span>Translation model</span><span translate="no">{cloudModels?.translation ?? "—"}</span></div>
+              <div className="statRow"><span>{t("live.droppedChunks")}</span><span>{formatCount(liveState.droppedChunks, locale)}</span></div>
+              <div className="statRow"><span>{t("live.transcriptions")}</span><span>{formatCount(liveState.transcriptionRequests, locale)}</span></div>
+              <div className="statRow"><span>{t("live.translationCalls")}</span><span>{formatCount(liveState.llmUsage.translationRequests, locale)}</span></div>
+              <div className="statRow"><span>{t("live.translationTokens")}</span><span>{formatCount(liveState.llmUsage.totalTokens, locale)}</span></div>
+              <div className="statRow"><span>{t("live.speechModel")}</span><span translate="no">{cloudModels?.transcription ?? "—"}</span></div>
+              <div className="statRow"><span>{t("live.translationModel")}</span><span translate="no">{cloudModels?.translation ?? "—"}</span></div>
             </details>
           </section>
         )}
 
         <section className="operatorCard liveShare" aria-labelledby="share-heading">
-          <h2 id="share-heading">Share</h2>
+          <h2 id="share-heading">{t("live.share")}</h2>
           <div className="shareRow">
             <span>
-              <strong>Phone viewer</strong>
+              <strong>{t("live.phoneViewer")}</strong>
               <br />
-              <span className="operatorHint">{viewerUrl ? "Live captions on phones" : "After you start"}</span>
+              <span className="operatorHint">{viewerUrl ? t("live.viewerReady") : t("common.afterStart")}</span>
             </span>
             <button type="button" className="secondaryButton" disabled={!viewerUrl} onClick={() => void copyViewerUrl()}>
-              {viewerCopied ? "Copied" : "Copy link"}
+              {viewerCopied ? t("common.copied") : t("common.copyLink")}
             </button>
           </div>
           <ServiceExperiencePanel view="sharing" service={liveState.service} observer={observed.observer} onReaderLink={rememberReaderLink} />
@@ -1499,8 +1523,8 @@ function OperatorDashboardContent() {
   const sermonsScreen = (
     <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
       <header className="settingsHeader">
-        <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>Sermons</h1>
-        <p className="settingHint">Saved transcripts are kept for 7 days and shared with everyone at {WORKSPACE_NAME}.</p>
+        <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>{t("sermons.title")}</h1>
+        <p className="settingHint">{t("sermons.hint", { workspace: WORKSPACE_NAME })}</p>
       </header>
       <ServiceExperiencePanel view="archive" service={liveState.service} onReaderLink={rememberReaderLink} summaryDefaults={summaryDefaults} />
     </main>
@@ -1510,28 +1534,28 @@ function OperatorDashboardContent() {
   const translationDefaultsStatus =
     translationDefaultsMessage ||
     (accountPreferences?.translationDefaults
-      ? "New services start from the church’s saved setup."
-      : "Not saved yet. Save to make this the church’s setup for new services.");
+      ? t("settings.translationDefaultsSaved")
+      : t("settings.translationDefaultsUnsaved"));
   const settingsScreen = (
     <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
-      <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1} className="visuallyHidden">Settings</h1>
+      <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1} className="visuallyHidden">{t("settings.title")}</h1>
       <div className="operatorColumns">
-        <nav className="settingsNav" aria-label="Settings sections">
+        <nav className="settingsNav" aria-label={t("settings.sectionsLabel")}>
           {SETTINGS_SECTIONS.map((section) => (
             <a
               key={section.id}
               href={`#settings=${section.id}`}
               aria-current={settingsSection === section.id ? "page" : undefined}
             >
-              {section.label}
+              {t(section.titleKey)}
             </a>
           ))}
-          <p className="operatorHint">“This computer” applies here only. Everything else is shared by everyone at {WORKSPACE_NAME}.</p>
+          <p className="operatorHint">{t("settings.scopeHint", { workspace: WORKSPACE_NAME })}</p>
         </nav>
         <section className="operatorCard settingsPanel" aria-labelledby="settings-section-heading">
           <header className="settingsHeader">
-            <h2 id="settings-section-heading">{currentSection.label}</h2>
-            <p className="settingHint">{currentSection.description}</p>
+            <h2 id="settings-section-heading">{t(currentSection.titleKey)}</h2>
+            <p className="settingHint">{t(currentSection.descriptionKey)}</p>
           </header>
           {["languages", "words", "translator"].includes(settingsSection) ? pendingBanner : null}
 
@@ -1548,7 +1572,7 @@ function OperatorDashboardContent() {
                 onStartAudioTest={() => { void startAudioTest().catch(() => undefined); }}
               />
               {hasService && isLive ? (
-                <p className="settingHint">Pause before changing the microphone.</p>
+                <p className="settingHint">{t("settings.pauseBeforeMicrophone")}</p>
               ) : null}
               <SettingGroup title={t("settings.interfaceLanguage.title")} hint={t("settings.interfaceLanguage.hint")}>
                 <label>
@@ -1605,16 +1629,16 @@ function OperatorDashboardContent() {
           {settingsSection === "look" ? (
             <>
               <SettingGroup
-                title="Preview"
+                title={t("settings.previewTitle")}
                 hint={hasService
-                  ? "Changes show on OBS straight away. Save keeps them for next week."
-                  : "Changes show here first. Save sends them to OBS and keeps them for next week."}
+                  ? t("settings.previewLiveHint")
+                  : t("settings.previewIdleHint")}
               >
                 <CaptionPreview
                   caption={monitorCaption || SAMPLE_CAPTIONS[targetLanguage]}
                   targetLanguage={monitorCaption ? monitorLanguage : targetLanguage}
                   style={style}
-                  badge={monitorCaption ? outputBadge : "Sample"}
+                  badge={monitorCaption ? outputBadge : t("live.badge.sample")}
                   live={monitorLive}
                 />
               </SettingGroup>
@@ -1725,7 +1749,7 @@ function OperatorDashboardContent() {
 
   return (
     <div className="operatorShell">
-      <a className="skipLink" href="#main">Skip to main content</a>
+      <a className="skipLink" href="#main">{t("page.skipLink")}</a>
       <OperatorTopBar screen={screen} status={status} />
       {screen === "live" ? liveScreen : screen === "sermons" ? sermonsScreen : screen === "settings" ? settingsScreen : helpScreen}
       {hasService && screen === "live" ? (
@@ -1748,19 +1772,19 @@ function OperatorDashboardContent() {
       ) : null}
       <ConfirmDialog
         dialogRef={endDialogRef}
-        title="End this service?"
-        body="Captions stop, the screen clears and the phone viewer link closes. OBS keeps its link for next time."
-        cancelLabel="Keep going"
-        actionLabel="End service"
+        title={t("dialog.endTitle")}
+        body={t("dialog.endBody")}
+        cancelLabel={t("dialog.keepGoing")}
+        actionLabel={t("dialog.endAction")}
         disabled={endActionDisabled}
         onConfirm={() => void stopSession()}
       />
       <ConfirmDialog
         dialogRef={takeoverDialogRef}
-        title="Take over captions?"
-        body={`${runningOperator ?? "The other operator"} stops captioning, the screen clears, and this computer’s microphone starts.`}
-        cancelLabel="Keep watching"
-        actionLabel="Take over"
+        title={t("dialog.takeoverTitle")}
+        body={t("dialog.takeoverBody", { operator: runningOperator ?? t("live.otherOperatorDefault") })}
+        cancelLabel={t("dialog.keepWatching")}
+        actionLabel={t("dialog.takeoverAction")}
         disabled={isBusy || cloudState !== "ready"}
         onConfirm={() => void startSession(true)}
         onCancel={cancelTakeover}

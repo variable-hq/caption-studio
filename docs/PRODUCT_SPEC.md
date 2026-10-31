@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 30 October 2026 against merged PR #80 (`3a7d1d2`). The corrected 13 September
+Reviewed 31 October 2026 against merged PR #82 (`54abcb0`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -152,11 +152,13 @@ language is listed and English otherwise. An account preference takes precedence
 browser copy is used only when account preferences cannot be reached. The active language
 is reflected in the document's `lang` attribute.
 
-The first localization phase covers the operator shell: top navigation, status labels,
-the live control bar, its status banner labels, and the language selector. Remaining
-operator panels, help and mobile remote, then public reader surfaces are separate planned
-phases. Caption-language names, AI prompts and server error text are not translated by
-the interface language setting.
+The first two localization phases cover the operator interface. Phase 1 provides the
+typed lookup and translates the shell: top navigation, status labels, the live control
+bar, its status banner labels, and the language selector. Phase 2 translates the operator
+panels, page messages, and the live-session hook and request fallbacks. The Help screen
+and mobile remote, then public reader surfaces, are separate planned phases.
+Caption-language names, AI prompts and server error text are not translated by the
+interface language setting.
 
 ## Current functional requirements
 

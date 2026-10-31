@@ -20,7 +20,6 @@ import {
   MAX_LIVE_SESSION_MS,
   normalizeCaptionStyle,
   recordingWindowBoundsMs,
-  recordingWindowLabel,
   type CaptionStyle,
   type LiveServiceDetails,
   type LiveSessionControlAction,
@@ -49,6 +48,7 @@ import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { experienceRequest } from "@/experience/client";
 import { startSerialPolling } from "@/live/serial-polling";
 import { useMicrophoneInput } from "@/live/use-microphone-input";
+import { useI18n } from "@/i18n/provider";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
 import { useRecentOutputs } from "@/live/use-recent-outputs";
 import { runCaptionInference } from "@/live/caption-inference";
@@ -107,7 +107,7 @@ function validStoredViewerUrl(value: string | null) {
 
 const INITIAL_LIVE_STATE: LiveSessionState = {
   status: "loading-channel",
-  message: "Loading the Main OBS channel…",
+  message: "",
   sequence: 0,
   droppedChunks: 0,
   filteredSegments: 0,
@@ -142,6 +142,11 @@ function isControllerReplaced(error: unknown) {
 }
 
 export function useLiveCaptionSession(settings: LiveCaptionSettings) {
+  const { t } = useI18n();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const { outputs: recentOutputs, record: recordRecentOutput, reset: resetRecentOutputs } = useRecentOutputs();
   const {
     devices,
@@ -156,7 +161,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     stopMicrophone,
     refreshDevices,
   } = useMicrophoneInput();
-  const [liveState, setLiveState] = useState<LiveSessionState>(INITIAL_LIVE_STATE);
+  const [liveState, setLiveState] = useState<LiveSessionState>(() => ({
+    ...INITIAL_LIVE_STATE,
+    message: t("live.message.loadingChannel"),
+  }));
   const remoteResultRef = useRef<{ controller: string; id: string; success: boolean } | null>(null);
   const [controlAction, setControlAction] =
     useState<LiveSessionControlAction | null>(null);
@@ -218,7 +226,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const lifecyclePauseRef = useRef(false);
   const recordingWindowRef = useRef<RecordingWindowMs>(DEFAULT_RECORDING_WINDOW_MS);
   const cloudClientRef = useRef(new CloudProviderClient());
-  const liveClientRef = useRef(new LiveSessionClient());
+  const liveClientRef = useRef(
+    new LiveSessionClient((key) => tRef.current(key)),
+  );
   const draftRunnerRef = useRef<LiveDraftRunner>(async () => null);
   const attemptsUsedRef = useRef(0);
   const liveDrafts = useLiveDrafts({
@@ -326,7 +336,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, []);
 
   const handleTakenOver = useCallback(
-    (message = "Control of the Main channel moved to another operator.") => {
+    (message = tRef.current("live.message.takenOver")) => {
       loadGenerationRef.current += 1;
       stopCapture();
       resetOutputBuffer();
@@ -373,7 +383,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   );
 
   const endService = useCallback(
-    async (message = "Live service ended. The reusable OBS URL is ready for next time.", failed = false) => {
+    async (message = tRef.current("live.message.ended"), failed = false) => {
       if (endingRef.current) return;
       endingRef.current = true;
       loadGenerationRef.current += 1;
@@ -410,7 +420,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         status: "ending",
-        message: "Ending the live service and clearing OBS…",
+        message: tRef.current("live.message.ending"),
       }));
       try {
         await liveClientRef.current.endService(service.controllerToken);
@@ -454,13 +464,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           handleTakenOver();
         } else {
           const detail =
-            error instanceof Error ? error.message : "Service deactivation failed.";
+            error instanceof Error ? error.message : tRef.current("live.message.deactivationFailed");
           endRetryRequiredRef.current = true;
           setEndRetryRequired(true);
           setLiveState((current) => ({
             ...current,
             status: "error",
-            message: `Audio stopped, but service deactivation was not confirmed. Retry End. ${detail}`,
+            message: tRef.current("live.message.deactivationUnconfirmed", { detail }),
             service,
           }));
         }
@@ -500,7 +510,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         ...current,
         status: "error",
         message:
-          "Translation was refreshed from another controller tab. Local audio stopped before more provider work. Review the draft and refresh this translation session to continue.",
+          tRef.current("live.message.translationRefreshedElsewhere"),
         latestSourceText: "",
         latestPublicText: "",
         latestPublicAt: null,
@@ -539,9 +549,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         recordRecentOutput({ id: crypto.randomUUID(), at: Date.now(), sourceText: entry.sourceText, publicText: entry.publicText, hidden: entry.hidden });
         setLiveState((state) => ({
           ...state,
-          message: entry.hidden
-            ? "A filtered caption was hidden from the public overlay."
-            : "Caption published to the OBS overlay.",
+          message: tRef.current(
+            entry.hidden
+              ? "live.message.filteredHidden"
+              : "live.message.published",
+          ),
           sequence: published.sequence,
           historyIncomplete: state.historyIncomplete || published.historyIncomplete === true,
           latestSourceText: entry.sourceText,
@@ -566,7 +578,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             latestPublicText: "",
             latestPublicAt: null,
             latestSourceText: "",
-            message: "Paused from the remote control.",
+            message: tRef.current("live.message.pausedRemote"),
           }));
           return;
         }
@@ -575,7 +587,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           return;
         }
         // Mirror drainQueue's escalation for the equivalent non-buffered publish failure.
-        const message = error instanceof Error ? error.message : "Buffered caption publish failed.";
+        const message = error instanceof Error ? error.message : tRef.current("live.message.bufferedPublishFailed");
         if (service.saveHistory) {
           setLiveState((state) => ({ ...state, historyIncomplete: true }));
           void experienceRequest("gap", {}, service.controllerToken).catch(() => {});
@@ -669,7 +681,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             text: originalSource, correction: sourceText !== originalSource ? sourceText : undefined,
             language: detectedLanguage, translationRevision: lease.translationRevision } }, serviceAtStart.controllerToken);
         } catch {
-          setLiveState((state) => ({ ...state, historyIncomplete: true, message: "History saving failed. The sermon archive may have gaps." }));
+          setLiveState((state) => ({ ...state, historyIncomplete: true, message: tRef.current("live.message.historySavingFailed") }));
           void experienceRequest("gap", {}, serviceAtStart.controllerToken).catch(() => {});
         }
       }
@@ -718,9 +730,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         recordRecentOutput({ id: crypto.randomUUID(), at: Date.now(), sourceText: forms.protectedSourceText, publicText: forms.publicText, hidden: forms.hiddenFromPublicDisplay });
         setLiveState((state) => ({
           ...state,
-          message: forms.hiddenFromPublicDisplay
-            ? "A filtered caption was hidden from the public overlay."
-            : "Caption published to the OBS overlay.",
+          message: tRef.current(
+            forms.hiddenFromPublicDisplay
+              ? "live.message.filteredHidden"
+              : "live.message.published",
+          ),
           sequence: published.sequence,
           historyIncomplete: state.historyIncomplete || published.historyIncomplete === true,
           latestSourceText: forms.protectedSourceText,
@@ -753,9 +767,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       }
       setLiveState((state) => ({
         ...state,
-        message: outcome.dropped
-          ? "The output buffer was full and paused; the latest translation was dropped."
-          : "Caption queued in the output buffer.",
+        message: tRef.current(
+          outcome.dropped
+            ? "live.message.bufferDropped"
+            : "live.message.queued",
+        ),
         lastLatencyMs: Math.round(performance.now() - startedAt),
       }));
     },
@@ -856,7 +872,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           if ((error instanceof LiveApiError || error instanceof CloudProviderClientError) && error.code === "service_paused") {
             stopCapture();
             resetOutputBuffer();
-            setLiveState((state) => ({ ...state, status: "paused", latestPublicText: "", latestPublicAt: null, latestSourceText: "", message: "Paused from the remote control." }));
+            setLiveState((state) => ({ ...state, status: "paused", latestPublicText: "", latestPublicAt: null, latestSourceText: "", message: tRef.current("live.message.pausedRemote") }));
             break;
           }
           if (
@@ -871,7 +887,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             break;
           }
           const message =
-            error instanceof Error ? error.message : "Caption processing failed.";
+            error instanceof Error ? error.message : tRef.current("live.message.captionProcessingFailed");
           if (serviceRef.current?.saveHistory) {
             setLiveState((state) => ({ ...state, historyIncomplete: true }));
             void experienceRequest("gap", {}, serviceRef.current.controllerToken).catch(() => {});
@@ -927,7 +943,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           ...state,
           historyIncomplete: state.historyIncomplete || serviceRef.current?.saveHistory === true,
           droppedChunks: state.droppedChunks + 1,
-          message: "Cloud processing is behind; one audio chunk was skipped.",
+          message: tRef.current("live.message.cloudBehind"),
         }));
         return;
       }
@@ -955,7 +971,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         };
         recorder.onerror = () => {
           if (generation === captureGenerationRef.current) {
-            void endService("The browser audio recorder stopped unexpectedly.", true);
+            void endService(tRef.current("live.message.recorderStopped"), true);
           }
         };
         recorder.onstop = () => {
@@ -1056,7 +1072,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       clearServiceTimer();
       sessionTimerRef.current = setBackgroundTimeout(() => {
         void endService(
-          "The 90-minute free-tier service limit was reached. The reusable OBS URL remains ready.",
+          tRef.current("live.message.serviceLimit"),
           true,
         );
       }, Math.min(MAX_LIVE_SESSION_MS, new Date(service.expiresAt).getTime() - Date.now()));
@@ -1075,7 +1091,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         status: "loading-channel",
-        message: "Loading the Main OBS channel…",
+        message: tRef.current("live.message.loadingChannel"),
       }));
     }
     try {
@@ -1132,9 +1148,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           setLiveState({
             ...INITIAL_LIVE_STATE,
             status: "paused",
-            message: storedTranslationSettings
-              ? "Recovered this operator tab in a safe paused state."
-              : "Recovered the service, but its browser settings were unavailable. Review them and refresh the translation session before resuming.",
+            message: tRef.current(
+              storedTranslationSettings
+                ? "live.message.recovered"
+                : "live.message.recoveredNoSettings",
+            ),
             channel: {
               ...channel,
               status: "paused",
@@ -1173,11 +1191,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState({
         ...INITIAL_LIVE_STATE,
         status: "idle",
-        message: channel.configured
-          ? channel.status === "idle"
-            ? "Main channel configured. Complete setup, then start captions."
-            : "The Main channel is currently controlled by another operator."
-          : "Create the Main OBS channel, then add its reusable URL to OBS.",
+        message: tRef.current(
+          channel.configured
+            ? channel.status === "idle"
+              ? "live.message.channelConfigured"
+              : "live.message.channelOtherOperator"
+            : "live.message.channelCreate",
+        ),
         channel,
         transcriptionRequests: channel.transcriptionRequests,
         llmUsage: channel.llmUsage,
@@ -1191,7 +1211,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState({
         ...INITIAL_LIVE_STATE,
         status: "error",
-        message: error instanceof Error ? error.message : "The Main channel could not load.",
+        message: error instanceof Error ? error.message : tRef.current("live.message.channelLoadFailed"),
       });
     }
   }, [armServiceTimer, requireTranslationRefresh]);
@@ -1215,7 +1235,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           }
           setLiveState((state) => ({
             ...state,
-            message: error instanceof Error ? error.message : "OBS style update failed.",
+            message: error instanceof Error ? error.message : tRef.current("live.message.styleUpdateFailed"),
           }));
         });
     }, 120);
@@ -1233,14 +1253,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         status: "idle",
-        message: "Main OBS channel created. Copy the URL into OBS and show a test caption.",
+        message: tRef.current("live.message.channelCreated"),
         channel,
       }));
     } catch (error) {
       setLiveState((current) => ({
         ...current,
         status: "error",
-        message: error instanceof Error ? error.message : "OBS channel creation failed.",
+        message: error instanceof Error ? error.message : tRef.current("live.message.channelCreationFailed"),
       }));
     } finally {
       setChannelAction(null);
@@ -1256,7 +1276,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         status: "idle",
-        message: "OBS URL rotated. Replace the old Browser Source URL in OBS.",
+        message: tRef.current("live.message.urlRotated"),
         latestPublicText: "",
         latestPublicAt: null,
         latestPublicLanguage: null,
@@ -1266,7 +1286,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         status: "error",
-        message: error instanceof Error ? error.message : "OBS URL rotation failed.",
+        message: error instanceof Error ? error.message : tRef.current("live.message.urlRotationFailed"),
       }));
     } finally {
       setChannelAction(null);
@@ -1282,7 +1302,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       await liveClientRef.current.updateStyle(style, service?.controllerToken);
       setLiveState((current) => ({
         ...current,
-        message: "Caption appearance saved to the shared Main channel.",
+        message: tRef.current("live.message.styleSaved"),
         channel: current.channel ? { ...current.channel, style } : current.channel,
       }));
     } catch (error) {
@@ -1290,7 +1310,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       else {
         setLiveState((current) => ({
           ...current,
-          message: error instanceof Error ? error.message : "Caption style save failed.",
+          message: error instanceof Error ? error.message : tRef.current("live.message.styleSaveFailed"),
         }));
       }
     } finally {
@@ -1334,7 +1354,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         service: updated,
-        message: "Mobile viewer link replaced. Share the new link with intended viewers.",
+        message: tRef.current("live.message.viewerReplaced"),
       }));
     } catch (error) {
       if (!serviceIsCurrent()) return;
@@ -1345,7 +1365,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           message:
             error instanceof Error
               ? error.message
-              : "The mobile viewer link could not be replaced.",
+              : tRef.current("live.message.viewerReplaceFailed"),
         }));
       }
     } finally {
@@ -1365,7 +1385,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         status: "starting",
-        message: takeover ? "Taking control of the Main channel…" : "Verifying cloud AI…",
+        message: takeover
+          ? tRef.current("live.message.takingOver")
+          : tRef.current("live.message.verifying"),
         sequence: 0,
         historyIncomplete: false,
         droppedChunks: 0,
@@ -1380,10 +1402,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       }));
       try {
         if (!liveState.channel?.configured) {
-          throw new Error("Create the Main OBS channel before starting captions.");
+          throw new Error(tRef.current("live.message.channelRequired"));
         }
         if (typeof MediaRecorder === "undefined") {
-          throw new Error("This browser does not support live audio recording.");
+          throw new Error(tRef.current("live.message.recordingUnsupported"));
         }
         await cloudClientRef.current.readiness();
         const stream = await ensureMicrophone(selectedDeviceId || undefined);
@@ -1425,12 +1447,20 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         capturingRef.current = true;
         startRecorder(stream, generation, recordingWindowMs);
         armServiceTimer(service);
+        const recordingWindowText =
+          recordingWindowMs === "dynamic"
+            ? tRef.current("recordingWindow.dynamicShort")
+            : tRef.current("recordingWindow.secondsShort", {
+                seconds: recordingWindowMs / 1_000,
+              });
         setLiveState((current) => ({
           ...current,
           status: "live",
           message: takeover
-            ? "Takeover complete. Listening for the next caption."
-            : `Listening. The first caption appears after the ${recordingWindowLabel(recordingWindowMs)} recording window and cloud processing.`,
+            ? tRef.current("live.message.takeoverComplete")
+            : tRef.current("live.message.listening", {
+                window: recordingWindowText,
+              }),
           service,
           channel: current.channel
             ? {
@@ -1449,7 +1479,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           setLiveState((current) => ({
             ...current,
             status: "idle",
-            message: "Another operator is live. Confirm takeover only if you intend to replace them.",
+            message: tRef.current("live.message.channelInUse"),
             channel: current.channel
               ? {
                   ...current.channel,
@@ -1461,9 +1491,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           return;
         }
         const detail =
-          error instanceof Error ? error.message : "Live service could not start.";
+          error instanceof Error ? error.message : tRef.current("live.message.startFailed");
         if (serviceRef.current) {
-          await endService(`Live service could not finish starting. ${detail}`, true);
+          await endService(tRef.current("live.message.startIncomplete", { detail }), true);
           return;
         }
         stopMicrophone();
@@ -1532,7 +1562,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     setLiveState((current) => ({
       ...current,
       status: "pausing",
-      message: "Stopping capture and clearing OBS…",
+      message: tRef.current("live.message.stoppingCapture"),
     }));
     stopCapture();
     resetOutputBuffer();
@@ -1546,7 +1576,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         status: "paused",
-        message: "Paused. The URL and 90-minute expiry are unchanged.",
+        message: tRef.current("live.message.paused"),
         latestSourceText: "",
         latestPublicText: "",
         latestPublicAt: null,
@@ -1560,9 +1590,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         setLiveState((current) => ({
           ...current,
           status: "error",
-          message: `Audio stopped, but server pause was not confirmed. ${
-            error instanceof Error ? error.message : "Retry Pause or End."
-          }`,
+          message: tRef.current("live.message.pauseNotConfirmed", {
+            detail:
+              error instanceof Error
+                ? error.message
+                : tRef.current("live.message.retryPauseOrEnd"),
+          }),
         }));
       }
     } finally {
@@ -1590,8 +1623,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         status: "paused",
-        message:
-          "Review the translation settings and refresh the translation session before resuming.",
+        message: tRef.current("live.message.reviewSettings"),
       }));
       return;
     }
@@ -1599,7 +1631,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     setLiveState((current) => ({
       ...current,
       status: "resuming",
-      message: "Reopening the selected audio input…",
+      message: tRef.current("live.message.resuming"),
     }));
     try {
       const stream = await ensureMicrophone(selectedDeviceId || undefined);
@@ -1625,7 +1657,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         status: "live",
-        message: "Listening again. The reusable OBS URL and expiry are unchanged.",
+        message: tRef.current("live.message.resumed"),
         latestPublicText: "",
         latestPublicAt: null,
         latestPublicLanguage: null,
@@ -1639,9 +1671,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         setLiveState((current) => ({
           ...current,
           status: "paused",
-          message: `Still paused. ${
-            error instanceof Error ? error.message : "Capture could not resume."
-          }`,
+          message: tRef.current("live.message.stillPaused", {
+            detail:
+              error instanceof Error
+                ? error.message
+                : tRef.current("live.message.resumeFailed"),
+          }),
         }));
       }
     } finally {
@@ -1682,7 +1717,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         message:
           error instanceof Error
             ? error.message
-            : "The translation settings are not valid.",
+            : tRef.current("live.message.invalidSettings"),
       }));
       return;
     }
@@ -1698,7 +1733,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       ...current,
       status: "refreshing",
       message:
-        "Refreshing translation context. The service, timer, links, and viewers remain connected…",
+        tRef.current("live.message.refreshing"),
     }));
     stopTranslationCapture();
 
@@ -1755,7 +1790,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             ...current,
             status: "live",
             message:
-              "Translation settings refreshed. Listening continues in the same service.",
+              tRef.current("live.message.refreshedLive"),
             latestSourceText: "",
             latestPublicText: "",
             latestPublicAt: null,
@@ -1806,16 +1841,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             ...current,
             status: pauseConfirmed ? "paused" : "error",
             message: pauseConfirmed
-              ? `Translation settings were refreshed, but audio could not restart. The service is paused; use Resume when ready. ${
-                  error instanceof Error
-                    ? error.message
-                    : "Microphone access failed."
-                }`
-              : `Translation settings were refreshed and local audio stopped, but the server pause was not confirmed. Retry Pause or End. ${
-                  pauseError instanceof Error
-                    ? pauseError.message
-                    : "Pause confirmation failed."
-                }`,
+              ? tRef.current("live.message.refreshResumeFailed", {
+                  detail:
+                    error instanceof Error
+                      ? error.message
+                      : tRef.current("live.message.microphoneAccessFailed"),
+                })
+              : tRef.current("live.message.refreshPauseFailed", {
+                  detail:
+                    pauseError instanceof Error
+                      ? pauseError.message
+                      : tRef.current("live.message.pauseConfirmFailed"),
+                }),
             latestSourceText: "",
             latestPublicText: "",
             latestPublicAt: null,
@@ -1867,11 +1904,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             setLiveState((current) => ({
               ...current,
               status: "error",
-              message: `Translation settings were refreshed and local audio is stopped, but the server pause was not confirmed. Retry Pause or End. ${
-                pauseError instanceof Error
-                  ? pauseError.message
-                  : "Pause confirmation failed."
-              }`,
+              message: tRef.current("live.message.refreshPauseFailed", {
+                detail:
+                  pauseError instanceof Error
+                    ? pauseError.message
+                    : tRef.current("live.message.pauseConfirmFailed"),
+              }),
               latestSourceText: "",
               latestPublicText: "",
               latestPublicAt: null,
@@ -1892,7 +1930,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           ...current,
           status: "paused",
           message:
-            "Translation settings refreshed. The service remains paused with the same timer and links.",
+            tRef.current("live.message.refreshedPaused"),
           latestSourceText: "",
           latestPublicText: "",
           latestPublicAt: null,
@@ -1931,9 +1969,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         setLiveState((current) => ({
           ...current,
           status: "paused",
-          message: `Audio capture stopped, but the translation refresh was not confirmed. Retry Refresh; the live service and links remain available. ${
-            error instanceof Error ? error.message : "Refresh failed."
-          }`,
+          message: tRef.current("live.message.refreshNotConfirmed", {
+            detail:
+              error instanceof Error
+                ? error.message
+                : tRef.current("live.message.refreshFailed"),
+          }),
           latestSourceText: "",
           latestPublicText: "",
           latestPublicAt: null,
@@ -1980,10 +2021,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       }
       setLiveState((current) => ({
         ...current,
-        message:
+        message: tRef.current(
           current.status === "paused"
-            ? "Paused. The OBS caption is clear."
-            : "OBS is clear. The next valid caption may replace it.",
+            ? "live.message.clearedPaused"
+            : "live.message.clearedLive",
+        ),
         latestSourceText: "",
         latestPublicText: "",
         latestPublicAt: null,
@@ -1997,7 +2039,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         setLiveState((current) => ({
           ...current,
           status: "error",
-          message: error instanceof Error ? error.message : "OBS could not be cleared.",
+          message: error instanceof Error ? error.message : tRef.current("live.message.clearFailed"),
         }));
       }
       return false;
@@ -2023,8 +2065,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         ...state,
         message:
           state.status === "paused"
-            ? "Synthetic test shown. Resume clears it before live audio restarts."
-            : "Synthetic test shown in the reusable OBS source.",
+            ? tRef.current("live.message.testShownPaused")
+            : tRef.current("live.message.testShown"),
         sequence: response.sequence ?? state.sequence,
         latestSourceText: "",
         latestPublicText: SAMPLE_CAPTIONS[current.targetLanguage],
@@ -2039,7 +2081,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       else {
         setLiveState((current) => ({
           ...current,
-          message: error instanceof Error ? error.message : "Test caption failed.",
+          message: error instanceof Error ? error.message : tRef.current("live.message.testFailed"),
         }));
       }
     } finally {
@@ -2070,8 +2112,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         setLiveState((state) => ({
           ...state,
           message: response.historyIncomplete
-            ? "Manual caption shown, but it could not be saved to the sermon archive."
-            : "Manual caption shown. Resume clears it before live audio restarts.",
+            ? tRef.current("live.message.manualNotSaved")
+            : tRef.current("live.message.manualShown"),
           sequence: response.sequence ?? state.sequence,
           historyIncomplete: state.historyIncomplete || response.historyIncomplete === true,
           latestSourceText: "",
@@ -2087,7 +2129,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         else {
           setLiveState((current) => ({
             ...current,
-            message: error instanceof Error ? error.message : "Manual caption failed.",
+            message: error instanceof Error ? error.message : tRef.current("live.message.manualFailed"),
           }));
         }
       } finally {
@@ -2108,7 +2150,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       setLiveState((current) => ({
         ...current,
         status: "paused",
-        message: "App or tab inactive. Audio stopped; confirming the channel is paused.",
+        message: tRef.current("live.message.appInactive"),
         latestSourceText: "",
         latestPublicText: "",
         latestPublicAt: null,

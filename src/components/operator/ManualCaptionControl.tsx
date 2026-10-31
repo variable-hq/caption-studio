@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 
+import { useT } from "@/i18n/provider";
 import { MAX_MANUAL_CAPTION_CHARS } from "@/live/contracts";
 
 interface ManualCaptionControlProps {
@@ -19,6 +20,7 @@ export function ManualCaptionControl({
   busy = false,
   onShow,
 }: ManualCaptionControlProps) {
+  const t = useT();
   const [text, setText] = useState("");
   const helpId = useId();
 
@@ -33,7 +35,7 @@ export function ManualCaptionControl({
         }}
       >
         <label>
-          Show your own message
+          {t("manualCaption.label")}
           <input
             name="manualCaptionText"
             autoComplete="off"
@@ -41,7 +43,7 @@ export function ManualCaptionControl({
             maxLength={MAX_MANUAL_CAPTION_CHARS}
             disabled={disabled}
             aria-describedby={helpId}
-            placeholder="e.g. Please silence your phones…"
+            placeholder={t("manualCaption.placeholder")}
             onChange={(event) => setText(event.target.value)}
           />
         </label>
@@ -50,11 +52,11 @@ export function ManualCaptionControl({
           type="submit"
           disabled={disabled || busy || !text.trim()}
         >
-          {busy ? "Showing…" : "Show now"}
+          {busy ? t("common.showing") : t("manualCaption.showNow")}
         </button>
       </form>
       <p className="settingHint" id={helpId}>
-        Shows on OBS and phones while paused, and is saved in the transcript. Resume or Clear screen removes it.
+        {t("manualCaption.hint")}
       </p>
     </div>
   );

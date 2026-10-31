@@ -7,11 +7,16 @@ import { DEFAULT_SUMMARY_OPTIONS } from "@/experience/summary-defaults";
 import { LANGUAGE_OPTIONS } from "@/domain/languages";
 import { SettingGroup } from "@/components/operator/SettingsParts";
 import { SessionMetadataFields } from "@/components/operator/SessionMetadataFields";
+import type { MessageKey } from "@/i18n";
+import { useI18n } from "@/i18n/provider";
 
 interface Archive { details: Omit<JournalState, "readerHash">; metadata: SessionMetadata; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
 interface ServiceEntry { id: string; startedAt: number; metadata?: SessionMetadata }
 
+type PanelMessage = { key: MessageKey } | { text: string } | null;
+
 export function ServiceExperiencePanel({ view, service, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; service: LiveServiceDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
+  const { locale, t } = useI18n();
   const [services, setServices] = useState<ServiceEntry[]>([]);
   const [archive, setArchive] = useState<Archive | null>(null);
   const [metadataDraft, setMetadataDraft] = useState<SessionMetadata>({ ...EMPTY_SESSION_METADATA });
@@ -27,7 +32,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
   const dialogRef = useRef<HTMLDialogElement>(null);
   const transcriptRef = useRef<HTMLDetailsElement>(null);
   const summaryRequestRef = useRef<{ serviceId: string; id: string } | null>(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<PanelMessage>(null);
   const [busy, setBusy] = useState(false);
   const [model, setModel] = useState<SummaryModel>(summaryDefaults.model);
   const [language, setLanguage] = useState(summaryDefaults.language);
@@ -45,6 +50,12 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
   const [reviewed, setReviewed] = useState(false);
   const [now, setNow] = useState(0);
   const archiveRetained = Boolean(archive && (archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION > now);
+  const dateTime = (value: number, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale, options).format(value);
+  const summaryState = (status: string) => {
+    const key = `serviceExperience.summaryState.${status}` as MessageKey;
+    return status in SUMMARY_STATE_KEYS ? t(key) : status;
+  };
+  const messageText = message === null ? "" : "text" in message ? message.text : t(message.key);
   useEffect(() => {
     const initial = setTimeout(() => setNow(Date.now()), 0);
     const interval = setInterval(() => setNow(Date.now()), 60_000);
@@ -63,19 +74,21 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
       try {
         const result = await experienceRequest<Archive>(`sermons/${id}/archive`);
         if (!stopped) setArchive((old) => old?.details.id === id ? { ...old, details: result.details, summary: result.summary } : old);
-      } catch { if (!stopped) setMessage("Summary status unavailable. Refresh archive to retry."); }
+      } catch { if (!stopped) setMessage({ key: "serviceExperience.summaryStatusUnavailable" }); }
       if (!stopped) timer = setTimeout(() => void poll(), 5000);
     };
     timer = setTimeout(() => void poll(), 5000);
     return () => { stopped = true; clearTimeout(timer); };
   }, [archive?.details.id, archive?.summary?.status]);
   async function perform(work: () => Promise<void>) {
-    if (busy) return; setBusy(true); setMessage("");
+    if (busy) return; setBusy(true); setMessage(null);
     try { await work(); } catch (error) {
       if (error instanceof ExperienceRequestError && error.status === 410) { setArchive(null); setEditingMetadata(false); }
       // A network failure or a non-JSON reply (an HTML error page, a proxy) is a connection
       // problem, not a message to show verbatim.
-      setMessage(error instanceof Error && !(error instanceof SyntaxError) && !(error instanceof TypeError) ? error.message : "Couldn’t reach the sermon store. Check the connection, then try again.");
+      setMessage(error instanceof Error && !(error instanceof SyntaxError) && !(error instanceof TypeError)
+        ? { text: error.message }
+        : { key: "serviceExperience.sermonStoreUnreachable" });
     }
     finally { setBusy(false); }
   }
@@ -107,7 +120,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
       if (result.sources.length < 50) return sources;
       after = result.sources.at(-1)!.id;
     }
-    throw new Error("Transcript exceeded its service bound.");
+    throw new Error(t("serviceExperience.transcriptExceeded"));
   }
   function download(name: string, content: unknown) {
     const url = URL.createObjectURL(new Blob([JSON.stringify(content, null, 2)], { type: "application/json" }));
@@ -117,110 +130,137 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
   return <div className="experienceStack">
     {view === "sharing" && <>
       <div className="shareRow">
-        <span><strong>Sermon reader</strong><br /><span className="operatorHint">{service ? "Read along on a phone" : "After you start"}</span></span>
+        <span><strong>{t("serviceExperience.readerTitle")}</strong><br /><span className="operatorHint">{service ? t("serviceExperience.readerReady") : t("common.afterStart")}</span></span>
         <button className="secondaryButton" disabled={!service || busy} onClick={() => {
           const current = readerLink && readerLink.serviceId === service?.serviceId ? readerLink.url : service?.readerUrl;
-          if (current) { setIssuedLink({ serviceId: service!.serviceId!, url: current }); setMessage("Reader link ready to copy."); }
+          if (current) { setIssuedLink({ serviceId: service!.serviceId!, url: current }); setMessage({ key: "serviceExperience.readerLinkReady" }); }
           else setConfirmation("reader");
-        }}>Get link</button>
+        }}>{t("serviceExperience.getLink")}</button>
       </div>
       <div className="shareRow">
-        <span><strong>Phone remote</strong><br /><span className="operatorHint">{canPair ? "Pause from the stage" : "After you start"}</span></span>
+        <span><strong>{t("serviceExperience.remoteTitle")}</strong><br /><span className="operatorHint">{canPair ? t("serviceExperience.remoteReady") : t("common.afterStart")}</span></span>
         <button className="secondaryButton" disabled={!canPair || busy} onClick={() => void perform(async () => {
-          const result = await experienceRequest<{ url: string }>("pair", {}, service?.controllerToken); setIssuedLink({ serviceId: pairedServiceId, url: result.url }); setMessage("Phone paired. Open the link on your phone; any phone paired before is unpaired.");
-        })}>Pair phone</button>
+          const result = await experienceRequest<{ url: string }>("pair", {}, service?.controllerToken); setIssuedLink({ serviceId: pairedServiceId, url: result.url }); setMessage({ key: "serviceExperience.phonePaired" });
+        })}>{t("serviceExperience.pairPhone")}</button>
       </div>
-      {!service && observer && <p className="operatorHint">Another operator started this service. Your phone can still pause, resume and clear it; the reader link stays with them.</p>}
-      {link && <label>Link to open on the phone<input name="experienceLink" autoComplete="off" spellCheck={false} readOnly value={link} />
-        <button className="secondaryButton" onClick={() => void perform(async () => { await navigator.clipboard.writeText(link); setMessage("Link copied."); })}>Copy link</button></label>}
-      {service && <details className="advancedActions"><summary>Reader link shared by mistake?</summary>
-        <p className="operatorHint">Replacing it stops the old link straight away.</p>
-        <button className="dangerOutlineButton" disabled={busy} onClick={() => setConfirmation("reader")}>Replace reader link</button></details>}
+      {!service && observer && <p className="operatorHint">{t("serviceExperience.otherOperator")}</p>}
+      {link && <label>{t("serviceExperience.phoneLinkLabel")}<input name="experienceLink" autoComplete="off" spellCheck={false} readOnly value={link} />
+        <button className="secondaryButton" onClick={() => void perform(async () => { await navigator.clipboard.writeText(link); setMessage({ key: "serviceExperience.linkCopied" }); })}>{t("common.copyLink")}</button></label>}
+      {service && <details className="advancedActions"><summary>{t("serviceExperience.readerSharedByMistake")}</summary>
+        <p className="operatorHint">{t("serviceExperience.readerReplaceHint")}</p>
+        <button className="dangerOutlineButton" disabled={busy} onClick={() => setConfirmation("reader")}>{t("serviceExperience.replaceReaderLink")}</button></details>}
     </>}
     {view === "archive" && <div className="operatorColumns">
-      <nav className="settingsNav sermonList" aria-label="Saved sermons">
-        <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void loadList()}>Refresh list</button></div>
-        {loadedList && !services.length && <p className="settingHint">No saved sermons yet.</p>}
+      <nav className="settingsNav sermonList" aria-label={t("serviceExperience.savedSermons")}>
+        <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void loadList()}>{t("serviceExperience.refreshList")}</button></div>
+        {loadedList && !services.length && <p className="settingHint">{t("serviceExperience.noSermons")}</p>}
         <div className="archiveList">{services.map((entry) => <button type="button" className="sermonListItem" key={entry.id} disabled={busy}
           aria-current={archive?.details.id === entry.id ? "page" : undefined}
-          onClick={() => void perform(() => load(entry.id))}>{entry.metadata?.topic ? `${entry.metadata.topic} · ` : ""}{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(entry.metadata?.sessionAt ?? entry.startedAt)}</button>)}</div>
+          onClick={() => void perform(() => load(entry.id))}>{entry.metadata?.topic ? `${entry.metadata.topic} · ` : ""}{dateTime(entry.metadata?.sessionAt ?? entry.startedAt, { dateStyle: "medium", timeStyle: "short" })}</button>)}</div>
       </nav>
       <section className="operatorCard settingsPanel" aria-labelledby="archive-heading">
         {!archive ? <>
-          <header className="settingsHeader"><h2 id="archive-heading">{services.length ? "Choose a sermon" : "No saved sermons yet"}</h2>
-            <p className="settingHint">{services.length ? "Pick one from the list to read its transcript and make a summary." : "Tick “Save the transcript” on the Live screen before you start a service. Saved sermons are kept for 7 days."}</p></header>
+          <header className="settingsHeader"><h2 id="archive-heading">{services.length ? t("serviceExperience.chooseSermon") : t("serviceExperience.noSermons")}</h2>
+            <p className="settingHint">{services.length ? t("serviceExperience.chooseSermonHint") : t("serviceExperience.noSermonsHint")}</p></header>
         </> : <>
-        <header className="settingsHeader"><h2 id="archive-heading">{archive.metadata.topic || new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(archive.metadata.sessionAt ?? archive.details.startedAt)}</h2>
-          <p className="settingHint">{archive.metadata.sessionAt !== null ? `${new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(archive.metadata.sessionAt)} · ` : ""}{archive.details.status === "ended" ? "Ended" : "Still running"} · kept until {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format((archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION)}</p></header>
+        <header className="settingsHeader"><h2 id="archive-heading">{archive.metadata.topic || dateTime(archive.metadata.sessionAt ?? archive.details.startedAt, { dateStyle: "full", timeStyle: "short" })}</h2>
+          <p className="settingHint">{archive.metadata.sessionAt !== null ? `${dateTime(archive.metadata.sessionAt, { dateStyle: "full", timeStyle: "short" })} · ` : ""}{t("serviceExperience.keptUntil", {
+            status: archive.details.status === "ended" ? t("serviceExperience.ended") : t("serviceExperience.stillRunning"),
+            date: dateTime((archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION, { dateStyle: "medium", timeStyle: "short" }),
+          })}</p></header>
         {editingMetadata ? <div className="experienceCard"><SessionMetadataFields value={metadataDraft} disabled={busy} onChange={setMetadataDraft} />
-          <div className="buttonRow"><button type="button" className="secondaryButton" disabled={busy} onClick={() => { setMetadataDraft(normalizeSessionMetadata(archive.metadata)); setEditingMetadata(false); }}>Cancel</button>
-            <button type="button" className="primaryButton" disabled={busy} onClick={() => void perform(async () => { const result = await experienceRequest<{ metadata: SessionMetadata }>(`sermons/${archive.details.id}/metadata`, normalizeSessionMetadata(metadataDraft)); setMetadataDraft(result.metadata); setArchive({ ...archive, metadata: result.metadata }); setEditingMetadata(false); })}>Save details</button></div></div>
-          : <><div className="archiveMetadata">{archive.metadata.speaker ? <p><strong>Speaker</strong> {archive.metadata.speaker}</p> : null}{archive.metadata.description ? <p>{archive.metadata.description}</p> : null}</div>
-            <button type="button" className="textButton" disabled={busy || !archive.details.saved || !archiveRetained} onClick={() => setEditingMetadata(true)}>Edit details</button></>}
-        {archive.details.incomplete && <p className="operatorBanner" data-tone="warn">Parts of this service weren’t captured. Check the gaps in the transcript before sharing.</p>}
-        <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(() => load(archive.details.id))}>Refresh</button>
-          <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => download("sermon-transcript.json", await allSources(archive.details.id)))}>Export transcript</button>
-          <button className="dangerOutlineButton" disabled={busy || archive.details.status !== "ended"} onClick={() => setConfirmation("delete")}>Delete sermon</button></div>
-        <SettingGroup title="AI summary" hint={<>{length === "detailed" ? "Detailed" : "Short"} · {LANGUAGE_OPTIONS.find((entry) => entry.locale === language)?.label ?? language}{guidance ? ` · ${guidance}` : ""}. <a href="#settings=summary">Change defaults</a></>}>
+          <div className="buttonRow"><button type="button" className="secondaryButton" disabled={busy} onClick={() => { setMetadataDraft(normalizeSessionMetadata(archive.metadata)); setEditingMetadata(false); }}>{t("common.cancel")}</button>
+            <button type="button" className="primaryButton" disabled={busy} onClick={() => void perform(async () => { const result = await experienceRequest<{ metadata: SessionMetadata }>(`sermons/${archive.details.id}/metadata`, normalizeSessionMetadata(metadataDraft)); setMetadataDraft(result.metadata); setArchive({ ...archive, metadata: result.metadata }); setEditingMetadata(false); })}>{t("serviceExperience.saveDetails")}</button></div></div>
+          : <><div className="archiveMetadata">{archive.metadata.speaker ? <p><strong>{t("serviceExperience.speaker")}</strong> {archive.metadata.speaker}</p> : null}{archive.metadata.description ? <p>{archive.metadata.description}</p> : null}</div>
+            <button type="button" className="textButton" disabled={busy || !archive.details.saved || !archiveRetained} onClick={() => setEditingMetadata(true)}>{t("serviceExperience.editDetails")}</button></>}
+        {archive.details.incomplete && <p className="operatorBanner" data-tone="warn">{t("serviceExperience.incomplete")}</p>}
+        <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(() => load(archive.details.id))}>{t("common.refresh")}</button>
+          <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => download("sermon-transcript.json", await allSources(archive.details.id)))}>{t("serviceExperience.exportTranscript")}</button>
+          <button className="dangerOutlineButton" disabled={busy || archive.details.status !== "ended"} onClick={() => setConfirmation("delete")}>{t("serviceExperience.deleteSermon")}</button></div>
+        <SettingGroup title={t("serviceExperience.summaryTitle")} hint={<>{guidance
+          ? t("serviceExperience.summaryHintWithGuidance", {
+              length: length === "detailed" ? t("summarySettings.detailed") : t("summarySettings.short"),
+              language: LANGUAGE_OPTIONS.find((entry) => entry.locale === language)?.label ?? language,
+              guidance,
+            })
+          : t("serviceExperience.summaryHint", {
+              length: length === "detailed" ? t("summarySettings.detailed") : t("summarySettings.short"),
+              language: LANGUAGE_OPTIONS.find((entry) => entry.locale === language)?.label ?? language,
+            })}{" "}<a href="#settings=summary">{t("serviceExperience.changeDefaults")}</a></>}>
           <div className="buttonRow"><button className="primaryButton" disabled={busy || archive.details.status !== "ended" || ["queued", "running"].includes(archive.summary?.status ?? "")}
             onClick={() => void perform(async () => {
               if (summaryRequestRef.current?.serviceId !== archive.details.id) summaryRequestRef.current = { serviceId: archive.details.id, id: crypto.randomUUID() };
               await experienceRequest(`sermons/${archive.details.id}/summary`, { model, language, length, guidance, requestId: summaryRequestRef.current.id });
               summaryRequestRef.current = null;
               await load(archive.details.id);
-            })}>Generate summary</button></div>
-          {archive.summary && <div className="summaryDraft"><p className="settingHint" role="status">Summary {archive.summary.status}. {archive.summary.error}{archive.summary.automatic ? " Made automatically when the service ended." : ""}</p>
-            {archive.summary.result?.map((point, index) => <p key={index}>{point.text} <small>Sources: {point.sourceIds.map((id) => <button key={id} type="button" className="textButton" onClick={() => void perform(async () => {
+            })}>{t("serviceExperience.generateSummary")}</button></div>
+          {archive.summary && <div className="summaryDraft"><p className="settingHint" role="status">{
+            (archive.summary.automatic ? t("serviceExperience.summaryStatusAutomatic", {
+              status: summaryState(archive.summary.status),
+              error: archive.summary.error ?? "",
+            }) : t("serviceExperience.summaryStatus", {
+              status: summaryState(archive.summary.status),
+              error: archive.summary.error ?? "",
+            }))
+          }</p>
+            {archive.summary.result?.map((point, index) => <p key={index}>{point.text} <small>{t("serviceExperience.sources")} {point.sourceIds.map((id) => <button key={id} type="button" className="textButton" onClick={() => void perform(async () => {
               const sources = archive.sources.some((source) => source.id === id) ? archive.sources : await allSources(archive.details.id);
               setArchive({ ...archive, sources });
               if (transcriptRef.current) transcriptRef.current.open = true;
               requestAnimationFrame(() => { const source = document.getElementById(`source-${id}`); source?.scrollIntoView({ block: "center" }); source?.focus({ preventScroll: true }); });
             })}>#{id}</button>)}</small></p>)}
-            {archive.summary.status === "completed" && <><label className="checkLabel"><input type="checkbox" name="summaryReviewed" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} />I checked this summary against the transcript</label>
-              <div className="buttonRow"><button className="secondaryButton" disabled={!reviewed} onClick={() => download("sermon-summary.json", { summary: archive.summary, reviewed: true })}>Export summary</button></div></>}
+            {archive.summary.status === "completed" && <><label className="checkLabel"><input type="checkbox" name="summaryReviewed" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} />{t("serviceExperience.summaryReviewed")}</label>
+              <div className="buttonRow"><button className="secondaryButton" disabled={!reviewed} onClick={() => download("sermon-summary.json", { summary: archive.summary, reviewed: true })}>{t("serviceExperience.exportSummary")}</button></div></>}
           </div>}
         </SettingGroup>
-        <SettingGroup title="Transcript" hint="What was heard. Corrections stay private; to change what readers see, remove the passage below.">
-          <details ref={transcriptRef} className="advancedActions"><summary>Show the transcript</summary><div className="archiveRecords">{archive.sources.map((source) => <article id={`source-${source.id}`} tabIndex={-1} key={source.id}>
-            <p className="settingHint">{new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(source.at)}{source.excluded ? " · Removed from summaries" : ""}</p>
+        <SettingGroup title={t("serviceExperience.transcriptTitle")} hint={t("serviceExperience.transcriptHint")}>
+          <details ref={transcriptRef} className="advancedActions"><summary>{t("serviceExperience.showTranscript")}</summary><div className="archiveRecords">{archive.sources.map((source) => <article id={`source-${source.id}`} tabIndex={-1} key={source.id}>
+            <p className="settingHint">{dateTime(source.at, { timeStyle: "short" })}{source.excluded ? ` · ${t("serviceExperience.removedFromSummaries")}` : ""}</p>
             <p lang={source.language}>{source.correction ?? source.text}</p>
-            <div className="buttonRow"><button type="button" className="secondaryButton" onClick={() => setCorrection({ id: source.id, text: source.correction ?? source.text })}>Correct</button></div>
+            <div className="buttonRow"><button type="button" className="secondaryButton" onClick={() => setCorrection({ id: source.id, text: source.correction ?? source.text })}>{t("serviceExperience.correct")}</button></div>
           </article>)}</div>{archive.more && <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => {
             const sources = await allSources(archive.details.id); setArchive({ ...archive, sources, more: false });
-          })}>Load full transcript</button></div>}</details>
-          {correction && <div className="correctionEditor"><label>Corrected text<textarea name="sourceCorrection" autoComplete="off" value={correction.text} maxLength={4000} rows={4} onChange={(event) => setCorrection({ ...correction, text: event.target.value })} /></label>
-            <p className="settingHint">Saving clears any summary made from this passage.</p>
-            <div className="buttonRow"><button type="button" className="secondaryButton" onClick={() => setCorrection(null)}>Cancel</button>
+          })}>{t("serviceExperience.loadFullTranscript")}</button></div>}</details>
+          {correction && <div className="correctionEditor"><label>{t("serviceExperience.correctedText")}<textarea name="sourceCorrection" autoComplete="off" value={correction.text} maxLength={4000} rows={4} onChange={(event) => setCorrection({ ...correction, text: event.target.value })} /></label>
+            <p className="settingHint">{t("serviceExperience.correctionHint")}</p>
+            <div className="buttonRow"><button type="button" className="secondaryButton" onClick={() => setCorrection(null)}>{t("common.cancel")}</button>
               <button type="button" className="primaryButton" disabled={busy || !correction.text.trim()} onClick={() => void perform(async () => {
                 await experienceRequest(`sermons/${archive.details.id}/correct`, correction); setCorrection(null); await load(archive.details.id);
-              })}>Save correction</button></div></div>}
+              })}>{t("serviceExperience.saveCorrection")}</button></div></div>}
         </SettingGroup>
-        <SettingGroup title="Reader passages" hint="What people with the reader link see.">
-          <details className="advancedActions"><summary>Show reader passages</summary>{archive.paragraphs.filter((paragraph) => !paragraph.removed).map((paragraph) => <article key={paragraph.id} className="readerParagraph">
-            <p>{paragraph.text}</p><div className="buttonRow"><button type="button" className="dangerOutlineButton" onClick={() => setConfirmation(`remove:${paragraph.id}`)}>Remove</button></div></article>)}{archive.moreParagraphs && <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => {
+        <SettingGroup title={t("serviceExperience.readerPassagesTitle")} hint={t("serviceExperience.readerPassagesHint")}>
+          <details className="advancedActions"><summary>{t("serviceExperience.showReaderPassages")}</summary>{archive.paragraphs.filter((paragraph) => !paragraph.removed).map((paragraph) => <article key={paragraph.id} className="readerParagraph">
+            <p>{paragraph.text}</p><div className="buttonRow"><button type="button" className="dangerOutlineButton" onClick={() => setConfirmation(`remove:${paragraph.id}`)}>{t("common.remove")}</button></div></article>)}{archive.moreParagraphs && <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => {
             const result = await experienceRequest<Archive>(`sermons/${archive.details.id}/archive?paragraphAfter=${archive.paragraphs.at(-1)?.id ?? 0}`);
             setArchive({ ...archive, paragraphs: [...archive.paragraphs, ...result.paragraphs], moreParagraphs: result.moreParagraphs });
-          })}>Load more passages</button></div>}</details>
+          })}>{t("serviceExperience.loadMorePassages")}</button></div>}</details>
         </SettingGroup>
-        {(archive.notes?.length ?? 0) > 0 && <SettingGroup title="Your messages" hint="Messages you showed during the service.">
+        {(archive.notes?.length ?? 0) > 0 && <SettingGroup title={t("serviceExperience.yourMessagesTitle")} hint={t("serviceExperience.yourMessagesHint")}>
           {archive.notes.map((note) => <p key={note.id} className="readerNote">{note.text}</p>)}
         </SettingGroup>}
         </>}
-        <p className="settingHint" role="status" aria-live="polite">{busy ? "Working…" : message}</p>
+        <p className="settingHint" role="status" aria-live="polite">{busy ? t("common.working") : messageText}</p>
       </section>
     </div>}
     <dialog ref={dialogRef} className="confirmationDialog" aria-labelledby="experience-confirm-heading" onCancel={() => setConfirmation(null)}><div>
-      <h2 id="experience-confirm-heading">{confirmation === "reader" ? "Replace the reader link?" : confirmation === "delete" ? "Delete this sermon?" : "Remove this passage?"}</h2>
-      <p>{confirmation === "reader" ? "The old reader link stops working straight away. Send the new one to readers." : confirmation === "delete" ? "The transcript, reader passages and summary are deleted for everyone. This can’t be undone." : "Readers stop seeing this passage and summaries leave it out. The original stays private until the sermon is deleted."}</p>
-      <div className="confirmationRow"><button className="secondaryButton" disabled={busy} onClick={() => setConfirmation(null)}>{confirmation === "delete" ? "Keep it" : "Cancel"}</button>
+      <h2 id="experience-confirm-heading">{confirmation === "reader" ? t("serviceExperience.dialogReplaceReaderTitle") : confirmation === "delete" ? t("serviceExperience.dialogDeleteTitle") : t("serviceExperience.dialogRemoveTitle")}</h2>
+      <p>{confirmation === "reader" ? t("serviceExperience.dialogReplaceReaderBody") : confirmation === "delete" ? t("serviceExperience.dialogDeleteBody") : t("serviceExperience.dialogRemoveBody")}</p>
+      <div className="confirmationRow"><button className="secondaryButton" disabled={busy} onClick={() => setConfirmation(null)}>{confirmation === "delete" ? t("serviceExperience.keepIt") : t("common.cancel")}</button>
         <button className="dangerButton" disabled={busy || (confirmation === "reader" && !service)} onClick={() => void perform(async () => {
           if (confirmation === "reader") { const result = await experienceRequest<{ url: string }>("reader-rotate", {}, service!.controllerToken); setIssuedLink({ serviceId: service!.serviceId!, url: result.url }); setReaderLink({ serviceId: service!.serviceId!, url: result.url }); onReaderLink(result.url); }
           else if (archive) {
             if (confirmation === "delete") { await experienceRequest(`sermons/${archive.details.id}/delete`, { confirm: true }); setServices(services.filter((entry) => entry.id !== archive.details.id)); setArchive(null); }
             else if (confirmation) { await experienceRequest(`sermons/${archive.details.id}/remove`, { id: Number(confirmation.split(":")[1]), confirm: true }); await load(archive.details.id); }
           }
-          setConfirmation(null); setMessage("Done.");
-        })}>{confirmation === "reader" ? "Replace link" : confirmation === "delete" ? "Delete sermon" : "Remove passage"}</button></div></div></dialog>
-    {view === "sharing" && <p className="settingHint" role="status" aria-live="polite">{busy ? "Working…" : message}</p>}
+          setConfirmation(null); setMessage({ key: "common.done" });
+        })}>{confirmation === "reader" ? t("serviceExperience.replaceLink") : confirmation === "delete" ? t("serviceExperience.deleteSermon") : t("serviceExperience.removePassage")}</button></div></div></dialog>
+    {view === "sharing" && <p className="settingHint" role="status" aria-live="polite">{busy ? t("common.working") : messageText}</p>}
   </div>;
 }
+
+const SUMMARY_STATE_KEYS = {
+  queued: "serviceExperience.summaryState.queued",
+  running: "serviceExperience.summaryState.running",
+  completed: "serviceExperience.summaryState.completed",
+  failed: "serviceExperience.summaryState.failed",
+} as const satisfies Record<string, MessageKey>;
