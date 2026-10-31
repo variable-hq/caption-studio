@@ -8,6 +8,8 @@ export default defineConfig([
   {
     files: [
       "src/components/operator/**/*.tsx",
+      "src/app/page.tsx",
+      "src/app/operator/mobile/page.tsx",
     ],
     rules: {
       "react/jsx-no-literals": [
