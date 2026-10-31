@@ -86,7 +86,7 @@ import { EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata 
 import { experienceRequest } from "@/experience/client";
 import { ServiceExperiencePanel } from "@/components/operator/ServiceExperiencePanel";
 import { UsageHistory } from "@/components/operator/UsageHistory";
-import { formatCount } from "@/components/operator/format-count";
+import { formatCount, formatDecimal } from "@/components/operator/format-count";
 import { formatClock } from "@/components/operator/format-clock";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
@@ -1487,7 +1487,7 @@ function OperatorDashboardContent() {
             </details>
             <details className="advancedActions">
               <summary>{t("live.serviceDetails")}</summary>
-              <div className="statRow"><span>{t("live.delay")}</span><span>{liveState.lastLatencyMs === null ? "—" : t("live.seconds", { value: (liveState.lastLatencyMs / 1000).toFixed(1) })}</span></div>
+              <div className="statRow"><span>{t("live.delay")}</span><span>{liveState.lastLatencyMs === null ? "—" : t("live.seconds", { value: formatDecimal(liveState.lastLatencyMs / 1000, locale) })}</span></div>
               {activeTranslationSettings?.sanitizeLevel && activeTranslationSettings.sanitizeLevel !== "off" ? (
                 <div className="statRow"><span>{t("live.filteredSegments")}</span><span>{formatCount(liveState.filteredSegments, locale)}</span></div>
               ) : null}

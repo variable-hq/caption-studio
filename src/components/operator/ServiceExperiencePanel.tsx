@@ -177,11 +177,16 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
         <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(() => load(archive.details.id))}>{t("common.refresh")}</button>
           <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => download("sermon-transcript.json", await allSources(archive.details.id)))}>{t("serviceExperience.exportTranscript")}</button>
           <button className="dangerOutlineButton" disabled={busy || archive.details.status !== "ended"} onClick={() => setConfirmation("delete")}>{t("serviceExperience.deleteSermon")}</button></div>
-        <SettingGroup title={t("serviceExperience.summaryTitle")} hint={<>{t("serviceExperience.summaryHint", {
-          length: length === "detailed" ? t("summarySettings.detailed") : t("summarySettings.short"),
-          language: LANGUAGE_OPTIONS.find((entry) => entry.locale === language)?.label ?? language,
-          guidance: guidance ? ` · ${guidance}` : "",
-        })}<a href="#settings=summary">{t("serviceExperience.changeDefaults")}</a></>}>
+        <SettingGroup title={t("serviceExperience.summaryTitle")} hint={<>{guidance
+          ? t("serviceExperience.summaryHintWithGuidance", {
+              length: length === "detailed" ? t("summarySettings.detailed") : t("summarySettings.short"),
+              language: LANGUAGE_OPTIONS.find((entry) => entry.locale === language)?.label ?? language,
+              guidance,
+            })
+          : t("serviceExperience.summaryHint", {
+              length: length === "detailed" ? t("summarySettings.detailed") : t("summarySettings.short"),
+              language: LANGUAGE_OPTIONS.find((entry) => entry.locale === language)?.label ?? language,
+            })}{" "}<a href="#settings=summary">{t("serviceExperience.changeDefaults")}</a></>}>
           <div className="buttonRow"><button className="primaryButton" disabled={busy || archive.details.status !== "ended" || ["queued", "running"].includes(archive.summary?.status ?? "")}
             onClick={() => void perform(async () => {
               if (summaryRequestRef.current?.serviceId !== archive.details.id) summaryRequestRef.current = { serviceId: archive.details.id, id: crypto.randomUUID() };

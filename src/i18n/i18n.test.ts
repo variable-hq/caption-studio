@@ -8,7 +8,7 @@ import {
 } from "@/i18n";
 import { en } from "@/i18n/messages/en";
 import { id } from "@/i18n/messages/id";
-import { formatCount } from "@/components/operator/format-count";
+import { formatCount, formatDecimal } from "@/components/operator/format-count";
 
 describe("operator interface translations", () => {
   it("keeps every Indonesian key and placeholder aligned with English", () => {
@@ -54,5 +54,10 @@ describe("operator interface translations", () => {
   it("formats counts with the selected interface locale", () => {
     expect(formatCount(12_345, "en")).toBe("12,345");
     expect(formatCount(12_345, "id")).toBe("12.345");
+  });
+
+  it("formats one-decimal values with the selected interface locale", () => {
+    expect(formatDecimal(1.5, "en")).toBe("1.5");
+    expect(formatDecimal(1.5, "id")).toBe("1,5");
   });
 });
