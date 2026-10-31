@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 31 October 2026 against merged PR #82 (`54abcb0`). The corrected 13 September
+Reviewed 31 October 2026 against merged PR #83 (`4602588`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -152,13 +152,14 @@ language is listed and English otherwise. An account preference takes precedence
 browser copy is used only when account preferences cannot be reached. The active language
 is reflected in the document's `lang` attribute.
 
-The first two localization phases cover the operator interface. Phase 1 provides the
+The first three localization phases cover the operator interface. Phase 1 provides the
 typed lookup and translates the shell: top navigation, status labels, the live control
 bar, its status banner labels, and the language selector. Phase 2 translates the operator
-panels, page messages, and the live-session hook and request fallbacks. The Help screen
-and mobile remote, then public reader surfaces, are separate planned phases.
+panels, page messages, and the live-session hook and request fallbacks. Phase 3 translates
+the Help screen and phone remote. Public reader surfaces are a separate planned phase.
 Caption-language names, AI prompts and server error text are not translated by the
-interface language setting.
+interface language setting. The phone remote does not load account preferences, so it
+follows that browser's saved interface-language copy or browser language, then English.
 
 ## Current functional requirements
 

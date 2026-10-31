@@ -1728,21 +1728,21 @@ function OperatorDashboardContent() {
     <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
       <section className="operatorCard settingsPanel helpPanel">
       <header className="settingsHeader">
-        <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>How it works</h1>
-        <p className="settingHint">The steps of a service, in order.</p>
+        <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>{t("help.title")}</h1>
+        <p className="settingHint">{t("help.intro")}</p>
       </header>
       <ol className="helpSteps">
-        <li>Check the list on the Live screen. If an item is red, press the button next to it.</li>
-        <li>Tick <strong>Save the transcript</strong> if you want the sermon text and a summary afterwards.</li>
-        <li>Press <strong>Start captions</strong> when the sermon begins.</li>
-        <li>Copy the <strong>Phone viewer</strong> link and share it with the congregation.</li>
-        <li>Press <strong>Pause</strong> during songs and announcements, and <strong>Clear screen</strong> to remove a wrong caption. Both stay at the bottom of the screen.</li>
-        <li>Press <strong>End service</strong> when it’s over. The transcript and summary are in <strong>Sermons</strong>.</li>
+        <li>{t("help.step1")}</li>
+        <li>{t("help.step2.before")}{" "}<strong>{t("help.step2.label")}</strong>{" "}{t("help.step2.after")}</li>
+        <li>{t("help.step3.before")}{" "}<strong>{t("live.start")}</strong>{" "}{t("help.step3.after")}</li>
+        <li>{t("help.step4.before")}{" "}<strong>{t("live.phoneViewer")}</strong>{" "}{t("help.step4.after")}</li>
+        <li>{t("help.step5.before")}{" "}<strong>{t("shell.controls.pause")}</strong>{" "}{t("help.step5.middle")}{" "}<strong>{t("shell.controls.clearScreen")}</strong>{" "}{t("help.step5.after")}</li>
+        <li>{t("help.step6.before")}{" "}<strong>{t("dialog.endAction")}</strong>{" "}{t("help.step6.middle")}{" "}<strong>{t("sermons.title")}</strong>{t("help.step6.after")}</li>
       </ol>
       <p className="settingHint">
-        First time? Open <a href="#settings=obs">Settings › OBS &amp; links</a> and create the OBS link, then add it to OBS as a 1920 × 1080 Browser Source.
+        {t("help.firstTime.before")}{" "}<a href="#settings=obs">{t("help.settingsObsLinks")}</a>{" "}{t("help.firstTime.after")}
       </p>
-      <div className="buttonRow"><a className="primaryButton" href="#live">Back to Live</a></div>
+      <div className="buttonRow"><a className="primaryButton" href="#live">{t("help.backToLive")}</a></div>
       </section>
     </main>
   );

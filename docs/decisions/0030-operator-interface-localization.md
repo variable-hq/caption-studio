@@ -1,6 +1,6 @@
 # ADR 0030: operator interface localization
 
-Date: 30 October 2026. Status: accepted, Phases 1–2 implemented; Indonesian pending native review.
+Date: 30 October 2026. Status: accepted, Phases 1–3 implemented; Indonesian pending native review.
 
 ## Decision
 
@@ -10,6 +10,8 @@ interpolation, fallback, and small plural messages. English messages in `message
 are the source of truth. Indonesian overrides live in `messages/id.ts`; missing translations
 fall back to English. Flat dot-separated keys are namespaced by component, and complete
 sentences stay in a single message instead of being assembled from translated fragments.
+Where a sentence surrounds an inline bold control label, the sentence is split around that
+label so the message itself contains no markup.
 
 The interface locale is distinct from source and target caption languages. `uiLocale` is a
 personal `OperatorPreferences` field and is excluded from the church-wide setup. A saved
@@ -18,9 +20,11 @@ otherwise a null preference follows `navigator.languages`, preferring Indonesian
 listed and falling back to English. The selected locale updates `<html lang>`.
 
 Localization proceeds in separate phases: Phase 1 provides the mechanism and migrates the
-shell; Phase 2 migrates operator panels and their hook messages; Phase 3 migrates help and
+shell; Phase 2 migrates operator panels and their hook messages; Phase 3 migrates Help and
 the phone remote; Phase 4 localizes public reader surfaces from the request's
-`Accept-Language`, never operator preferences. The OBS overlay contains no text.
+`Accept-Language`, never operator preferences. The OBS overlay contains no text. The phone
+remote does not load account preferences, so it uses that browser's saved interface-language
+copy or its browser language, then English.
 
 Out of scope are AI prompts and the immutable model envelope, server errors returned in API
 JSON (unless a stable existing error code is available to map), ADRs and documentation,
@@ -50,8 +54,8 @@ review**. Reviewers should use this terminology consistently:
   translation keys and placeholder sets, reject empty messages, and exercise fallback,
   interpolation, plural rules and browser-locale normalization.
 - Phase 1 localizes the shell and the Interface language setting; Phase 2 localizes the
-  operator panels, page messages, and their hook and request fallbacks. The Help screen
-  and mobile remote remain English until Phase 3, so the JSX literal guard currently
-  covers `src/components/operator/` and is extended to `src/app/page.tsx` when that screen
-  migrates. Responsive Indonesian review is still required, and Indonesian copy and
-  terminology require review by a native speaker before the locale is considered complete.
+  operator panels, page messages, and their hook and request fallbacks; Phase 3 localizes
+  the Help screen and phone remote. The JSX literal guard covers `src/components/operator/`,
+  `src/app/page.tsx` and the mobile page. Responsive Indonesian review is still required,
+  and Indonesian copy and terminology require review by a native speaker before the locale
+  is considered complete.
