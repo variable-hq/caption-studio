@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  localeFromAcceptLanguage,
   normalizeUiLocale,
   normalizeUiLocalePreference,
   translate,
@@ -49,6 +50,15 @@ describe("operator interface translations", () => {
     expect(normalizeUiLocale(null, ["en-US", "id-ID"])).toBe("en");
     expect(normalizeUiLocale("en", ["id-ID"])).toBe("en");
     expect(normalizeUiLocale(null, ["fr-FR"])).toBe("en");
+  });
+
+  it("chooses a public locale from Accept-Language with an English fallback", () => {
+    expect(localeFromAcceptLanguage("id-ID,id;q=0.9,en;q=0.8")).toBe("id");
+    expect(localeFromAcceptLanguage("en-US,en;q=0.9")).toBe("en");
+    expect(localeFromAcceptLanguage("fr-FR,id;q=0.8")).toBe("id");
+    expect(localeFromAcceptLanguage("fr-FR")).toBe("en");
+    expect(localeFromAcceptLanguage("id;q=0")).toBe("en");
+    expect(localeFromAcceptLanguage(null)).toBe("en");
   });
 
   it("formats counts with the selected interface locale", () => {

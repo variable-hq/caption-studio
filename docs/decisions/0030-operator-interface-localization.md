@@ -1,6 +1,6 @@
 # ADR 0030: operator interface localization
 
-Date: 30 October 2026. Status: accepted, Phases 1–3 implemented; Indonesian pending native review.
+Date: 30 October 2026. Status: accepted, Phases 1–4 implemented; Indonesian pending native review.
 
 ## Decision
 
@@ -55,7 +55,9 @@ review**. Reviewers should use this terminology consistently:
   interpolation, plural rules and browser-locale normalization.
 - Phase 1 localizes the shell and the Interface language setting; Phase 2 localizes the
   operator panels, page messages, and their hook and request fallbacks; Phase 3 localizes
-  the Help screen and phone remote. The JSX literal guard covers `src/components/operator/`,
-  `src/app/page.tsx` and the mobile page. Responsive Indonesian review is still required,
-  and Indonesian copy and terminology require review by a native speaker before the locale
-  is considered complete.
+  the Help screen and phone remote; Phase 4 localizes the public reader page and the
+  Worker-rendered viewer document from `Accept-Language`. The JSX literal guard covers the
+  operator components, the dashboard, the mobile page and the reader page; viewer-document
+  copy lives in the same catalogs. Responsive Indonesian review is still required, and
+  Indonesian copy and terminology require review by a native speaker before the locale is
+  considered complete.

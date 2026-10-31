@@ -10,6 +10,7 @@ export default defineConfig([
       "src/components/operator/**/*.tsx",
       "src/app/page.tsx",
       "src/app/operator/mobile/page.tsx",
+      "src/app/read/**/*.tsx",
     ],
     rules: {
       "react/jsx-no-literals": [
