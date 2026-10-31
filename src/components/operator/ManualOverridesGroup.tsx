@@ -3,6 +3,7 @@
 import { ManualCaptionControl } from "@/components/operator/ManualCaptionControl";
 import { OutputBufferQueueControl } from "@/components/operator/OutputBufferQueueControl";
 import { LiveWordControl } from "@/components/operator/LiveWordControl";
+import { useT } from "@/i18n/provider";
 import type { LiveWordEntry } from "@/live/live-words";
 import type { OutputBufferQueueState } from "@/live/output-buffer";
 import type { WordRow } from "@/live/words";
@@ -47,9 +48,10 @@ export function ManualOverridesGroup({
   onShowManualCaption,
   outputBuffer,
 }: ManualOverridesGroupProps) {
+  const t = useT();
   return (
-    <div className="manualOverrides" role="group" aria-label="Caption controls">
-      <span className="manualOverridesLabel">Caption controls</span>
+    <div className="manualOverrides" role="group" aria-label={t("manualOverrides.label")}>
+      <span className="manualOverridesLabel">{t("manualOverrides.label")}</span>
       <LiveWordControl
         entries={liveWordEntries}
         onAdd={onAddLiveWord}

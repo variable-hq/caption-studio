@@ -3,10 +3,15 @@ import { useEffect, useState } from "react";
 import { experienceRequest } from "@/experience/client";
 import type { UsageRecord } from "@/experience/contracts";
 import { SettingGroup } from "@/components/operator/SettingsParts";
+import type { MessageKey } from "@/i18n";
+import { useI18n } from "@/i18n/provider";
+
+type UsageMessage = { key: MessageKey } | { text: string };
 
 export function UsageHistory() {
+  const { locale, t } = useI18n();
   const [records, setRecords] = useState<UsageRecord[]>([]);
-  const [message, setMessage] = useState("Loading…");
+  const [message, setMessage] = useState<UsageMessage>({ key: "common.loading" });
   const [busy, setBusy] = useState(false);
   const groups = new Map<string, { calls: number; tokens: number; seconds: number; unknown: number; neurons: number }>();
   for (const record of records) {
@@ -17,7 +22,7 @@ export function UsageHistory() {
     groups.set(key, group);
   }
   async function load() {
-    setBusy(true); setMessage("Loading usage…");
+    setBusy(true); setMessage({ key: "usage.loading" });
     try {
       let after: string | null = "";
       const rows = new Map<string, UsageRecord>();
@@ -26,10 +31,10 @@ export function UsageHistory() {
         for (const row of result.records) rows.set(row.id, row);
         after = result.next;
       }
-      setRecords([...rows.values()]); setMessage(after ? "Showing part of the last 30 days; the rest didn’t load." : "Up to date. Calls whose outcome is unconfirmed aren’t in the token totals.");
+      setRecords([...rows.values()]); setMessage({ key: after ? "usage.partial" : "usage.upToDate" });
     } catch (error) {
       setMessage(error instanceof Error && !(error instanceof SyntaxError) && !(error instanceof TypeError)
-        ? error.message : "Couldn’t load usage. Check the connection, then press Refresh.");
+        ? { text: error.message } : { key: "usage.loadFailed" });
     }
     finally { setBusy(false); }
   }
@@ -48,44 +53,59 @@ export function UsageHistory() {
     const day = days.get(date) ?? { calls: 0, tokens: 0, unknown: 0 };
     day.calls++; day.tokens += row.tokens?.totalTokens ?? 0; day.unknown += Number(row.status !== "completed"); days.set(date, day);
   }
-  const count = (value: number) => new Intl.NumberFormat().format(value);
+  const count = (value: number) => new Intl.NumberFormat(locale).format(value);
   const transcriptions = records.filter((row) => row.stage === "transcription").length;
   const translations = records.filter((row) => row.stage === "translation").length;
+  const countsLine = (calls: number, tokens: number, unknown: number) => unknown
+    ? t("usage.countsUnconfirmed", { calls: count(calls), tokens: count(tokens), unknown: count(unknown) })
+    : t("usage.counts", { calls: count(calls), tokens: count(tokens) });
+  const audioCountsLine = (calls: number, tokens: number, seconds: number, unknown: number) => unknown
+    ? t("usage.countsAudioUnconfirmed", {
+      calls: count(calls),
+      tokens: count(tokens),
+      minutes: count(Math.round(seconds / 60)),
+      unknown: count(unknown),
+    })
+    : t("usage.countsAudio", {
+      calls: count(calls),
+      tokens: count(tokens),
+      minutes: count(Math.round(seconds / 60)),
+    });
   return (
-    <SettingGroup title="Last 30 days" hint="Counts survive Clear, End and deleting a sermon; each record expires after 30 days.">
+    <SettingGroup title={t("usage.title")} hint={t("usage.hint")}>
       <div className="statTiles">
-        <div className="statTile"><span>Services</span><strong>{count(services.size)}</strong></div>
-        <div className="statTile"><span>Transcriptions</span><strong>{count(transcriptions)}</strong></div>
-        <div className="statTile"><span>Translations</span><strong>{count(translations)}</strong></div>
+        <div className="statTile"><span>{t("usage.services")}</span><strong>{count(services.size)}</strong></div>
+        <div className="statTile"><span>{t("usage.transcriptions")}</span><strong>{count(transcriptions)}</strong></div>
+        <div className="statTile"><span>{t("usage.translations")}</span><strong>{count(translations)}</strong></div>
       </div>
       <div className="buttonRow">
-        <button type="button" className="secondaryButton" disabled={busy} onClick={() => void load()}>{busy ? "Loading…" : "Refresh"}</button>
+        <button type="button" className="secondaryButton" disabled={busy} onClick={() => void load()}>{busy ? t("common.loading") : t("common.refresh")}</button>
       </div>
-      <p className="settingHint" role="status" aria-live="polite">{message}</p>
+      <p className="settingHint" role="status" aria-live="polite">{"text" in message ? message.text : t(message.key)}</p>
       <details className="advancedActions">
-        <summary>Usage by day (UTC)</summary>
-        {days.size === 0 ? <p className="settingHint">Nothing recorded yet.</p> : null}
+        <summary>{t("usage.byDay")}</summary>
+        {days.size === 0 ? <p className="settingHint">{t("usage.nothing")}</p> : null}
         {[...days].sort(([first], [second]) => second.localeCompare(first)).map(([date, day]) => (
-          <div className="statRow" key={date}><span>{date}</span><span>{count(day.calls)} calls · {count(day.tokens)} tokens{day.unknown ? ` · ${count(day.unknown)} unconfirmed` : ""}</span></div>
+          <div className="statRow" key={date}><span>{date}</span><span>{countsLine(day.calls, day.tokens, day.unknown)}</span></div>
         ))}
       </details>
       <details className="advancedActions">
-        <summary>Usage by service</summary>
-        {services.size === 0 ? <p className="settingHint">Nothing recorded yet.</p> : null}
+        <summary>{t("usage.byService")}</summary>
+        {services.size === 0 ? <p className="settingHint">{t("usage.nothing")}</p> : null}
         {[...services].sort(([, first], [, second]) => second.at - first.at).map(([id, service]) => (
           <div className="statRow" key={id}>
-            <span>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(service.at)}</span>
-            <span>{count(service.calls)} calls · {count(service.tokens)} tokens{service.unknown ? ` · ${count(service.unknown)} unconfirmed` : ""}</span>
+            <span>{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(service.at)}</span>
+            <span>{countsLine(service.calls, service.tokens, service.unknown)}</span>
           </div>
         ))}
       </details>
       <details className="advancedActions">
-        <summary>Usage by AI service</summary>
-        {groups.size === 0 ? <p className="settingHint">Nothing recorded yet.</p> : null}
+        <summary>{t("usage.byAiService")}</summary>
+        {groups.size === 0 ? <p className="settingHint">{t("usage.nothing")}</p> : null}
         {[...groups].map(([name, group]) => (
           <div className="statRow" key={name}>
             <span translate="no">{name}</span>
-            <span>{count(group.calls)} calls · {count(group.tokens)} tokens · {count(Math.round(group.seconds / 60))} audio min{group.unknown ? ` · ${count(group.unknown)} unconfirmed` : ""}</span>
+            <span>{audioCountsLine(group.calls, group.tokens, group.seconds, group.unknown)}</span>
           </div>
         ))}
       </details>

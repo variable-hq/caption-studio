@@ -2,6 +2,8 @@
 
 import { useId } from "react";
 
+import { translatePlural } from "@/i18n";
+import { useI18n } from "@/i18n/provider";
 import {
   DEFAULT_OUTPUT_BUFFER_DWELL_MS,
   OUTPUT_BUFFER_DWELL_OPTIONS_MS,
@@ -36,15 +38,16 @@ export function OutputBufferPanel({
   defaultCount = null,
   defaultDwellMs = null,
 }: OutputBufferPanelProps) {
+  const { locale, t } = useI18n();
   const helpId = useId();
   const value = count > 0 ? String(dwellMs) : "off";
   const defaultValue = defaultCount === null ? null : defaultCount > 0 ? String(defaultDwellMs ?? DEFAULT_OUTPUT_BUFFER_DWELL_MS) : "off";
-  const badge = (option: string) => (defaultValue === option ? " · Church default" : "");
+  const badge = (option: string) => (defaultValue === option ? t("common.churchDefaultBadge") : "");
 
   return (
     <div className="outputBufferPanel">
       <label>
-        Wait before showing each caption
+        {t("outputBuffer.waitLabel")}
         <select
           name="outputBufferWait"
           autoComplete="off"
@@ -58,21 +61,20 @@ export function OutputBufferPanel({
             onDwellChange(normalizeOutputBufferDwellMs(event.target.value));
           }}
         >
-          <option value="off">Off: show straight away{badge("off")}</option>
+          <option value="off">{t("outputBuffer.offOption", { badge: badge("off") })}</option>
           {OUTPUT_BUFFER_DWELL_OPTIONS_MS.map((ms) => (
             <option value={ms} key={ms}>
-              Wait {ms / 1000} {ms === 1000 ? "second" : "seconds"}{badge(String(ms))}
+              {translatePlural(locale, "outputBuffer.waitOption", ms / 1000, { badge: badge(String(ms)) })}
             </option>
           ))}
         </select>
       </label>
       <p className="helpText" id={helpId}>
-        While a caption waits under Next up you can edit, pause or skip it. Changes apply
-        straight away.
+        {t("outputBuffer.help")}
       </p>
       <div className="saveRow">
         <button className="secondaryButton" type="button" onClick={onSaveDefault} disabled={disabled}>
-          Save for everyone
+          {t("common.saveForEveryone")}
         </button>
         <p role="status" aria-live="polite" aria-atomic="true">
           {savedMessage}

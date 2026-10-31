@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { SettingGroup } from "@/components/operator/SettingsParts";
+import { useT } from "@/i18n/provider";
 import type { LiveSessionControlAction } from "@/live/contracts";
 
 interface ObsOverlayProps {
@@ -41,14 +42,15 @@ interface LiveOutputsSectionProps {
 
 /** Settings › OBS & links: the reusable OBS link, the phone viewer link, and replacing either. */
 export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, obs, viewer }: LiveOutputsSectionProps) {
+  const t = useT();
   const testDisabled = obs.controlAction !== null || anotherOperatorActive || isBusy;
   return (
     <>
       <SettingGroup
-        title="OBS"
+        title={t("liveOutputs.obsTitle")}
         hint={obs.configured
-          ? "Add this link once in OBS as a 1920 × 1080 Browser Source; it stays the same every week. Keep it private: anyone with it can show your captions."
-          : "Create the OBS link once, then paste it into OBS as a 1920 × 1080 Browser Source."}
+          ? t("liveOutputs.obsConfiguredHint")
+          : t("liveOutputs.obsUnconfiguredHint")}
       >
         {!obs.configured ? (
           <div className="buttonRow">
@@ -58,28 +60,28 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
               disabled={obs.channelAction !== null || isBusy}
               onClick={() => obs.onCreateChannel()}
             >
-              {obs.channelAction === "create" ? "Creating…" : "Create OBS link"}
+              {obs.channelAction === "create" ? t("common.creating") : t("liveOutputs.createObs")}
             </button>
           </div>
         ) : (
           <>
             <div className="buttonRow">
               <button type="button" className="primaryButton" onClick={() => obs.onCopyUrl()}>
-                {obs.copied ? "Copied" : "Copy OBS link"}
+                {obs.copied ? t("common.copied") : t("liveOutputs.copyObs")}
               </button>
               {!hasService ? (
                 <>
                   <button type="button" className="secondaryButton" disabled={testDisabled} onClick={() => obs.onShowTest()}>
-                    {obs.controlAction === "show-test" ? "Showing…" : "Show a test caption"}
+                    {obs.controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
                   </button>
                   <button type="button" className="secondaryButton" disabled={testDisabled} onClick={() => obs.onClearCaption()}>
-                    {obs.controlAction === "clear" ? "Clearing…" : "Clear screen"}
+                    {obs.controlAction === "clear" ? t("common.clearing") : t("liveOutputs.clearScreen")}
                   </button>
                 </>
               ) : null}
             </div>
             <details className="advancedActions">
-              <summary>Show the link to copy by hand</summary>
+              <summary>{t("common.showLinkManually")}</summary>
               {obs.urlField}
             </details>
           </>
@@ -87,25 +89,25 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
       </SettingGroup>
 
       <SettingGroup
-        title="Phone viewer"
+        title={t("liveOutputs.phoneViewerTitle")}
         hint={hasService
-          ? "Share this with the congregation. It shows only the current caption and stops working when the service ends."
-          : "A new link is made each time you start. It appears here and on the Live screen."}
+          ? t("liveOutputs.phoneViewerLiveHint")
+          : t("liveOutputs.phoneViewerIdleHint")}
       >
         {hasService && viewer.url ? (
           <>
             <div className="buttonRow">
               <button className="primaryButton" type="button" onClick={() => viewer.onCopy()}>
-                {viewer.copied ? "Copied" : "Copy link"}
+                {viewer.copied ? t("common.copied") : t("common.copyLink")}
               </button>
               <button className="secondaryButton" type="button" onClick={() => viewer.onOpenPreview()}>
-                Open preview
+                {t("liveOutputs.openPreview")}
               </button>
             </div>
             <details className="advancedActions">
-              <summary>Show the link to copy by hand</summary>
+              <summary>{t("common.showLinkManually")}</summary>
               <label>
-                Phone viewer link
+                {t("liveOutputs.phoneViewerLink")}
                 <input name="viewerLink" value={viewer.url} readOnly autoComplete="off" spellCheck={false} />
               </label>
             </details>
@@ -118,24 +120,24 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
               disabled={viewer.viewerAction !== null || isBusy}
               onClick={() => viewer.onReplace()}
             >
-              {viewer.viewerAction === "replace" ? "Creating…" : "Create phone viewer link"}
+              {viewer.viewerAction === "replace" ? t("common.creating") : t("liveOutputs.createViewerLink")}
             </button>
           </div>
         ) : null}
       </SettingGroup>
 
       {obs.configured ? (
-        <SettingGroup title="A link was shared by mistake?" hint="Replacing a link stops the old one straight away.">
+        <SettingGroup title={t("liveOutputs.sharedByMistakeTitle")} hint={t("liveOutputs.sharedByMistakeHint")}>
           {hasService && viewer.url ? (
             <div className="replaceRow">
               <span>
-                <strong>Phone viewer link</strong>
+                <strong>{t("liveOutputs.phoneViewerLink")}</strong>
                 <br />
-                <span className="settingHint">People watching on phones disconnect; share the new link. OBS is not affected.</span>
+                <span className="settingHint">{t("liveOutputs.replaceViewerHint")}</span>
               </span>
               {viewer.confirmReplace ? (
                 <span className="buttonRow">
-                  <button className="secondaryButton" type="button" onClick={() => viewer.onConfirmReplaceChange(false)}>Cancel</button>
+                  <button className="secondaryButton" type="button" onClick={() => viewer.onConfirmReplaceChange(false)}>{t("common.cancel")}</button>
                   <button
                     className="dangerButton"
                     type="button"
@@ -145,29 +147,29 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
                       viewer.onReplace();
                     }}
                   >
-                    {viewer.viewerAction === "replace" ? "Replacing…" : "Replace link"}
+                    {viewer.viewerAction === "replace" ? t("common.replacing") : t("liveOutputs.replaceLink")}
                   </button>
                 </span>
               ) : (
                 <button className="dangerOutlineButton" type="button" disabled={viewer.viewerAction !== null || isBusy} onClick={() => viewer.onConfirmReplaceChange(true)}>
-                  Replace…
+                  {t("common.replaceEllipsis")}
                 </button>
               )}
             </div>
           ) : null}
           <div className="replaceRow">
             <span>
-              <strong>OBS link</strong>
+              <strong>{t("liveOutputs.obsLink")}</strong>
               <br />
               <span className="settingHint">
                 {hasService || anotherOperatorActive
-                  ? "Available when no service is running."
-                  : "The old OBS source stops working; paste the new link into OBS."}
+                  ? t("liveOutputs.obsReplaceUnavailable")
+                  : t("liveOutputs.obsReplaceHint")}
               </span>
             </span>
             {obs.confirmRotate ? (
               <span className="buttonRow">
-                <button className="secondaryButton" type="button" onClick={() => obs.onConfirmRotateChange(false)}>Cancel</button>
+                <button className="secondaryButton" type="button" onClick={() => obs.onConfirmRotateChange(false)}>{t("common.cancel")}</button>
                 <button
                   className="dangerButton"
                   type="button"
@@ -177,12 +179,12 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
                     obs.onRotateChannel();
                   }}
                 >
-                  {obs.channelAction === "rotate" ? "Replacing…" : "Replace OBS link"}
+                  {obs.channelAction === "rotate" ? t("common.replacing") : t("liveOutputs.replaceObs")}
                 </button>
               </span>
             ) : (
               <button className="dangerOutlineButton" type="button" disabled={anotherOperatorActive || hasService} onClick={() => obs.onConfirmRotateChange(true)}>
-                Replace…
+                {t("common.replaceEllipsis")}
               </button>
             )}
           </div>

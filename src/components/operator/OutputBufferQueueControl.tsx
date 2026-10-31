@@ -2,6 +2,7 @@
 
 import { DashboardIcon } from "@/components/operator/DashboardIcon";
 import { BorderGlow } from "@/components/reactbits";
+import { useT } from "@/i18n/provider";
 import {
   OUTPUT_BUFFER_BACKING_CAPACITY,
   isOutputBufferEntryPaused,
@@ -34,35 +35,39 @@ export function OutputBufferQueueControl({
   onCancelEdit,
   onSubmitEdit,
 }: OutputBufferQueueControlProps) {
+  const t = useT();
   const front = queue.entries[0] ?? null;
   const atCapacity = queue.entries.length >= OUTPUT_BUFFER_BACKING_CAPACITY;
   const frontHeld = front ? isOutputBufferEntryPaused(front) : false;
   const frontStatus = !front
     ? ""
     : front.pausedForEdit
-      ? "Paused for edit"
+      ? t("outputBuffer.pausedForEdit")
       : front.manuallyPaused
-        ? "Paused"
+        ? t("outputBuffer.paused")
         : "";
 
   return (
-    <div className="outputBufferQueue" aria-label="Output buffer">
+    <div className="outputBufferQueue" aria-label={t("outputBuffer.queueLabel")}>
       <div className="outputBufferQueueHeader">
         <span>
-          {!front ? "Nothing waiting" : "Next up"} · {queue.entries.length}/{OUTPUT_BUFFER_BACKING_CAPACITY} queued
+          {t("outputBuffer.queueHeader", {
+            state: front ? t("outputBuffer.nextUp") : t("outputBuffer.nothingWaiting"),
+            count: queue.entries.length,
+            capacity: OUTPUT_BUFFER_BACKING_CAPACITY,
+          })}
         </span>
       </div>
       {atCapacity && frontHeld ? (
         <p className="privacyNote" role="alert">
-          Buffer full — further captions will be dropped until you resume, submit, or
-          clear this one.
+          {t("outputBuffer.full")}
         </p>
       ) : null}
       {!front ? (
-        <p className="previewEmpty">Nothing queued. New translations will land here first.</p>
+        <p className="previewEmpty">{t("outputBuffer.empty")}</p>
       ) : (
         <BorderGlow className="outputBufferSlotGlow" pending={frontHeld}>
-          <article className="outputBufferSlot" aria-label="Next queued caption">
+          <article className="outputBufferSlot" aria-label={t("outputBuffer.nextQueuedLabel")}>
             {frontStatus ? (
               <div className="outputBufferSlotHeader">
                 <span className="outputBufferSlotStatus">{frontStatus}</span>
@@ -83,8 +88,8 @@ export function OutputBufferQueueControl({
                   <button
                     type="button"
                     className="secondaryButton"
-                    title="Cancel edit"
-                    aria-label="Cancel edit"
+                    title={t("outputBuffer.cancelEdit")}
+                    aria-label={t("outputBuffer.cancelEdit")}
                     disabled={disabled}
                     onClick={() => onCancelEdit(front.id)}
                   >
@@ -93,8 +98,8 @@ export function OutputBufferQueueControl({
                   <button
                     type="button"
                     className="primaryButton"
-                    title="Submit edit"
-                    aria-label="Submit edit"
+                    title={t("outputBuffer.submitEdit")}
+                    aria-label={t("outputBuffer.submitEdit")}
                     disabled={disabled}
                     onClick={() => onSubmitEdit(front.id)}
                   >
@@ -104,13 +109,13 @@ export function OutputBufferQueueControl({
               </>
             ) : (
               <>
-                <p className="outputBufferSlotText">{front.publicText || "(hidden by a public filter)"}</p>
+                <p className="outputBufferSlotText">{front.publicText || t("outputBuffer.hidden")}</p>
                 <div className="outputBufferSlotActions">
                   <button
                     type="button"
                     className="secondaryButton"
-                    title={front.manuallyPaused ? "Resume" : "Pause"}
-                    aria-label={front.manuallyPaused ? "Resume this queued caption" : "Pause this queued caption"}
+                    title={front.manuallyPaused ? t("outputBuffer.resume") : t("outputBuffer.pause")}
+                    aria-label={front.manuallyPaused ? t("outputBuffer.resumeQueued") : t("outputBuffer.pauseQueued")}
                     disabled={disabled}
                     onClick={() => onPause(front.id, !front.manuallyPaused)}
                   >
@@ -119,8 +124,8 @@ export function OutputBufferQueueControl({
                   <button
                     type="button"
                     className="secondaryButton"
-                    title="Edit"
-                    aria-label="Edit this queued caption"
+                    title={t("outputBuffer.edit")}
+                    aria-label={t("outputBuffer.editQueued")}
                     disabled={disabled}
                     onClick={() => onBeginEdit(front.id)}
                   >
@@ -129,8 +134,8 @@ export function OutputBufferQueueControl({
                   <button
                     type="button"
                     className="secondaryButton"
-                    title="Show now"
-                    aria-label="Fast-forward this queued caption to Live"
+                    title={t("outputBuffer.showNow")}
+                    aria-label={t("outputBuffer.fastForwardQueued")}
                     disabled={disabled}
                     onClick={() => onFastForward(front.id)}
                   >
@@ -139,8 +144,8 @@ export function OutputBufferQueueControl({
                   <button
                     type="button"
                     className="dangerOutlineButton"
-                    title="Clear"
-                    aria-label="Clear this queued caption"
+                    title={t("outputBuffer.clear")}
+                    aria-label={t("outputBuffer.clearQueued")}
                     disabled={disabled}
                     onClick={() => onClear(front.id)}
                   >

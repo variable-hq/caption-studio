@@ -4,6 +4,7 @@ import { LANGUAGE_OPTIONS } from "@/domain/languages";
 import type { SummaryOptions } from "@/experience/contracts";
 import { MAX_SUMMARY_GUIDANCE_CHARS } from "@/experience/summary-defaults";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
+import { useT } from "@/i18n/provider";
 
 interface SummarySettingsEditorProps {
   value: SummaryOptions;
@@ -29,11 +30,12 @@ export function SummarySettingsEditor({
   onAutoSummaryChange,
   autoSummaryMessage,
 }: SummarySettingsEditorProps) {
+  const t = useT();
   return (
     <>
       <SettingGroup
-        title="Automatic summary"
-        hint="Only for services with transcript saving on. The draft appears in Sermons; check it against the transcript before sharing."
+        title={t("summarySettings.autoTitle")}
+        hint={t("summarySettings.autoHint")}
       >
         <label className="checkLabel">
           <input
@@ -43,14 +45,14 @@ export function SummarySettingsEditor({
             disabled={!autoSummaryAvailable}
             onChange={(event) => onAutoSummaryChange(event.target.checked)}
           />
-          Make a summary draft automatically after each service
+          {t("summarySettings.autoLabel")}
         </label>
         <p className="settingHint" role="status" aria-live="polite">{autoSummaryMessage}</p>
       </SettingGroup>
-      <SettingGroup title="Summary style" hint="Used by every summary, automatic or from Generate summary in Sermons.">
+      <SettingGroup title={t("summarySettings.styleTitle")} hint={t("summarySettings.styleHint")}>
         <div className="fieldGrid">
           <label>
-            Language
+            {t("summarySettings.language")}
             <select
               name="defaultSummaryLanguage"
               autoComplete="off"
@@ -63,20 +65,20 @@ export function SummarySettingsEditor({
             </select>
           </label>
           <label>
-            Length
+            {t("summarySettings.length")}
             <select
               name="defaultSummaryLength"
               autoComplete="off"
               value={value.length}
               onChange={(event) => onChange({ ...value, length: event.target.value === "detailed" ? "detailed" : "short" })}
             >
-              <option value="short">Short</option>
-              <option value="detailed">Detailed</option>
+              <option value="short">{t("summarySettings.short")}</option>
+              <option value="detailed">{t("summarySettings.detailed")}</option>
             </select>
           </label>
         </div>
         <label>
-          What to focus on
+          {t("summarySettings.focus")}
           <textarea
             name="defaultSummaryGuidance"
             autoComplete="off"
@@ -84,14 +86,14 @@ export function SummarySettingsEditor({
             maxLength={MAX_SUMMARY_GUIDANCE_CHARS}
             value={value.guidance}
             spellCheck
-            placeholder="e.g. Main points and how to apply them…"
+            placeholder={t("summarySettings.focusPlaceholder")}
             onChange={(event) => onChange({ ...value, guidance: event.target.value })}
           />
         </label>
-        <p className="settingHint">Tone, sections and length only. Don’t include private notes or personal details.</p>
+        <p className="settingHint">{t("summarySettings.focusHint")}</p>
         <div className="buttonRow">
           <button className="secondaryButton" type="button" onClick={onReset}>
-            Restore the default
+            {t("common.restoreDefault")}
           </button>
         </div>
       </SettingGroup>

@@ -1,6 +1,8 @@
 "use client";
 
 import { SettingGroup } from "@/components/operator/SettingsParts";
+import { useT } from "@/i18n/provider";
+import type { MessageKey } from "@/i18n";
 
 import {
   LANGUAGE_OPTIONS,
@@ -13,11 +15,11 @@ import {
   type RecordingWindowMs,
 } from "@/live/contracts";
 
-const RECORDING_WINDOW_LABELS: Record<RecordingWindowMs, string> = {
-  6000: "Fastest: listens 6 seconds at a time",
-  10000: "Balanced: listens 10 seconds at a time",
-  14000: "Smooth: listens 14 seconds at a time",
-  dynamic: "Automatic: listens until a natural pause (6 to 14 seconds)",
+const RECORDING_WINDOW_LABELS: Record<RecordingWindowMs, MessageKey> = {
+  6000: "translationSettings.windowFastest",
+  10000: "translationSettings.windowBalanced",
+  14000: "translationSettings.windowSmooth",
+  dynamic: "translationSettings.windowAutomatic",
 };
 
 interface TranslationSettingsEditorProps {
@@ -46,12 +48,13 @@ export function TranslationSettingsEditor({
   onTargetLanguageChange,
   onRecordingWindowChange,
 }: TranslationSettingsEditorProps) {
+  const t = useT();
   return (
     <>
-      <SettingGroup title="Languages" hint="Choosing the preacher’s language is more reliable than detecting it.">
+      <SettingGroup title={t("translationSettings.languagesTitle")} hint={t("translationSettings.languagesHint")}>
         <div className="fieldGrid">
             <label>
-              Preacher speaks
+              {t("translationSettings.source")}
               <select
                 name="sourceLanguage"
                 autoComplete="off"
@@ -62,16 +65,16 @@ export function TranslationSettingsEditor({
                   onSourceLanguageChange(event.target.value as SourceLanguage)
                 }
               >
-                <option value="auto">Detect automatically{defaultSourceLanguage === "auto" ? " · Church default" : ""}</option>
+                <option value="auto">{t("translationSettings.autoDetect")}{defaultSourceLanguage === "auto" ? t("common.churchDefaultBadge") : ""}</option>
                 {LANGUAGE_OPTIONS.map((language) => (
                   <option value={language.locale} key={language.locale}>
-                    {language.label}{defaultSourceLanguage === language.locale ? " · Church default" : ""}
+                    {language.label}{defaultSourceLanguage === language.locale ? t("common.churchDefaultBadge") : ""}
                   </option>
                 ))}
               </select>
             </label>
             <label>
-              Show captions in
+              {t("translationSettings.target")}
               <select
                 name="targetLanguage"
                 autoComplete="off"
@@ -84,16 +87,16 @@ export function TranslationSettingsEditor({
               >
                 {LANGUAGE_OPTIONS.map((language) => (
                   <option value={language.locale} key={language.locale}>
-                    {language.label}{defaultTargetLanguage === language.locale ? " · Church default" : ""}
+                    {language.label}{defaultTargetLanguage === language.locale ? t("common.churchDefaultBadge") : ""}
                   </option>
                 ))}
               </select>
             </label>
         </div>
       </SettingGroup>
-      <SettingGroup title="Caption speed" hint="Listening longer gives fuller sentences, but captions appear later. Automatic ends each window at a natural pause.">
+      <SettingGroup title={t("translationSettings.speedTitle")} hint={t("translationSettings.speedHint")}>
           <label>
-            <span className="visuallyHidden">Caption speed</span>
+            <span className="visuallyHidden">{t("translationSettings.speedTitle")}</span>
             <select
               name="recordingWindow"
               autoComplete="off"
@@ -106,7 +109,7 @@ export function TranslationSettingsEditor({
             >
               {RECORDING_WINDOW_OPTIONS.map((value) => (
                 <option value={value} key={value}>
-                  {RECORDING_WINDOW_LABELS[value]}{defaultRecordingWindowMs === value ? " · Church default" : ""}
+                  {t(RECORDING_WINDOW_LABELS[value])}{defaultRecordingWindowMs === value ? t("common.churchDefaultBadge") : ""}
                 </option>
               ))}
             </select>

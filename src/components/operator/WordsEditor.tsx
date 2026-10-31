@@ -5,6 +5,8 @@ import { useId, useState } from "react";
 import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
 import { TB2_SERVICE_VOCABULARY } from "@/pipeline/bible-terms";
 import { SettingGroup } from "@/components/operator/SettingsParts";
+import type { MessageKey } from "@/i18n";
+import { useT } from "@/i18n/provider";
 import {
   WORD_ACTIONS,
   cleanWordValue,
@@ -23,15 +25,28 @@ interface WordsEditorProps {
   onChange: (settings: { keywordText: string; filterText: string }) => void;
 }
 
-const ACTION_LABELS = Object.fromEntries(WORD_ACTIONS.map(({ value, label }) => [value, label.replace(/…$/u, "")])) as Record<WordAction, string>;
+const ACTION_LABEL_KEYS: Record<WordAction, MessageKey> = {
+  recognise: "wordAction.recognise",
+  fix: "wordAction.fix",
+  translate: "wordAction.translate",
+  mask: "wordAction.mask",
+  replace: "wordAction.replace",
+  hide: "wordAction.hide",
+};
+
+/** The action label without the trailing ellipsis, for a table cell or summary line. */
+export function wordActionLabel(t: (key: MessageKey) => string, action: WordAction) {
+  return t(ACTION_LABEL_KEYS[action]).replace(/…$/u, "");
+}
 
 /** Settings › Words: one row per word and one action, saved as the glossary and filter. */
 export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLanguage, disabled, onChange }: WordsEditorProps) {
+  const t = useT();
   const rows = wordsFromSettings(keywordText, filterText);
   const [word, setWord] = useState("");
   const [action, setAction] = useState<WordAction>("recognise");
   const [target, setTarget] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string>("");
   const errorId = useId();
   const needsWith = WORD_ACTIONS.find(({ value }) => value === action)?.needsWith ?? false;
 
@@ -40,8 +55,8 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
   const add = () => {
     const cleanWord = cleanWordValue(word);
     const cleanTarget = cleanWordValue(target);
-    if (!cleanWord) return setError("Type the word first.");
-    if (needsWith && !cleanTarget) return setError("Fill in “With” for this action.");
+    if (!cleanWord) return setError(t("common.typeWordFirst"));
+    if (needsWith && !cleanTarget) return setError(t("common.fillWith"));
     save([...rows, { word: cleanWord, action, with: needsWith ? cleanTarget : "" }]);
     setWord("");
     setTarget("");
@@ -57,33 +72,33 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
 
   return (
     <>
-      <SettingGroup title="Your words" hint="You always see the original under “Heard” on the Live screen.">
+      <SettingGroup title={t("wordsEditor.yourWordsTitle")} hint={t("wordsEditor.yourWordsHint")}>
       {rows.length ? (
         <div className="wordsTableBox">
           <table className="wordsTable">
             <thead>
               <tr>
-                <th scope="col">Word</th>
-                <th scope="col">What to do</th>
-                <th scope="col">With</th>
-                <th scope="col"><span className="visuallyHidden">Actions</span></th>
+                <th scope="col">{t("wordsEditor.word")}</th>
+                <th scope="col">{t("wordsEditor.action")}</th>
+                <th scope="col">{t("wordsEditor.with")}</th>
+                <th scope="col"><span className="visuallyHidden">{t("wordsEditor.actions")}</span></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row, index) => (
                 <tr key={`${row.action}:${row.word}:${index}`}>
                   <td>{row.word}</td>
-                  <td>{ACTION_LABELS[row.action]}</td>
+                  <td>{wordActionLabel(t, row.action)}</td>
                   <td data-empty={!row.with}>{row.with || "—"}</td>
                   <td>
                     <button
                       type="button"
                       className="textButton"
                       disabled={disabled}
-                      aria-label={`Remove ${row.word}`}
+                      aria-label={t("wordsEditor.removeLabel", { word: row.word })}
                       onClick={() => save(rows.filter((_, other) => other !== index))}
                     >
-                      Remove
+                      {t("common.remove")}
                     </button>
                   </td>
                 </tr>
@@ -92,13 +107,13 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
           </table>
         </div>
       ) : (
-        <p className="emptyState">No words yet. Add names the AI should know, or words never to show.</p>
+        <p className="emptyState">{t("wordsEditor.empty")}</p>
       )}
       </SettingGroup>
-      <SettingGroup title="Add a word">
+      <SettingGroup title={t("wordsEditor.addTitle")}>
       {overLimit ? (
         <p className="operatorBanner" data-tone="warn" role="status">
-          Only the first 40 names and terms and the first 40 hidden words are used. Remove some you no longer need.
+          {t("wordsEditor.overLimit", { max: 40 })}
         </p>
       ) : null}
       <form
@@ -109,7 +124,7 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
         }}
       >
         <label>
-          Word
+          {t("wordsEditor.word")}
           <input
             name="word"
             autoComplete="off"
@@ -118,12 +133,12 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
             maxLength={100}
             disabled={disabled}
             aria-describedby={error ? errorId : undefined}
-            placeholder="e.g. Pastor Ken…"
+            placeholder={t("wordsEditor.placeholderWord")}
             onChange={(event) => setWord(event.target.value)}
           />
         </label>
         <label>
-          What to do
+          {t("wordsEditor.action")}
           <select
             name="wordAction"
             autoComplete="off"
@@ -132,12 +147,12 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
             onChange={(event) => setAction(event.target.value as WordAction)}
           >
             {WORD_ACTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <option key={option.value} value={option.value}>{t(ACTION_LABEL_KEYS[option.value])}</option>
             ))}
           </select>
         </label>
         <label>
-          With
+          {t("wordsEditor.with")}
           <input
             name="wordWith"
             autoComplete="off"
@@ -145,19 +160,19 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
             value={target}
             maxLength={100}
             disabled={disabled || !needsWith}
-            placeholder={needsWith ? "e.g. Pastor Kenneth…" : "Not needed"}
+            placeholder={needsWith ? t("liveWord.placeholderFix") : t("wordsEditor.notNeeded")}
             onChange={(event) => setTarget(event.target.value)}
           />
         </label>
         <button type="submit" className="primaryButton" disabled={disabled}>
-          Add word
+          {t("wordsEditor.add")}
         </button>
       </form>
       {error ? <p className="errorText" id={errorId} role="alert">{error}</p> : null}
       </SettingGroup>
       <SettingGroup
-        title="Bible names"
-        hint="Adds the TB2 list of names once. Only useful when the preacher speaks Indonesian and captions are in English."
+        title={t("wordsEditor.bibleNamesTitle")}
+        hint={t("wordsEditor.bibleNamesHint")}
       >
         <div className="buttonRow">
         <button
@@ -166,7 +181,7 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
           disabled={disabled || !tb2Available}
           onClick={() => onChange({ keywordText: [keywordText, TB2_SERVICE_VOCABULARY].filter(Boolean).join(", "), filterText })}
         >
-          Import names
+          {t("wordsEditor.importNames")}
         </button>
         </div>
       </SettingGroup>
