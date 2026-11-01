@@ -63,9 +63,7 @@ export function OutputBufferQueueControl({
           {t("outputBuffer.full")}
         </p>
       ) : null}
-      {!front ? (
-        <p className="previewEmpty">{t("outputBuffer.empty")}</p>
-      ) : (
+      {front ? (
         <BorderGlow className="outputBufferSlotGlow" pending={frontHeld}>
           <article className="outputBufferSlot" aria-label={t("outputBuffer.nextQueuedLabel")}>
             {frontStatus ? (
@@ -156,7 +154,7 @@ export function OutputBufferQueueControl({
             )}
           </article>
         </BorderGlow>
-      )}
+      ) : null}
     </div>
   );
 }

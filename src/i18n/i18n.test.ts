@@ -25,6 +25,11 @@ describe("operator interface translations", () => {
     }
   });
 
+  it("drops the redundant empty output-buffer queue message", () => {
+    expect("outputBuffer.empty" in en).toBe(false);
+    expect("outputBuffer.empty" in id).toBe(false);
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");

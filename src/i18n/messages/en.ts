@@ -190,7 +190,6 @@ export const en = {
   "outputBuffer.nextUp": "Next up",
   "outputBuffer.nothingWaiting": "Nothing waiting",
   "outputBuffer.full": "Buffer full — further captions will be dropped until you resume, submit, or clear this one.",
-  "outputBuffer.empty": "Nothing queued. New translations will land here first.",
   "outputBuffer.nextQueuedLabel": "Next queued caption",
   "outputBuffer.pausedForEdit": "Paused for edit",
   "outputBuffer.paused": "Paused",

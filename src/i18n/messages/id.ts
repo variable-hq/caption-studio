@@ -193,7 +193,6 @@ export const id: Partial<Record<MessageKey, string>> = {
   "outputBuffer.nextUp": "Berikutnya",
   "outputBuffer.nothingWaiting": "Tidak ada yang menunggu",
   "outputBuffer.full": "Buffer penuh — caption berikutnya akan dibuang sampai Anda melanjutkan, mengirim, atau membersihkan yang ini.",
-  "outputBuffer.empty": "Tidak ada dalam antrean. Terjemahan baru akan muncul di sini lebih dulu.",
   "outputBuffer.nextQueuedLabel": "Caption berikutnya dalam antrean",
   "outputBuffer.pausedForEdit": "Dijeda untuk diedit",
   "outputBuffer.paused": "Dijeda",
