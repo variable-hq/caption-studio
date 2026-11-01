@@ -47,6 +47,7 @@ import {
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { experienceRequest } from "@/experience/client";
 import { startSerialPolling } from "@/live/serial-polling";
+import { initialSpeechGateState, observeSpeechSample, shouldSendWindow } from "@/live/speech-gate";
 import { useMicrophoneInput } from "@/live/use-microphone-input";
 import { useI18n } from "@/i18n/provider";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
@@ -225,6 +226,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const sessionTimerRef = useRef<number | null>(null);
   const lifecyclePauseRef = useRef(false);
   const recordingWindowRef = useRef<RecordingWindowMs>(DEFAULT_RECORDING_WINDOW_MS);
+  const speechGateRef = useRef(initialSpeechGateState());
   const cloudClientRef = useRef(new CloudProviderClient());
   const liveClientRef = useRef(
     new LiveSessionClient((key) => tRef.current(key)),
@@ -964,6 +966,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           return;
         }
         const chunks: Blob[] = [];
+        let windowSpeechMs = 0;
+        let windowPeakRms = 0;
+        let levelReadFailed = false;
         const recorder = new MediaRecorder(stream, recorderOptions());
         recorderRef.current = recorder;
         recorder.ondataavailable = ({ data }) => {
@@ -982,6 +987,16 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             !capturingRef.current ||
             generation !== captureGenerationRef.current
           ) {
+            return;
+          }
+          if (
+            !shouldSendWindow(speechGateRef.current, {
+              speechMs: windowSpeechMs,
+              peakRms: windowPeakRms,
+              levelReadFailed,
+            })
+          ) {
+            startRecorderChunk();
             return;
           }
           const mimeType = recorder.mimeType || chunks[0]?.type || "audio/webm";
@@ -1012,8 +1027,22 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         let draftHold: DynamicDraftHold = "idle";
         let silenceRun = 0;
         dynamicWindowTimerRef.current = setBackgroundInterval(() => {
+          let sampleRms = 0;
+          try {
+            sampleRms = readLevel();
+            if (!Number.isFinite(sampleRms)) {
+              levelReadFailed = true;
+              sampleRms = 0;
+            }
+          } catch {
+            levelReadFailed = true;
+          }
+          windowPeakRms = Math.max(windowPeakRms, sampleRms);
+          const observed = observeSpeechSample(speechGateRef.current, sampleRms);
+          speechGateRef.current = observed.state;
+          if (observed.speech) windowSpeechMs += DYNAMIC_SAMPLE_MS;
           const previousSilenceMs = policyState.silenceMs;
-          const result = nextWindowDecision(policyState, readLevel(), bounds);
+          const result = nextWindowDecision(policyState, sampleRms, bounds);
           if (previousSilenceMs > 0 && result.state.silenceMs === 0) {
             silenceRun += 1;
             draftHold = "idle";
@@ -1432,6 +1461,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
         recentContextRef.current = [];
         queueRef.current = [];
+        speechGateRef.current = initialSpeechGateState();
         resetOutputBuffer();
         resetRecentOutputs();
         captureGenerationRef.current += 1;

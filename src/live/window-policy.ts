@@ -5,7 +5,7 @@ export const DYNAMIC_ABS_SILENCE_RMS = 0.03;
 export const DYNAMIC_SILENCE_RATIO = 0.2;
 /** When the provider is busy, no option cuts before this floor for the rest of the service. */
 export const BACKOFF_FLOOR_MS = 6_000;
-const SPEECH_PEAK_DECAY = 0.97;
+export const SPEECH_PEAK_DECAY = 0.97;
 
 export interface WindowPolicyState {
   elapsedMs: number;

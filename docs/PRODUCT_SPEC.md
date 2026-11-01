@@ -175,9 +175,12 @@ copy or browser language, then English.
   lengths 500, 700, 900 and 700ms, and Dynamic's required pause shrinks to 200ms at its cap.
   When Live drafts are enabled and admitted, Dynamic's
   draft punctuation confirms the cut; an unfinished clause keeps recording until another
-  pause or the cap. The numbered options do not consult drafts. The microphone-level
-  decision adds no model call or quota. Every option stays inside Whisper's 30-second
-  window and, at the 64 kbps recorder setting, far below the 3 MB audio limit.
+  pause or the cap. The numbered options do not consult drafts. Once a service has heard
+  speech, a window with less than 300ms of speech is not sent unless its peak is not well
+  below earlier speech or a level sample failed; a skipped window uses no transcription,
+  translation or attempt. The microphone-level decision adds no model call or quota. Every
+  option stays inside Whisper's 30-second window and, at the 64 kbps recorder setting, far
+  below the 3 MB audio limit.
 - The active-setting snapshot for each chunk and maximum two-chunk queue bound memory and
   backlog. Pause or confirmed translation refresh discards an unfinished active window,
   so operators should use either control at a natural break.
