@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 1 November 2026 against merged PR #86 (`96c005a`). The corrected 13 September
+Reviewed 1 November 2026 against merged PR #87 (`804f130`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -241,7 +241,7 @@ implemented.
   Quick override hide rules still apply in either state, so source text remains separate from
   moderated public text. Only explicit `false` disables this setting in new and stored
   snapshots; an absent or invalid value falls back to On. Changes use the translation refresh
-  confirmation and are saved with shared church defaults. Sanitization does not control
+  confirmation and are saved with the shared defaults. Sanitization does not control
   profanity, and there is no scripture-specific exemption; turn the setting Off for faithful
   wording of scripture.
 - A deterministic transcription guard runs before translation. Off has no guard. Low drops
@@ -357,7 +357,7 @@ translations. Pause and Clear preserve the strip; Start, End and takeover reset 
 
 ### Live drafts
 
-**Live drafts** is an optional church default, off unless saved otherwise. The controller-only
+**Live drafts** is an optional saved default, off unless saved otherwise. The controller-only
 Live card switch starts from that default and is a per-session choice; changing it is not
 saved automatically. Turning it off immediately clears the preview, cancels pending timers,
 and aborts in-flight draft work. Turning it on applies at the next recording window. The
@@ -447,11 +447,11 @@ One **church setup** is shared by all signed-in operators
 caption wait time, Words, Inference and Sanitization; translator instructions; caption style;
 summary defaults and automatic summaries; the output buffer; and the transcript-saving
 default. Theme and interface language remain personal preferences. **Save for everyone**
-(and **Make this the church default**
+(and **Save selected settings as default**
 beside the transcript choice) writes it. Until anyone saves it, each operator keeps the
 setup they saved earlier; afterwards a value the church setup has never set still falls
 back to the operator's own, and the first save carries the saving operator's earlier
-setup across. Discrete-choice controls mark the church's saved option "· Church default",
+setup across. Discrete-choice controls mark the saved option "· Saved default",
 distinct from the current draft.
 
 **Settings › Words** lists one row per word with one action: **Help the AI recognise it**,
@@ -721,7 +721,7 @@ reprocessed by optional AI phrasing, or reapplied against glossary/filter rules,
 the operator already typed final text.
 
 History saving is off by default and cannot be enabled after Start. An operator can choose
-**Make this the church default** beside the checkbox to have it pre-ticked (or cleared) at each
+**Save selected settings as default** beside the checkbox to have it pre-ticked (or cleared) at each
 Start; it stays visible and changeable until Start. Saved records expire
 seven days after End/expiry. Archive pages expose private original source, separate
 corrections, source-linked reader paragraphs, and any operator notes. Confirmed Remove
@@ -748,7 +748,7 @@ hold a paired-phone credential, matching the 32 watcher sockets the room accepts
 that ceiling the oldest identity is dropped and must register again.
 
 Manual summaries use opted-in, ended history with a frozen source revision. Settings › AI
-summary holds the church's defaults for output language, short/detailed length and up to
+summary holds the saved defaults for output language, short/detailed length and up to
 2,000 characters of guidance; **Save for everyone** stores them. Every summary uses the
 default Workers AI model; there is no model choice. **Generate summary** on a sermon sends those defaults and names
 them with a **Change defaults** link; it has no per-request overrides. The Usage history
@@ -761,7 +761,7 @@ is also available; generating or regenerating never extends retention.
 
 The same settings page has **Make a summary draft automatically after each service** (off
 by default, part of the church setup). When on, ending a service with saving on queues the
-same summary job from the church's summary defaults; it appears in Sermons marked as
+same summary job from the saved summary defaults; it appears in Sermons marked as
 generated automatically, still needs review before export, and is skipped if a summary
 already exists. See [ADR 0019](decisions/0019-automatic-post-service-summary.md).
 

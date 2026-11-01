@@ -104,14 +104,14 @@ try {
   assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).isEnabled(),true);
   assert.equal(await page.getByRole('region',{name:'Live controls'}).count(),0);
   assert.equal(await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).isChecked(),false);
-  assert.equal(await liveDraftSwitch.isChecked(),width===320,'The session switch starts from the saved church default');
+  assert.equal(await liveDraftSwitch.isChecked(),width===320,'The session switch starts from the saved default');
   await liveDraftSwitch.check();
   await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor();
   await check('live-drafts-enabled');
   await page.screenshot({path:output+`/live-drafts-${colorScheme}-${width}.png`,fullPage:true});
   await liveDraftSwitch.uncheck();
   await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor({state:'hidden'});
-  assert.equal(controls.some(entry=>entry.preferenceWrite&&Object.hasOwn(entry.preferenceWrite,'liveDraftsEnabled')),false,'The session switch must not save the church default');
+  assert.equal(controls.some(entry=>entry.preferenceWrite&&Object.hasOwn(entry.preferenceWrite,'liveDraftsEnabled')),false,'The session switch must not save the default');
   assert.equal(inferenceCalls,0,'Toggling drafts must not invoke inference');
   await page.screenshot({path:output+`/live-idle-${colorScheme}-${width}.png`,fullPage:true});
 

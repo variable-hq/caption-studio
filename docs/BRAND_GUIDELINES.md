@@ -1,6 +1,6 @@
 # Brand guidelines
 
-Reviewed 1 November 2026 against merged PR #86 (`96c005a`).
+Reviewed 1 November 2026 against merged PR #87 (`804f130`).
 
 The baseline every Caption Studio screen follows: how the product sounds, which token
 to use for which job, and how text, space and components are laid out. Agents and
@@ -178,7 +178,7 @@ Use the shared classes in the design system before writing a new rule.
 
 - **Buttons.** Primary (`.primaryButton`) for the single main action in a region;
   secondary (`.secondaryButton`) for everything else; text button (`.textButton`) for
-  low-emphasis inline actions such as "Make this the church default"; a row that opens
+  low-emphasis inline actions such as "Save selected settings as default"; a row that opens
   where its value is changed (the Live checklist) ends in a chevron link (`.rowLink`);
   `.dangerOutlineButton` to start a destructive or irreversible action and `.dangerButton` to confirm it. **All buttons are
   the same size** (`--control-height`, `--text-base`); emphasis comes from colour, never
