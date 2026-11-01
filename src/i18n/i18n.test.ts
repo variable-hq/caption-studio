@@ -195,6 +195,11 @@ describe("operator interface translations", () => {
     }
   });
 
+  it("gives the empty Terms list generic examples", () => {
+    expect(en["wordsEditor.empty"]).toBe("No terms yet. Add names or terms the AI should know, such as a speaker, place or product name, or terms never to show.");
+    expect(id["wordsEditor.empty"]).toBe("Belum ada istilah. Tambahkan nama atau istilah yang perlu dikenali AI, misalnya nama pembicara, tempat, atau produk, atau istilah yang tidak boleh ditampilkan.");
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");

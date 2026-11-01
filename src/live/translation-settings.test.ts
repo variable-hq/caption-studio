@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_TRANSLATION_SYSTEM_PROMPT } from "@/ai/translation-prompt";
 import {
+  DEFAULT_KEYWORD_TEXT,
   normalizeTranslationSessionSettings,
   parseStoredTranslationSessionSettings,
   serializeTranslationSessionSettings,
@@ -25,6 +26,13 @@ const SERVICE_IDENTITY = {
 };
 
 describe("translation-session settings", () => {
+  it("starts the Terms list empty and keeps a provided one", () => {
+    expect(DEFAULT_KEYWORD_TEXT).toBe("");
+    expect(
+      normalizeTranslationSessionSettings({ keywordText: "Grace => Kasih karunia" }).keywordText,
+    ).toBe("Grace => Kasih karunia");
+  });
+
   it("keeps the live note outside the translation settings fingerprint", () => {
     const withLiveNote = { ...BASE_SETTINGS, liveNote: "Synthetic live note" };
     expect(translationSettingsFingerprint(BASE_SETTINGS)).toBe(

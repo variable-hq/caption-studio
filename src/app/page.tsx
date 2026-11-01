@@ -74,6 +74,7 @@ import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { startSerialPolling } from "@/live/serial-polling";
 import { THEME_PREFERENCE_KEY, applyTheme, normalizeTheme, readStoredTheme, type ThemePreference } from "@/live/theme";
 import {
+  DEFAULT_KEYWORD_TEXT,
   normalizeTranslationSessionSettings,
   translationSettingsChanges,
   translationSettingsFingerprint,
@@ -193,9 +194,7 @@ function OperatorDashboardContent() {
     useState<CaptionStyle["fontFamily"]>("sans-serif");
   const [savedStyleFingerprint, setSavedStyleFingerprint] = useState("");
   const [preferenceError, setPreferenceError] = useState("");
-  const [keywordText, setKeywordText] = useState(
-    "Jesus Christ, Holy Spirit, Bethlehem",
-  );
+  const [keywordText, setKeywordText] = useState(DEFAULT_KEYWORD_TEXT);
   const [filterText, setFilterText] = useState("");
   const [saveHistory, setSaveHistory] = useState(false);
   const [sessionMetadata, setSessionMetadata] = useState<SessionMetadata>({ ...EMPTY_SESSION_METADATA });

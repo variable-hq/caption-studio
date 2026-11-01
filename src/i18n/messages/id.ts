@@ -417,7 +417,7 @@ export const id: Partial<Record<MessageKey, string>> = {
   "wordsEditor.with": "Dengan",
   "wordsEditor.actions": "Tindakan",
   "wordsEditor.removeLabel": "Hapus {word}",
-  "wordsEditor.empty": "Belum ada kata. Tambahkan nama yang harus diketahui AI, atau kata yang tidak boleh ditampilkan.",
+  "wordsEditor.empty": "Belum ada istilah. Tambahkan nama atau istilah yang perlu dikenali AI, misalnya nama pembicara, tempat, atau produk, atau istilah yang tidak boleh ditampilkan.",
   "wordsEditor.addHint": "Tulis istilah dalam bahasa pembicara untuk “Bantu AI mengenalinya”, “Perbaiki ejaan menjadi…” dan “Selalu terjemahkan sebagai…”. Tindakan sembunyikan dan ganti mencocokkan caption akhir, jadi gunakan bahasa caption. Nilai Dengan adalah ejaan yang benar (bahasa pembicara), terjemahan, atau pengganti (bahasa caption).",
   "wordsEditor.addTitle": "Tambah istilah",
   "wordsEditor.overLimit": "Hanya {max} nama dan istilah pertama serta {max} istilah tersembunyi pertama yang digunakan. Hapus beberapa yang tidak lagi diperlukan.",

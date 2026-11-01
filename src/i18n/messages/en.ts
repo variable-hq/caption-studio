@@ -414,7 +414,7 @@ export const en = {
   "wordsEditor.with": "With",
   "wordsEditor.actions": "Actions",
   "wordsEditor.removeLabel": "Remove {word}",
-  "wordsEditor.empty": "No words yet. Add names the AI should know, or words never to show.",
+  "wordsEditor.empty": "No terms yet. Add names or terms the AI should know, such as a speaker, place or product name, or terms never to show.",
   "wordsEditor.addHint": "Write the term in the speaker’s language for “Help the AI recognise it”, “Fix spelling to…” and “Always translate as…”. Hide and replace actions match the finished captions, so use the caption language. The With value is the corrected spelling (speaker’s language), the translation or the replacement (caption language).",
   "wordsEditor.addTitle": "Add a term",
   "wordsEditor.overLimit": "Only the first {max} names and terms and the first {max} hidden terms are used. Remove some you no longer need.",
