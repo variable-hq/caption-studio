@@ -997,69 +997,62 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             type: recorder.mimeType || chunks[0]?.type || "audio/webm",
           }),
         });
-        if (recordingWindowMs === "dynamic") {
-          let policyState = initialWindowPolicyState();
-          let draftHold: DynamicDraftHold = "idle";
-          let silenceRun = 0;
-          dynamicWindowTimerRef.current = setBackgroundInterval(() => {
-            const previousSilenceMs = policyState.silenceMs;
-            const result = nextWindowDecision(policyState, readLevel(), bounds);
-            if (previousSilenceMs > 0 && result.state.silenceMs === 0) {
-              silenceRun += 1;
-              draftHold = "idle";
-            }
-            policyState = result.state;
-            const action = dynamicPauseAction(result, bounds, draftHold);
-            if (action === "continue" || action === "hold") return;
-            if (action === "run-draft") {
-              const candidateSilenceRun = silenceRun;
-              draftHold = "pending";
-              void runDraftAtPauseCandidate(result.state.elapsedMs).then((attempt) => {
-                if (
-                  generation !== captureGenerationRef.current ||
-                  !capturingRef.current ||
-                  recorderRef.current !== recorder ||
-                  recorder.state !== "recording" ||
-                  candidateSilenceRun !== silenceRun
-                ) return;
-                const outcome = dynamicDraftResult(
-                  attempt.available && attempt.preview !== null,
-                  attempt.preview !== null && draftEndsWithTerminalPunctuation(attempt.preview.sourceText),
-                );
-                if (outcome === "hold") {
-                  draftHold = "rejected";
-                  return;
-                }
-                if (dynamicWindowTimerRef.current !== null) {
-                  clearBackgroundInterval(dynamicWindowTimerRef.current);
-                  dynamicWindowTimerRef.current = null;
-                }
-                if (recorderTimerRef.current !== null) {
-                  clearBackgroundTimeout(recorderTimerRef.current);
-                  recorderTimerRef.current = null;
-                }
-                recorder.stop();
-              });
-              return;
-            }
-            if (dynamicWindowTimerRef.current !== null) {
-              clearBackgroundInterval(dynamicWindowTimerRef.current);
-              dynamicWindowTimerRef.current = null;
-            }
-            if (recorderTimerRef.current !== null) {
-              clearBackgroundTimeout(recorderTimerRef.current);
-              recorderTimerRef.current = null;
-            }
-            if (recorder.state === "recording") recorder.stop();
-          }, DYNAMIC_SAMPLE_MS);
-        }
-        recorderTimerRef.current = setBackgroundTimeout(() => {
-          recorderTimerRef.current = null;
+        const stopWindow = () => {
           if (dynamicWindowTimerRef.current !== null) {
             clearBackgroundInterval(dynamicWindowTimerRef.current);
             dynamicWindowTimerRef.current = null;
           }
+          if (recorderTimerRef.current !== null) {
+            clearBackgroundTimeout(recorderTimerRef.current);
+            recorderTimerRef.current = null;
+          }
           if (recorder.state === "recording") recorder.stop();
+        };
+        let policyState = initialWindowPolicyState();
+        let draftHold: DynamicDraftHold = "idle";
+        let silenceRun = 0;
+        dynamicWindowTimerRef.current = setBackgroundInterval(() => {
+          const previousSilenceMs = policyState.silenceMs;
+          const result = nextWindowDecision(policyState, readLevel(), bounds);
+          if (previousSilenceMs > 0 && result.state.silenceMs === 0) {
+            silenceRun += 1;
+            draftHold = "idle";
+          }
+          policyState = result.state;
+          if (recordingWindowMs !== "dynamic") {
+            if (result.decision === "cut") stopWindow();
+            return;
+          }
+          const action = dynamicPauseAction(result, bounds, draftHold);
+          if (action === "continue" || action === "hold") return;
+          if (action === "run-draft") {
+            const candidateSilenceRun = silenceRun;
+            draftHold = "pending";
+            void runDraftAtPauseCandidate(result.state.elapsedMs).then((attempt) => {
+              if (
+                generation !== captureGenerationRef.current ||
+                !capturingRef.current ||
+                recorderRef.current !== recorder ||
+                recorder.state !== "recording" ||
+                candidateSilenceRun !== silenceRun
+              ) return;
+              const outcome = dynamicDraftResult(
+                attempt.available && attempt.preview !== null,
+                attempt.preview !== null && draftEndsWithTerminalPunctuation(attempt.preview.sourceText),
+              );
+              if (outcome === "hold") {
+                draftHold = "rejected";
+                return;
+              }
+              stopWindow();
+            });
+            return;
+          }
+          stopWindow();
+        }, DYNAMIC_SAMPLE_MS);
+        recorderTimerRef.current = setBackgroundTimeout(() => {
+          recorderTimerRef.current = null;
+          stopWindow();
         }, bounds.maxMs);
       };
       startRecorderChunk();

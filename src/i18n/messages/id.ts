@@ -87,7 +87,7 @@ export const id: Partial<Record<MessageKey, string>> = {
   "wordAction.replace": "Ganti di layar dengan…",
   "wordAction.hide": "Sembunyikan seluruh caption",
 
-  "recordingWindow.dynamicShort": "Dinamis (6-14 dtk)",
+  "recordingWindow.dynamicShort": "Dynamic",
   "recordingWindow.secondsShort": "{seconds} dtk",
 
   "translationChange.spokenLanguage": "Bahasa pembicara",
@@ -386,11 +386,11 @@ export const id: Partial<Record<MessageKey, string>> = {
   "translationSettings.target": "Tampilkan caption dalam",
   "translationSettings.targetKind": "Output",
   "translationSettings.speedTitle": "Waktu tunggu caption",
-  "translationSettings.speedHint": "Mendengarkan lebih lama menghasilkan kalimat yang lebih utuh, tetapi caption muncul lebih lambat.",
-  "translationSettings.windowFastest": "Tercepat: mendengarkan 6 detik setiap kali",
-  "translationSettings.windowBalanced": "Seimbang: mendengarkan 10 detik setiap kali",
-  "translationSettings.windowSmooth": "Mulus: mendengarkan 14 detik setiap kali",
-  "translationSettings.windowAutomatic": "Otomatis: mendengarkan hingga jeda alami (6 hingga 14 detik)",
+  "translationSettings.speedHint": "Menetapkan waktu tunggu terlama untuk setiap caption. Caption muncul lebih cepat saat pembicara berjeda. Batas pendek membuat penonton lebih dekat dengan pembicara; batas panjang memberi kalimat lebih utuh. Dynamic menyesuaikan dengan cara pembicara berjeda, hingga 14 detik.",
+  "translationSettings.windowFastest": "6 detik: tercepat, bisa terpotong di tengah kalimat",
+  "translationSettings.windowBalanced": "10 detik: seimbang",
+  "translationSettings.windowSmooth": "14 detik: kalimat lebih utuh",
+  "translationSettings.windowAutomatic": "Dynamic: menyesuaikan pembicara, hingga 14 detik",
 
   "usage.loading": "Memuat penggunaan…",
   "usage.partial": "Menampilkan sebagian dari 30 hari terakhir; sisanya tidak dimuat.",

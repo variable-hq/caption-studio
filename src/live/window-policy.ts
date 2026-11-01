@@ -1,7 +1,10 @@
-export const DYNAMIC_PAUSE_MS = 700;
+import type { RecordingWindowPolicy } from "@/live/contracts";
+
 export const DYNAMIC_SAMPLE_MS = 100;
 export const DYNAMIC_ABS_SILENCE_RMS = 0.03;
 export const DYNAMIC_SILENCE_RATIO = 0.2;
+/** When the provider is busy, no option cuts before this floor for the rest of the service. */
+export const BACKOFF_FLOOR_MS = 6_000;
 const SPEECH_PEAK_DECAY = 0.97;
 
 export interface WindowPolicyState {
@@ -10,10 +13,7 @@ export interface WindowPolicyState {
   speechPeakRms: number;
 }
 
-export interface WindowBounds {
-  minMs: number;
-  maxMs: number;
-}
+export type WindowBounds = RecordingWindowPolicy;
 
 export interface WindowDecision {
   decision: "continue" | "cut";
@@ -29,8 +29,25 @@ export function draftEndsWithTerminalPunctuation(text: string): boolean {
   return TERMINAL_PUNCTUATION.test(text.trimEnd());
 }
 
+/** The silence a pause needs at this point in the window. */
+export function requiredPauseMs(bounds: WindowBounds): number {
+  return bounds.pauseMs;
+}
+
+/** Raise one wait-time option's floor for the rest of a service after a provider limit. */
+export function withRaisedFloor(bounds: WindowBounds): WindowBounds {
+  return {
+    ...bounds,
+    minMs: Math.max(bounds.minMs, BACKOFF_FLOOR_MS),
+  };
+}
+
 export function isDynamicPauseCandidate(state: WindowPolicyState, bounds: WindowBounds): boolean {
-  return state.elapsedMs < bounds.maxMs && state.silenceMs === DYNAMIC_PAUSE_MS;
+  return (
+    state.elapsedMs >= bounds.minMs &&
+    state.elapsedMs < bounds.maxMs &&
+    state.silenceMs >= requiredPauseMs(bounds)
+  );
 }
 
 /** Choose what to do when Dynamic's pause policy would cut the current window. */
@@ -75,10 +92,10 @@ export function nextWindowDecision(
   return {
     decision:
       nextState.elapsedMs >= bounds.maxMs ||
-      (nextState.elapsedMs >= bounds.minMs && silenceMs >= DYNAMIC_PAUSE_MS)
+      (nextState.elapsedMs >= bounds.minMs &&
+        silenceMs >= requiredPauseMs(bounds))
         ? "cut"
         : "continue",
     state: nextState,
   };
 }
-

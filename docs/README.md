@@ -50,6 +50,9 @@ records to establish release evidence.
   transcription prompt byte budget and its fallback for provider 400 responses.
 - [ADR 0030](decisions/0030-operator-interface-localization.md) records the typed
   English/Indonesian interface lookup, per-operator language choice, and phased scope.
+- [ADR 0031](decisions/0031-caption-wait-time.md) records the caption wait time as a cap
+  with pause cuts, silence gating, the 1,800-attempt ceiling and the provider-limit
+  back-off.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator, and the default-on operator control for faithful
   rendering when that omission rule is disabled.

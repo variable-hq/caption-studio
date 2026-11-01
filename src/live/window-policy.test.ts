@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  RECORDING_WINDOW_POLICIES,
+  recordingWindowBoundsMs,
+} from "@/live/contracts";
+import {
+  BACKOFF_FLOOR_MS,
   DYNAMIC_ABS_SILENCE_RMS,
-  DYNAMIC_PAUSE_MS,
   DYNAMIC_SAMPLE_MS,
   dynamicDraftResult,
   dynamicPauseAction,
@@ -10,15 +14,17 @@ import {
   initialWindowPolicyState,
   isDynamicPauseCandidate,
   nextWindowDecision,
+  requiredPauseMs,
+  withRaisedFloor,
 } from "@/live/window-policy";
 
-const BOUNDS = { minMs: 6_000, maxMs: 14_000 };
+const DYNAMIC = recordingWindowBoundsMs("dynamic");
 
-function advance(state: ReturnType<typeof initialWindowPolicyState>, sample: number, count: number) {
+function advance(state: ReturnType<typeof initialWindowPolicyState>, sample: number, count: number, bounds = DYNAMIC) {
   let current = state;
   let decision: "continue" | "cut" = "continue";
   for (let index = 0; index < count; index += 1) {
-    const next = nextWindowDecision(current, sample, BOUNDS);
+    const next = nextWindowDecision(current, sample, bounds);
     current = next.state;
     decision = next.decision;
     if (decision === "cut") break;
@@ -26,7 +32,93 @@ function advance(state: ReturnType<typeof initialWindowPolicyState>, sample: num
   return { state: current, decision };
 }
 
-describe("dynamic recording window policy", () => {
+describe("caption wait-time policy", () => {
+  it("gives every option a cap, a floor and a required pause", () => {
+    expect(recordingWindowBoundsMs(6_000)).toEqual({
+      minMs: 3_000,
+      maxMs: 6_000,
+      pauseMs: 500,
+      pauseAtCapMs: 500,
+    });
+    expect(recordingWindowBoundsMs(10_000)).toEqual({
+      minMs: 5_000,
+      maxMs: 10_000,
+      pauseMs: 700,
+      pauseAtCapMs: 700,
+    });
+    expect(recordingWindowBoundsMs(14_000)).toEqual({
+      minMs: 7_000,
+      maxMs: 14_000,
+      pauseMs: 900,
+      pauseAtCapMs: 900,
+    });
+    expect(recordingWindowBoundsMs("dynamic")).toEqual({
+      minMs: 4_000,
+      maxMs: 14_000,
+      pauseMs: 700,
+      pauseAtCapMs: 700,
+    });
+    expect(RECORDING_WINDOW_POLICIES.dynamic.maxMs).toBe(14_000);
+  });
+
+  it("never cuts before an option's floor, even during a long silence", () => {
+    for (const setting of [6_000, 10_000, 14_000, "dynamic"] as const) {
+      const bounds = recordingWindowBoundsMs(setting);
+      const ticks = bounds.minMs / DYNAMIC_SAMPLE_MS - 1;
+      expect(advance(initialWindowPolicyState(), 0, ticks, bounds).decision, String(setting)).toBe("continue");
+    }
+  });
+
+  it("cuts a numbered option at its constant pause once the floor has passed", () => {
+    const bounds = recordingWindowBoundsMs(6_000);
+    const atFloor = advance(initialWindowPolicyState(), 0.2, bounds.minMs / DYNAMIC_SAMPLE_MS, bounds).state;
+    const result = advance(atFloor, 0, bounds.pauseMs / DYNAMIC_SAMPLE_MS, bounds);
+    expect(result.decision).toBe("cut");
+    expect(result.state.elapsedMs).toBe(bounds.minMs + bounds.pauseMs);
+  });
+
+  it("always cuts at the cap during continuous speech", () => {
+    for (const setting of [6_000, 10_000, 14_000, "dynamic"] as const) {
+      const bounds = recordingWindowBoundsMs(setting);
+      const result = advance(initialWindowPolicyState(), 0.2, bounds.maxMs / DYNAMIC_SAMPLE_MS, bounds);
+      expect(result.decision, String(setting)).toBe("cut");
+      expect(result.state.elapsedMs, String(setting)).toBe(bounds.maxMs);
+    }
+  });
+
+  it("uses each option's own constant pause", () => {
+    expect(requiredPauseMs(recordingWindowBoundsMs(6_000))).toBe(500);
+    expect(requiredPauseMs(recordingWindowBoundsMs(10_000))).toBe(700);
+    expect(requiredPauseMs(recordingWindowBoundsMs(14_000))).toBe(900);
+    expect(requiredPauseMs(DYNAMIC)).toBe(700);
+  });
+
+  it("cuts Dynamic at a pause after its floor and before its cap", () => {
+    const atFloor = advance(initialWindowPolicyState(), 0.2, DYNAMIC.minMs / DYNAMIC_SAMPLE_MS).state;
+    const result = advance(atFloor, 0, 20);
+    expect(result.decision).toBe("cut");
+    expect(result.state.elapsedMs).toBeLessThan(DYNAMIC.maxMs);
+    expect(result.state.elapsedMs).toBeGreaterThan(DYNAMIC.minMs);
+  });
+
+  it("marks a pause candidate only between the floor and the cap", () => {
+    const required = requiredPauseMs(DYNAMIC);
+    const candidate = { elapsedMs: 6_200, silenceMs: required, speechPeakRms: 0.2 };
+    expect(isDynamicPauseCandidate(candidate, DYNAMIC)).toBe(true);
+    expect(isDynamicPauseCandidate({ ...candidate, elapsedMs: DYNAMIC.minMs - 100 }, DYNAMIC)).toBe(false);
+    expect(isDynamicPauseCandidate({ ...candidate, elapsedMs: DYNAMIC.maxMs }, DYNAMIC)).toBe(false);
+    expect(isDynamicPauseCandidate({ ...candidate, silenceMs: required - DYNAMIC_SAMPLE_MS }, DYNAMIC)).toBe(false);
+  });
+
+  it("raises every floor to six seconds after a limit and never lowers one", () => {
+    const raised = [6_000, 10_000, 14_000, "dynamic"].map((setting) =>
+      withRaisedFloor(recordingWindowBoundsMs(setting as keyof typeof RECORDING_WINDOW_POLICIES)),
+    );
+    expect(raised.map(({ minMs }) => minMs)).toEqual([6_000, 6_000, 7_000, 6_000]);
+    expect(raised.every(({ minMs }) => minMs >= BACKOFF_FLOOR_MS)).toBe(true);
+    expect(withRaisedFloor(recordingWindowBoundsMs("dynamic")).maxMs).toBe(14_000);
+  });
+
   it("recognizes terminal punctuation followed by closing quotes or brackets", () => {
     for (const text of ["Done.", "Done? ”", "Done!】", "完了。』", "完了？】", "Done…)"]) {
       expect(draftEndsWithTerminalPunctuation(text)).toBe(true);
@@ -36,74 +128,47 @@ describe("dynamic recording window policy", () => {
     }
   });
 
-  it("marks only the first qualifying pause before the hard limit as a draft candidate", () => {
-    const candidate = { elapsedMs: 6_200, silenceMs: DYNAMIC_PAUSE_MS, speechPeakRms: 0.2 };
-    expect(isDynamicPauseCandidate(candidate, BOUNDS)).toBe(true);
-    expect(isDynamicPauseCandidate({ ...candidate, silenceMs: DYNAMIC_PAUSE_MS + DYNAMIC_SAMPLE_MS }, BOUNDS)).toBe(false);
-    expect(isDynamicPauseCandidate({ ...candidate, elapsedMs: BOUNDS.maxMs }, BOUNDS)).toBe(false);
-  });
-
-  it("holds a sustained pause after an unfinished draft until speech resumes or the hard limit", () => {
+  it("holds a sustained pause after an unfinished draft until speech resumes or the cap", () => {
     let draftHold: "idle" | "pending" | "rejected" = "idle";
     const candidate = {
       decision: "cut" as const,
-      state: { elapsedMs: 6_200, silenceMs: DYNAMIC_PAUSE_MS, speechPeakRms: 0.2 },
+      state: { elapsedMs: 6_200, silenceMs: requiredPauseMs(DYNAMIC), speechPeakRms: 0.2 },
     };
 
-    expect(dynamicPauseAction(candidate, BOUNDS, draftHold)).toBe("run-draft");
+    expect(dynamicPauseAction(candidate, DYNAMIC, draftHold)).toBe("run-draft");
     draftHold = "pending";
-    expect(dynamicPauseAction({ ...candidate, state: { ...candidate.state, silenceMs: 800 } }, BOUNDS, draftHold)).toBe("hold");
+    expect(dynamicPauseAction({ ...candidate, state: { ...candidate.state, silenceMs: 800 } }, DYNAMIC, draftHold)).toBe("hold");
     expect(dynamicDraftResult(true, false)).toBe("hold");
     draftHold = "rejected";
     for (const elapsedMs of [6_400, 8_000, 13_900]) {
       expect(dynamicPauseAction({
         decision: "cut",
         state: { elapsedMs, silenceMs: elapsedMs - 5_500, speechPeakRms: 0.2 },
-      }, BOUNDS, draftHold)).toBe("hold");
+      }, DYNAMIC, draftHold)).toBe("hold");
     }
 
     // Speech resets this silence run. If the old request is still in flight at the
     // next candidate, admission is unavailable and the pause-only fallback cuts.
     draftHold = "idle";
-    expect(dynamicPauseAction(candidate, BOUNDS, draftHold)).toBe("run-draft");
+    expect(dynamicPauseAction(candidate, DYNAMIC, draftHold)).toBe("run-draft");
     expect(dynamicDraftResult(false, false)).toBe("cut");
 
     // An admitted terminal draft confirms its candidate immediately.
     draftHold = "idle";
-    expect(dynamicPauseAction(candidate, BOUNDS, draftHold)).toBe("run-draft");
+    expect(dynamicPauseAction(candidate, DYNAMIC, draftHold)).toBe("run-draft");
     expect(dynamicDraftResult(true, true)).toBe("cut");
 
     // The 14s cap always wins, even while a draft is pending.
     expect(dynamicPauseAction({
       decision: "cut",
-      state: { elapsedMs: BOUNDS.maxMs, silenceMs: 8_500, speechPeakRms: 0.2 },
-    }, BOUNDS, "pending")).toBe("cut");
+      state: { elapsedMs: DYNAMIC.maxMs, silenceMs: 8_500, speechPeakRms: 0.2 },
+    }, DYNAMIC, "pending")).toBe("cut");
   });
 
-  it("does not cut continuous speech before the six-second minimum", () => {
-    const result = advance(initialWindowPolicyState(), 0.2, 59);
-    expect(result.state.elapsedMs).toBe(5_900);
-    expect(result.decision).toBe("continue");
-  });
-
-  it("cuts at the first 700ms pause after the six-second minimum", () => {
-    const state = advance(initialWindowPolicyState(), 0.2, 55).state;
-    const result = advance(state, 0, DYNAMIC_PAUSE_MS / DYNAMIC_SAMPLE_MS);
-    expect(result.decision).toBe("cut");
-    expect(result.state.elapsedMs).toBe(6_200);
-    expect(result.state.silenceMs).toBe(DYNAMIC_PAUSE_MS);
-  });
-
-  it("forces a cut at 14 seconds during continuous speech", () => {
-    const result = advance(initialWindowPolicyState(), 0.2, 140);
-    expect(result.decision).toBe("cut");
-    expect(result.state.elapsedMs).toBe(14_000);
-  });
-
-  it("ignores pauses shorter than 700ms", () => {
-    let state = advance(initialWindowPolicyState(), 0.2, 55).state;
-    state = advance(state, 0, 5).state;
-    const resumed = nextWindowDecision(state, 0.2, BOUNDS);
+  it("ignores pauses shorter than the required pause", () => {
+    const atFloor = advance(initialWindowPolicyState(), 0.2, DYNAMIC.minMs / DYNAMIC_SAMPLE_MS).state;
+    const shortPause = advance(atFloor, 0, 5).state;
+    const resumed = nextWindowDecision(shortPause, 0.2, DYNAMIC);
     expect(resumed.decision).toBe("continue");
     expect(resumed.state.silenceMs).toBe(0);
   });
@@ -114,13 +179,13 @@ describe("dynamic recording window policy", () => {
     const quiet = advance(state, 0.1, 120);
     expect(quiet.state.speechPeakRms).toBeCloseTo(0.1, 1);
     expect(quiet.state.silenceMs).toBe(0);
-    const silent = nextWindowDecision(quiet.state, DYNAMIC_ABS_SILENCE_RMS / 2, BOUNDS);
+    const silent = nextWindowDecision(quiet.state, DYNAMIC_ABS_SILENCE_RMS / 2, DYNAMIC);
     expect(silent.state.silenceMs).toBe(DYNAMIC_SAMPLE_MS);
   });
 
   it("starts each new recording window with clean policy state", () => {
     const state = advance(initialWindowPolicyState(), 0, 7).state;
-    expect(state.silenceMs).toBe(DYNAMIC_PAUSE_MS);
+    expect(state.silenceMs).toBe(700);
     expect(initialWindowPolicyState()).toEqual({ elapsedMs: 0, silenceMs: 0, speechPeakRms: 0 });
   });
 });
