@@ -1,6 +1,6 @@
 # Brand guidelines
 
-Reviewed 28 October 2026 against merged PR #75 (`080e6ca`).
+Reviewed 1 November 2026 against merged PR #85 (`863bf10`).
 
 The baseline every Caption Studio screen follows: how the product sounds, which token
 to use for which job, and how text, space and components are laid out. Agents and
@@ -78,7 +78,7 @@ code, documentation, Usage and diagnostics.
 | Words | Glossary, terminology, keyword hints, public caption filter, quick block |
 | Caption speed | Recording window, chunk, audio window |
 | Check captions before they show, Next up | Output buffer, buffer queue, dwell |
-| Heard / Audience sees | Source transcript / public caption |
+| Heard / Audience view | Source transcript / public caption |
 | Sermons | Sermon archive, experience, journal |
 | Take over | Controller takeover, lease |
 | Apply now / Undo changes | Review refresh, confirm refresh, discard drafts |

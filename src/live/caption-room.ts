@@ -181,8 +181,8 @@ export class CaptionRoom {
         const duplicate = previous.find((command) => command.id === body.id);
         if (duplicate) return json({ command: duplicate, status: current.status, connected: Date.now() - (current.heartbeatAt ?? 0) < 15_000 });
         if (previous.length >= 1400) return json({ error: "Remote command limit reached. Pair the phone again." }, 429);
-        if (current.remoteCommand?.status === "pending") return json({ error: "Wait for the pending command or reconnect the capture computer." }, 409);
-        if (body.action === "resume" && Date.now() - (current.heartbeatAt ?? 0) >= 15_000) return json({ error: "Capture computer disconnected. Reconnect it before resuming." }, 409);
+        if (current.remoteCommand?.status === "pending") return json({ error: "Wait for the pending command or reconnect the capture system." }, 409);
+        if (body.action === "resume" && Date.now() - (current.heartbeatAt ?? 0) >= 15_000) return json({ error: "Capture system disconnected. Reconnect it before resuming." }, 409);
         if (body.action !== "resume") {
           current.captionEpoch = (current.captionEpoch ?? 0) + 1;
           if (body.action === "pause") {

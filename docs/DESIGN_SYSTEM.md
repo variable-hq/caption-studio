@@ -1,6 +1,6 @@
 # Design system
 
-Reviewed 30 October 2026 against merged PR #80 (`3a7d1d2`).
+Reviewed 1 November 2026 against merged PR #85 (`863bf10`).
 
 Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
@@ -35,7 +35,7 @@ The light palette is the default. A dark palette is declared twice: under
 `color-scheme` follows the palette. Dark body text measures about 17:1 against the page
 and muted text at least 6.9:1 against cards.
 
-**Settings › This computer** holds a **Light or dark** select (Match this computer,
+**Settings › This system** holds a **Light or dark** select (Match this system,
 Light, Dark). The choice is applied to `<html data-theme>`, cached in `localStorage` under
 `caption-studio:theme:v1`, and saved with the operator's account through the
 preferences record, so it follows the operator between browsers. The paired operator

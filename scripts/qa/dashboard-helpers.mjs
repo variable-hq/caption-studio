@@ -2,7 +2,7 @@
 export const QA_VIEWPORT_WIDTHS = [1920, 1200, 390, 320];
 
 const SETTINGS_LABELS = {
-  computer: "This computer",
+  computer: "This system",
   languages: "Languages & timing",
   words: "Words",
   look: "Caption look",

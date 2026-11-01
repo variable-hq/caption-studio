@@ -115,14 +115,14 @@ try {
   requests.length = 0;
   await page.evaluate(() => localStorage.setItem('caption-studio:ui-locale:v1', 'id'));
   await page.goto(origin + '/operator/mobile#' + id + '.' + 'p'.repeat(43));
-  await page.getByText('Komputer caption terhubung · live', { exact: true }).waitFor();
+  await page.getByText('Sistem caption terhubung · live', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'id');
   await page.getByRole('button', { name: 'Jeda', exact: true }).click();
-  await page.getByText('Jeda: dikonfirmasi oleh komputer caption.', { exact: true }).waitFor();
+  await page.getByText('Jeda: dikonfirmasi oleh sistem caption.', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Lanjutkan', exact: true }).click();
-  await page.getByText('Lanjutkan: dikonfirmasi oleh komputer caption.', { exact: true }).waitFor();
+  await page.getByText('Lanjutkan: dikonfirmasi oleh sistem caption.', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Bersihkan layar', exact: true }).click();
-  await page.getByText('Bersihkan layar: dikonfirmasi oleh komputer caption.', { exact: true }).waitFor(); await check('remote');
+  await page.getByText('Bersihkan layar: dikonfirmasi oleh sistem caption.', { exact: true }).waitFor(); await check('remote');
   assert.ok(requests.every((url) => url === '/api/live/experience/remote'));
   await page.evaluate(() => localStorage.removeItem('caption-studio:ui-locale:v1'));
   await page.goto(origin + '/#sermons'); await page.getByRole('heading', { name: 'Sermons', exact: true }).waitFor();

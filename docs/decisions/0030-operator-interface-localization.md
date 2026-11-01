@@ -44,6 +44,10 @@ review**. Reviewers should use this terminology consistently:
 | Caption controls | Kontrol caption | Live actions group |
 | Check captions before they show | Periksa caption sebelum ditampilkan | Output buffer |
 | Live | Live | Active operator view/session |
+| This system | sistem ini | The local operator device |
+| Capture system | sistem caption | The device that runs the dashboard and microphone |
+| Operator view | Tampilan operator | Heard pane, visible to the operator only |
+| Audience view | Tampilan audiens | Public caption pane |
 | Sermons | Khotbah | Saved service archive |
 
 ## Tradeoffs and verification

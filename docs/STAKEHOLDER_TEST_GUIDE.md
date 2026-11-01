@@ -1,12 +1,12 @@
 # Stakeholder test guide
 
-Reviewed 28 October 2026 for merged PR #75 (`080e6ca`), including the Live/Sermons/Settings dashboard. Use a protected, verified deployment,
+Reviewed 1 November 2026 against merged PR #85 (`863bf10`), including the Live/Sermons/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 
 ## Confirmed rehearsal setup
 
-The microphone AUX feed enters a USB audio interface connected to the capture computer.
+The microphone AUX feed enters a USB audio interface connected to the capture system.
 OBS runs on a separate computer using the hosted reusable Browser Source URL.
 Use a signed-in paired phone for the operator remote and separate signed-out audience
 phones for `/view` and `/read`. Device models and physical signal routing remain untested.
@@ -44,7 +44,7 @@ The browser is the sole client; there are no native/signing checklists.
    dialog or long record should create horizontal page overflow or hide the next action.
    Verify the **Live**, **Sermons** and **Settings** tabs and each Settings section, their
    bookmarks (`#live`, `#sermons`, `#settings=<section>`, `#help`), reload and browser
-   Back/Forward. Switch **Settings › This computer › Light or dark** to Dark and back to
+   Back/Forward. Switch **Settings › This system › Light or dark** to Dark and back to
    Light: text, status pill, focus outlines and the caption preview must stay readable, and
    the OBS overlay must stay transparent. Reload and confirm the theme returns from the account.
    Confirm drafts and the transcript checkbox survive moving between screens, and no
@@ -57,7 +57,7 @@ The browser is the sole client; there are no native/signing checklists.
 3. Sign in; after Start, confirm the configured models under **Live › Quick fixes ›
    Service details** (Speech model, Translation model). Defaults are
    `whisper-large-v3-turbo` and `openai/gpt-oss-20b`. Configuration is not a model-output test.
-4. In **Settings › This computer › Microphone**, select the USB interface, press **Test the
+4. In **Settings › This system › Microphone**, select the USB interface, press **Test the
    microphone** and speak into the AUX feed. Mute that feed and confirm nearby computer
    speech does not reveal an unintended input. Verify the selected device after reconnecting it.
 5. In **Settings › Languages & timing**, choose **Preacher speaks** Indonesian, **Show
@@ -77,7 +77,7 @@ The browser is the sole client; there are no native/signing checklists.
 8. Use **Show a test caption** and **Clear screen** for a synthetic idle test. It makes no
    AI call or microphone capture. On **Live**, decide **Save the transcript for 7 days**,
    optionally fill **Session details**, then press **Start captions**; Start performs
-   readiness and ownership checks. **Heard** and **Audience sees** show the private source
+   readiness and ownership checks. **Heard** and **Audience view** show the private source
    and the public caption.
 9. Speak approved samples. Confirm private source versus moderated public output, Words
    behavior, masks, caption language, **Recent captions**, and the **Service details**
@@ -118,8 +118,8 @@ The browser is the sole client; there are no native/signing checklists.
 | Saving off | No durable source archive; explain that object eviction can lose unreceived reader text |
 | **Pair phone** (Live › Share) | Requires Access plus service remote credential; any earlier phone is unpaired; phone never captures audio |
 | Remote Pause | New server inference claims stop immediately; physical mic status confirmed only after host acknowledgement |
-| Remote Resume/Clear | Applies to the existing capture computer; duplicate commands do not repeat actions |
-| Capture computer disconnected | Phone reports pending/disconnected; no false microphone confirmation |
+| Remote Resume/Clear | Applies to the existing capture system; duplicate commands do not repeat actions |
+| Capture system disconnected | Phone reports pending/disconnected; no false microphone confirmation |
 | Replace viewer/reader link | Only intended capability changes; old link denied, OBS unchanged |
 | Takeover | Old controller/remote/reader/latest-viewer revoked; stale computer stops on reconciliation |
 | End/expiry | OBS blank but reusable; latest viewer/remote revoked; reader remains for 30-minute grace |
@@ -184,7 +184,7 @@ test a second service and takeover separately. Channel endurance does not test a
 
 For a separate approved audio-duration run, measure provider usage on short samples first,
 then verify sufficient headroom. Observe full audience delay, queue drops, input loss,
-Access expiry and provider failure. Disconnect OBS and the capture computer separately to
+Access expiry and provider failure. Disconnect OBS and the capture system separately to
 distinguish delivery failure from capture failure. Stop at quota/error limits.
 
 ## Evidence and acceptance

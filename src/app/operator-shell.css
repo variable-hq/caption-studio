@@ -163,7 +163,7 @@
 }
 
 /* The captions card fills its row: both monitor boxes grow together, and the 16:9 OBS
- * frame sits centred in a dark letterbox, so Heard and Audience sees stay the same size. */
+ * frame sits centred in a dark letterbox, so Heard and Audience view stay the same size. */
 .liveCaptions .monitorGrid { flex: 1; }
 .monitorPane > :last-child { flex: 1; }
 

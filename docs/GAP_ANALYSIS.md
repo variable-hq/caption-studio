@@ -1,6 +1,6 @@
 # Caption Studio: gap analysis and improvement plan
 
-Reviewed 30 October 2026 against merged PR #77 (`e242c1c`). Plan 1 (`20597d8`) deployed
+Reviewed 1 November 2026 against merged PR #85 (`863bf10`). Plan 1 (`20597d8`) deployed
 successfully after the Access proxy fix; merges through `080e6ca`, including the rename
 to the `caption-studio` Worker, deployed via Workers Builds on 26–28 October, but none has
 a recorded service rehearsal. Only `main` builds; preview-branch
@@ -154,7 +154,7 @@ backups and participant notice need explicit operational review.
    `package.json` since PR #28) and verify actual route boundaries/configuration
    without weakening Access.
 2. Approve the first language corpus and provider/account settings.
-3. Run a short protected rehearsal with the capture computer, separate OBS computer,
+3. Run a short protected rehearsal with the capture system, separate OBS computer,
    paired operator phone, latest viewer and appending reader.
 4. Test duration/recovery first with fixed synthetic channel output and optional AI off,
    then separately measure approved synthetic audio and optional inference.
