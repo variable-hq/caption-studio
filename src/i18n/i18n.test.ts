@@ -189,6 +189,27 @@ describe("operator interface translations", () => {
     }
   });
 
+  it("imports a Terms list with one format and no Bible names group", () => {
+    expect(en["wordsEditor.importTitle"]).toBe("Import a list");
+    expect(id["wordsEditor.importTitle"]).toBe("Impor daftar");
+    expect(en["wordsEditor.importHint"]).toContain("term,action,with");
+    expect(id["wordsEditor.importHint"]).toContain("istilah,tindakan,dengan");
+    expect(en["wordsEditor.importSuccess.one"]).toBe("Imported {count} term.");
+    expect(en["wordsEditor.importSuccess.other"]).toBe("Imported {count} terms.");
+    expect(id["wordsEditor.importSuccess.one"]).toBe("{count} istilah diimpor.");
+    expect(id["wordsEditor.importSuccess.other"]).toBe("{count} istilah diimpor.");
+    expect(en["wordsEditor.importParseError"]).toBe("Couldn’t import: line {line} {reason}.");
+    expect(id["wordsEditor.importParseError"]).toBe("Gagal mengimpor: baris {line} {reason}.");
+    for (const key of [
+      "wordsEditor.bibleNamesTitle",
+      "wordsEditor.bibleNamesHint",
+      "wordsEditor.importNames",
+    ]) {
+      expect(key in en).toBe(false);
+      expect(key in id).toBe(false);
+    }
+  });
+
   it("no operator message names the feature Words", () => {
     for (const [key, message] of [...Object.entries(en), ...Object.entries(id)]) {
       expect(message, `${key} avoids the feature name “Words”`).not.toContain("Words");

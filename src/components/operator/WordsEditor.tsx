@@ -1,12 +1,16 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 
-import type { LanguageLocale, SourceLanguage } from "@/domain/languages";
-import { TB2_SERVICE_VOCABULARY } from "@/pipeline/bible-terms";
 import { SettingGroup } from "@/components/operator/SettingsParts";
 import type { MessageKey } from "@/i18n";
-import { useT } from "@/i18n/provider";
+import { useI18n } from "@/i18n/provider";
+import { translatePlural } from "@/i18n";
+import {
+  MAX_TERMS_IMPORT_BYTES,
+  isAcceptedTermsFile,
+  parseWordsImport,
+} from "@/live/words-import";
 import {
   WORD_ACTIONS,
   cleanWordValue,
@@ -19,8 +23,6 @@ import {
 interface WordsEditorProps {
   keywordText: string;
   filterText: string;
-  sourceLanguage: SourceLanguage;
-  targetLanguage: LanguageLocale;
   disabled: boolean;
   onChange: (settings: { keywordText: string; filterText: string }) => void;
 }
@@ -39,15 +41,20 @@ export function wordActionLabel(t: (key: MessageKey) => string, action: WordActi
   return t(ACTION_LABEL_KEYS[action]).replace(/…$/u, "");
 }
 
-/** Settings › Words: one row per word and one action, saved as the glossary and filter. */
-export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLanguage, disabled, onChange }: WordsEditorProps) {
-  const t = useT();
+/** Settings › Terms: one row per term and one action, saved as the glossary and filter. */
+export function WordsEditor({ keywordText, filterText, disabled, onChange }: WordsEditorProps) {
+  const { t, locale } = useI18n();
   const rows = wordsFromSettings(keywordText, filterText);
   const [word, setWord] = useState("");
   const [action, setAction] = useState<WordAction>("recognise");
   const [target, setTarget] = useState("");
   const [error, setError] = useState<string>("");
+  const [importText, setImportText] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importStatus, setImportStatus] = useState("");
   const errorId = useId();
+  const importErrorId = useId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const needsWith = WORD_ACTIONS.find(({ value }) => value === action)?.needsWith ?? false;
 
   const save = (next: readonly WordRow[]) => onChange(wordsToSettings(next));
@@ -63,12 +70,52 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
     setError("");
   };
 
+  const importList = (text: string, source: "paste" | "file") => {
+    setImportStatus("");
+    const result = parseWordsImport(text);
+    if (!result.ok) {
+      const failure = result.failure;
+      if (failure.kind === "too-large") {
+        setImportError(t("wordsEditor.importTooLarge"));
+        return;
+      }
+      const reason =
+        failure.reason === "unknown-action"
+          ? t("wordsEditor.importReasonUnknownAction", { action: failure.action ?? "" })
+          : failure.reason === "needs-with"
+            ? t("wordsEditor.importReasonNeedsWith")
+            : t("wordsEditor.importReasonNeedsTerm");
+      setImportError(t("wordsEditor.importParseError", { line: failure.line, reason }));
+      return;
+    }
+    save([...rows, ...result.rows]);
+    setImportError("");
+    if (source === "paste") setImportText("");
+    setImportStatus(translatePlural(locale, "wordsEditor.importSuccess", result.rows.length));
+  };
+
+  const chooseFile = async (file: File) => {
+    setImportStatus("");
+    if (!isAcceptedTermsFile(file.name, file.type)) {
+      setImportError(t("wordsEditor.importWrongType"));
+      return;
+    }
+    if (file.size > MAX_TERMS_IMPORT_BYTES) {
+      setImportError(t("wordsEditor.importTooLarge"));
+      return;
+    }
+    try {
+      importList(await file.text(), "file");
+    } catch {
+      setImportError(t("wordsEditor.importUnreadable"));
+    }
+  };
+
   // The pipeline reads at most 40 glossary entries and 40 filter entries.
   const { keywordText: compiledKeywords, filterText: compiledFilters } = wordsToSettings(rows);
   const overLimit =
     compiledKeywords.split(", ").filter(Boolean).length > 40 ||
     compiledFilters.split(", ").filter(Boolean).length > 40;
-  const tb2Available = targetLanguage === "en" && (sourceLanguage === "id" || sourceLanguage === "auto");
 
   return (
     <>
@@ -170,20 +217,60 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
       </form>
       {error ? <p className="errorText" id={errorId} role="alert">{error}</p> : null}
       </SettingGroup>
-      <SettingGroup
-        title={t("wordsEditor.bibleNamesTitle")}
-        hint={t("wordsEditor.bibleNamesHint")}
-      >
+      <SettingGroup title={t("wordsEditor.importTitle")} hint={t("wordsEditor.importHint")}>
+        <label>
+          {t("wordsEditor.importPaste")}
+          <textarea
+            name="termsImport"
+            autoComplete="off"
+            spellCheck={false}
+            rows={4}
+            value={importText}
+            disabled={disabled}
+            aria-describedby={importError ? importErrorId : undefined}
+            onChange={(event) => {
+              setImportText(event.target.value);
+              setImportError("");
+              setImportStatus("");
+            }}
+          />
+        </label>
         <div className="buttonRow">
-        <button
-          className="secondaryButton"
-          type="button"
-          disabled={disabled || !tb2Available}
-          onClick={() => onChange({ keywordText: [keywordText, TB2_SERVICE_VOCABULARY].filter(Boolean).join(", "), filterText })}
-        >
-          {t("wordsEditor.importNames")}
-        </button>
+          <button
+            type="button"
+            className="secondaryButton"
+            data-testid="terms-import-choose"
+            disabled={disabled}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {t("wordsEditor.importChooseFile")}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="visuallyHidden"
+            data-testid="terms-import-file"
+            aria-label={t("wordsEditor.importChooseFile")}
+            tabIndex={-1}
+            accept=".csv,.txt,text/csv,text/plain"
+            disabled={disabled}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void chooseFile(file);
+            }}
+          />
+          <button
+            type="button"
+            className="primaryButton"
+            disabled={disabled || !importText.trim()}
+            onClick={() => importList(importText, "paste")}
+          >
+            {t("wordsEditor.importAction")}
+          </button>
         </div>
+        {importError ? <p className="errorText" id={importErrorId} role="alert">{importError}</p> : null}
+        {importStatus ? <p className="settingHint" role="status" aria-live="polite">{importStatus}</p> : null}
       </SettingGroup>
     </>
   );

@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
+Reviewed 2 November 2026 against merged PR #90 (`a602a61`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 
@@ -63,8 +63,9 @@ The browser is the sole client; there are no native/signing checklists.
 5. In **Settings › Language**, choose **Input · Speaker’s language** Indonesian and
    **Output · Show captions in** English; in **Settings › Translation**, set **Caption wait
    time** "10 seconds: balanced".
-   Review **Settings › Terms › Bible names › Import names** (TB2) and approved mappings;
-   add `swauf` with **Fix spelling to…** `Saul` only as an explicit reviewed alias.
+   In **Settings › Terms › Import a list**, import a synthetic `.csv` (for example
+   `word1,recognise` and `word2,hide`) and confirm the rows appear; add `swauf` with
+   **Fix spelling to…** `Saul` only as an explicit reviewed alias.
    Compare original recognition and translation separately; do not infer the biblical identity.
 6. Add safe synthetic Terms rows. Review **Settings › Translation** (how closely to follow
    the words, Sanitization, Filter inappropriate language, Instructions for the translator).

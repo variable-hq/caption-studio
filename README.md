@@ -82,7 +82,8 @@ lists the steps of a service in order.
 2. **Settings › System** — choose the microphone or audio interface and check the
    level.
 3. **Settings › Language**, **Translation** and **Terms** — choose the spoken and caption
-   languages, set the caption wait time, and add names and terms or words never to show.
+   languages, set the caption wait time, and add names and terms, one at a time or by
+   importing a list, or words never to show.
 4. **Settings › Output** — style the captions.
 5. **Live** — tick **Save the transcript for 7 days** if wanted (optionally fill in
    **Session details**), press **Start captions**, check a test phrase reaches OBS, then
