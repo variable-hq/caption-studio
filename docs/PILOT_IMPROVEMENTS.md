@@ -1,6 +1,6 @@
 # Evidence-gated pilot improvements
 
-Reviewed 30 October 2026 against merged PR #77 (`e242c1c`).
+Reviewed 1 November 2026 against merged PR #88 (`1c656ea`).
 
 Prepared 12 September; scope reconciled 13 September 2026. QR joining, reusable saved
 terminology packs and live public-caption correction remain proposals. Plan 1 has since
@@ -11,9 +11,9 @@ This document adds no runtime feature or new data retention.
 Status at the 30 October review, without changing the proposals below:
 
 - **QR joining:** still a proposal. No QR encoder or joining control exists.
-- **Terminology pack:** superseded by a different design. Words are part of the one church
+- **Terminology pack:** superseded by a different design. Terms are part of the one church
   setup every signed-in operator shares, stored server-side and edited as the Settings ›
-  Words list ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)); there is
+  Terms list ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)); there is
   no per-browser pack.
 - **Correction:** partly addressed by other controls; correcting a caption already on
   screen is still not implemented. See the status note under Candidate 3.
@@ -138,7 +138,7 @@ shared church setup: **Save for everyone** stores words, languages and other set
 all signed-in operators, and new services start from it
 ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). That answered the
 cross-operator sharing question below with a server-side record rather than `localStorage`;
-it keeps a single setup, not packs per language pair. T1/T2 now measure the Words list.
+it keeps a single setup, not packs per language pair. T1/T2 now measure the Terms list.
 
 ### Current flow and smallest change
 

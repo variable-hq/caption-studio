@@ -143,9 +143,10 @@ try {
    }
    if(section==='usage') assert.equal(await page.getByText('Translation service right now',{exact:true}).isVisible(),true);
    if(section==='words'){
+    await page.getByText('Write the term in the speaker’s language',{exact:false}).waitFor();
     await page.locator('input[name="word"]').fill('synthetic-hidden');
     await page.locator('select[name="wordAction"]').selectOption('hide');
-    await page.getByRole('button',{name:'Add word',exact:true}).click();
+    await page.getByRole('button',{name:'Add term',exact:true}).click();
     await page.getByRole('cell',{name:'synthetic-hidden',exact:true}).waitFor();
     await page.getByRole('button',{name:'Remove synthetic-hidden',exact:true}).click();
     assert.equal(await page.getByRole('cell',{name:'synthetic-hidden',exact:true}).count(),0);
@@ -225,7 +226,7 @@ try {
   await page.getByRole('button',{name:'Undo changes',exact:true}).click();
   await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor({state:'hidden'});
 
-  // Quick override actions apply immediately; Keep in Words follows the Apply now flow.
+  // Quick override actions apply immediately; Keep in Terms follows the Apply now flow.
   await page.locator('input[name="liveWord"]').fill('synthetic-hide-term');
   await page.locator('select[name="liveWordAction"]').selectOption('hide');
   await page.getByRole('button',{name:'Add quick override',exact:true}).click();
@@ -238,7 +239,7 @@ try {
   await page.locator('input[name="liveWordWith"]').fill('synthetic-canonical-term');
   await page.getByRole('button',{name:'Add quick override',exact:true}).click();
   if(width===1920) await page.screenshot({path:output+`/quick-override-${colorScheme}-${width}.png`,fullPage:true});
-  await page.getByRole('button',{name:'Keep in Words',exact:true}).click();
+  await page.getByRole('button',{name:'Keep in Terms',exact:true}).click();
   await page.getByText('Kept for Apply now',{exact:true}).waitFor();
   await openSettings(page,'words');
   await page.locator('.wordsTable').getByText('synthetic-fix-term',{exact:true}).waitFor();
@@ -301,7 +302,7 @@ try {
   assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1,'Browser copy applies when account preferences are unavailable');
   await page.getByRole('combobox',{name:'Bahasa antarmuka',exact:true}).selectOption('');
   await page.waitForFunction(()=>document.documentElement.lang==='en');
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Sermons, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Words, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, no inference, responsive overflow and Axe'});
+  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Sermons, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, no inference, responsive overflow and Axe'});
   await context.close();
  }
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));

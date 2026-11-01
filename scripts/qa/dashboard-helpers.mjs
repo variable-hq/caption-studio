@@ -4,7 +4,7 @@ export const QA_VIEWPORT_WIDTHS = [1920, 1200, 390, 320];
 const SETTINGS_LABELS = {
   computer: "System",
   languages: "Language",
-  words: "Words",
+  words: "Terms",
   look: "Output",
   obs: "OBS & links",
   translator: "Translation",

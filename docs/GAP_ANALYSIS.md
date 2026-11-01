@@ -1,6 +1,6 @@
 # Caption Studio: gap analysis and improvement plan
 
-Reviewed 1 November 2026 against merged PR #85 (`863bf10`). Plan 1 (`20597d8`) deployed
+Reviewed 1 November 2026 against merged PR #88 (`1c656ea`). Plan 1 (`20597d8`) deployed
 successfully after the Access proxy fix; merges through `080e6ca`, including the rename
 to the `caption-studio` Worker, deployed via Workers Builds on 26–28 October, but none has
 a recorded service rehearsal. Only `main` builds; preview-branch
@@ -122,13 +122,13 @@ Synthetic browser/Axe checks (`npm run qa`) pass at 1920, 1200, 390 and 320px fo
 Live, Sermons and Settings screens, remote, reader and viewer. Physical Safari/phones,
 actual browser zoom, screen readers and volunteer comprehension remain unverified. Have
 representative operators configure a service and explain the difference between Clear
-screen, Remove passage and Delete sermon, and between Quick override, Words and Live note.
+screen, Remove passage and Delete sermon, and between Quick override, Terms and Live note.
 Verify that pending phone commands cannot be mistaken for physical microphone confirmation.
 
 ### G10 — P2: market feature gaps need demand and a scope decision
 
 Local QR joining remains a proposal in [Pilot improvements](PILOT_IMPROVEMENTS.md).
-Saved terminology is now the shared church setup's Settings › Words list
+Saved terminology is now the shared church setup's Settings › Terms list
 ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). Live correction is
 covered from the next caption by Quick override, and before publication by editing the
 next caption in the output buffer or showing a paused Manual caption; correcting a caption

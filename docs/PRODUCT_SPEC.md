@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 1 November 2026 against merged PR #87 (`804f130`). The corrected 13 September
+Reviewed 1 November 2026 against merged PR #88 (`1c656ea`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -325,10 +325,10 @@ The controlling tab keeps up to 20 entries in memory and shows them for removal.
 Add is disabled with a prompt to remove an entry; existing overrides are not evicted. They
 apply from the next caption whose processing starts; a caption already processing keeps its
 existing rules. Entries remain active until removed, including across End in the same tab.
-Live entries take priority over saved Words for recognition and filtering;
+Live entries take priority over saved Terms for recognition and filtering;
 a live spelling or translation replaces the saved action for the same word, and approved
-recognition variants are combined. These actions do not use **Apply now**. **Keep in Words**
-adds the row to the draft Words list; the live entry remains active, while the saved row
+recognition variants are combined. These actions do not use **Apply now**. **Keep in Terms**
+adds the row to the draft Terms list; the live entry remains active, while the saved row
 follows the usual **Apply now** and **Save for everyone** choices. The live list is not
 saved as a setting or logged. If transcript saving is enabled, compiled rules accompany
 the caption through the existing private reader flow. Live entries are separate from the
@@ -396,7 +396,7 @@ clear the preview and abort in-flight draft work.
 
 | Control | Purpose | When it applies |
 | --- | --- | --- |
-| Words (Settings › Words) | Exact word rules and spelling fixes | After Apply now |
+| Terms (Settings › Terms) | Exact word rules and spelling fixes | After Apply now |
 | Quick override (Live › Quick fixes) | Fix, translate, recognise, or hide a whole caption | From the next caption; controller tab until removed |
 | Translator instructions (Settings) | Standing guidance for the whole service | After Apply now |
 | Live note | Situational guidance for the passage being spoken now | From the next translation; current service only |
@@ -414,7 +414,7 @@ duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md) and
 default sit under **Check captions before they show** on the Live screen, both before Start and
 during a service; the queued captions and their controls appear under **Caption controls**
 in Live's **Quick fixes**, alongside Quick override and Manual caption. The public caption
-filter lives in Settings › Words.
+filter lives in Settings › Terms.
 
 - One choice, **Wait before showing each caption**: Off (the default, matching behavior
   before this feature existed) or Wait 1, 2, 3, 4 or 5 seconds before each caption advances
@@ -440,11 +440,11 @@ filter lives in Settings › Words.
   caption, a translation refresh, takeover, and End all discard the whole buffer.
 - **Save for everyone** stores the choice in the church setup; new services start from it.
 
-### Church setup and Words
+### Church setup and Terms
 
 One **church setup** is shared by all signed-in operators
 ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). It includes languages,
-caption wait time, Words, Inference and Sanitization; translator instructions; caption style;
+caption wait time, Terms, Inference and Sanitization; translator instructions; caption style;
 summary defaults and automatic summaries; the output buffer; and the transcript-saving
 default. Theme and interface language remain personal preferences. **Save for everyone**
 (and **Save selected settings as default**
@@ -454,14 +454,14 @@ back to the operator's own, and the first save carries the saving operator's ear
 setup across. Discrete-choice controls mark the saved option "· Saved default",
 distinct from the current draft.
 
-**Settings › Words** lists one row per word with one action: **Help the AI recognise it**,
+**Settings › Terms** lists one row per term with one action: **Help the AI recognise it**,
 **Fix spelling to…** (a mishearing), **Always translate as…**, **Hide the word (\*\*\*)**,
 **Replace on screen with…**, or **Hide the whole caption**. Rows are stored as the glossary
 and public-filter text described above, so drafts, **Apply now** and saved setups treat
 them exactly as before; the pipeline reads at most 40 glossary and 40 filter entries, and
 the editor warns past that. **Import Bible names** adds the TB2 list once for Indonesian →
-English. Live Quick overrides stay active without a refresh; **Keep in Words** also adds
-the row to the draft Words list and leaves the live entry active.
+English. Live Quick overrides stay active without a refresh; **Keep in Terms** also adds
+the row to the draft Terms list and leaves the live entry active.
 
 ### Caption display, OBS, and mobile viewing
 
@@ -508,7 +508,7 @@ the row to the draft Words list and leaves the live entry active.
   read-only and offers **Take over**; Start stays disabled.
 - **Settings** lists its sections beside the selected one: System (microphone, level
   test and Theme), Language (interface language, spoken and caption languages),
-  Translation (caption wait time and translator instructions), Words (names and terms,
+  Translation (caption wait time and translator instructions), Terms (names and terms,
   the public caption filter, and the TB2 import), Output (with a preview), OBS & links
   (OBS link, phone viewer link and their replacement), Summary and Usage. Channel
   errors offer **Retry channel** or, when the OBS credential must be rebuilt, **Rotate and
