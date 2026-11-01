@@ -25,36 +25,73 @@ const RECORDING_WINDOW_LABELS: Record<RecordingWindowMs, MessageKey> = {
 interface TranslationSettingsEditorProps {
   sourceLanguage: SourceLanguage;
   targetLanguage: LanguageLocale;
-  recordingWindowMs: RecordingWindowMs;
   disabled?: boolean;
   /** The operator's saved account defaults, if any — badges the matching option. */
   defaultSourceLanguage?: SourceLanguage | null;
   defaultTargetLanguage?: LanguageLocale | null;
-  defaultRecordingWindowMs?: RecordingWindowMs | null;
   onSourceLanguageChange: (value: SourceLanguage) => void;
   onTargetLanguageChange: (value: LanguageLocale) => void;
+}
+
+interface CaptionWaitTimeEditorProps {
+  recordingWindowMs: RecordingWindowMs;
+  disabled?: boolean;
+  /** The operator's saved account default, if any — badges the matching option. */
+  defaultRecordingWindowMs?: RecordingWindowMs | null;
   onRecordingWindowChange: (value: RecordingWindowMs) => void;
+}
+
+export function CaptionWaitTimeEditor({
+  recordingWindowMs,
+  disabled = false,
+  defaultRecordingWindowMs = null,
+  onRecordingWindowChange,
+}: CaptionWaitTimeEditorProps) {
+  const t = useT();
+  return (
+    <SettingGroup title={t("translationSettings.speedTitle")} hint={t("translationSettings.speedHint")}>
+      <label>
+        <span className="visuallyHidden">{t("translationSettings.speedTitle")}</span>
+        <select
+          name="recordingWindow"
+          autoComplete="off"
+          data-testid="recording-window"
+          value={recordingWindowMs}
+          disabled={disabled}
+          onChange={(event) =>
+            onRecordingWindowChange(normalizeRecordingWindowMs(event.target.value))
+          }
+        >
+          {RECORDING_WINDOW_OPTIONS.map((value) => (
+            <option value={value} key={value}>
+              {t(RECORDING_WINDOW_LABELS[value])}{defaultRecordingWindowMs === value ? t("common.churchDefaultBadge") : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+    </SettingGroup>
+  );
 }
 
 export function TranslationSettingsEditor({
   sourceLanguage,
   targetLanguage,
-  recordingWindowMs,
   disabled = false,
   defaultSourceLanguage = null,
   defaultTargetLanguage = null,
-  defaultRecordingWindowMs = null,
   onSourceLanguageChange,
   onTargetLanguageChange,
-  onRecordingWindowChange,
 }: TranslationSettingsEditorProps) {
   const t = useT();
   return (
     <>
       <SettingGroup title={t("translationSettings.languagesTitle")} hint={t("translationSettings.languagesHint")}>
-        <div className="fieldGrid">
+        <div className="fieldGrid languageFieldGrid">
             <label>
-              {t("translationSettings.source")}
+              <span>
+                <span className="fieldKind">{t("translationSettings.sourceKind")}</span>
+                {t("translationSettings.source")}
+              </span>
               <select
                 name="sourceLanguage"
                 autoComplete="off"
@@ -74,7 +111,10 @@ export function TranslationSettingsEditor({
               </select>
             </label>
             <label>
-              {t("translationSettings.target")}
+              <span>
+                <span className="fieldKind">{t("translationSettings.targetKind")}</span>
+                {t("translationSettings.target")}
+              </span>
               <select
                 name="targetLanguage"
                 autoComplete="off"
@@ -93,27 +133,6 @@ export function TranslationSettingsEditor({
               </select>
             </label>
         </div>
-      </SettingGroup>
-      <SettingGroup title={t("translationSettings.speedTitle")} hint={t("translationSettings.speedHint")}>
-          <label>
-            <span className="visuallyHidden">{t("translationSettings.speedTitle")}</span>
-            <select
-              name="recordingWindow"
-              autoComplete="off"
-              data-testid="recording-window"
-              value={recordingWindowMs}
-              disabled={disabled}
-              onChange={(event) =>
-                onRecordingWindowChange(normalizeRecordingWindowMs(event.target.value))
-              }
-            >
-              {RECORDING_WINDOW_OPTIONS.map((value) => (
-                <option value={value} key={value}>
-                  {t(RECORDING_WINDOW_LABELS[value])}{defaultRecordingWindowMs === value ? t("common.churchDefaultBadge") : ""}
-                </option>
-              ))}
-            </select>
-          </label>
       </SettingGroup>
     </>
   );

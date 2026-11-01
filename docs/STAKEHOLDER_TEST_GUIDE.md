@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 1 November 2026 against merged PR #85 (`863bf10`), including the Live/Sermons/Settings dashboard. Use a protected, verified deployment,
+Reviewed 1 November 2026 against merged PR #86 (`96c005a`), including the Live/Sermons/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 
@@ -44,12 +44,12 @@ The browser is the sole client; there are no native/signing checklists.
    dialog or long record should create horizontal page overflow or hide the next action.
    Verify the **Live**, **Sermons** and **Settings** tabs and each Settings section, their
    bookmarks (`#live`, `#sermons`, `#settings=<section>`, `#help`), reload and browser
-   Back/Forward. Switch **Settings › This system › Light or dark** to Dark and back to
+   Back/Forward. Switch **Settings › System › Theme** to Dark and back to
    Light: text, status pill, focus outlines and the caption preview must stay readable, and
    the OBS overlay must stay transparent. Reload and confirm the theme returns from the account.
    Confirm drafts and the transcript checkbox survive moving between screens, and no
    navigation action starts capture.
-   Save the translator instructions, summary style, caption look, Words and the languages
+   Save the translator instructions, summary style, Output, Words and the languages
    setup with **Save for everyone**, then open the dashboard as a different Access user: the
    church setup must match. Change the theme there; it must not change for the first user.
    In **Settings › Words**, add one word with each **What to do** action and confirm each
@@ -57,22 +57,23 @@ The browser is the sole client; there are no native/signing checklists.
 3. Sign in; after Start, confirm the configured models under **Live › Quick fixes ›
    Service details** (Speech model, Translation model). Defaults are
    `whisper-large-v3-turbo` and `openai/gpt-oss-20b`. Configuration is not a model-output test.
-4. In **Settings › This system › Microphone**, select the USB interface, press **Test the
+4. In **Settings › System › Microphone**, select the USB interface, press **Test the
    microphone** and speak into the AUX feed. Mute that feed and confirm nearby computer
    speech does not reveal an unintended input. Verify the selected device after reconnecting it.
-5. In **Settings › Languages & timing**, choose **Preacher speaks** Indonesian, **Show
-   captions in** English and **Caption speed** "Balanced: listens 9 seconds at a time".
+5. In **Settings › Language**, choose **Input · Speaker’s language** Indonesian and
+   **Output · Show captions in** English; in **Settings › Translation**, set **Caption wait
+   time** "Balanced: listens 9 seconds at a time".
    Review **Settings › Words › Bible names › Import names** (TB2) and approved mappings;
    add `swauf` with **Fix spelling to…** `Saul` only as an explicit reviewed alias.
    Compare original recognition and translation separately; do not infer the biblical identity.
-6. Add safe synthetic Words rows. Review **Settings › AI translator** (how closely to follow
+6. Add safe synthetic Words rows. Review **Settings › Translation** (how closely to follow
    the words, Sanitization, Filter inappropriate language, Instructions for the translator).
    Unsaved drafts stay page-local; **Save for everyone** writes the shared church setup and
    keeps an unencrypted browser `localStorage` copy.
 7. In **Settings › OBS & links**, press **Create OBS link** once, then **Copy OBS link**
    directly into a 1920 × 1080 Browser Source on the separate computer. Test denied
    clipboard recovery with **Show the link to copy by hand** without exposing the link to
-   a recording. In **Settings › Caption look**, set text size, font, colours, band, placement
+   a recording. In **Settings › Output**, set text size, font, colours, band, placement
    and margins; the preview updates continuously and the saved shared look survives reload.
 8. Use **Show a test caption** and **Clear screen** for a synthetic idle test. It makes no
    AI call or microphone capture. On **Live**, decide **Save the transcript for 7 days**,
@@ -83,7 +84,7 @@ The browser is the sole client; there are no native/signing checklists.
    behavior, masks, caption language, **Recent captions**, and the **Service details**
    counters (Delay after speech, Audio chunks dropped). The delay excludes the recording
    window, queue wait and audience rendering.
-10. While live and paused, draft language, Words, caption speed and translator changes in
+10. While live and paused, draft language, Words, caption wait time and translator changes in
     Settings. The **Your changes aren’t in use yet** banner appears: press **Undo changes**
     once, make them again, then **Apply now**. Old output/context disappears; old results
     cannot reappear. Timer, controller, links, usage and live/paused state remain. Repeat a
@@ -148,7 +149,7 @@ usage; accounting failure stops capture.
    polling; source IDs become excluded from future summaries while originals remain private.
    If the current live caption uses a removed source ID, verify it is also cleared.
    Unrelated current captions must remain; Clear is the separate general blanking action.
-4. With optional AI enabled for approved synthetic testing, set **Settings › AI summary ›
+4. With optional AI enabled for approved synthetic testing, set **Settings › Summary ›
    Summary style** (Language, Short/Detailed length, harmless **What to focus on**), then
    press **Generate summary** after End. Separately, turn on **Make a summary draft
    automatically after each service** and confirm End of a saved service queues one draft.

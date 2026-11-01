@@ -1,6 +1,6 @@
 # Brand guidelines
 
-Reviewed 1 November 2026 against merged PR #85 (`863bf10`).
+Reviewed 1 November 2026 against merged PR #86 (`96c005a`).
 
 The baseline every Caption Studio screen follows: how the product sounds, which token
 to use for which job, and how text, space and components are laid out. Agents and
@@ -45,7 +45,7 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
 ## Voice and copy
 
 - **Sentence case** for everything: headings, buttons, tabs, navigation, menu items.
-  "Start captions", "AI translator", not "Start Captions" or "AI Behavior".
+  "Start captions", "Translation", not "Start Captions" or "AI Behavior".
 - Speak to the operator as **you**. Use active voice: "Copy the OBS link", not "The
   OBS link can be copied".
 - **Buttons name the outcome** with a verb: "End service", "Delete sermon",
@@ -76,7 +76,7 @@ code, documentation, Usage and diagnostics.
 | OBS link | OBS URL, channel credential, browser source URL |
 | Phone remote, Pair phone | Remote pairing, operator remote credential |
 | Words | Glossary, terminology, keyword hints, public caption filter, quick block |
-| Caption speed | Recording window, chunk, audio window |
+| Caption wait time | Recording window, chunk, audio window |
 | Check captions before they show, Next up | Output buffer, buffer queue, dwell |
 | Heard / Audience view | Source transcript / public caption |
 | Sermons | Sermon archive, experience, journal |

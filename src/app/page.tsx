@@ -45,7 +45,7 @@ import {
   normalizeSummaryOptions,
   summaryOptionsEqual,
 } from "@/experience/summary-defaults";
-import { TranslationSettingsEditor } from "@/components/operator/TranslationSettingsEditor";
+import { CaptionWaitTimeEditor, TranslationSettingsEditor } from "@/components/operator/TranslationSettingsEditor";
 import { WordsEditor } from "@/components/operator/WordsEditor";
 import {
   DEFAULT_SOURCE_LANGUAGE,
@@ -113,9 +113,9 @@ type SettingsSectionId =
   | "summary"
   | "usage";
 
-const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey; descriptionKey: MessageKey }[] = [
-  { id: "computer", titleKey: "settings.section.computer.title", descriptionKey: "settings.section.computer.description" },
-  { id: "languages", titleKey: "settings.section.languages.title", descriptionKey: "settings.section.languages.description" },
+const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey; descriptionKey?: MessageKey }[] = [
+  { id: "computer", titleKey: "settings.section.computer.title" },
+  { id: "languages", titleKey: "settings.section.languages.title" },
   { id: "words", titleKey: "settings.section.words.title", descriptionKey: "settings.section.words.description" },
   { id: "look", titleKey: "settings.section.look.title", descriptionKey: "settings.section.look.description" },
   { id: "obs", titleKey: "settings.section.obs.title", descriptionKey: "settings.section.obs.description" },
@@ -1100,14 +1100,11 @@ function OperatorDashboardContent() {
   const translationEditorProps = {
     sourceLanguage,
     targetLanguage,
-    recordingWindowMs,
     disabled: translationEditorDisabled,
     defaultSourceLanguage: accountPreferences?.translationDefaults?.sourceLanguage ?? null,
     defaultTargetLanguage: accountPreferences?.translationDefaults?.targetLanguage ?? null,
-    defaultRecordingWindowMs: accountPreferences?.translationDefaults?.recordingWindowMs ?? null,
     onSourceLanguageChange: setSourceLanguage,
     onTargetLanguageChange: setTargetLanguage,
-    onRecordingWindowChange: setRecordingWindowMs,
   };
 
   const overlayUrlField = (
@@ -1553,10 +1550,14 @@ function OperatorDashboardContent() {
           <p className="operatorHint">{t("settings.scopeHint", { workspace: WORKSPACE_NAME })}</p>
         </nav>
         <section className="operatorCard settingsPanel" aria-labelledby="settings-section-heading">
-          <header className="settingsHeader">
-            <h2 id="settings-section-heading">{t(currentSection.titleKey)}</h2>
-            <p className="settingHint">{t(currentSection.descriptionKey)}</p>
-          </header>
+          {currentSection.descriptionKey ? (
+            <header className="settingsHeader">
+              <h2 id="settings-section-heading">{t(currentSection.titleKey)}</h2>
+              <p className="settingHint">{t(currentSection.descriptionKey)}</p>
+            </header>
+          ) : (
+            <h2 id="settings-section-heading" className="visuallyHidden">{t(currentSection.titleKey)}</h2>
+          )}
           {["languages", "words", "translator"].includes(settingsSection) ? pendingBanner : null}
 
           {settingsSection === "computer" ? (
@@ -1574,21 +1575,6 @@ function OperatorDashboardContent() {
               {hasService && isLive ? (
                 <p className="settingHint">{t("settings.pauseBeforeMicrophone")}</p>
               ) : null}
-              <SettingGroup title={t("settings.interfaceLanguage.title")} hint={t("settings.interfaceLanguage.hint")}>
-                <label>
-                  <span className="visuallyHidden">{t("settings.interfaceLanguage.title")}</span>
-                  <select
-                    name="uiLocale"
-                    autoComplete="off"
-                    value={uiLocalePreference ?? ""}
-                    onChange={(event) => chooseUiLocale(event.target.value)}
-                  >
-                    <option value="">{t("settings.interfaceLanguage.matchBrowser")}</option>
-                    <option value="en">{t("settings.interfaceLanguage.english")}</option>
-                    <option value="id">{t("settings.interfaceLanguage.indonesian")}</option>
-                  </select>
-                </label>
-              </SettingGroup>
               <SettingGroup title={t("settings.appearance.title")} hint={t("settings.appearance.hint")}>
                 <label>
                   <span className="visuallyHidden">{t("settings.appearance.title")}</span>
@@ -1604,6 +1590,21 @@ function OperatorDashboardContent() {
 
           {settingsSection === "languages" ? (
             <>
+              <SettingGroup title={t("settings.interfaceLanguage.title")} hint={t("settings.interfaceLanguage.hint")}>
+                <label>
+                  <span className="visuallyHidden">{t("settings.interfaceLanguage.title")}</span>
+                  <select
+                    name="uiLocale"
+                    autoComplete="off"
+                    value={uiLocalePreference ?? ""}
+                    onChange={(event) => chooseUiLocale(event.target.value)}
+                  >
+                    <option value="">{t("settings.interfaceLanguage.matchBrowser")}</option>
+                    <option value="en">{t("settings.interfaceLanguage.english")}</option>
+                    <option value="id">{t("settings.interfaceLanguage.indonesian")}</option>
+                  </select>
+                </label>
+              </SettingGroup>
               <TranslationSettingsEditor {...translationEditorProps} />
               <SaveBar onSave={saveTranslationDefaults} disabled={translationEditorDisabled} status={translationDefaultsStatus} />
             </>
@@ -1679,24 +1680,33 @@ function OperatorDashboardContent() {
           ) : null}
 
           {settingsSection === "translator" ? (
-            <PromptEditor
-              value={translationSystemPrompt}
-              sourceLanguage={sourceLanguage}
-              targetLanguage={targetLanguage}
-              inferenceLevel={inferenceLevel}
-              defaultInferenceLevel={accountPreferences?.translationDefaults?.inferenceLevel ?? null}
-              sanitizeLevel={sanitizeLevel}
-              defaultSanitizeLevel={accountPreferences?.translationDefaults?.sanitizeLevel ?? null}
-              filterInappropriateLanguage={filterInappropriateLanguage}
-              onChange={updateTranslationSystemPrompt}
-              onInferenceLevelChange={setInferenceLevel}
-              onSanitizeLevelChange={setSanitizeLevel}
-              onFilterInappropriateLanguageChange={setFilterInappropriateLanguage}
-              onSaveBrowserDefault={savePromptBrowserDefault}
-              onReset={resetPromptToSafeDefault}
-              savedMessage={promptSavedMessage}
-              disabled={translationEditorDisabled}
-            />
+            <>
+              <CaptionWaitTimeEditor
+                recordingWindowMs={recordingWindowMs}
+                disabled={translationEditorDisabled}
+                defaultRecordingWindowMs={accountPreferences?.translationDefaults?.recordingWindowMs ?? null}
+                onRecordingWindowChange={setRecordingWindowMs}
+              />
+              <SaveBar onSave={saveTranslationDefaults} disabled={translationEditorDisabled} status={translationDefaultsStatus} />
+              <PromptEditor
+                value={translationSystemPrompt}
+                sourceLanguage={sourceLanguage}
+                targetLanguage={targetLanguage}
+                inferenceLevel={inferenceLevel}
+                defaultInferenceLevel={accountPreferences?.translationDefaults?.inferenceLevel ?? null}
+                sanitizeLevel={sanitizeLevel}
+                defaultSanitizeLevel={accountPreferences?.translationDefaults?.sanitizeLevel ?? null}
+                filterInappropriateLanguage={filterInappropriateLanguage}
+                onChange={updateTranslationSystemPrompt}
+                onInferenceLevelChange={setInferenceLevel}
+                onSanitizeLevelChange={setSanitizeLevel}
+                onFilterInappropriateLanguageChange={setFilterInappropriateLanguage}
+                onSaveBrowserDefault={savePromptBrowserDefault}
+                onReset={resetPromptToSafeDefault}
+                savedMessage={promptSavedMessage}
+                disabled={translationEditorDisabled}
+              />
+            </>
           ) : null}
 
           {settingsSection === "summary" ? (

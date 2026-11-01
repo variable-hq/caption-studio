@@ -67,7 +67,7 @@ interface PromptEditorProps {
   disabled?: boolean;
 }
 
-/** Settings › AI translator: how closely to translate, and the setup person's instructions. */
+/** Settings › Translation: how closely to translate, and the setup person's instructions. */
 export function PromptEditor({
   value,
   sourceLanguage,
