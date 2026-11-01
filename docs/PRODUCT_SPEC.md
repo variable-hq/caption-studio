@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). The corrected 13 September
+Reviewed 2 November 2026 against merged PR #90 (`a602a61`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -320,8 +320,7 @@ publication with a browser-update error. Protected source remains unchanged. Ter
 review in the intended browser; the policy is not exhaustive multilingual safety. See the
 [filtering and completion decision](evaluation/CAPTION_POLICY_DECISION.md).
 Approved whole-word recognition aliases are implemented, for example an explicitly reviewed
-`Saul|swauf => Saul`. The TB2 vocabulary action is scoped to Indonesian/automatic source
-and English target. It supplies canonical names only; incorrect aliases are not boosted
+`Saul|swauf => Saul`. They supply canonical names only; incorrect aliases are not boosted
 in transcription hints. This is not model training or fuzzy identity resolution.
 Rule scopes/priorities and persistent workspace packs remain deferred.
 
@@ -465,9 +464,13 @@ distinct from the current draft.
 **Replace on screen with…**, or **Hide the whole caption**. Rows are stored as the glossary
 and public-filter text described above, so drafts, **Apply now** and saved setups treat
 them exactly as before; the pipeline reads at most 40 glossary and 40 filter entries, and
-the editor warns past that. **Import Bible names** adds the TB2 list once for Indonesian →
-English. Live Quick overrides stay active without a refresh; **Keep in Terms** also adds
-the row to the draft Terms list and leaves the live entry active.
+the editor warns past that. **Import a list** accepts a `.csv` or `.txt` file or pasted
+text in the format `term,action` or `term,action,with`, one per line or separated by `;`.
+Actions are recognise, fix, translate, mask, replace and hide; With is the corrected
+spelling, translation or replacement. An import appends rows to the draft list, so Apply
+now and Save treat it like any other edit; it accepts up to 64 KB and 500 rows. Live Quick
+overrides stay active without a refresh; **Keep in Terms** also adds the row to the draft
+Terms list and leaves the live entry active.
 
 ### Caption display, OBS, and mobile viewing
 
@@ -515,7 +518,7 @@ the row to the draft Terms list and leaves the live entry active.
 - **Settings** lists its sections beside the selected one: System (microphone, level
   test and Theme), Language (interface language, spoken and caption languages),
   Translation (caption wait time and translator instructions), Terms (names and terms,
-  the public caption filter, and the TB2 import), Output (with a preview), OBS & links
+  the public caption filter, and a list import), Output (with a preview), OBS & links
   (OBS link, phone viewer link and their replacement), Summary and Usage. Channel
   errors offer **Retry channel** or, when the OBS credential must be rebuilt, **Rotate and
   recover**, in a banner at the top of Live.

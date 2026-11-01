@@ -152,6 +152,41 @@ try {
     await page.getByRole('cell',{name:'synthetic-hidden',exact:true}).waitFor();
     await page.getByRole('button',{name:'Remove synthetic-hidden',exact:true}).click();
     assert.equal(await page.getByRole('cell',{name:'synthetic-hidden',exact:true}).count(),0);
+    // A Terms list imports from a file or pasted text through the stated format.
+    await page.getByRole('heading',{name:'Import a list',exact:true}).waitFor();
+    await page.getByText(/Each term is term,action or term,action,with/).waitFor();
+    const importFile=page.getByTestId('terms-import-file');
+    await importFile.setInputFiles({name:'synthetic-terms.csv',mimeType:'text/csv',buffer:Buffer.from('synthetic-imported,recognise\nsynthetic-hidden-import,hide\nsynthetic-replace,replace,replacement')});
+    await page.getByText('Imported 3 terms.',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('cell',{name:'synthetic-imported',exact:true}).count(),1);
+    assert.equal(await page.getByRole('cell',{name:'synthetic-hidden-import',exact:true}).count(),1);
+    assert.equal(await page.getByRole('cell',{name:'synthetic-replace',exact:true}).count(),1);
+    // A bad row names its line and imports nothing.
+    await importFile.setInputFiles({name:'synthetic-bad.csv',mimeType:'text/csv',buffer:Buffer.from('synthetic-throwaway,recognise\nbad-row,nope')});
+    await page.getByText('Couldn’t import: line 2 has an unknown action “nope”.',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('cell',{name:'synthetic-throwaway',exact:true}).count(),0);
+    // A wrong file type is refused.
+    await importFile.setInputFiles({name:'synthetic.xlsx',mimeType:'application/vnd.ms-excel',buffer:Buffer.from('x')});
+    await page.getByText('Choose a .csv or .txt file.',{exact:true}).waitFor();
+    // The choose-file control is reachable by keyboard.
+    await page.getByTestId('terms-import-choose').focus();
+    assert.equal(await page.evaluate(()=>document.activeElement?.textContent),'Choose a file');
+    // A file import keeps an unsent paste and uses the singular success text.
+    const pasteBox=page.locator('textarea[name="termsImport"]');
+    await pasteBox.fill('synthetic-unsent,recognise');
+    await importFile.setInputFiles({name:'synthetic-one.csv',mimeType:'text/csv',buffer:Buffer.from('synthetic-file-row,hide')});
+    await page.getByText('Imported 1 term.',{exact:true}).waitFor();
+    assert.equal(await pasteBox.inputValue(),'synthetic-unsent,recognise');
+    assert.equal(await page.getByRole('cell',{name:'synthetic-file-row',exact:true}).count(),1);
+    // Pasted text uses the same parser and the semicolon separator.
+    await pasteBox.fill('synthetic-single,recognise');
+    await page.getByRole('button',{name:'Import list',exact:true}).click();
+    await page.getByText('Imported 1 term.',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('cell',{name:'synthetic-single',exact:true}).count(),1);
+    await pasteBox.fill('synthetic-pasted,recognise; synthetic-pasted-hide,hide');
+    await page.getByRole('button',{name:'Import list',exact:true}).click();
+    await page.getByText('Imported 2 terms.',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('cell',{name:'synthetic-pasted',exact:true}).count(),1);
    }
   }
   await openScreen(page,'Transcripts'); await check('sermons');

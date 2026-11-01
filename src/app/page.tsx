@@ -1614,8 +1614,6 @@ function OperatorDashboardContent() {
               <WordsEditor
                 keywordText={keywordText}
                 filterText={filterText}
-                sourceLanguage={sourceLanguage}
-                targetLanguage={targetLanguage}
                 disabled={translationEditorDisabled}
                 onChange={(next) => {
                   setKeywordText(next.keywordText);

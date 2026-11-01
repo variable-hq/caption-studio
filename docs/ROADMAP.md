@@ -1,6 +1,6 @@
 # Roadmap
 
-Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). Status describes source
+Reviewed 2 November 2026 against merged PR #90 (`a602a61`). Status describes source
 implementation; deployment and church-approved quality require separate evidence.
 
 ## Implemented baseline
@@ -54,7 +54,7 @@ corrected deploy command completed at 08:05 UTC. [Deployment](DEPLOYMENT.md) rec
 
 Delivered under [ADR 0011](decisions/0011-service-history-and-optional-inference.md):
 
-- Indonesian TB2 name vocabulary and explicitly approved recognition aliases.
+- Explicitly approved recognition aliases and an operator-managed Terms list import.
 - Paired phone remote controlling the capture system.
 - Separate appending reader with shared 30-second paragraph processing.
 - Immutable pre-service opt-in, private seven-day source history, corrections/exclusions,
