@@ -200,6 +200,17 @@ describe("operator interface translations", () => {
     expect(id["wordsEditor.empty"]).toBe("Belum ada istilah. Tambahkan nama atau istilah yang perlu dikenali AI, misalnya nama pembicara, tempat, atau produk, atau istilah yang tidak boleh ditampilkan.");
   });
 
+  it("names the saved archive Transcripts in both catalogs", () => {
+    expect(en["shell.navigation.sermons"]).toBe("Transcripts");
+    expect(id["shell.navigation.sermons"]).toBe("Transkrip");
+    expect(en["sermons.title"]).toBe("Transcripts");
+    expect(id["sermons.title"]).toBe("Transkrip");
+    expect(en["serviceExperience.readerTitle"]).toBe("Transcript reader");
+    expect(id["serviceExperience.readerTitle"]).toBe("Pembaca transkrip");
+    expect(en["serviceExperience.savedSermons"]).toBe("Saved transcripts");
+    expect(id["serviceExperience.savedSermons"]).toBe("Transkrip tersimpan");
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");

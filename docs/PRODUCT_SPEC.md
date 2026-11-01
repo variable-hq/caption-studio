@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 1 November 2026 against merged PR #88 (`1c656ea`). The corrected 13 September
+Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -27,7 +27,7 @@ reviewer and must never invent speech, scripture, or doctrine.
 - **Archive reviewer:** any Access-approved operator can review/correct saved source and
   generate/export summary drafts. There is no distinct reviewer role or per-email
   archive ownership: one Access tenant is one workspace, named *BEST Church workspace*
-  in the operator UI, and every saved transcript and sermon in it is reachable by every
+  in the operator UI, and every saved transcript in it is reachable by every
   signed-in operator. Workspace/administrator roles remain deferred.
 
 The first evaluation direction is **Indonesian→English**, with **Operator** selected as
@@ -157,7 +157,7 @@ surfaces. Phase 1 provides the typed lookup and translates the shell: top naviga
 status labels, the live control bar, its status banner labels, and the language selector.
 Phase 2 translates the operator panels, page messages, and the live-session hook and
 request fallbacks. Phase 3 translates the Help screen and phone remote. Phase 4 translates
-the public sermon reader and the Worker-rendered viewer document from the request's
+the public transcript reader and the Worker-rendered viewer document from the request's
 `Accept-Language`, never operator preferences. Caption-language names, AI prompts and
 server error text are not translated by the interface language setting. The phone remote
 does not load account preferences, so it follows that browser's saved interface-language
@@ -368,7 +368,7 @@ the audio already recorded and replace the previous operator-only preview with a
 draft. When enabled without a draft yet, the card explains that drafts appear during longer
 windows and that 6-second windows never draft. The preview sits below Heard and Audience
 view panes in Live's Captions card. It is never published, buffered, added to recent translation
-context, or sent to OBS, viewers, or the sermon journal. The final caption still follows the
+context, or sent to OBS, viewers, or the transcript archive. The final caption still follows the
 normal end-of-window path.
 
 Fixed 6-second windows have no draft; 10-second windows may draft at 4 seconds; 14-second
@@ -471,7 +471,7 @@ the row to the draft Terms list and leaves the live entry active.
   the choice is saved with the operator's account. Status text and control labels do not
   depend on colour alone.
 - A top bar holds the brand, one status pill (Ready, Checking…, Not ready, Live, Paused,
-  Applying changes…, Live on another system, Needs attention, Ending…) and the **Live**, **Sermons** and
+  Applying changes…, Live on another system, Needs attention, Ending…) and the **Live**, **Transcripts** and
   **Settings** tabs plus **Help**. Each screen has its own address (`#live`, `#sermons`,
   `#settings=<section>`, `#help`), so links, reload and browser Back/Forward work; old
   `#workspace=…` links land on the matching screen. Moving between screens keeps
@@ -488,7 +488,7 @@ the row to the draft Terms list and leaves the live entry active.
   saying what to do next or what blocks Start, the transcript-saving choice, **Session details**, and
   the output buffer under **Check captions before they show**. Each checklist row links to the
   Settings section that changes it (a chevron when ready, a Fix, Set up or Help button when not).
-  **Share** holds the phone viewer link, sermon reader link, **Phone remote** pairing, and
+  **Share** holds the phone viewer link, transcript reader link, **Phone remote** pairing, and
   replacing a reader link shared by mistake.
 - During a service a bar pinned to the bottom of Live holds **Pause**/**Resume**, **Clear
   screen**, the minutes left and whether the transcript is being saved, and **End service**
@@ -513,9 +513,9 @@ the row to the draft Terms list and leaves the live entry active.
   (OBS link, phone viewer link and their replacement), Summary and Usage. Channel
   errors offer **Retry channel** or, when the OBS credential must be rebuilt, **Rotate and
   recover**, in a banner at the top of Live.
-- **Sermons** loads the workspace's saved sermons on opening, states that every signed-in
-  operator sees them and the audience does not, and shows each sermon's transcript,
-  reader passages, operator messages and AI summary. OBS link replacement stays disabled
+- **Transcripts** loads the workspace's saved transcripts on opening, states that every signed-in
+  operator sees them and the audience does not, and shows each transcript's reader passages,
+  operator messages and AI summary. OBS link replacement stays disabled
   during a service.
 - A skip link leads to the main content. Moving between screens with the keyboard moves
   focus to the new screen's heading.
@@ -707,7 +707,7 @@ most five moderated translation chunks about every 30 seconds. Polling and addit
 viewers make no AI calls. With optional AI off or failed, existing translations are joined.
 With saving off, reader text lives in memory and may be lost on object eviction. The
 reader page offers Comfortable, Large and Extra large local text sizes, a skip link to
-the sermon text, and a **New text · Return to live** control when the reader has
+the transcript text, and a **New text · Return to live** control when the reader has
 scrolled away from the newest paragraph; sections are labelled by language and
 translation revision, and unphrased fallbacks are marked as original translated chunks.
 
@@ -740,8 +740,8 @@ models, do not extend retention, and are deleted with the archive.
 The paired `/operator/mobile` phone remote offers **Pause**, **Resume** and **Clear
 screen**; Resume stays disabled while the capture system is disconnected,
 and each action reads as pending until the capture system acknowledges it. The remote
-stays scoped to those live commands: saved transcripts and sermons are reviewed on the
-dashboard's Sermons screen, which any signed-in operator may open on any device.
+stays scoped to those live commands: saved transcripts are reviewed on the
+dashboard's Transcripts screen, which any signed-in operator may open on any device.
 
 Up to 32 Access identities may hold a watcher credential for one service, and up to 32 may
 hold a paired-phone credential, matching the 32 watcher sockets the room accepts. Past
@@ -750,7 +750,7 @@ that ceiling the oldest identity is dropped and must register again.
 Manual summaries use opted-in, ended history with a frozen source revision. Settings › AI
 summary holds the saved defaults for output language, short/detailed length and up to
 2,000 characters of guidance; **Save for everyone** stores them. Every summary uses the
-default Workers AI model; there is no model choice. **Generate summary** on a sermon sends those defaults and names
+default Workers AI model; there is no model choice. **Generate summary** on a transcript sends those defaults and names
 them with a **Change defaults** link; it has no per-request overrides. The Usage history
 disclosures explain that nothing is listed until usage is
 loaded. Server-owned TB2 grounding rules cannot be edited. Bounded
@@ -761,7 +761,7 @@ is also available; generating or regenerating never extends retention.
 
 The same settings page has **Make a summary draft automatically after each service** (off
 by default, part of the church setup). When on, ending a service with saving on queues the
-same summary job from the saved summary defaults; it appears in Sermons marked as
+same summary job from the saved summary defaults; it appears in Transcripts marked as
 generated automatically, still needs review before export, and is skipped if a summary
 already exists. See [ADR 0019](decisions/0019-automatic-post-service-summary.md).
 
@@ -782,7 +782,7 @@ Optional Workers AI requires `CAPTION_OPTIONAL_AI_ENABLED=true`; it defaults off
 Per-service ceilings are 200 reader and 60 summary calls. Conservative reservations permit
 at most 9,000 estimated neurons per UTC day, including a 6,000 reader ceiling; uncertain
 calls remain charged. No paid fallback is implemented. Verify actual plans, content
-settings, availability and approved semantic quality before enabling it for sermons.
+settings, availability and approved semantic quality before enabling it for transcripts.
 
 ## Remaining decisions before a live pilot
 

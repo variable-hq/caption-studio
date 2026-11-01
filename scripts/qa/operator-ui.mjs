@@ -152,7 +152,7 @@ try {
     assert.equal(await page.getByRole('cell',{name:'synthetic-hidden',exact:true}).count(),0);
    }
   }
-  await openScreen(page,'Sermons'); await check('sermons');
+  await openScreen(page,'Transcripts'); await check('sermons');
   await page.getByRole('link',{name:'Help',exact:true}).click();
   await page.getByRole('heading',{name:'How it works',exact:true}).waitFor(); await check('help');
 
@@ -172,7 +172,7 @@ try {
   await page.getByRole('heading',{name:'Output',exact:true}).waitFor();
   // Old sidebar bookmarks land on the matching screen.
   await page.goto('http://127.0.0.1:3100/#workspace=history');
-  await page.getByRole('heading',{name:'Sermons',exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Transcripts',exact:true}).waitFor();
   assert.equal(inferenceCalls,0,'Navigation and reload must not invoke inference');
 
   // Start, pause, clear, end.
@@ -289,7 +289,7 @@ try {
   await page.getByRole('combobox',{name:'Interface language',exact:true}).selectOption('id');
   await page.waitForFunction(()=>document.documentElement.lang==='id');
   assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1);
-  assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Khotbah',exact:true}).count(),1);
+  assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Transkrip',exact:true}).count(),1);
   await check('settings-interface-language-id');
   await page.evaluate(()=>localStorage.setItem('caption-studio:ui-locale:v1','en'));
   await page.reload();
@@ -302,7 +302,7 @@ try {
   assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1,'Browser copy applies when account preferences are unavailable');
   await page.getByRole('combobox',{name:'Bahasa antarmuka',exact:true}).selectOption('');
   await page.waitForFunction(()=>document.documentElement.lang==='en');
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Sermons, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, no inference, responsive overflow and Axe'});
+  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, no inference, responsive overflow and Axe'});
   await context.close();
  }
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));

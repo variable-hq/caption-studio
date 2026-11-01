@@ -1,6 +1,6 @@
 # Deployment runbook
 
-Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). This describes the current
+Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
@@ -150,7 +150,7 @@ The previous version was `8112a330-6986-480c-be82-88bcd5d73477`.
 | `26cc8e1` (#30) | Dashboard navigation | Not recorded |
 | `cf8b8c0` (#32) | Collapsible service panel | Not recorded |
 | `abae57b` (#33) | Export hygiene | Not recorded |
-| #35–#74 | Settings, shared setup, Live/Sermons/Settings dashboard, `caption-studio` rename | Individual builds not recorded |
+| #35–#74 | Settings, shared setup, Live/Transcripts/Settings dashboard, `caption-studio` rename | Individual builds not recorded |
 | `080e6ca` (#75) | Live equal-height cards | Workers Builds check success; production deployment 2026-10-28T18:27Z |
 
 `wrangler deployments list --name caption-studio` shows production deployments of the

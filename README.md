@@ -34,7 +34,7 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
   words, a typed message while paused, and an optional pre-publish output buffer
   (**Check captions before they show**: wait 1–5 seconds; pause, edit, clear, or
   fast-forward the next-up caption).
-- **Operator dashboard**: three screens, **Live**, **Sermons** and **Settings**, plus
+- **Operator dashboard**: three screens, **Live**, **Transcripts** and **Settings**, plus
   **Help**, built for volunteers. Live is two rows of equal-height paired cards: the
   captions card (**Heard** beside **Audience view**, with **Recent captions** folded
   below) beside the readiness checklist, then the Start card (**Quick fixes** during a
@@ -86,7 +86,7 @@ lists the steps of a service in order.
 4. **Settings › Output** — style the captions.
 5. **Live** — tick **Save the transcript for 7 days** if wanted (optionally fill in
    **Session details**), press **Start captions**, check a test phrase reaches OBS, then
-   use **Share** for the **Phone viewer** and **Sermon reader** links and **Pair phone**.
+   use **Share** for the **Phone viewer** and **Transcript reader** links and **Pair phone**.
    Pause, Clear screen and End service stay at the bottom of the screen.
 
 ## Languages and quality
@@ -150,11 +150,11 @@ summary draft automatically after each service** on, End queues one
 | End or 90-minute expiry | Blank; latest-viewer link revoked; OBS URL retained | Bounded finalization, then 30-minute reading grace | Saved content expires seven days later; usage keeps its own expiry |
 | Takeover | Replace controller and latest-viewer link | Revoke previous reader and remote | Prior saved service retained until expiry |
 | Remove passage | Clear current caption if its source belongs to the removed passage | Remove selected paragraph on refresh/poll | Preserve original source, exclude its IDs from summaries, invalidate drafts |
-| Delete sermon | Available after End | Revoke reader and remove history on its next successful poll | Delete sermon content; numeric usage retained |
+| Delete transcript | Available after End | Revoke reader and remove history on its next successful poll | Delete transcript content; numeric usage retained |
 
-Use **Live › Share** for the phone viewer, sermon reader and phone pairing during a
+Use **Live › Share** for the phone viewer, transcript reader and phone pairing during a
 service; **Settings › OBS & links** for the OBS link and replacing the OBS or phone viewer
-link; **Sermons** for private archives and summaries; and **Settings › Usage** for
+link; **Transcripts** for private archives and summaries; and **Settings › Usage** for
 provider headroom and rolling usage history.
 
 ## Not yet implemented
@@ -169,7 +169,7 @@ passage corpus, and a native app (the deferred iOS shell was removed in
 
 Live's **Service details** shows the active service's counters; **Settings › Usage**
 shows provider headroom and **Last 30 days** usage across this deployment. Numeric rows record provider, model, stage, service, time, known
-tokens/audio, and unknown outcomes; no sermon text or credentials. Each expires 30 days
+tokens/audio, and unknown outcomes; no transcript text or credentials. Each expires 30 days
 after its original attempt. Clear, End, takeover and archive deletion do not reset usage
 or provider quotas. This is a rolling window, not a calendar month or renewed allowance.
 
@@ -268,7 +268,7 @@ Wrangler preview on port 8787 with AI disabled; follow
 needs, under `docs/review-assets/`.
 
 Use the [deployment runbook](docs/DEPLOYMENT.md) for commands, exact Access paths, secrets,
-the proxy failure, and post-merge verification. Keep credentials and sermon content out
+the proxy failure, and post-merge verification. Keep credentials and service content out
 of logs, screenshots, chat and issues.
 
 ## Documentation
