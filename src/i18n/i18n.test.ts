@@ -47,6 +47,19 @@ describe("operator interface translations", () => {
     }
   });
 
+  it("names saved defaults without church wording", () => {
+    expect(en["common.churchDefaultBadge"]).toBe(" · Saved default");
+    expect(id["common.churchDefaultBadge"]).toBe(" · Default tersimpan");
+    expect(en["live.makeDefault"]).toBe("Save selected settings as default");
+    expect(id["live.makeDefault"]).toBe("Simpan pengaturan terpilih sebagai default");
+    for (const [locale, catalog] of [["en", en], ["id", id]] as const) {
+      for (const [key, message] of Object.entries(catalog)) {
+        expect(message.toLowerCase(), `${locale} ${key} does not say church default`).not.toContain("church default");
+        expect(message.toLowerCase(), `${locale} ${key} does not say bawaan gereja`).not.toContain("bawaan gereja");
+      }
+    }
+  });
+
   it("names the Live panes by role", () => {
     expect(en["live.onlyYou"]).toBe("Operator view");
     expect(id["live.onlyYou"]).toBe("Tampilan operator");

@@ -104,7 +104,7 @@ try {
   assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).isEnabled(),true);
   assert.equal(await page.getByRole('region',{name:'Live controls'}).count(),0);
   assert.equal(await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).isChecked(),false);
-  assert.equal(await liveDraftSwitch.isChecked(),width===320,'The session switch starts from the saved church default');
+  assert.equal(await liveDraftSwitch.isChecked(),width===320,'The session switch starts from the saved default');
   await liveDraftSwitch.check();
   await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor();
   await check('live-drafts-enabled');
