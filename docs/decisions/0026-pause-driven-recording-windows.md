@@ -1,6 +1,6 @@
 # ADR 0026: pause-driven recording windows
 
-Date: 29 October 2026. Status: accepted, implemented in source.
+Date: 29 October 2026. Status: superseded by [ADR 0031](0031-caption-wait-time.md).
 
 ## Decision
 

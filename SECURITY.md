@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). The 13 September deployment
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -245,7 +245,7 @@ setting.
   `console` output is retained by Cloudflare.
 - Review Cloudflare routes after every domain or Access-application change.
 - Test takeover, controller replacement, End-with-link-retention, explicit rotation,
-  service expiry, the server-owned ceilings of 900 reserved transcription attempts and
+  service expiry, the server-owned ceilings of 1,800 reserved transcription attempts and
   1,400 caption events, service-local translation-usage deduplication/reset, the
   250-viewer socket ceiling, malformed channel IDs,
   cross-protocol tokens, invalid origins, oversized bodies, and provider failures with

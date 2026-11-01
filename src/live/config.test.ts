@@ -9,8 +9,8 @@ import {
   DEFAULT_RECORDING_WINDOW_MS,
   MAX_LIVE_SESSION_MS,
   MAX_TRANSCRIPTION_REQUESTS,
-  MIN_RECORDING_WINDOW_MS,
   RECORDING_WINDOW_OPTIONS,
+  SMALLEST_WINDOW_FLOOR_MS,
   normalizeCaptionStyle,
   normalizeRecordingWindowMs,
 } from "@/live/contracts";
@@ -18,11 +18,11 @@ import {
 describe("live caption configuration", () => {
   it("derives the session transcription request cap from the audio cadence", () => {
     expect(DEFAULT_RECORDING_WINDOW_MS).toBe("dynamic");
-    expect(MIN_RECORDING_WINDOW_MS).toBe(6_000);
+    expect(SMALLEST_WINDOW_FLOOR_MS).toBe(3_000);
     expect(RECORDING_WINDOW_OPTIONS).toEqual([6_000, 10_000, 14_000, "dynamic"]);
-    expect(MAX_TRANSCRIPTION_REQUESTS).toBe(900);
+    expect(MAX_TRANSCRIPTION_REQUESTS).toBe(1_800);
     expect(MAX_TRANSCRIPTION_REQUESTS).toBe(
-      MAX_LIVE_SESSION_MS / MIN_RECORDING_WINDOW_MS,
+      MAX_LIVE_SESSION_MS / SMALLEST_WINDOW_FLOOR_MS,
     );
   });
 

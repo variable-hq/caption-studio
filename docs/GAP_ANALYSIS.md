@@ -1,6 +1,6 @@
 # Caption Studio: gap analysis and improvement plan
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). Plan 1 (`20597d8`) deployed
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). Plan 1 (`20597d8`) deployed
 successfully after the Access proxy fix; merges through `080e6ca`, including the rename
 to the `caption-studio` Worker, deployed via Workers Builds on 26–28 October, but none has
 a recorded service rehearsal. Only `main` builds; preview-branch
@@ -76,8 +76,8 @@ that a note cannot change the language direction or justify invented or complete
 
 The displayed processing metric starts after dequeue and excludes capture time, queue
 wait, the output buffer's optional 1–5 second wait, and audience rendering. Retain content-free timestamps if adding metrics, then
-measure word-onset-to-display and utterance-end-to-display separately. Fixed 6–14-second
-windows, Dynamic's pause heuristic and 30-second reader alarms do not guarantee semantic
+measure word-onset-to-display and utterance-end-to-display separately. The 6–14-second cap
+options, Dynamic's pause heuristic and 30-second reader alarms do not guarantee semantic
 boundaries or a latency SLA.
 Set approved delay/drop thresholds before the duration test. Separately, and not a pilot
 gate: the output buffer's advancement polls every 200ms on a fixed `setInterval` rather

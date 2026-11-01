@@ -84,7 +84,7 @@ export const en = {
   "wordAction.replace": "Replace on screen with…",
   "wordAction.hide": "Hide the whole caption",
 
-  "recordingWindow.dynamicShort": "Dynamic (6-14s)",
+  "recordingWindow.dynamicShort": "Dynamic",
   "recordingWindow.secondsShort": "{seconds}s",
 
   "translationChange.spokenLanguage": "Spoken language",
@@ -383,11 +383,11 @@ export const en = {
   "translationSettings.target": "Show captions in",
   "translationSettings.targetKind": "Output",
   "translationSettings.speedTitle": "Caption wait time",
-  "translationSettings.speedHint": "Listening longer gives fuller sentences, but captions appear later.",
-  "translationSettings.windowFastest": "Fastest: listens 6 seconds at a time",
-  "translationSettings.windowBalanced": "Balanced: listens 10 seconds at a time",
-  "translationSettings.windowSmooth": "Smooth: listens 14 seconds at a time",
-  "translationSettings.windowAutomatic": "Automatic: listens until a natural pause (6 to 14 seconds)",
+  "translationSettings.speedHint": "Sets the longest each caption waits. Captions appear sooner when the speaker pauses. Shorter limits keep viewers closer to the speaker; longer limits allow fuller sentences. Dynamic adapts to how the speaker pauses, up to 14 seconds.",
+  "translationSettings.windowFastest": "6 seconds: quickest, may break mid-sentence",
+  "translationSettings.windowBalanced": "10 seconds: balanced",
+  "translationSettings.windowSmooth": "14 seconds: fuller sentences",
+  "translationSettings.windowAutomatic": "Dynamic: adapts to the speaker, up to 14 seconds",
 
   "usage.loading": "Loading usage…",
   "usage.partial": "Showing part of the last 30 days; the rest didn’t load.",
@@ -671,6 +671,7 @@ export const en = {
   "live.message.queued": "Caption queued in the output buffer.",
   "live.message.captionProcessingFailed": "Caption processing failed.",
   "live.message.cloudBehind": "Cloud processing is behind; one audio chunk was skipped.",
+  "live.message.captionServiceBusy": "The caption service is busy, so captions will wait a little longer.",
   "live.message.recorderStopped": "The browser audio recorder stopped unexpectedly.",
   "live.message.serviceLimit": "The 90-minute free-tier service limit was reached. The reusable OBS URL remains ready.",
   "live.message.recovered": "Recovered this operator tab in a safe paused state.",

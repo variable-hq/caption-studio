@@ -4,12 +4,34 @@ import type { LanguageLocale } from "@/domain/languages";
 export const RECORDING_WINDOW_OPTIONS = [6_000, 10_000, 14_000, "dynamic"] as const;
 export type RecordingWindowMs = (typeof RECORDING_WINDOW_OPTIONS)[number];
 export const DEFAULT_RECORDING_WINDOW_MS: RecordingWindowMs = "dynamic";
-export const MIN_RECORDING_WINDOW_MS = 6_000;
+/** The smallest floor any wait-time option may use; sets the request ceiling. */
+export const SMALLEST_WINDOW_FLOOR_MS = 3_000;
 export const DYNAMIC_WINDOW_MAX_MS = 14_000;
 export const MAX_LIVE_SESSION_MS = 90 * 60 * 1_000;
 export const MAX_TRANSCRIPTION_REQUESTS = Math.floor(
-  MAX_LIVE_SESSION_MS / MIN_RECORDING_WINDOW_MS,
+  MAX_LIVE_SESSION_MS / SMALLEST_WINDOW_FLOOR_MS,
 );
+/** Each option is a promise about the cap; the floor is the earliest a pause may cut. */
+export interface RecordingWindowPolicy {
+  minMs: number;
+  maxMs: number;
+  /** Silence required for a pause cut at the floor. */
+  pauseMs: number;
+  /** Silence required at the cap; equal to pauseMs for the fixed options. */
+  pauseAtCapMs: number;
+}
+
+export const RECORDING_WINDOW_POLICIES: Record<RecordingWindowMs, RecordingWindowPolicy> = {
+  6_000: { minMs: 3_000, maxMs: 6_000, pauseMs: 500, pauseAtCapMs: 500 },
+  10_000: { minMs: 5_000, maxMs: 10_000, pauseMs: 700, pauseAtCapMs: 700 },
+  14_000: { minMs: 7_000, maxMs: 14_000, pauseMs: 900, pauseAtCapMs: 900 },
+  dynamic: {
+    minMs: 4_000,
+    maxMs: DYNAMIC_WINDOW_MAX_MS,
+    pauseMs: 700,
+    pauseAtCapMs: 200,
+  },
+};
 export const MAX_CAPTION_EVENTS = 1_400;
 /**
  * Workspace operators who may watch one service without holding the controller.
@@ -209,14 +231,12 @@ export function normalizeRecordingWindowMs(value: unknown): RecordingWindowMs {
   return DEFAULT_RECORDING_WINDOW_MS;
 }
 
-export function recordingWindowBoundsMs(setting: RecordingWindowMs) {
-  return setting === "dynamic"
-    ? { minMs: MIN_RECORDING_WINDOW_MS, maxMs: DYNAMIC_WINDOW_MAX_MS }
-    : { minMs: setting, maxMs: setting };
+export function recordingWindowBoundsMs(setting: RecordingWindowMs): RecordingWindowPolicy {
+  return RECORDING_WINDOW_POLICIES[setting];
 }
 
 export function recordingWindowLabel(setting: RecordingWindowMs): string {
-  return setting === "dynamic" ? "Dynamic (6-14s)" : `${setting / 1_000}s`;
+  return setting === "dynamic" ? "Dynamic" : `${setting / 1_000}s`;
 }
 
 export function normalizeTranslationRevision(value: unknown) {

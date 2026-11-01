@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). Cloudflare deployed `20597d8`
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -9,7 +9,7 @@ physical-device, provider-output or semantic acceptance.
 
 | Component | Responsibility |
 | --- | --- |
-| Capture browser | Audio selection, 6s/10s/14s or pause-driven 6–14s MediaRecorder chunks on worker-driven timers, two-chunk queue, operator-only Live drafts, source preview, terminology, moderation, output buffer queue, live note, recent outputs, controls and same-tab recovery |
+| Capture browser | Audio selection, 6/10/14s capped or pause-aware Dynamic 4–14s MediaRecorder chunks on worker-driven timers, two-chunk queue, operator-only Live drafts, source preview, terminology, moderation, output buffer queue, live note, recent outputs, controls and same-tab recovery |
 | Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
 | `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
@@ -267,7 +267,7 @@ Immutable TB2 grounding and source-ID membership checks constrain drafts; they d
 prove meaning. No authorized TB2 passage retrieval or autonomous tool loop is present.
 
 Journal bounds: public chunks at most 2,000 characters, filter text 4,000, keyword text
-8,000, source IDs at most 900 per service with source text and corrections at most
+8,000, source IDs at most 1,800 per service with source text and corrections at most
 4,000 characters. Reader and archive pages return 50 records per poll. Reader phrasing
 uses at most 600 output tokens and must return at most 2,000 characters or the joined
 fallback is used; summaries use at most 2,000 output tokens, a 22,000-byte context guard,
@@ -282,7 +282,7 @@ IDs each.
 | `channel_in_use` | 409 | Another controller is active; takeover requires confirmation |
 | `controller_replaced`, `service_paused`, `caption_cleared`, `translation_session_refreshed`, `{stage}_attempt_used` | 409 | Stale controller, paused service, superseded caption, stale settings revision, or reused claim |
 | `invalid_{stage}_attempt` | 400 | Malformed or unreserved attempt |
-| `transcription_limit_reached` | 429 | 900 reserved attempts exhausted; usage admission may also return 409/429 |
+| `transcription_limit_reached` | 429 | 1,800 reserved attempts exhausted; usage admission may also return 409/429 |
 | `service_inactive` | 410 | Ended or expired service; reader links return 403/410 |
 | `invalid_overlay_key`, `invalid_viewer_key` | 401 (503 when the OBS credential cannot be decrypted) | Wrong-purpose or revoked token |
 | `translation_incomplete` | 422 | Provider output skipped; usage retained |
@@ -290,7 +290,7 @@ IDs each.
 
 ## Limits and remaining validation
 
-Services allow 90 minutes, 900 reserved transcription attempts and 1,400 caption events.
+Services allow 90 minutes, 1,800 reserved transcription attempts and 1,400 caption events.
 At most one translation follows an eligible chunk. The latest viewer allows 250 sockets.
 Two queued audio chunks bound backlog; additional chunks are dropped with operator feedback.
 The client-side output buffer holds at most 4 entries; only the front is shown or

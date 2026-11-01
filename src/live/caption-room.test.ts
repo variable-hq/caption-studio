@@ -1526,14 +1526,14 @@ describe("transcription dispatch enforcement", () => {
     expect(provider).toHaveBeenCalledOnce();
   });
 
-  it("dispatches attempt 900 once, never 901", async () => {
+  it("dispatches the last ceiling attempt once, never one more", async () => {
     const { room, storage, hash, env, provider } = await dispatchFixture();
-    await storage.put("configuration", { ...await storage.get<object>("configuration"), transcriptionRequests: 899 });
+    await storage.put("configuration", { ...await storage.get<object>("configuration"), transcriptionRequests: MAX_TRANSCRIPTION_REQUESTS - 1 });
     expect((await room.fetch(request("/internal/lease", { controllerHash: hash }))).status).toBe(200);
-    expect((await handleInferenceRequest(transcribeRequest(900), env, provider)).status).toBe(200);
-    expect((await handleInferenceRequest(transcribeRequest(900), env, provider)).status).toBe(409);
+    expect((await handleInferenceRequest(transcribeRequest(MAX_TRANSCRIPTION_REQUESTS), env, provider)).status).toBe(200);
+    expect((await handleInferenceRequest(transcribeRequest(MAX_TRANSCRIPTION_REQUESTS), env, provider)).status).toBe(409);
     expect((await room.fetch(request("/internal/lease", { controllerHash: hash }))).status).toBe(429);
-    expect((await handleInferenceRequest(transcribeRequest(901), env, provider)).status).toBe(400);
+    expect((await handleInferenceRequest(transcribeRequest(MAX_TRANSCRIPTION_REQUESTS + 1), env, provider)).status).toBe(400);
     expect(provider).toHaveBeenCalledOnce();
   });
 

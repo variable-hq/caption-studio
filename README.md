@@ -19,7 +19,7 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
 ## Overview
 
 - **Capture and transcription**: browser-based microphone selection with a level meter, a
-  readiness checklist, and a 6- to 14-second recording window (or Dynamic) transcribed by
+  readiness checklist, and a 6-, 10- or 14-second caption wait time (or Dynamic) transcribed by
   Groq Whisper with bounded biblical/church-name hints, approved recognition aliases, and
   the end of the previous chunk's transcript as continuity context.
 - **Translation**: GPT-OSS 20B translates through an immutable safety envelope and
@@ -173,8 +173,9 @@ tokens/audio, and unknown outcomes; no transcript text or credentials. Each expi
 after its original attempt. Clear, End, takeover and archive deletion do not reset usage
 or provider quotas. This is a rolling window, not a calendar month or renewed allowance.
 
-- Services last at most 90 minutes, including paused time, with 900 reserved transcription
-  attempts and at most 900 fast translations. Silent/same-language chunks skip translation.
+- Services last at most 90 minutes, including paused time, with 1,800 reserved
+  transcription attempts and at most 1,800 fast translations. Silent/same-language chunks
+  skip translation.
 - Inference requires Access, the current controller, and a one-time reserved attempt per
   stage. Requests carry `x-caption-controller` and `x-caption-transcription-attempt`.
 - Provider dispatch requires persisted usage admission. Duplicate/uncertain attempts are

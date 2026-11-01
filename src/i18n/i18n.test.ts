@@ -232,6 +232,26 @@ describe("operator interface translations", () => {
     }
   });
 
+  it("labels each wait-time option by its cap and names Dynamic", () => {
+    expect(en["recordingWindow.dynamicShort"]).toBe("Dynamic");
+    expect(id["recordingWindow.dynamicShort"]).toBe("Dynamic");
+    expect(en["translationSettings.windowFastest"]).toBe("6 seconds: quickest, may break mid-sentence");
+    expect(id["translationSettings.windowFastest"]).toBe("6 detik: tercepat, bisa terpotong di tengah kalimat");
+    expect(en["translationSettings.windowBalanced"]).toBe("10 seconds: balanced");
+    expect(id["translationSettings.windowBalanced"]).toBe("10 detik: seimbang");
+    expect(en["translationSettings.windowSmooth"]).toBe("14 seconds: fuller sentences");
+    expect(id["translationSettings.windowSmooth"]).toBe("14 detik: kalimat lebih utuh");
+    expect(en["translationSettings.windowAutomatic"]).toBe("Dynamic: adapts to the speaker, up to 14 seconds");
+    expect(id["translationSettings.windowAutomatic"]).toBe("Dynamic: menyesuaikan pembicara, hingga 14 detik");
+    expect(en["translationSettings.speedHint"]).toContain("Sets the longest each caption waits.");
+    expect(id["translationSettings.speedHint"]).toContain("waktu tunggu terlama");
+  });
+
+  it("reports the provider busy back-off in both languages", () => {
+    expect(en["live.message.captionServiceBusy"]).toBe("The caption service is busy, so captions will wait a little longer.");
+    expect(id["live.message.captionServiceBusy"]).toBe("Layanan caption sedang sibuk, jadi caption akan menunggu sedikit lebih lama.");
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");

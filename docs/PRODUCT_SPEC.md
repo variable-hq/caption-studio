@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). The corrected 13 September
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -52,10 +52,10 @@ plain words. Nothing opens automatically.
 2. The operator chooses a browser-visible microphone or audio interface and confirms its
    input level.
 3. The operator selects a spoken language or automatic detection, one target language,
-   and a 6-, 10-, or 14-second recording window, or Automatic. Automatic waits at least
-   six seconds, then ends at the first microphone-level pause of about 700ms of silence;
-   it always cuts by 14 seconds. Longer windows can reduce chopped sentences but make
-   captions appear later.
+   and a caption wait time of 6, 10 or 14 seconds, or Dynamic. Each option caps how long a
+   caption waits and also cuts earlier at a pause after its floor: 6 seconds is quickest and
+   may break mid-sentence, 10 balances, 14 allows fuller sentences, and Dynamic adapts to
+   the speaker up to 14 seconds.
 4. The operator optionally enters bounded keyword/preferred-translation pairs and public
    mask words, and may edit the reviewed operator translation prompt.
 5. The operator configures font, size, colour, line highlight, transparency, position,
@@ -72,9 +72,9 @@ plain words. Nothing opens automatically.
 
 ### During the service
 
-1. The browser records a fixed 6-, 10-, or 14-second window, or in Automatic mode records
-   for 6 to 14 seconds and cuts at the first qualifying pause. The pause decision uses raw
-   microphone RMS on the browser and requires no model call or quota.
+1. The browser records a window of 6, 10 or 14 seconds, or Dynamic for up to 14 seconds;
+   every option cuts at a qualifying pause after its floor or at its cap. The pause decision
+   uses raw microphone RMS on the browser and requires no model call or quota.
 2. The protected API transcribes the chunk with bounded church/biblical hints and the end
    of the previous chunk's transcript as continuity context.
 3. If source and target differ, the protected API translates with an immutable server
@@ -169,14 +169,20 @@ copy or browser language, then English.
 
 - Browser permission is explicit and the selected input has a visible level meter.
 - Audio is mono with browser echo cancellation and noise suppression requested.
-- The operator chooses a 6-, 10-, or 14-second fixed window, or Dynamic (the default). A
-  dynamic window cuts at the first pause of about 700ms after at least 6 seconds. When Live
-  drafts are enabled and admitted, the draft's Whisper punctuation confirms the cut; an
-  unfinished clause keeps recording until another pause or the hard 14-second maximum.
-  With drafts off or unavailable, Dynamic keeps its pause-only cut. The microphone-level
-  decision adds no model call or quota.
-  Fixed choices can reduce fragmentation but add equal latency. Every option stays inside Whisper's 30-second window and, at the 64 kbps
-  recorder setting, far below the 3 MB audio limit.
+- The operator chooses a caption wait time of 6, 10 or 14 seconds, or Dynamic (the
+  default). Every option is a cap, not a fixed timer: it cuts at a pause once its floor has
+  passed and always cuts at the cap. The floors are 3, 5, 7 and 4 seconds, the pause
+  lengths 500, 700, 900 and 700ms, and Dynamic's required pause shrinks to 200ms at its cap.
+  When Live drafts are enabled and admitted, Dynamic's
+  draft punctuation confirms the cut; an unfinished clause keeps recording until another
+  pause or the cap. The numbered options do not consult drafts. Once a service has heard
+  speech, a window with less than 300ms of speech is not sent unless its peak is not well
+  below earlier speech or a level sample failed; a skipped window uses no transcription,
+  translation or attempt. After a provider rate-limit or usage-limit response, no option
+  cuts before six seconds for the rest of the service and one status line says so. The
+  microphone-level decision adds no model call or quota. Every option stays inside
+  Whisper's 30-second window and, at the 64 kbps recorder setting, far below the 3 MB
+  audio limit.
 - The active-setting snapshot for each chunk and maximum two-chunk queue bound memory and
   backlog. Pause or confirmed translation refresh discards an unfinished active window,
   so operators should use either control at a natural break.
@@ -371,8 +377,8 @@ view panes in Live's Captions card. It is never published, buffered, added to re
 context, or sent to OBS, viewers, or the transcript archive. The final caption still follows the
 normal end-of-window path.
 
-Fixed 6-second windows have no draft; 10-second windows may draft at 4 seconds; 14-second
-windows may draft at 4 and 8 seconds. Dynamic requests drafts at qualifying pause candidates
+The 6-second option has no draft; the 10-second option may draft at 4 seconds and the
+14-second option at 4 and 8 seconds. Dynamic requests drafts at qualifying pause candidates
 instead of fixed offsets. At an admitted candidate, a source draft ending in terminal
 punctuation (including closing quotes or brackets) cuts the window; otherwise recording
 continues through the rest of that silence run and waits for speech to resume before another
@@ -381,7 +387,7 @@ applies; a candidate reached while another draft is still in flight is unavailab
 therefore uses that fallback. A late result from an earlier silence run cannot cut a later
 one. An in-flight draft is discarded at the window end. A draft needs at least 3
 seconds of new audio. At most one runs at a time, at most 2 are allowed per caption, and a
-draft is skipped whenever a final chunk is queued or processing, or the remaining 900
+draft is skipped whenever a final chunk is queued or processing, or the remaining 1,800
 attempt ceiling is needed for future finals. Draft attempts use the existing protected
 transcription and translation routes. The worst case is 3 transcription and 3 translation
 calls per caption and about twice the audio-seconds, so the setting warns that drafts use
@@ -596,11 +602,12 @@ named display profiles.
 ### Usage and cost controls
 
 - Active services stop after at most 90 minutes; paused time still counts.
-- Audio windows are 6, 10, or 14 seconds, or Dynamic (6–14 seconds). The server ceiling
-  remains 900 reserved transcription attempts in a 90-minute service, derived from the
-  6-second minimum option.
-  Non-silent captions whose source differs from the target can make one additional
-  translation call, so there are no more than 900 translation calls. Access is verified
+- Audio windows cap at 6, 10 or 14 seconds, or Dynamic (up to 14 seconds), with floors of
+  3, 5, 7 and 4 seconds. The server ceiling is 1,800 reserved transcription attempts in a
+  90-minute service, derived from the 3-second floor, so a faster option does not end the
+  service early. Non-silent captions whose source differs from the target can make one
+  additional translation call, so there are no more than 1,800 translation calls. Access is
+  verified
   before a separate one-time claim for each inference stage; direct/replayed calls and
   noncanonical inference-path aliases cannot bypass the Worker claim boundary.
 - Pause and confirmed refresh invalidate earlier reservations even after Resume; legacy
@@ -624,14 +631,14 @@ an operator-page refresh. The separate rolling ledger spans this deployment's se
 but cannot see usage by other applications in the same Groq organization or Cloudflare account. Owners
 must keep provider accounts on the intended Free plans and verify their dashboards. The
 provider response headers do not expose remaining daily tokens, so a content-heavy
-service may stop before the visible ceiling of 900 reserved transcription attempts or
+service may stop before the visible ceiling of 1,800 reserved transcription attempts or
 the 90-minute limit.
 
 ## Prototype acceptance criteria
 
 Code-level acceptance:
 
-- An operator can select an input, source, target, and 6s, 10s, 14s, or Dynamic recording window. During
+- An operator can select an input, source, target, and a caption wait time of 6, 10 or 14 seconds, or Dynamic. During
   live or paused operation, language, terminology, filter, recording window, and custom-prompt edits
   stay draft until the operator presses **Apply now**.
 - Live separates service time (the control bar), reserved transcription

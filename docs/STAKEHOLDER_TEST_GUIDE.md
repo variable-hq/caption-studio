@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 
@@ -62,7 +62,7 @@ The browser is the sole client; there are no native/signing checklists.
    speech does not reveal an unintended input. Verify the selected device after reconnecting it.
 5. In **Settings › Language**, choose **Input · Speaker’s language** Indonesian and
    **Output · Show captions in** English; in **Settings › Translation**, set **Caption wait
-   time** "Balanced: listens 9 seconds at a time".
+   time** "10 seconds: balanced".
    Review **Settings › Terms › Bible names › Import names** (TB2) and approved mappings;
    add `swauf` with **Fix spelling to…** `Saul` only as an explicit reviewed alias.
    Compare original recognition and translation separately; do not infer the biblical identity.

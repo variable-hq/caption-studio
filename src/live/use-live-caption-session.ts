@@ -47,6 +47,8 @@ import {
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { experienceRequest } from "@/experience/client";
 import { startSerialPolling } from "@/live/serial-polling";
+import { initialSpeechGateState, observeSpeechSample, shouldSendWindow } from "@/live/speech-gate";
+import { isProviderLimitError } from "@/live/provider-limit";
 import { useMicrophoneInput } from "@/live/use-microphone-input";
 import { useI18n } from "@/i18n/provider";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
@@ -66,6 +68,7 @@ import {
   dynamicPauseAction,
   draftEndsWithTerminalPunctuation,
   DYNAMIC_SAMPLE_MS,
+  withRaisedFloor,
   type DynamicDraftHold,
 } from "@/live/window-policy";
 
@@ -225,6 +228,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const sessionTimerRef = useRef<number | null>(null);
   const lifecyclePauseRef = useRef(false);
   const recordingWindowRef = useRef<RecordingWindowMs>(DEFAULT_RECORDING_WINDOW_MS);
+  const speechGateRef = useRef(initialSpeechGateState());
+  const providerBusyRef = useRef(false);
   const cloudClientRef = useRef(new CloudProviderClient());
   const liveClientRef = useRef(
     new LiveSessionClient((key) => tRef.current(key)),
@@ -903,6 +908,15 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             await endService(message, true);
             break;
           }
+          if (!providerBusyRef.current && isProviderLimitError(error)) {
+            providerBusyRef.current = true;
+            setLiveState((state) => ({
+              ...state,
+              status: "live",
+              message: tRef.current("live.message.captionServiceBusy"),
+            }));
+            continue;
+          }
           setLiveState((state) => ({
             ...state,
             status: "live",
@@ -964,6 +978,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           return;
         }
         const chunks: Blob[] = [];
+        let windowSpeechMs = 0;
+        let windowPeakRms = 0;
+        let levelReadFailed = false;
         const recorder = new MediaRecorder(stream, recorderOptions());
         recorderRef.current = recorder;
         recorder.ondataavailable = ({ data }) => {
@@ -984,11 +1001,22 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           ) {
             return;
           }
+          if (
+            !shouldSendWindow(speechGateRef.current, {
+              speechMs: windowSpeechMs,
+              peakRms: windowPeakRms,
+              levelReadFailed,
+            })
+          ) {
+            startRecorderChunk();
+            return;
+          }
           const mimeType = recorder.mimeType || chunks[0]?.type || "audio/webm";
           enqueueChunk(new Blob(chunks, { type: mimeType }), generation);
           startRecorderChunk();
         };
-        const bounds = recordingWindowBoundsMs(recordingWindowMs);
+        const windowPolicy = recordingWindowBoundsMs(recordingWindowMs);
+        const bounds = providerBusyRef.current ? withRaisedFloor(windowPolicy) : windowPolicy;
         recorder.start(1_000);
         beginLiveDraftWindow({
           generation,
@@ -997,69 +1025,76 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             type: recorder.mimeType || chunks[0]?.type || "audio/webm",
           }),
         });
-        if (recordingWindowMs === "dynamic") {
-          let policyState = initialWindowPolicyState();
-          let draftHold: DynamicDraftHold = "idle";
-          let silenceRun = 0;
-          dynamicWindowTimerRef.current = setBackgroundInterval(() => {
-            const previousSilenceMs = policyState.silenceMs;
-            const result = nextWindowDecision(policyState, readLevel(), bounds);
-            if (previousSilenceMs > 0 && result.state.silenceMs === 0) {
-              silenceRun += 1;
-              draftHold = "idle";
-            }
-            policyState = result.state;
-            const action = dynamicPauseAction(result, bounds, draftHold);
-            if (action === "continue" || action === "hold") return;
-            if (action === "run-draft") {
-              const candidateSilenceRun = silenceRun;
-              draftHold = "pending";
-              void runDraftAtPauseCandidate(result.state.elapsedMs).then((attempt) => {
-                if (
-                  generation !== captureGenerationRef.current ||
-                  !capturingRef.current ||
-                  recorderRef.current !== recorder ||
-                  recorder.state !== "recording" ||
-                  candidateSilenceRun !== silenceRun
-                ) return;
-                const outcome = dynamicDraftResult(
-                  attempt.available && attempt.preview !== null,
-                  attempt.preview !== null && draftEndsWithTerminalPunctuation(attempt.preview.sourceText),
-                );
-                if (outcome === "hold") {
-                  draftHold = "rejected";
-                  return;
-                }
-                if (dynamicWindowTimerRef.current !== null) {
-                  clearBackgroundInterval(dynamicWindowTimerRef.current);
-                  dynamicWindowTimerRef.current = null;
-                }
-                if (recorderTimerRef.current !== null) {
-                  clearBackgroundTimeout(recorderTimerRef.current);
-                  recorderTimerRef.current = null;
-                }
-                recorder.stop();
-              });
-              return;
-            }
-            if (dynamicWindowTimerRef.current !== null) {
-              clearBackgroundInterval(dynamicWindowTimerRef.current);
-              dynamicWindowTimerRef.current = null;
-            }
-            if (recorderTimerRef.current !== null) {
-              clearBackgroundTimeout(recorderTimerRef.current);
-              recorderTimerRef.current = null;
-            }
-            if (recorder.state === "recording") recorder.stop();
-          }, DYNAMIC_SAMPLE_MS);
-        }
-        recorderTimerRef.current = setBackgroundTimeout(() => {
-          recorderTimerRef.current = null;
+        const stopWindow = () => {
           if (dynamicWindowTimerRef.current !== null) {
             clearBackgroundInterval(dynamicWindowTimerRef.current);
             dynamicWindowTimerRef.current = null;
           }
+          if (recorderTimerRef.current !== null) {
+            clearBackgroundTimeout(recorderTimerRef.current);
+            recorderTimerRef.current = null;
+          }
           if (recorder.state === "recording") recorder.stop();
+        };
+        let policyState = initialWindowPolicyState();
+        let draftHold: DynamicDraftHold = "idle";
+        let silenceRun = 0;
+        dynamicWindowTimerRef.current = setBackgroundInterval(() => {
+          let sampleRms = 0;
+          try {
+            sampleRms = readLevel();
+            if (!Number.isFinite(sampleRms)) {
+              levelReadFailed = true;
+              sampleRms = 0;
+            }
+          } catch {
+            levelReadFailed = true;
+          }
+          windowPeakRms = Math.max(windowPeakRms, sampleRms);
+          const observed = observeSpeechSample(speechGateRef.current, sampleRms);
+          speechGateRef.current = observed.state;
+          if (observed.speech) windowSpeechMs += DYNAMIC_SAMPLE_MS;
+          const previousSilenceMs = policyState.silenceMs;
+          const result = nextWindowDecision(policyState, sampleRms, bounds);
+          if (previousSilenceMs > 0 && result.state.silenceMs === 0) {
+            silenceRun += 1;
+            draftHold = "idle";
+          }
+          policyState = result.state;
+          if (recordingWindowMs !== "dynamic") {
+            if (result.decision === "cut") stopWindow();
+            return;
+          }
+          const action = dynamicPauseAction(result, bounds, draftHold);
+          if (action === "continue" || action === "hold") return;
+          if (action === "run-draft") {
+            const candidateSilenceRun = silenceRun;
+            draftHold = "pending";
+            void runDraftAtPauseCandidate(result.state.elapsedMs).then((attempt) => {
+              if (
+                generation !== captureGenerationRef.current ||
+                !capturingRef.current ||
+                recorderRef.current !== recorder ||
+                recorder.state !== "recording" ||
+                candidateSilenceRun !== silenceRun
+              ) return;
+              const outcome = dynamicDraftResult(
+                attempt.available && attempt.preview !== null,
+                attempt.preview !== null && draftEndsWithTerminalPunctuation(attempt.preview.sourceText),
+              );
+              if (outcome === "hold") {
+                draftHold = "rejected";
+                return;
+              }
+              stopWindow();
+            });
+            return;
+          }
+          stopWindow();
+        }, DYNAMIC_SAMPLE_MS);
+        recorderTimerRef.current = setBackgroundTimeout(() => {
+          recorderTimerRef.current = null;
+          stopWindow();
         }, bounds.maxMs);
       };
       startRecorderChunk();
@@ -1439,6 +1474,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
         recentContextRef.current = [];
         queueRef.current = [];
+        speechGateRef.current = initialSpeechGateState();
+        providerBusyRef.current = false;
         resetOutputBuffer();
         resetRecentOutputs();
         captureGenerationRef.current += 1;

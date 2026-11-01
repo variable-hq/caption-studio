@@ -1,6 +1,13 @@
 // Include the minimum supported width, where a previous overflow regression was found.
 export const QA_VIEWPORT_WIDTHS = [1920, 1200, 390, 320];
 
+export const CAPTION_WAIT_TIME_LABELS = [
+  '6 seconds: quickest, may break mid-sentence',
+  '10 seconds: balanced',
+  '14 seconds: fuller sentences',
+  'Dynamic: adapts to the speaker, up to 14 seconds',
+];
+
 const SETTINGS_LABELS = {
   computer: "System",
   languages: "Language",
