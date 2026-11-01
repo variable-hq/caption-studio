@@ -54,7 +54,7 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
   microphone. Click the microphone icon in the address bar, choose Allow, then press
   Try again."
 - Use numerals ("8 seconds", "3 words"), `…` not `...`, and curly quotes and
-  apostrophes (’ “ ”). Placeholders are examples ending in `…`: "e.g. Pastor Ken…".
+  apostrophes (’ “ ”). Placeholders are examples ending in `…`: "e.g. Speaker’s name…".
   Progress text ends in `…`: "Saving…".
 - Keep a hint to one sentence. If it needs a paragraph, it belongs in the help page.
 - Confirmation dialogs ask a question as the title ("End this service?"). The safe

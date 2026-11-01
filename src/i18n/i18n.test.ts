@@ -211,6 +211,27 @@ describe("operator interface translations", () => {
     expect(id["serviceExperience.savedSermons"]).toBe("Transkrip tersimpan");
   });
 
+  it("calls the person talking the speaker and drops the example names", () => {
+    for (const key of ["liveWord.placeholderWord", "liveWord.placeholderFix", "wordsEditor.placeholderWord"] as const) {
+      expect(en[key]).toBe("e.g. Speaker’s name…");
+      expect(id[key]).toBe("mis. Nama pembicara…");
+    }
+    expect(en["live.startHelp.ready"]).toBe("Press Start when the speaker begins.");
+    expect(id["live.startHelp.ready"]).toBe("Tekan Mulai saat pembicara mulai berbicara.");
+    expect(en["help.step3.after"]).toBe("when the speaker begins.");
+    expect(id["help.step3.after"]).toBe("saat pembicara mulai berbicara.");
+    expect(id["translationChange.spokenLanguage"]).toBe("Bahasa pembicara");
+  });
+
+  it("no operator message uses sermon, preacher or pastor wording", () => {
+    const forbidden = ["sermon", "khotbah", "preacher", "pengkhotbah", "pastor"];
+    for (const [key, message] of [...Object.entries(en), ...Object.entries(id)]) {
+      for (const phrase of forbidden) {
+        expect(message.toLowerCase(), `${key} avoids “${phrase}”`).not.toContain(phrase);
+      }
+    }
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");
