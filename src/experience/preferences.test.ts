@@ -45,7 +45,6 @@ describe("operator preferences", () => {
       captionStyle: { fontSize: 40 },
       outputBufferCount: 1,
       outputBufferDwellMs: 5_000,
-      liveDraftsEnabled: true,
       autoSummary: true,
       injected: "ignored",
     }, 1_000);
@@ -61,7 +60,7 @@ describe("operator preferences", () => {
     expect(first.captionStyle?.fontSize).toBe(40);
     expect(first.outputBufferCount).toBe(1);
     expect(first.outputBufferDwellMs).toBe(5_000);
-    expect(first.liveDraftsEnabled).toBe(true);
+    expect("liveDraftsEnabled" in first).toBe(false);
     expect("tutorialDismissed" in first).toBe(false);
     expect(first.updatedAt).toBe(1_000);
     expect("injected" in first).toBe(false);
@@ -73,7 +72,7 @@ describe("operator preferences", () => {
     expect(second.summaryDefaults).toEqual(first.summaryDefaults);
     expect(second.outputBufferCount).toBeNull();
     expect(second.outputBufferDwellMs).toBeNull();
-    expect(second.liveDraftsEnabled).toBeNull();
+    expect("liveDraftsEnabled" in second).toBe(false);
     expect(second.updatedAt).toBe(2_000);
   });
 
@@ -89,11 +88,6 @@ describe("operator preferences", () => {
     });
     expect(saved.translationDefaults?.recordingWindowMs).toBe("dynamic");
     expect(mergeOperatorPreferences(EMPTY_PREFERENCES, saved).translationDefaults?.recordingWindowMs).toBe("dynamic");
-  });
-
-  it("keeps the church-wide Live drafts toggle in effective setup", () => {
-    const shared = mergeOperatorPreferences(EMPTY_PREFERENCES, { liveDraftsEnabled: true });
-    expect(effectiveSetup(shared, EMPTY_PREFERENCES).liveDraftsEnabled).toBe(true);
   });
 
   it("drops invalid prompts and malformed records instead of storing them", () => {

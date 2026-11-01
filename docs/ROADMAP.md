@@ -1,6 +1,6 @@
 # Roadmap
 
-Reviewed 2 November 2026 against merged PR #90 (`a602a61`). Status describes source
+Reviewed 2 November 2026 against merged PR #93 (`3e257a8`). Status describes source
 implementation; deployment and church-approved quality require separate evidence.
 
 ## Implemented baseline
@@ -36,8 +36,9 @@ implementation; deployment and church-approved quality require separate evidence
   Optional automatic summary drafts at End
   ([ADR 0019](decisions/0019-automatic-post-service-summary.md)) and record-only session
   details ([ADR 0024](decisions/0024-session-metadata.md)).
-- Optional operator-only Live drafts re-transcribe the current audio window within the
-  existing reserved-attempt ceiling ([ADR 0027](decisions/0027-operator-only-live-drafts.md)).
+- Dynamic mode fills Heard with a transcription-only draft at the first pause and reuses a
+  confirming draft as the final's transcription within the existing reserved-attempt
+  ceiling ([ADR 0032](decisions/0032-live-heard-transcription.md)).
 - Live, Transcripts and Settings dashboard for volunteer operators, with a readiness
   checklist, a pinned live control bar and bookmarkable screens
   ([ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)), following

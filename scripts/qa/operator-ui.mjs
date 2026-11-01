@@ -51,7 +51,7 @@ try {
   else if(path==='/api/live/experience/preferences'||path==='/api/live/experience/setup'){
     if(method!=='GET')controls.push({preferenceWrite:body});
     if(path==='/api/live/experience/preferences'&&method==='POST'&&Object.hasOwn(body,'uiLocale'))accountUiLocale=body.uiLocale;
-    payload=method==='GET'?{version:1,theme:'system',uiLocale:path==='/api/live/experience/preferences'?accountUiLocale:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,liveDraftsEnabled:width===320,updatedAt:null}:{...body,uiLocale:path==='/api/live/experience/preferences'?accountUiLocale:null,version:1,updatedAt:Date.now()};
+    payload=method==='GET'?{version:1,theme:'system',uiLocale:path==='/api/live/experience/preferences'?accountUiLocale:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,updatedAt:null}:{...body,uiLocale:path==='/api/live/experience/preferences'?accountUiLocale:null,version:1,updatedAt:Date.now()};
   }
    else if(path==='/api/live/channel')payload={channelId:'main',configured:true,status,overlayUrl:'http://127.0.0.1:3100/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
    else if(path==='/api/live/channel/style'){style=body.style;payload={ok:true}}
@@ -77,8 +77,10 @@ try {
   });
   await page.goto('http://127.0.0.1:3100');
   await page.getByText('Ready to go',{exact:true}).waitFor();
-  const liveDraftSwitch=page.getByRole('switch',{name:'Live drafts',exact:true});
-  await liveDraftSwitch.waitFor();
+  assert.equal(await page.getByRole('switch',{name:'Live drafts',exact:true}).count(),0,'Live drafts is no longer a user-visible setting');
+  assert.equal(await page.locator('.heardText').count(),1,'The Heard pane remains the in-progress source view');
+  assert.equal(await page.locator('.liveDraftLine').count(),0,'No separate draft line remains');
+  assert.equal(await page.locator('.heardText[data-in-progress="true"]').count(),0,'An idle pane shows no in-progress draft');
   const check=async screen=>{
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
@@ -104,15 +106,7 @@ try {
   assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).isEnabled(),true);
   assert.equal(await page.getByRole('region',{name:'Live controls'}).count(),0);
   assert.equal(await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).isChecked(),false);
-  assert.equal(await liveDraftSwitch.isChecked(),width===320,'The session switch starts from the saved default');
-  await liveDraftSwitch.check();
-  await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor();
-  await check('live-drafts-enabled');
-  await page.screenshot({path:output+`/live-drafts-${colorScheme}-${width}.png`,fullPage:true});
-  await liveDraftSwitch.uncheck();
-  await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor({state:'hidden'});
-  assert.equal(controls.some(entry=>entry.preferenceWrite&&Object.hasOwn(entry.preferenceWrite,'liveDraftsEnabled')),false,'The session switch must not save the default');
-  assert.equal(inferenceCalls,0,'Toggling drafts must not invoke inference');
+  assert.equal(inferenceCalls,0,'Idle Live must not invoke inference');
   await page.screenshot({path:output+`/live-idle-${colorScheme}-${width}.png`,fullPage:true});
 
   for(const section of SETTINGS_SECTIONS){
@@ -232,10 +226,6 @@ try {
   const liveControls=page.getByRole('region',{name:'Live controls'});
   await liveControls.getByRole('button',{name:'Pause',exact:true}).waitFor();
   assert.equal(status,'live');
-  await liveDraftSwitch.check();
-  await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor();
-  await liveDraftSwitch.uncheck();
-  await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor({state:'hidden'});
   await check('live-running');
   await barClear('live-running');
   await page.screenshot({path:output+`/live-running-${colorScheme}-${width}.png`,fullPage:true});
@@ -252,7 +242,7 @@ try {
    await other.getByText('operator@example.test is running captions on another system.',{exact:true}).waitFor();
    assert.equal(await other.getByRole('button',{name:'Take over',exact:true}).count(),1);
    assert.equal(await other.getByRole('button',{name:'Start captions',exact:true}).isDisabled(),true);
-   assert.equal(await other.getByRole('switch',{name:'Live drafts',exact:true}).count(),0,'Observers must not see the controller switch');
+   assert.equal(await other.getByText('Heard',{exact:true}).count(),1,'Observers still see the controller Heard pane');
    assert.equal(controls.length,controlsBefore);
    await other.close();
   }

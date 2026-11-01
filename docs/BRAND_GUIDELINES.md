@@ -1,6 +1,6 @@
 # Brand guidelines
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`).
+Reviewed 2 November 2026 against merged PR #93 (`3e257a8`).
 
 The baseline every Caption Studio screen follows: how the product sounds, which token
 to use for which job, and how text, space and components are laid out. Agents and

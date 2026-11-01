@@ -1,46 +1,30 @@
-import type { RecordingWindowMs } from "@/live/contracts";
-
-export const MAX_DRAFTS_PER_CAPTION = 2;
-export const DRAFT_MIN_NEW_AUDIO_MS = 3_000;
-export const DRAFT_END_MARGIN_MS = 2_000;
+/** One transcription-only draft per caption; only Dynamic uses it. */
+export const MAX_DRAFTS_PER_CAPTION = 1;
 
 export interface LiveDraftToggleEffects {
   invalidatePendingWork(): void;
   setSessionDisabled(disabled: boolean): void;
 }
 
-export function createLiveDraftToggle(initialEnabled: boolean, effects: LiveDraftToggleEffects) {
-  let enabled = initialEnabled;
+/** Drafts start on with every service; a provider rejection stops them for the session. */
+export function createLiveDraftToggle(effects: LiveDraftToggleEffects) {
   let sessionDisabled = false;
-  const invalidate = () => effects.invalidatePendingWork();
 
   return {
-    canRun: () => enabled && !sessionDisabled,
-    setEnabled(nextEnabled: boolean) {
-      if (enabled === nextEnabled) return;
-      enabled = nextEnabled;
-      if (!enabled) invalidate();
-    },
+    canRun: () => !sessionDisabled,
     startSession() {
       sessionDisabled = false;
       effects.setSessionDisabled(false);
-      invalidate();
+      effects.invalidatePendingWork();
     },
     disableForSession() {
       if (sessionDisabled) return;
       sessionDisabled = true;
       effects.setSessionDisabled(true);
-      invalidate();
+      effects.invalidatePendingWork();
     },
-    reset: invalidate,
+    reset: effects.invalidatePendingWork,
   };
-}
-
-export function draftOffsets(windowMs: RecordingWindowMs): number[] {
-  if (windowMs === "dynamic") return [];
-  if (windowMs === 6_000) return [];
-  if (windowMs === 10_000) return [4_000];
-  return [4_000, 8_000];
 }
 
 export interface CanDraftOptions {

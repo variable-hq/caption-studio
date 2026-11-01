@@ -1,6 +1,6 @@
 # Documentation index
 
-Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). Maintained specifications
+Reviewed 2 November 2026 against merged PR #93 (`3e257a8`). Maintained specifications
 describe merged source, not an assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
 records to establish release evidence.
 
@@ -53,6 +53,9 @@ records to establish release evidence.
 - [ADR 0031](decisions/0031-caption-wait-time.md) records the caption wait time as a cap
   with pause cuts, silence gating, the 1,800-attempt ceiling and the provider-limit
   back-off.
+- [ADR 0032](decisions/0032-live-heard-transcription.md) records Dynamic's transcription-only
+  Heard draft, reusing a confirming draft as the final, and the removal of the user-visible
+  Live drafts setting.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator, and the default-on operator control for faithful
   rendering when that omission rule is disabled.

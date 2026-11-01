@@ -210,6 +210,22 @@ describe("operator interface translations", () => {
     }
   });
 
+  it("has no Live drafts switch, preview or saved-default copy", () => {
+    for (const key of [
+      "liveDraft.empty",
+      "liveDraft.label",
+      "liveDraft.hidden",
+      "live.draftsTitle",
+      "live.draftsHint",
+      "live.draftsStopped",
+      "live.draftsSavedChoice",
+      "live.draftsSavesForEveryone",
+    ]) {
+      expect(key in en).toBe(false);
+      expect(key in id).toBe(false);
+    }
+  });
+
   it("no operator message names the feature Words", () => {
     for (const [key, message] of [...Object.entries(en), ...Object.entries(id)]) {
       expect(message, `${key} avoids the feature name “Words”`).not.toContain("Words");

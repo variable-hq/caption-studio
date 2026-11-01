@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 2 November 2026 against merged PR #92 (`e1a4e0b`). The corrected 13 September
+Reviewed 2 November 2026 against merged PR #93 (`3e257a8`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -173,9 +173,9 @@ copy or browser language, then English.
   default). Every option is a cap, not a fixed timer: it cuts at a pause once its floor has
   passed and always cuts at the cap. The floors are 3, 5, 7 and 4 seconds, the pause
   lengths 500, 700, 900 and 700ms, and Dynamic's required pause shrinks to 200ms at its cap.
-  When Live drafts are enabled and admitted, Dynamic's
-  draft punctuation confirms the cut; an unfinished clause keeps recording until another
-  pause or the cap. The numbered options do not consult drafts. Once a service has heard
+  In Dynamic mode a transcription-only draft at a pause confirms the cut when it ends in
+  terminal punctuation; an unfinished clause keeps recording until another pause or the
+  cap. The numbered options run no drafts. Once a service has heard
   speech, a window with less than 300ms of speech is not sent unless its peak is not well
   below earlier speech or a level sample failed; a skipped window uses no transcription,
   translation or attempt. After a provider rate-limit or usage-limit response, no option
@@ -360,44 +360,39 @@ Live's captions card. Filtered entries read “Hidden by
 filter”. It records whether the output buffer was active, but does not change or feed later
 translations. Pause and Clear preserve the strip; Start, End and takeover reset it.
 
-### Live drafts
+### Live Heard transcription
 
-**Live drafts** is an optional saved default, off unless saved otherwise. The controller-only
-Live card switch starts from that default and is a per-session choice; changing it is not
-saved automatically. Turning it off immediately clears the preview, cancels pending timers,
-and aborts in-flight draft work. Turning it on applies at the next recording window. The
-separate **Save for everyone** action changes the default for future sessions.
+In Dynamic mode the Heard pane fills in with the speaker's words as they pause. At the
+first qualifying pause candidate the controller transcribes the window so far without
+translating and shows that source text as in-progress in Heard, in the muted colour. A
+caption runs at most one draft. Only the controlling tab sees it, it is not announced to
+screen readers, and the final's source text replaces it. Numbered wait options run no
+drafts; their Heard pane updates at the final as before.
 
-While the current recording window is still being captured, the controller may re-transcribe
-the audio already recorded and replace the previous operator-only preview with a newer
-draft. When enabled without a draft yet, the card explains that drafts appear during longer
-windows and that 6-second windows never draft. The preview sits below Heard and Audience
-view panes in Live's Captions card. It is never published, buffered, added to recent translation
-context, or sent to OBS, viewers, or the transcript archive. The final caption still follows the
-normal end-of-window path.
+When the draft ends in terminal punctuation it confirms the cut, and the final reuses the
+draft's transcription instead of transcribing again: dropped segments, approved recognition
+variants and language detection are already applied, and the translation runs once. The
+reused draft counts as that caption's one attempt: the draft claimed transcription for the
+attempt number and the final claims translation for the same number. When the draft ends
+mid-clause, recording continues through that silence, the draft stays in Heard until it is
+replaced, later candidates use the existing pause-only cut, and the final transcribes the
+whole window normally.
 
-The 6-second option has no draft; the 10-second option may draft at 4 seconds and the
-14-second option at 4 and 8 seconds. Dynamic requests drafts at qualifying pause candidates
-instead of fixed offsets. At an admitted candidate, a source draft ending in terminal
-punctuation (including closing quotes or brackets) cuts the window; otherwise recording
-continues through the rest of that silence run and waits for speech to resume before another
-candidate. The 14-second maximum always cuts. If a draft cannot run, the pause-only cut
-applies; a candidate reached while another draft is still in flight is unavailable and
-therefore uses that fallback. A late result from an earlier silence run cannot cut a later
-one. An in-flight draft is discarded at the window end. A draft needs at least 3
-seconds of new audio. At most one runs at a time, at most 2 are allowed per caption, and a
-draft is skipped whenever a final chunk is queued or processing, or the remaining 1,800
-attempt ceiling is needed for future finals. Draft attempts use the existing protected
-transcription and translation routes. The worst case is 3 transcription and 3 translation
-calls per caption and about twice the audio-seconds, so the setting warns that drafts use
-more free-tier quota.
+Reuse requires nothing relevant to have changed since the draft: no speech resumed, the
+same translation revision, settings, Terms/Quick overrides and Live note, no pause, clear or
+takeover, and no aborted draft or rejected provider request. Otherwise the final runs
+normally. A draft never delays a final.
 
-Any draft error disables drafts for that window without ending the service or showing an
-operator error; the final caption remains eligible to report its own failure. If the
-provider rejects partial audio with HTTP 400, drafts stay disabled for the service even if
-the switch is turned back on; help text by the switch explains why. A new service clears
-that restriction. Pause, Clear, End, takeover, translation refresh, and each window end
-clear the preview and abort in-flight draft work.
+A rate-limit or usage-limit response, or a provider rejecting partial audio, stops drafts
+for the rest of the service silently; the service continues with pause-only cuts. There is
+no operator switch, saved default or separate preview line, and old stored
+`liveDraftsEnabled` values are ignored.
+
+Relative to the same service without drafts, translation calls do not change. A confirming
+draft adds no transcription call and no audio-seconds; a mid-clause draft costs at most one
+extra transcription call and one extra pass over that window's audio, so the worst case per
+caption is about 2x transcription and Dynamic's usual case is about 1x. See
+[ADR 0032](decisions/0032-live-heard-transcription.md).
 
 | Control | Purpose | When it applies |
 | --- | --- | --- |
@@ -405,7 +400,6 @@ clear the preview and abort in-flight draft work.
 | Quick override (Live › Quick fixes) | Fix, translate, recognise, or hide a whole caption | From the next caption; controller tab until removed |
 | Translator instructions (Settings) | Standing guidance for the whole service | After Apply now |
 | Live note | Situational guidance for the passage being spoken now | From the next translation; current service only |
-| Live drafts | In-progress operator preview | Replaces the previous draft; never published |
 | Recent outputs | Observe the last 3 published captions | Display only; changes nothing |
 
 ### Output buffer

@@ -1,6 +1,6 @@
 # ADR 0027: operator-only live drafts
 
-Date: 29 October 2026. Status: accepted, implemented in source.
+Date: 29 October 2026. Status: superseded by [ADR 0032](0032-live-heard-transcription.md).
 
 ## Decision
 

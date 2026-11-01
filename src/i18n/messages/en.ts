@@ -131,9 +131,6 @@ export const en = {
   "captionPreview.help": "A scaled copy of the 1920 × 1080 OBS screen. Check the real Browser Source in OBS.",
   "captionPreview.heardLabel": "Heard · operator view",
 
-  "liveDraft.empty": "Drafts appear while a longer recording window is in progress. 6s windows never draft.",
-  "liveDraft.label": "Draft, not yet shown to the audience",
-  "liveDraft.hidden": "This draft is hidden by the caption filter.",
 
   "liveNote.label": "Live note",
   "liveNote.hint": "Tells the translator about names, sound words or who is speaking, from the next caption. To change a word exactly, use Settings › Terms.",
@@ -455,11 +452,6 @@ export const en = {
   "live.nothingYet": "Nothing yet.",
   "live.audienceSees": "Audience view",
   "live.audienceMeta": "{language} · OBS & phones",
-  "live.draftsTitle": "Live drafts",
-  "live.draftsHint": "This per-session choice is not saved automatically. It uses more free-tier quota: up to 3 transcription and 3 translation calls per caption, and about twice the audio.",
-  "live.draftsStopped": "Live drafts stopped for this service because the provider rejected partial audio.",
-  "live.draftsSavedChoice": "The church setup has a saved choice for this.",
-  "live.draftsSavesForEveryone": "Saves this choice for everyone’s new services.",
   "live.microphone": "Microphone",
   "live.recentCaptions": "Recent captions",
   "live.startCard": "Start",
