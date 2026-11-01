@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 
 import type { CaptionTranscriptionResult } from "@/live/caption-inference";
-
 import {
   MAX_TRANSCRIPTION_REQUESTS,
   recordingWindowBoundsMs,
@@ -49,7 +48,6 @@ export interface LiveDraftAttempt {
 const UNAVAILABLE: LiveDraftAttempt = { available: false, preview: null, draft: null };
 
 interface UseLiveDraftsOptions {
-  enabled: boolean;
   runnerRef: MutableRefObject<LiveDraftRunner>;
   attemptsUsed: () => number;
   finalBusy: () => boolean;
@@ -74,7 +72,7 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
 
   const getToggle = useCallback(() => {
     if (!toggleRef.current) {
-      toggleRef.current = createLiveDraftToggle(optionsRef.current.enabled, {
+      toggleRef.current = createLiveDraftToggle({
         invalidatePendingWork: invalidateWindow,
         setSessionDisabled,
       });
@@ -85,10 +83,6 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
   useEffect(() => {
     optionsRef.current = options;
   }, [options]);
-
-  useEffect(() => {
-    getToggle().setEnabled(options.enabled);
-  }, [getToggle, options.enabled]);
 
   /** Keep the visible draft across the window end so it lasts until the final replaces it. */
   const endWindow = useCallback(() => {

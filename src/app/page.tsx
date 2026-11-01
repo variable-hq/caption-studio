@@ -225,8 +225,6 @@ function OperatorDashboardContent() {
   const [outputBufferDwellMs, setOutputBufferDwellMs] = useState<OutputBufferDwellMs>(
     DEFAULT_OUTPUT_BUFFER_DWELL_MS,
   );
-  const [liveDraftsEnabled, setLiveDraftsEnabled] = useState(false);
-  const [liveDraftsSavedMessage, setLiveDraftsSavedMessage] = useState("");
   const [translationSystemPrompt, setTranslationSystemPrompt] = useState(
     DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   );
@@ -314,9 +312,8 @@ function OperatorDashboardContent() {
       liveNote,
       outputBufferCount,
       outputBufferDwellMs,
-      liveDraftsEnabled,
     }),
-    [draftTranslationSettings, style, saveHistory, liveNote, outputBufferCount, outputBufferDwellMs, liveDraftsEnabled],
+    [draftTranslationSettings, style, saveHistory, liveNote, outputBufferCount, outputBufferDwellMs],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {
@@ -332,7 +329,6 @@ function OperatorDashboardContent() {
     viewerAction,
     activeRecordingWindowMs,
     activeTranslationSettings,
-    liveDraftSessionDisabled,
     translationRefreshRequired,
     endRetryRequired,
     takeoverRequired,
@@ -359,7 +355,6 @@ function OperatorDashboardContent() {
     outputBufferQueue,
     recentOutputs,
     liveDraft,
-    resetLiveDrafts,
     setOutputBufferEntryPaused,
     clearOutputBufferEntry,
     fastForwardOutputBufferEntry,
@@ -824,10 +819,6 @@ function OperatorDashboardContent() {
           setOutputBufferDwellMs(loaded.outputBufferDwellMs);
           setOutputBufferSavedMessage(tRef.current("settings.message.loadedChurchSetup"));
         }
-        if (loaded.liveDraftsEnabled !== null && !hasServiceRef.current) {
-          setLiveDraftsEnabled(loaded.liveDraftsEnabled);
-          setLiveDraftsSavedMessage(tRef.current("settings.message.loadedChurchSetup"));
-        }
       })
       .catch(() => {
         if (cancelled) return;
@@ -888,15 +879,6 @@ function OperatorDashboardContent() {
         ok
           ? t("settings.message.savedDefaultChoice")
           : t("settings.error.churchSetup"),
-      ),
-    );
-  };
-
-  const saveLiveDraftsDefault = () => {
-    setLiveDraftsSavedMessage(t("common.savingForEveryone"));
-    void syncAccountPreferences({ liveDraftsEnabled }).then((ok) =>
-      setLiveDraftsSavedMessage(
-        ok ? t("settings.message.savedDefaultChoice") : t("settings.error.churchSetup"),
       ),
     );
   };
@@ -1336,40 +1318,6 @@ function OperatorDashboardContent() {
               />
             </div>
           </div>
-          {!observed.observer ? (
-            <>
-              <div className="liveDraftSettings">
-                <label className="switchControl">
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    name="liveDraftsEnabled"
-                    checked={liveDraftsEnabled}
-                    aria-checked={liveDraftsEnabled}
-                    aria-describedby={`live-drafts-help${liveDraftSessionDisabled ? " live-drafts-session-status" : ""}`}
-                    disabled={isBusy}
-                    onChange={(event) => {
-                      if (!event.target.checked) resetLiveDrafts();
-                      setLiveDraftsEnabled(event.target.checked);
-                    }}
-                  />
-                  <span>
-                    <strong>{t("live.draftsTitle")}</strong>
-                  </span>
-                </label>
-                <p id="live-drafts-help" className="operatorHint">
-                  {t("live.draftsHint")}
-                </p>
-                {liveDraftSessionDisabled ? (
-                  <p id="live-drafts-session-status" className="operatorHint" data-tone="warn" role="status" aria-live="polite">
-                    {t("live.draftsStopped")}
-                  </p>
-                ) : null}
-                <button type="button" className="textButton" disabled={isBusy} onClick={saveLiveDraftsDefault}>{t("common.saveForEveryone")}</button>
-                <p className="operatorHint" role="status" aria-live="polite">{liveDraftsSavedMessage || (accountPreferences?.liveDraftsEnabled !== null && accountPreferences?.liveDraftsEnabled !== undefined ? t("live.draftsSavedChoice") : t("live.draftsSavesForEveryone"))}</p>
-              </div>
-            </>
-          ) : null}
           <div className="levelRow">
             <span>{t("live.microphone")}</span>
             <AudioLevelMeter level={level} />

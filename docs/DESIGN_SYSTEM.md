@@ -1,6 +1,6 @@
 # Design system
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`).
+Reviewed 2 November 2026 against merged PR #93 (`3e257a8`).
 
 Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
@@ -93,7 +93,9 @@ The dashboard theme never changes the configured OBS caption colours.
   list beside its panel. Live uses `.liveGrid`: two rows of paired cards (`.liveCaptions`
   beside the checklist, `.liveActions` beside `.liveShare`) that stretch to equal height
   and stack into one column at 980px and narrower. In `.liveCaptions` the Heard box and
-  the letterboxed 16:9 preview grow together, so they are always the same size.
+  the letterboxed 16:9 preview grow together, so they are always the same size. Heard text
+  is `--ink` once published and `--muted` while a Dynamic draft is in progress
+  (`data-in-progress="true"`), with no live-region announcement.
   The readiness checklist (`.checkList`) ends each passing row in a chevron `.rowLink` to
   the Settings section that changes it; a failing row shows a primary **Fix**, **Set up** or **Help**
   button instead.

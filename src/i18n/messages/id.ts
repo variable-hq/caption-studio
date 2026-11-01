@@ -134,9 +134,6 @@ export const id: Partial<Record<MessageKey, string>> = {
   "captionPreview.help": "Salinan berskala dari layar OBS 1920 × 1080. Periksa Browser Source sebenarnya di OBS.",
   "captionPreview.heardLabel": "Terdengar · tampilan operator",
 
-  "liveDraft.empty": "Draf muncul saat jendela perekaman yang lebih panjang berlangsung. Jendela 6 dtk tidak pernah membuat draf.",
-  "liveDraft.label": "Draf, belum ditampilkan ke audiens",
-  "liveDraft.hidden": "Draf ini disembunyikan oleh filter caption.",
 
   "liveNote.label": "Catatan Live",
   "liveNote.hint": "Memberi tahu penerjemah tentang nama, kata bunyi, atau siapa yang berbicara, mulai caption berikutnya. Untuk mengubah kata secara tepat, gunakan Pengaturan › Istilah.",
@@ -458,11 +455,6 @@ export const id: Partial<Record<MessageKey, string>> = {
   "live.nothingYet": "Belum ada.",
   "live.audienceSees": "Tampilan audiens",
   "live.audienceMeta": "{language} · OBS & ponsel",
-  "live.draftsTitle": "Draf Live",
-  "live.draftsHint": "Pilihan per sesi ini tidak disimpan otomatis. Ini menggunakan lebih banyak kuota gratis: hingga 3 panggilan transkripsi dan 3 terjemahan per caption, dan sekitar dua kali audio.",
-  "live.draftsStopped": "Draf Live dihentikan untuk layanan ini karena penyedia menolak audio parsial.",
-  "live.draftsSavedChoice": "Persiapan gereja memiliki pilihan tersimpan untuk ini.",
-  "live.draftsSavesForEveryone": "Menyimpan pilihan ini untuk layanan baru semua orang.",
   "live.microphone": "Mikrofon",
   "live.recentCaptions": "Caption terbaru",
   "live.startCard": "Mulai",

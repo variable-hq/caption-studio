@@ -6,30 +6,24 @@ export interface LiveDraftToggleEffects {
   setSessionDisabled(disabled: boolean): void;
 }
 
-export function createLiveDraftToggle(initialEnabled: boolean, effects: LiveDraftToggleEffects) {
-  let enabled = initialEnabled;
+/** Drafts start on with every service; a provider rejection stops them for the session. */
+export function createLiveDraftToggle(effects: LiveDraftToggleEffects) {
   let sessionDisabled = false;
-  const invalidate = () => effects.invalidatePendingWork();
 
   return {
-    canRun: () => enabled && !sessionDisabled,
-    setEnabled(nextEnabled: boolean) {
-      if (enabled === nextEnabled) return;
-      enabled = nextEnabled;
-      if (!enabled) invalidate();
-    },
+    canRun: () => !sessionDisabled,
     startSession() {
       sessionDisabled = false;
       effects.setSessionDisabled(false);
-      invalidate();
+      effects.invalidatePendingWork();
     },
     disableForSession() {
       if (sessionDisabled) return;
       sessionDisabled = true;
       effects.setSessionDisabled(true);
-      invalidate();
+      effects.invalidatePendingWork();
     },
-    reset: invalidate,
+    reset: effects.invalidatePendingWork,
   };
 }
 

@@ -31,24 +31,21 @@ describe("live draft scheduling", () => {
     expect(canDraft({ ...base, attemptsUsed: 900, draftsUsed: 0 })).toBe(false);
   });
 
-  it("turning drafts off clears pending work and blocks later admission", () => {
+  it("starts every service with drafts on and clears pending work", () => {
     const invalidatePendingWork = vi.fn();
-    const toggle = createLiveDraftToggle(true, {
+    const toggle = createLiveDraftToggle({
       invalidatePendingWork,
       setSessionDisabled: vi.fn(),
     });
 
     expect(toggle.canRun()).toBe(true);
-    toggle.setEnabled(false);
+    toggle.startSession();
     expect(invalidatePendingWork).toHaveBeenCalledOnce();
-    expect(toggle.canRun()).toBe(false);
-    toggle.setEnabled(true);
-    expect(toggle.canRun()).toBe(true);
   });
 
-  it("keeps provider-rejected drafts blocked even when switched back on until the next session", () => {
+  it("keeps provider-rejected drafts blocked for the rest of the service", () => {
     const setSessionDisabled = vi.fn();
-    const toggle = createLiveDraftToggle(true, {
+    const toggle = createLiveDraftToggle({
       invalidatePendingWork: vi.fn(),
       setSessionDisabled,
     });
@@ -56,9 +53,6 @@ describe("live draft scheduling", () => {
     toggle.disableForSession();
     expect(toggle.canRun()).toBe(false);
     expect(setSessionDisabled).toHaveBeenCalledWith(true);
-    toggle.setEnabled(false);
-    toggle.setEnabled(true);
-    expect(toggle.canRun()).toBe(false);
     toggle.startSession();
     expect(toggle.canRun()).toBe(true);
     expect(setSessionDisabled).toHaveBeenLastCalledWith(false);

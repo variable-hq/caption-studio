@@ -88,7 +88,6 @@ interface LiveCaptionSettings extends TranslationSessionSettings {
   style: CaptionStyle;
   outputBufferCount: OutputBufferCount;
   outputBufferDwellMs: OutputBufferDwellMs;
-  liveDraftsEnabled: boolean;
 }
 
 /** A confirming Dynamic draft, ready for the next final to reuse as its transcription. */
@@ -249,7 +248,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const pendingDraftRef = useRef<PendingDraft | null>(null);
   const attemptsUsedRef = useRef(0);
   const liveDrafts = useLiveDrafts({
-    enabled: settings.liveDraftsEnabled,
     runnerRef: draftRunnerRef,
     attemptsUsed: () => attemptsUsedRef.current,
     finalBusy: () => processingRef.current || queueRef.current.length > 0,

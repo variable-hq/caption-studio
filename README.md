@@ -38,7 +38,8 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
 - **Operator dashboard**: three screens, **Live**, **Transcripts** and **Settings**, plus
   **Help**, built for volunteers. Live is two rows of equal-height paired cards: the
   captions card (**Heard** beside **Audience view**, with **Recent captions** folded
-  below) beside the readiness checklist, then the Start card (**Quick fixes** during a
+  below; in Dynamic mode Heard fills in at the speaker's first pause and the final
+  replaces it) beside the readiness checklist, then the Start card (**Quick fixes** during a
   service) beside **Share**. During a service a bar pinned to the bottom holds Pause,
   Clear screen, the minutes left and End service. Each screen has its own bookmarkable
   address (`#live`, `#sermons`, `#settings=<section>`, `#help`).

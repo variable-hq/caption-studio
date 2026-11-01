@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 2 November 2026 against merged PR #92 (`e1a4e0b`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
+Reviewed 2 November 2026 against merged PR #93 (`3e257a8`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 
@@ -83,10 +83,14 @@ The browser is the sole client; there are no native/signing checklists.
    optionally fill **Session details**, then press **Start captions**; Start performs
    readiness and ownership checks. **Heard** and **Audience view** show the private source
    and the public caption.
-9. Speak approved samples. Confirm private source versus moderated public output, Terms
-   behavior, masks, caption language, **Recent captions**, and the **Service details**
-   counters (Delay after speech, Audio chunks dropped). The delay excludes the recording
-   window, queue wait and audience rendering.
+9. Speak approved samples with **Dynamic** selected. Confirm **Heard** fills in with the
+   speaker's words at the first natural pause in the muted in-progress style, then is
+   replaced by the final. A caption confirmed by terminal punctuation publishes once; an
+   unfinished clause still cuts sensibly at a later pause or the 14-second cap. Then confirm
+   private source versus moderated public output, Terms behavior, masks, caption language,
+   **Recent captions**, and the **Service details** counters (Delay after speech, Audio
+   chunks dropped). The delay excludes the recording window, queue wait and audience
+   rendering.
 10. While live and paused, draft language, Terms, caption wait time and translator changes in
     Settings. The **Your changes aren’t in use yet** banner appears: press **Undo changes**
     once, make them again, then **Apply now**. Old output/context disappears; old results

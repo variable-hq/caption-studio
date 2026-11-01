@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). Cloudflare deployed `20597d8`
+Reviewed 2 November 2026 against merged PR #93 (`3e257a8`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -9,7 +9,7 @@ physical-device, provider-output or semantic acceptance.
 
 | Component | Responsibility |
 | --- | --- |
-| Capture browser | Audio selection, 6/10/14s capped or pause-aware Dynamic 4–14s MediaRecorder chunks on worker-driven timers, two-chunk queue, operator-only Live drafts, source preview, terminology, moderation, output buffer queue, live note, recent outputs, controls and same-tab recovery |
+| Capture browser | Audio selection, 6/10/14s capped or pause-aware Dynamic 4–14s MediaRecorder chunks on worker-driven timers, two-chunk queue, Dynamic Heard transcription, source preview, terminology, moderation, output buffer queue, live note, recent outputs, controls and same-tab recovery |
 | Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
 | `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
@@ -295,13 +295,15 @@ At most one translation follows an eligible chunk. The latest viewer allows 250 
 Two queued audio chunks bound backlog; additional chunks are dropped with operator feedback.
 The client-side output buffer holds at most 4 entries; only the front is shown or
 individually controllable.
-The recorder emits one-second MediaRecorder slices so Live drafts can re-transcribe the
-current window; drafts use ordinary reserved attempts and are admitted only when the
-remaining-attempt budget still covers future finals. Fixed windows use their scheduled
-draft offsets. In Dynamic mode drafts run at qualifying pause candidates; a pure terminal-
-punctuation check on source text confirms early cuts, while unavailable drafts retain the
-pause-only behavior. Both modes cap drafts at two per caption. Drafts never enter the
-journal, recent translation context, output buffer, or public room state.
+The recorder emits one-second MediaRecorder slices so Dynamic can transcribe the current
+window at a qualifying pause. The draft is transcription-only and uses an ordinary reserved
+attempt; when its source ends in terminal punctuation it confirms the cut and the final
+reuses that transcription, claiming translation for the same attempt number, so the caption
+still counts as one attempt. Reuse requires the controller token, translation revision,
+settings, Terms/Quick overrides and Live note to be unchanged and the same silence run;
+otherwise the final transcribes normally. A mid-clause draft costs at most one extra
+transcription call. Numbered wait options run no drafts, and drafts never enter the journal,
+recent translation context, output buffer, or public room state.
 
 Reader/summary calls are capped at 200/60 per service. The ledger conservatively reserves
 up to 9,000 estimated neurons per UTC day, including a 6,000 reader ceiling. Reservations
