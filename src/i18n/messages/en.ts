@@ -671,6 +671,7 @@ export const en = {
   "live.message.queued": "Caption queued in the output buffer.",
   "live.message.captionProcessingFailed": "Caption processing failed.",
   "live.message.cloudBehind": "Cloud processing is behind; one audio chunk was skipped.",
+  "live.message.captionServiceBusy": "The caption service is busy, so captions will wait a little longer.",
   "live.message.recorderStopped": "The browser audio recorder stopped unexpectedly.",
   "live.message.serviceLimit": "The 90-minute free-tier service limit was reached. The reusable OBS URL remains ready.",
   "live.message.recovered": "Recovered this operator tab in a safe paused state.",

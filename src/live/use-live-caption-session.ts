@@ -48,6 +48,7 @@ import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
 import { experienceRequest } from "@/experience/client";
 import { startSerialPolling } from "@/live/serial-polling";
 import { initialSpeechGateState, observeSpeechSample, shouldSendWindow } from "@/live/speech-gate";
+import { isProviderLimitError } from "@/live/provider-limit";
 import { useMicrophoneInput } from "@/live/use-microphone-input";
 import { useI18n } from "@/i18n/provider";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
@@ -67,6 +68,7 @@ import {
   dynamicPauseAction,
   draftEndsWithTerminalPunctuation,
   DYNAMIC_SAMPLE_MS,
+  withRaisedFloor,
   type DynamicDraftHold,
 } from "@/live/window-policy";
 
@@ -227,6 +229,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const lifecyclePauseRef = useRef(false);
   const recordingWindowRef = useRef<RecordingWindowMs>(DEFAULT_RECORDING_WINDOW_MS);
   const speechGateRef = useRef(initialSpeechGateState());
+  const providerBusyRef = useRef(false);
   const cloudClientRef = useRef(new CloudProviderClient());
   const liveClientRef = useRef(
     new LiveSessionClient((key) => tRef.current(key)),
@@ -905,6 +908,15 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             await endService(message, true);
             break;
           }
+          if (!providerBusyRef.current && isProviderLimitError(error)) {
+            providerBusyRef.current = true;
+            setLiveState((state) => ({
+              ...state,
+              status: "live",
+              message: tRef.current("live.message.captionServiceBusy"),
+            }));
+            continue;
+          }
           setLiveState((state) => ({
             ...state,
             status: "live",
@@ -1003,7 +1015,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           enqueueChunk(new Blob(chunks, { type: mimeType }), generation);
           startRecorderChunk();
         };
-        const bounds = recordingWindowBoundsMs(recordingWindowMs);
+        const windowPolicy = recordingWindowBoundsMs(recordingWindowMs);
+        const bounds = providerBusyRef.current ? withRaisedFloor(windowPolicy) : windowPolicy;
         recorder.start(1_000);
         beginLiveDraftWindow({
           generation,
@@ -1462,6 +1475,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         recentContextRef.current = [];
         queueRef.current = [];
         speechGateRef.current = initialSpeechGateState();
+        providerBusyRef.current = false;
         resetOutputBuffer();
         resetRecentOutputs();
         captureGenerationRef.current += 1;

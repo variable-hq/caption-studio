@@ -1,6 +1,6 @@
 # Caption Studio: gap analysis and improvement plan
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). Plan 1 (`20597d8`) deployed
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). Plan 1 (`20597d8`) deployed
 successfully after the Access proxy fix; merges through `080e6ca`, including the rename
 to the `caption-studio` Worker, deployed via Workers Builds on 26–28 October, but none has
 a recorded service rehearsal. Only `main` builds; preview-branch

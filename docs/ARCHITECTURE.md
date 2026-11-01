@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). Cloudflare deployed `20597d8`
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.

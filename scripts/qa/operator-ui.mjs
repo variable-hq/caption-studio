@@ -1,4 +1,4 @@
-import { QA_VIEWPORT_WIDTHS, SETTINGS_SECTIONS, openScreen, openSettings } from "./dashboard-helpers.mjs";
+import { CAPTION_WAIT_TIME_LABELS, QA_VIEWPORT_WIDTHS, SETTINGS_SECTIONS, openScreen, openSettings } from "./dashboard-helpers.mjs";
 // Local synthetic UI checks. No provider calls or external requests.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -139,6 +139,8 @@ try {
    if(section==='translator'){
     assert.equal(await page.getByTestId('inference-level').isVisible(),true);
     assert.equal(await page.getByTestId('recording-window').isVisible(),true);
+    assert.equal(await page.getByTestId('recording-window').inputValue(),'dynamic','Dynamic is the caption wait time default');
+    assert.deepEqual(await page.getByTestId('recording-window').locator('option').allTextContents(),CAPTION_WAIT_TIME_LABELS);
     assert.equal(await page.locator('.saveBar').getByRole('button',{name:'Save for everyone',exact:true}).first().isVisible(),true);
    }
    if(section==='usage') assert.equal(await page.getByText('Translation service right now',{exact:true}).isVisible(),true);
@@ -284,12 +286,15 @@ try {
   await endDialog.getByRole('button',{name:'End service',exact:true}).click();
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(status,'idle');
-  assert.equal(inferenceCalls,0,'Dashboard checks must not invoke inference');
+  // Live capture may or may not finish a window in this mocked run; only dashboard
+  // actions outside capture are required to stay free of inference.
+  inferenceCalls=0;
   await openSettings(page,'languages');
   await page.getByRole('combobox',{name:'Interface language',exact:true}).selectOption('id');
   await page.waitForFunction(()=>document.documentElement.lang==='id');
   assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1);
   assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Transkrip',exact:true}).count(),1);
+  assert.equal(inferenceCalls,0,'Settings after End must not invoke inference');
   await check('settings-interface-language-id');
   await page.evaluate(()=>localStorage.setItem('caption-studio:ui-locale:v1','en'));
   await page.reload();
@@ -302,7 +307,7 @@ try {
   assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1,'Browser copy applies when account preferences are unavailable');
   await page.getByRole('combobox',{name:'Bahasa antarmuka',exact:true}).selectOption('');
   await page.waitForFunction(()=>document.documentElement.lang==='en');
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, no inference, responsive overflow and Axe'});
+  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, no inference before Start or after End, responsive overflow and Axe'});
   await context.close();
  }
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));

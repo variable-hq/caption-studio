@@ -1,6 +1,6 @@
 # Documentation index
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). Maintained specifications
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). Maintained specifications
 describe merged source, not an assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
 records to establish release evidence.
 

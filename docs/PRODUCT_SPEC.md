@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). The corrected 13 September
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -178,9 +178,11 @@ copy or browser language, then English.
   pause or the cap. The numbered options do not consult drafts. Once a service has heard
   speech, a window with less than 300ms of speech is not sent unless its peak is not well
   below earlier speech or a level sample failed; a skipped window uses no transcription,
-  translation or attempt. The microphone-level decision adds no model call or quota. Every
-  option stays inside Whisper's 30-second window and, at the 64 kbps recorder setting, far
-  below the 3 MB audio limit.
+  translation or attempt. After a provider rate-limit or usage-limit response, no option
+  cuts before six seconds for the rest of the service and one status line says so. The
+  microphone-level decision adds no model call or quota. Every option stays inside
+  Whisper's 30-second window and, at the 64 kbps recorder setting, far below the 3 MB
+  audio limit.
 - The active-setting snapshot for each chunk and maximum two-chunk queue bound memory and
   backlog. Pause or confirmed translation refresh discards an unfinished active window,
   so operators should use either control at a natural break.

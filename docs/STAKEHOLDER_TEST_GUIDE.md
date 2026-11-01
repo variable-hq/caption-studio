@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 

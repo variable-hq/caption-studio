@@ -674,6 +674,7 @@ export const id: Partial<Record<MessageKey, string>> = {
   "live.message.queued": "Caption dimasukkan ke antrean buffer keluaran.",
   "live.message.captionProcessingFailed": "Pemrosesan caption gagal.",
   "live.message.cloudBehind": "Pemrosesan cloud tertinggal; satu potongan audio dilewati.",
+  "live.message.captionServiceBusy": "Layanan caption sedang sibuk, jadi caption akan menunggu sedikit lebih lama.",
   "live.message.recorderStopped": "Perekam audio browser berhenti secara tak terduga.",
   "live.message.serviceLimit": "Batas layanan gratis 90 menit tercapai. URL OBS yang dapat digunakan kembali tetap siap.",
   "live.message.recovered": "Tab operator ini dipulihkan dalam keadaan dijeda yang aman.",

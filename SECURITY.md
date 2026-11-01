@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). The 13 September deployment
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 

@@ -1,6 +1,6 @@
 # Roadmap
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). Status describes source
+Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). Status describes source
 implementation; deployment and church-approved quality require separate evidence.
 
 ## Implemented baseline

@@ -247,6 +247,11 @@ describe("operator interface translations", () => {
     expect(id["translationSettings.speedHint"]).toContain("waktu tunggu terlama");
   });
 
+  it("reports the provider busy back-off in both languages", () => {
+    expect(en["live.message.captionServiceBusy"]).toBe("The caption service is busy, so captions will wait a little longer.");
+    expect(id["live.message.captionServiceBusy"]).toBe("Layanan caption sedang sibuk, jadi caption akan menunggu sedikit lebih lama.");
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");
