@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 2 November 2026 against merged PR #90 (`a602a61`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
+Reviewed 2 November 2026 against merged PR #92 (`e1a4e0b`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 
@@ -59,7 +59,9 @@ The browser is the sole client; there are no native/signing checklists.
    `whisper-large-v3-turbo` and `openai/gpt-oss-20b`. Configuration is not a model-output test.
 4. In **Settings › System › Microphone**, select the USB interface, press **Test the
    microphone** and speak into the AUX feed. Mute that feed and confirm nearby computer
-   speech does not reveal an unintended input. Verify the selected device after reconnecting it.
+   speech does not reveal an unintended input. Play the recording back and stop it; the
+   level bar stays live and the clip is discarded when you leave the section. Verify the
+   selected device after reconnecting it.
 5. In **Settings › Language**, choose **Input · Speaker’s language** Indonesian and
    **Output · Show captions in** English; in **Settings › Translation**, set **Caption wait
    time** "10 seconds: balanced".

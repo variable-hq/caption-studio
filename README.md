@@ -18,8 +18,9 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
 
 ## Overview
 
-- **Capture and transcription**: browser-based microphone selection with a level meter, a
-  readiness checklist, and a 6-, 10- or 14-second caption wait time (or Dynamic) transcribed by
+- **Capture and transcription**: browser-based microphone selection with a level meter and
+  test playback, a readiness checklist, and a 6-, 10- or 14-second caption wait time (or
+  Dynamic) transcribed by
   Groq Whisper with bounded biblical/church-name hints, approved recognition aliases, and
   the end of the previous chunk's transcript as continuity context.
 - **Translation**: GPT-OSS 20B translates through an immutable safety envelope and
@@ -79,8 +80,8 @@ lists the steps of a service in order.
 
 1. **Settings › OBS & links** — create the OBS link once and paste it into a 1920 × 1080
    OBS Browser Source on the separate OBS computer.
-2. **Settings › System** — choose the microphone or audio interface and check the
-   level.
+2. **Settings › System** — choose the microphone or audio interface, check the
+   level, and play the test clip back.
 3. **Settings › Language**, **Translation** and **Terms** — choose the spoken and caption
    languages, set the caption wait time, and add names and terms, one at a time or by
    importing a list, or words never to show.

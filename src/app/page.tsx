@@ -338,7 +338,7 @@ function OperatorDashboardContent() {
     takeoverRequired,
     rotationRecoveryRequired,
     cancelTakeover,
-    startAudioTest,
+    micTest,
     createChannel,
     rotateChannel,
     saveChannelStyle,
@@ -1566,10 +1566,9 @@ function OperatorDashboardContent() {
                 selectedDeviceId={selectedDeviceId}
                 onDeviceChange={setSelectedDeviceId}
                 disabled={isLive || isBusy}
-                microphoneState={microphoneState}
                 microphoneError={microphoneError}
                 level={level}
-                onStartAudioTest={() => { void startAudioTest().catch(() => undefined); }}
+                micTest={micTest}
               />
               {hasService && isLive ? (
                 <p className="settingHint">{t("settings.pauseBeforeMicrophone")}</p>

@@ -130,6 +130,15 @@ try {
     assert.equal(await page.getByRole('heading',{name:'Microphone',exact:true}).isVisible(),true);
     assert.equal(await page.getByRole('heading',{name:'Theme',exact:true}).isVisible(),true);
     assert.equal(await page.getByRole('combobox',{name:'Interface language',exact:true}).count(),0,'Interface language belongs to Language');
+    await page.getByRole('button',{name:'Test the microphone',exact:true}).click();
+    await page.getByRole('button',{name:'Stop recording',exact:true}).waitFor();
+    await page.getByText('Recording, up to 10 seconds',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'Stop recording',exact:true}).click();
+    await page.getByRole('button',{name:'Play recording',exact:true}).waitFor();
+    await page.getByRole('button',{name:'Test again',exact:true}).click();
+    await page.getByRole('button',{name:'Stop recording',exact:true}).waitFor();
+    await page.getByRole('button',{name:'Stop recording',exact:true}).click();
+    await page.getByRole('button',{name:'Play recording',exact:true}).waitFor();
    }
    if(section==='languages'){
     assert.equal(await page.getByRole('combobox',{name:'Interface language',exact:true}).isVisible(),true);
