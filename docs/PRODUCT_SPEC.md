@@ -144,7 +144,7 @@ Mandarin; Cantonese requires a separate language and model-quality decision.
 
 ## Operator interface language
 
-**Settings › System › Interface language** selects English, Indonesian, or
+**Settings › Language › Interface language** selects English, Indonesian, or
 **System default**. The choice is personal to the signed-in operator and is kept
 separate from the shared caption source and target languages. System default uses
 the browser's `navigator.languages` preference, choosing Indonesian when an Indonesian
@@ -444,7 +444,7 @@ filter lives in Settings › Words.
 
 One **church setup** is shared by all signed-in operators
 ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). It includes languages,
-caption speed, Words, Inference and Sanitization; translator instructions; caption style;
+caption wait time, Words, Inference and Sanitization; translator instructions; caption style;
 summary defaults and automatic summaries; the output buffer; and the transcript-saving
 default. Theme and interface language remain personal preferences. **Save for everyone**
 (and **Make this the church default**
@@ -506,10 +506,11 @@ the row to the draft Words list and leaves the live entry active.
   committed reader paragraphs.
 - When another operator's service is running, Live names them, mirrors their output
   read-only and offers **Take over**; Start stays disabled.
-- **Settings** lists its sections beside the selected one: System (microphone,
-  level test, Theme and interface language), Language, Words (names and terms, the public
-  caption filter, and the TB2 import), Output (with a preview), OBS & links (OBS link,
-  phone viewer link and their replacement), Translation, Summary and Usage. Channel
+- **Settings** lists its sections beside the selected one: System (microphone, level
+  test and Theme), Language (interface language, spoken and caption languages),
+  Translation (caption wait time and translator instructions), Words (names and terms,
+  the public caption filter, and the TB2 import), Output (with a preview), OBS & links
+  (OBS link, phone viewer link and their replacement), Summary and Usage. Channel
   errors offer **Retry channel** or, when the OBS credential must be rebuilt, **Rotate and
   recover**, in a banner at the top of Live.
 - **Sermons** loads the workspace's saved sermons on opening, states that every signed-in

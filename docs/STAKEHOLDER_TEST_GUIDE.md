@@ -60,8 +60,9 @@ The browser is the sole client; there are no native/signing checklists.
 4. In **Settings › System › Microphone**, select the USB interface, press **Test the
    microphone** and speak into the AUX feed. Mute that feed and confirm nearby computer
    speech does not reveal an unintended input. Verify the selected device after reconnecting it.
-5. In **Settings › Language**, choose **Preacher speaks** Indonesian, **Show
-   captions in** English and **Caption speed** "Balanced: listens 9 seconds at a time".
+5. In **Settings › Language**, choose **Input · Speaker’s language** Indonesian and
+   **Output · Show captions in** English; in **Settings › Translation**, set **Caption wait
+   time** "Balanced: listens 9 seconds at a time".
    Review **Settings › Words › Bible names › Import names** (TB2) and approved mappings;
    add `swauf` with **Fix spelling to…** `Saul` only as an explicit reviewed alias.
    Compare original recognition and translation separately; do not infer the biblical identity.
@@ -83,7 +84,7 @@ The browser is the sole client; there are no native/signing checklists.
    behavior, masks, caption language, **Recent captions**, and the **Service details**
    counters (Delay after speech, Audio chunks dropped). The delay excludes the recording
    window, queue wait and audience rendering.
-10. While live and paused, draft language, Words, caption speed and translator changes in
+10. While live and paused, draft language, Words, caption wait time and translator changes in
     Settings. The **Your changes aren’t in use yet** banner appears: press **Undo changes**
     once, make them again, then **Apply now**. Old output/context disappears; old results
     cannot reappear. Timer, controller, links, usage and live/paused state remain. Repeat a

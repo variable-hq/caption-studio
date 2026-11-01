@@ -126,8 +126,20 @@ try {
     await page.screenshot({path:output+`/settings-look-${colorScheme}-${width}.png`,fullPage:true});
    }
    if(section==='obs') assert.equal(await page.getByRole('button',{name:'Copy OBS link',exact:true}).isVisible(),true);
+   if(section==='computer'){
+    assert.equal(await page.getByRole('heading',{name:'Microphone',exact:true}).isVisible(),true);
+    assert.equal(await page.getByRole('heading',{name:'Theme',exact:true}).isVisible(),true);
+    assert.equal(await page.getByRole('combobox',{name:'Interface language',exact:true}).count(),0,'Interface language belongs to Language');
+   }
+   if(section==='languages'){
+    assert.equal(await page.getByRole('combobox',{name:'Interface language',exact:true}).isVisible(),true);
+    assert.equal(await page.getByTestId('source-language').isVisible(),true);
+    assert.equal(await page.getByTestId('target-language').isVisible(),true);
+   }
    if(section==='translator'){
     assert.equal(await page.getByTestId('inference-level').isVisible(),true);
+    assert.equal(await page.getByTestId('recording-window').isVisible(),true);
+    assert.equal(await page.locator('.saveBar').getByRole('button',{name:'Save for everyone',exact:true}).first().isVisible(),true);
    }
    if(section==='usage') assert.equal(await page.getByText('Translation service right now',{exact:true}).isVisible(),true);
    if(section==='words'){
@@ -272,7 +284,7 @@ try {
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(status,'idle');
   assert.equal(inferenceCalls,0,'Dashboard checks must not invoke inference');
-  await openSettings(page,'computer');
+  await openSettings(page,'languages');
   await page.getByRole('combobox',{name:'Interface language',exact:true}).selectOption('id');
   await page.waitForFunction(()=>document.documentElement.lang==='id');
   assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1);

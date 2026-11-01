@@ -85,6 +85,37 @@ describe("operator interface translations", () => {
     expect(id["settings.interfaceLanguage.matchBrowser"]).toBe("Default sistem");
   });
 
+  it("labels the language fields and the caption wait time", () => {
+    expect(en["translationSettings.sourceKind"]).toBe("Input");
+    expect(id["translationSettings.sourceKind"]).toBe("Input");
+    expect(en["translationSettings.targetKind"]).toBe("Output");
+    expect(id["translationSettings.targetKind"]).toBe("Output");
+    expect(en["translationSettings.source"]).toBe("Speaker\u2019s language");
+    expect(id["translationSettings.source"]).toBe("Bahasa pembicara");
+    expect(en["translationSettings.target"]).toBe("Show captions in");
+    expect(id["translationSettings.target"]).toBe("Tampilkan caption dalam");
+    expect(en["translationSettings.speedTitle"]).toBe("Caption wait time");
+    expect(id["translationSettings.speedTitle"]).toBe("Waktu tunggu caption");
+    expect(en["translationSettings.languagesHint"]).toBe("Choosing the speaker\u2019s language manually helps improve reliability.");
+    expect(id["translationSettings.languagesHint"]).toBe("Memilih bahasa pembicara secara manual membantu meningkatkan keandalan.");
+  });
+
+  it("drops the old section names and the caption speed term", () => {
+    const forbidden = [
+      "caption speed",
+      "kecepatan caption",
+      "languages & timing",
+      "bahasa & waktu",
+      "light or dark",
+      "terang atau gelap",
+    ];
+    for (const [key, message] of [...Object.entries(en), ...Object.entries(id)]) {
+      for (const phrase of forbidden) {
+        expect(message.toLowerCase(), `${key} avoids \u201c${phrase}\u201d`).not.toContain(phrase);
+      }
+    }
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");

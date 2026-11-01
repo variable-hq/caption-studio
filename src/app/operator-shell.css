@@ -600,6 +600,13 @@
 
 .settingGroup > h3 + .settingHint { margin-top: calc(var(--gap-md) * -1 + var(--space-0)); }
 
+/* Language fields pair a bold role with a regular field name, separated by a middle dot. */
+.languageFieldGrid > label { font-weight: var(--weight-regular); }
+
+.fieldKind { font-weight: var(--weight-bold); }
+
+.fieldKind::after { content: " · "; }
+
 .levelDescription {
   display: grid;
   gap: var(--space-0);

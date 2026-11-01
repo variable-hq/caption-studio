@@ -76,7 +76,7 @@ code, documentation, Usage and diagnostics.
 | OBS link | OBS URL, channel credential, browser source URL |
 | Phone remote, Pair phone | Remote pairing, operator remote credential |
 | Words | Glossary, terminology, keyword hints, public caption filter, quick block |
-| Caption speed | Recording window, chunk, audio window |
+| Caption wait time | Recording window, chunk, audio window |
 | Check captions before they show, Next up | Output buffer, buffer queue, dwell |
 | Heard / Audience view | Source transcript / public caption |
 | Sermons | Sermon archive, experience, journal |

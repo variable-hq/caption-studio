@@ -46,6 +46,15 @@ describe("translation-session settings", () => {
     });
   });
 
+  it("keeps a saved caption wait time instead of the Dynamic default", () => {
+    expect(
+      normalizeTranslationSessionSettings({ recordingWindowMs: 6_000 }).recordingWindowMs,
+    ).toBe(6_000);
+    expect(
+      normalizeTranslationSessionSettings({ recordingWindowMs: "dynamic" }).recordingWindowMs,
+    ).toBe("dynamic");
+  });
+
   it("reports only draft categories that differ from the active snapshot", () => {
     expect(
       translationSettingsChanges(BASE_SETTINGS, {
