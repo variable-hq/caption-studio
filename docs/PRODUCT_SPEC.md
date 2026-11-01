@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 2 November 2026 against merged PR #90 (`a602a61`). The corrected 13 September
+Reviewed 2 November 2026 against merged PR #92 (`e1a4e0b`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -49,8 +49,8 @@ section. A **Help** page, one click from every screen, lists the steps of a serv
 plain words. Nothing opens automatically.
 
 1. The operator signs in through Cloudflare Access.
-2. The operator chooses a browser-visible microphone or audio interface and confirms its
-   input level.
+2. The operator chooses a browser-visible microphone or audio interface, confirms its
+   input level, and can play the short test recording back.
 3. The operator selects a spoken language or automatic detection, one target language,
    and a caption wait time of 6, 10 or 14 seconds, or Dynamic. Each option caps how long a
    caption waits and also cuts earlier at a pause after its floor: 6 seconds is quickest and
@@ -516,7 +516,7 @@ Terms list and leaves the live entry active.
 - When another operator's service is running, Live names them, mirrors their output
   read-only and offers **Take over**; Start stays disabled.
 - **Settings** lists its sections beside the selected one: System (microphone, level
-  test and Theme), Language (interface language, spoken and caption languages),
+  test and playback, and Theme), Language (interface language, spoken and caption languages),
   Translation (caption wait time and translator instructions), Terms (names and terms,
   the public caption filter, and a list import), Output (with a preview), OBS & links
   (OBS link, phone viewer link and their replacement), Summary and Usage. Channel

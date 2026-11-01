@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). The 13 September deployment
+Reviewed 2 November 2026 against merged PR #92 (`e1a4e0b`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -137,6 +137,8 @@ Current behavior:
 - raw audio is captured in a selected or pause-driven 6- to 14-second browser window, forwarded for
   active inference,
   and not stored by this application;
+- the microphone Test records a short clip that stays in browser memory; it is never
+  uploaded, stored or logged, and is discarded when the test section closes;
 - protected source and translated text remain in active browser memory; explicit
   pre-service opt-in also stores private source and corrections for seven days after End;
 - the Access email of the operator who started the running service is kept on the Main
@@ -307,7 +309,7 @@ Transcript archives are shared among this app's authorized operators, not isolat
 History consent is explicit before Start and cannot be enabled retroactively. Content
 expires seven days after End/expiry; reader access ends after a 30-minute grace period.
 Read-time checks enforce expiry even if cleanup alarms are delayed. Original source is
-never sent to audience readers. Raw audio remains unstored.
+never sent to audience readers. Raw audio, including the microphone test clip, remains unstored.
 
 Numeric usage admissions and outcomes expire individually after 30 days and survive all
 content deletion and controller actions. Unknown outcomes remain unknown. Provider

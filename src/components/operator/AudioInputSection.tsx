@@ -1,19 +1,20 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { AudioLevelMeter } from "@/components/operator/AudioLevelMeter";
 import { SettingGroup } from "@/components/operator/SettingsParts";
 import { useT } from "@/i18n/provider";
-import type { MicrophoneState } from "@/live/use-microphone-input";
+import type { MicTestClipApi } from "@/live/mic-test-clip";
 
 interface AudioInputSectionProps {
   devices: MediaDeviceInfo[];
   selectedDeviceId: string;
   onDeviceChange: (deviceId: string) => void;
   disabled: boolean;
-  microphoneState: MicrophoneState;
   microphoneError: string;
   level: number;
-  onStartAudioTest: () => void;
+  micTest: MicTestClipApi;
 }
 
 /** Microphone/audio-interface selection, level meter, and the local (no-AI-calls) audio test. */
@@ -22,12 +23,15 @@ export function AudioInputSection({
   selectedDeviceId,
   onDeviceChange,
   disabled,
-  microphoneState,
   microphoneError,
   level,
-  onStartAudioTest,
+  micTest,
 }: AudioInputSectionProps) {
   const t = useT();
+  const { state, playbackAvailable } = micTest.snapshot;
+  const discard = micTest.discard;
+  useEffect(() => () => discard(), [discard]);
+
   return (
     <SettingGroup
       title={t("audio.title")}
@@ -60,15 +64,41 @@ export function AudioInputSection({
       </label>
       <AudioLevelMeter level={level} />
       <div className="buttonRow">
-        <button
-          type="button"
-          className="secondaryButton"
-          onClick={onStartAudioTest}
-          disabled={microphoneState === "active" || microphoneState === "requesting" || disabled}
-        >
-          {microphoneState === "active" ? t("audio.connected") : microphoneState === "requesting" ? t("audio.asking") : t("audio.test")}
-        </button>
+        {state === "ready" || state === "playing" ? (
+          <>
+            <button type="button" className="secondaryButton" onClick={micTest.togglePlayback}>
+              {state === "playing" ? t("audio.stopPlayback") : t("audio.playRecording")}
+            </button>
+            <button
+              type="button"
+              className="secondaryButton"
+              onClick={() => { void micTest.start(); }}
+              disabled={disabled}
+            >
+              {t("audio.testAgain")}
+            </button>
+          </>
+        ) : state === "recording" ? (
+          <button type="button" className="secondaryButton" onClick={micTest.stopRecording}>
+            {t("audio.stopRecording")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="secondaryButton"
+            onClick={() => { void micTest.start(); }}
+            disabled={state === "asking" || disabled}
+          >
+            {state === "asking" ? t("audio.asking") : t("audio.test")}
+          </button>
+        )}
       </div>
+      {state === "recording" ? (
+        <p className="operatorHint" role="status">{t("audio.recording")}</p>
+      ) : null}
+      {!playbackAvailable && state === "idle" ? (
+        <p className="operatorHint" role="status">{t("audio.playbackUnavailable")}</p>
+      ) : null}
     </SettingGroup>
   );
 }

@@ -2282,7 +2282,6 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     takeoverRequired,
     rotationRecoveryRequired,
     cancelTakeover: () => setTakeoverRequired(false),
-    startAudioTest: () => ensureMicrophone(selectedDeviceId || undefined),
     micTest,
     createChannel,
     rotateChannel,
