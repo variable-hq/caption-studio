@@ -29,7 +29,7 @@ export const RECORDING_WINDOW_POLICIES: Record<RecordingWindowMs, RecordingWindo
     minMs: 4_000,
     maxMs: DYNAMIC_WINDOW_MAX_MS,
     pauseMs: 700,
-    pauseAtCapMs: 700,
+    pauseAtCapMs: 200,
   },
 };
 export const MAX_CAPTION_EVENTS = 1_400;

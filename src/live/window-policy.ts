@@ -29,9 +29,21 @@ export function draftEndsWithTerminalPunctuation(text: string): boolean {
   return TERMINAL_PUNCTUATION.test(text.trimEnd());
 }
 
-/** The silence a pause needs at this point in the window. */
-export function requiredPauseMs(bounds: WindowBounds): number {
-  return bounds.pauseMs;
+/**
+ * The silence a pause needs at this point in the window. Fixed options are constant;
+ * Dynamic's patience decays linearly from its floor to its cap.
+ */
+export function requiredPauseMs(bounds: WindowBounds, elapsedMs: number): number {
+  if (bounds.pauseAtCapMs === bounds.pauseMs || bounds.maxMs <= bounds.minMs) {
+    return bounds.pauseMs;
+  }
+  const progress = Math.min(
+    1,
+    Math.max(0, (elapsedMs - bounds.minMs) / (bounds.maxMs - bounds.minMs)),
+  );
+  return Math.round(
+    bounds.pauseMs + (bounds.pauseAtCapMs - bounds.pauseMs) * progress,
+  );
 }
 
 /** Raise one wait-time option's floor for the rest of a service after a provider limit. */
@@ -46,7 +58,7 @@ export function isDynamicPauseCandidate(state: WindowPolicyState, bounds: Window
   return (
     state.elapsedMs >= bounds.minMs &&
     state.elapsedMs < bounds.maxMs &&
-    state.silenceMs >= requiredPauseMs(bounds)
+    state.silenceMs >= requiredPauseMs(bounds, state.elapsedMs)
   );
 }
 
@@ -93,7 +105,7 @@ export function nextWindowDecision(
     decision:
       nextState.elapsedMs >= bounds.maxMs ||
       (nextState.elapsedMs >= bounds.minMs &&
-        silenceMs >= requiredPauseMs(bounds))
+        silenceMs >= requiredPauseMs(bounds, nextState.elapsedMs))
         ? "cut"
         : "continue",
     state: nextState,

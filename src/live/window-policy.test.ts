@@ -56,7 +56,7 @@ describe("caption wait-time policy", () => {
       minMs: 4_000,
       maxMs: 14_000,
       pauseMs: 700,
-      pauseAtCapMs: 700,
+      pauseAtCapMs: 200,
     });
     expect(RECORDING_WINDOW_POLICIES.dynamic.maxMs).toBe(14_000);
   });
@@ -86,11 +86,21 @@ describe("caption wait-time policy", () => {
     }
   });
 
-  it("uses each option's own constant pause", () => {
-    expect(requiredPauseMs(recordingWindowBoundsMs(6_000))).toBe(500);
-    expect(requiredPauseMs(recordingWindowBoundsMs(10_000))).toBe(700);
-    expect(requiredPauseMs(recordingWindowBoundsMs(14_000))).toBe(900);
-    expect(requiredPauseMs(DYNAMIC)).toBe(700);
+  it("keeps the numbered options' pause constant and decays Dynamic's", () => {
+    for (const [setting, pause] of [[6_000, 500], [10_000, 700], [14_000, 900]] as const) {
+      const bounds = recordingWindowBoundsMs(setting);
+      expect(requiredPauseMs(bounds, bounds.minMs)).toBe(pause);
+      expect(requiredPauseMs(bounds, bounds.maxMs)).toBe(pause);
+    }
+    expect(requiredPauseMs(DYNAMIC, DYNAMIC.minMs)).toBe(700);
+    expect(requiredPauseMs(DYNAMIC, DYNAMIC.maxMs)).toBe(200);
+    let previous = Number.POSITIVE_INFINITY;
+    for (let elapsedMs = DYNAMIC.minMs; elapsedMs <= DYNAMIC.maxMs; elapsedMs += 250) {
+      const required = requiredPauseMs(DYNAMIC, elapsedMs);
+      expect(required).toBeLessThanOrEqual(previous);
+      expect(required).toBeGreaterThanOrEqual(200);
+      previous = required;
+    }
   });
 
   it("cuts Dynamic at a pause after its floor and before its cap", () => {
@@ -102,7 +112,7 @@ describe("caption wait-time policy", () => {
   });
 
   it("marks a pause candidate only between the floor and the cap", () => {
-    const required = requiredPauseMs(DYNAMIC);
+    const required = requiredPauseMs(DYNAMIC, 6_200);
     const candidate = { elapsedMs: 6_200, silenceMs: required, speechPeakRms: 0.2 };
     expect(isDynamicPauseCandidate(candidate, DYNAMIC)).toBe(true);
     expect(isDynamicPauseCandidate({ ...candidate, elapsedMs: DYNAMIC.minMs - 100 }, DYNAMIC)).toBe(false);
@@ -132,7 +142,7 @@ describe("caption wait-time policy", () => {
     let draftHold: "idle" | "pending" | "rejected" = "idle";
     const candidate = {
       decision: "cut" as const,
-      state: { elapsedMs: 6_200, silenceMs: requiredPauseMs(DYNAMIC), speechPeakRms: 0.2 },
+      state: { elapsedMs: 6_200, silenceMs: requiredPauseMs(DYNAMIC, 6_200), speechPeakRms: 0.2 },
     };
 
     expect(dynamicPauseAction(candidate, DYNAMIC, draftHold)).toBe("run-draft");

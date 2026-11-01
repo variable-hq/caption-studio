@@ -171,8 +171,9 @@ copy or browser language, then English.
 - Audio is mono with browser echo cancellation and noise suppression requested.
 - The operator chooses a caption wait time of 6, 10 or 14 seconds, or Dynamic (the
   default). Every option is a cap, not a fixed timer: it cuts at a pause once its floor has
-  passed and always cuts at the cap. The floors are 3, 5, 7 and 4 seconds, and the pause
-  lengths 500, 700, 900 and 700ms. When Live drafts are enabled and admitted, Dynamic's
+  passed and always cuts at the cap. The floors are 3, 5, 7 and 4 seconds, the pause
+  lengths 500, 700, 900 and 700ms, and Dynamic's required pause shrinks to 200ms at its cap.
+  When Live drafts are enabled and admitted, Dynamic's
   draft punctuation confirms the cut; an unfinished clause keeps recording until another
   pause or the cap. The numbered options do not consult drafts. The microphone-level
   decision adds no model call or quota. Every option stays inside Whisper's 30-second
