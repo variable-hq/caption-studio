@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 1 November 2026 against merged PR #85 (`863bf10`), including the Live/Sermons/Settings dashboard. Use a protected, verified deployment,
+Reviewed 1 November 2026 against merged PR #86 (`96c005a`), including the Live/Sermons/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 
@@ -49,7 +49,7 @@ The browser is the sole client; there are no native/signing checklists.
    the OBS overlay must stay transparent. Reload and confirm the theme returns from the account.
    Confirm drafts and the transcript checkbox survive moving between screens, and no
    navigation action starts capture.
-   Save the translator instructions, summary style, caption look, Words and the languages
+   Save the translator instructions, summary style, Output, Words and the languages
    setup with **Save for everyone**, then open the dashboard as a different Access user: the
    church setup must match. Change the theme there; it must not change for the first user.
    In **Settings › Words**, add one word with each **What to do** action and confirm each

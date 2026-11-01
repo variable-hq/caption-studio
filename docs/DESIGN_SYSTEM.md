@@ -1,6 +1,6 @@
 # Design system
 
-Reviewed 1 November 2026 against merged PR #85 (`863bf10`).
+Reviewed 1 November 2026 against merged PR #86 (`96c005a`).
 
 Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.

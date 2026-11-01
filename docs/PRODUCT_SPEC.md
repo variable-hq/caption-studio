@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 1 November 2026 against merged PR #85 (`863bf10`). The corrected 13 September
+Reviewed 1 November 2026 against merged PR #86 (`96c005a`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
