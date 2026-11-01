@@ -55,7 +55,10 @@ import { recorderOptions } from "@/live/recorder-options";
 import { useI18n } from "@/i18n/provider";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
 import { useRecentOutputs } from "@/live/use-recent-outputs";
-import { runCaptionInference } from "@/live/caption-inference";
+import {
+  runCaptionInference,
+  runCaptionTranscription,
+} from "@/live/caption-inference";
 import { useLiveDrafts, type LiveDraftRunner } from "@/live/use-live-drafts";
 import {
   clearBackgroundTimeout,
@@ -86,6 +89,8 @@ interface LiveCaptionSettings extends TranslationSessionSettings {
 interface QueuedChunk {
   audio: Blob;
   generation: number;
+  /** The Dynamic window whose in-progress Heard text this final replaces. */
+  draftWindowId?: number;
 }
 
 const CONTROLLER_STORAGE_KEY = "caption-studio:main-controller:v1";
@@ -244,6 +249,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     beginWindow: beginLiveDraftWindow,
     endWindow: endLiveDraftWindow,
     startSession: startLiveDraftSession,
+    clearDraft: clearLiveDraft,
     reset: resetLiveDrafts,
     runAtPauseCandidate: runDraftAtPauseCandidate,
   } = liveDrafts;
@@ -317,8 +323,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     captureAbortRef.current?.abort();
     captureAbortRef.current = null;
     queueRef.current = [];
+    resetLiveDrafts();
     stopRecorder();
-  }, [stopRecorder]);
+  }, [resetLiveDrafts, stopRecorder]);
 
   const stopCapture = useCallback(() => {
     stopTranslationCapture();
@@ -775,7 +782,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     [enqueueOutputBufferEntry, outputBufferGenerationRef, publishBufferedEntry, recordRecentOutput, reconcileExternalTranslationRevision],
   );
 
-  const runLiveDraft = useCallback<LiveDraftRunner>(async ({ audio, signal, isCurrent, captureGeneration, onPartialAudioRejected }) => {
+  const runLiveDraft = useCallback<LiveDraftRunner>(async ({ audio, signal, isCurrent, captureGeneration, onDisableForSession }) => {
     const current = activeTranslationSettingsRef.current;
     const serviceAtStart = serviceRef.current;
     if (!current || !serviceAtStart || !capturingRef.current || !isCurrent()) return null;
@@ -789,13 +796,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       capturingRef.current &&
       captureGeneration === captureGenerationRef.current &&
       serviceRef.current?.controllerToken === serviceAtStart.controllerToken;
-    const inference = await runCaptionInference({
+    const transcription = await runCaptionTranscription({
       audio,
       settings: current,
       glossary: activeGlossary,
       controllerToken: serviceAtStart.controllerToken,
       recentContext: recentContextRef.current,
-      liveNote: settingsRef.current.liveNote,
       signal,
       isCurrent: isCurrentDraft,
       currentRevision: serviceAtStart.translationRevision,
@@ -809,46 +815,21 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       },
       onDroppedSegments: () => {},
       onTranscriptionError: (error) => {
-        if (error instanceof CloudProviderClientError && error.code === "provider_request_rejected") {
-          onPartialAudioRejected();
-        }
-      },
-      onTranslation: (result) => setLiveState((state) => ({
-        ...state,
-        llmUsage: accumulateLlmSessionUsage(state.llmUsage, result),
-      })),
-      onTranslationError: (error) => {
-        if (error instanceof CloudProviderClientError && (error.rateLimit || error.usage)) {
-          setLiveState((state) => ({
-            ...state,
-            llmUsage: error.usage
-              ? accumulateLlmSessionUsage(state.llmUsage, error)
-              : withLlmProviderRateLimit(state.llmUsage, error.rateLimit),
-          }));
+        if (
+          error instanceof CloudProviderClientError &&
+          (error.code === "provider_request_rejected" || error.rateLimit || error.usage)
+        ) {
+          onDisableForSession();
         }
       },
       dependencies: {
         reserve: (token) => liveClientRef.current.reserveTranscriptionAttempt(token),
         transcribe: (request, context, requestSignal) =>
           cloudClientRef.current.transcribe(request, context, requestSignal),
-        translate: (request, context, requestSignal) =>
-          cloudClientRef.current.translate(request, context, requestSignal),
       },
     });
-    if (!inference || !isCurrentDraft()) return null;
-    const effectiveFilterText = combineFilterText(
-      liveSettings.filterText,
-      current.filterText,
-      MAX_FILTER_INPUT_CHARS,
-    );
-    const forms = prepareCaptionForms({
-      sourceText: inference.sourceText,
-      translatedText: inference.translation.text,
-      targetLanguage: current.targetLanguage,
-      glossary: inference.glossary,
-      moderationRules: parseModerationInput(effectiveFilterText),
-    });
-    return { sourceText: forms.protectedSourceText, publicText: forms.publicText };
+    if (!transcription || !isCurrentDraft()) return null;
+    return { sourceText: transcription.sourceText };
   }, [reconcileExternalTranslationRevision]);
   draftRunnerRef.current = runLiveDraft;
 
@@ -917,12 +898,16 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               error instanceof CloudProviderClientError && error.code === "translation_incomplete" ? 1 : 0
             ),
           }));
+        } finally {
+          // The final, or its failure, replaces the in-progress Heard draft, reused or not.
+          if (chunk.draftWindowId !== undefined) clearLiveDraft(chunk.draftWindowId);
         }
       }
     } finally {
       processingRef.current = false;
     }
   }, [
+    clearLiveDraft,
     endService,
     handleTakenOver,
     processChunk,
@@ -932,16 +917,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   ]);
 
   const enqueueChunk = useCallback(
-    (audio: Blob, generation: number) => {
+    (audio: Blob, generation: number, draftWindowId?: number) => {
       if (
         !serviceRef.current ||
         !capturingRef.current ||
         generation !== captureGenerationRef.current ||
         audio.size === 0
       ) {
+        if (draftWindowId !== undefined) clearLiveDraft(draftWindowId);
         return;
       }
       if (queueRef.current.length >= 2) {
+        if (draftWindowId !== undefined) clearLiveDraft(draftWindowId);
         if (serviceRef.current.saveHistory) {
           void experienceRequest("gap", {}, serviceRef.current.controllerToken).catch(() => {});
         }
@@ -953,10 +940,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         }));
         return;
       }
-      queueRef.current.push({ audio, generation });
+      queueRef.current.push({
+        audio,
+        generation,
+        ...(draftWindowId !== undefined ? { draftWindowId } : {}),
+      });
       void drainQueue();
     },
-    [drainQueue],
+    [clearLiveDraft, drainQueue],
   );
 
   const startRecorder = useCallback(
@@ -973,6 +964,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         let windowSpeechMs = 0;
         let windowPeakRms = 0;
         let levelReadFailed = false;
+        let draftWindowId: number | null = null;
         const recorder = new MediaRecorder(stream, recorderOptions());
         recorderRef.current = recorder;
         recorder.ondataavailable = ({ data }) => {
@@ -1000,17 +992,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               levelReadFailed,
             })
           ) {
+            if (draftWindowId !== null) clearLiveDraft(draftWindowId);
             startRecorderChunk();
             return;
           }
           const mimeType = recorder.mimeType || chunks[0]?.type || "audio/webm";
-          enqueueChunk(new Blob(chunks, { type: mimeType }), generation);
+          enqueueChunk(new Blob(chunks, { type: mimeType }), generation, draftWindowId ?? undefined);
           startRecorderChunk();
         };
         const windowPolicy = recordingWindowBoundsMs(recordingWindowMs);
         const bounds = providerBusyRef.current ? withRaisedFloor(windowPolicy) : windowPolicy;
         recorder.start(1_000);
-        beginLiveDraftWindow({
+        draftWindowId = beginLiveDraftWindow({
           generation,
           recordingWindowMs,
           snapshotAudio: () => new Blob(chunks, {
@@ -1062,7 +1055,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           if (action === "run-draft") {
             const candidateSilenceRun = silenceRun;
             draftHold = "pending";
-            void runDraftAtPauseCandidate(result.state.elapsedMs).then((attempt) => {
+            void runDraftAtPauseCandidate().then((attempt) => {
               if (
                 generation !== captureGenerationRef.current ||
                 !capturingRef.current ||
@@ -1091,7 +1084,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       };
       startRecorderChunk();
     },
-    [beginLiveDraftWindow, endLiveDraftWindow, endService, enqueueChunk, readLevel, runDraftAtPauseCandidate],
+    [beginLiveDraftWindow, clearLiveDraft, endLiveDraftWindow, endService, enqueueChunk, readLevel, runDraftAtPauseCandidate],
   );
 
   const armServiceTimer = useCallback(

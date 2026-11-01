@@ -22,7 +22,6 @@ import { LiveControlBar } from "@/components/operator/LiveControlBar";
 import { LiveOutputsSection } from "@/components/operator/LiveOutputsSection";
 import { LiveNoteControl } from "@/components/operator/LiveNoteControl";
 import { RecentOutputsStrip } from "@/components/operator/RecentOutputsStrip";
-import { LiveDraftLine } from "@/components/operator/LiveDraftLine";
 import { SessionMetadataFields } from "@/components/operator/SessionMetadataFields";
 import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
 import { OperatorTopBar, type OperatorScreenId, type OperatorStatusLabel, type StatusTone } from "@/components/operator/OperatorTopBar";
@@ -82,6 +81,7 @@ import {
 } from "@/live/translation-settings";
 import { LIVE_NOTE_STORAGE_KEY, useLiveCaptionSession } from "@/live/use-live-caption-session";
 import { useObservedSession } from "@/live/use-observed-session";
+import { heardSourceText } from "@/live/live-heard";
 import { normalizeLiveNote } from "@/live/live-note";
 import { EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata } from "@/experience/contracts";
 import { experienceRequest } from "@/experience/client";
@@ -1122,11 +1122,16 @@ function OperatorDashboardContent() {
   const monitorCaption = anotherOperatorActive
     ? observed.latestPublicText
     : liveState.latestPublicText;
-  const monitorSourceText = hasService
-    ? liveState.latestSourceText
-    : anotherOperatorActive
-      ? observed.latestSourceText
-      : "";
+  // Only the controlling tab sees the in-progress Dynamic draft in Heard.
+  const heard = heardSourceText(
+    hasService
+      ? liveState.latestSourceText
+      : anotherOperatorActive
+        ? observed.latestSourceText
+        : "",
+    hasService ? liveDraft : null,
+  );
+  const monitorSourceText = heard.text;
   const monitorLanguage =
     (anotherOperatorActive ? observed.latestPublicLanguage : liveState.latestPublicLanguage) ??
     targetLanguage;
@@ -1311,7 +1316,12 @@ function OperatorDashboardContent() {
           <div className="monitorGrid">
             <div className="monitorPane">
               <div className="monitorLabel"><span>{t("live.heard")}</span><span>{t("live.onlyYou")}</span></div>
-              <p className="heardText" data-empty={!monitorSourceText} lang={displayedTranslationSettings?.sourceLanguage === "auto" ? undefined : displayedTranslationSettings?.sourceLanguage}>
+              <p
+                className="heardText"
+                data-empty={!monitorSourceText}
+                data-in-progress={heard.inProgress ? "true" : undefined}
+                lang={displayedTranslationSettings?.sourceLanguage === "auto" ? undefined : displayedTranslationSettings?.sourceLanguage}
+              >
                 {monitorSourceText || (hasService ? (isPaused ? t("live.notListening") : t("live.listening")) : t("live.nothingYet"))}
               </p>
             </div>
@@ -1328,11 +1338,6 @@ function OperatorDashboardContent() {
           </div>
           {!observed.observer ? (
             <>
-              <LiveDraftLine
-                draft={liveDraft}
-                enabled={liveDraftsEnabled}
-                sessionDisabled={liveDraftSessionDisabled}
-              />
               <div className="liveDraftSettings">
                 <label className="switchControl">
                   <input

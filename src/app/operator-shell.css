@@ -298,6 +298,7 @@
 }
 
 .heardText[data-empty="true"] { color: var(--muted); }
+.heardText[data-in-progress="true"] { color: var(--muted); }
 
 .monitorPane .previewHelp,
 .monitorPane .sourceTranscript { display: none; }

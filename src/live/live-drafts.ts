@@ -1,8 +1,5 @@
-import type { RecordingWindowMs } from "@/live/contracts";
-
-export const MAX_DRAFTS_PER_CAPTION = 2;
-export const DRAFT_MIN_NEW_AUDIO_MS = 3_000;
-export const DRAFT_END_MARGIN_MS = 2_000;
+/** One transcription-only draft per caption; only Dynamic uses it. */
+export const MAX_DRAFTS_PER_CAPTION = 1;
 
 export interface LiveDraftToggleEffects {
   invalidatePendingWork(): void;
@@ -34,13 +31,6 @@ export function createLiveDraftToggle(initialEnabled: boolean, effects: LiveDraf
     },
     reset: invalidate,
   };
-}
-
-export function draftOffsets(windowMs: RecordingWindowMs): number[] {
-  if (windowMs === "dynamic") return [];
-  if (windowMs === 6_000) return [];
-  if (windowMs === 10_000) return [4_000];
-  return [4_000, 8_000];
 }
 
 export interface CanDraftOptions {
