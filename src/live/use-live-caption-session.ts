@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { TranslationResult } from "@/ai/contracts";
 import {
   CloudProviderClient,
   CloudProviderClientError,
@@ -58,7 +59,11 @@ import { useRecentOutputs } from "@/live/use-recent-outputs";
 import {
   runCaptionInference,
   runCaptionTranscription,
+  runCaptionTranslation,
+  type CaptionInferenceResult,
+  type CaptionTranscriptionResult,
 } from "@/live/caption-inference";
+import { draftReusedAsFinal, type DraftReuseSnapshot } from "@/live/live-heard";
 import { useLiveDrafts, type LiveDraftRunner } from "@/live/use-live-drafts";
 import {
   clearBackgroundTimeout,
@@ -86,11 +91,20 @@ interface LiveCaptionSettings extends TranslationSessionSettings {
   liveDraftsEnabled: boolean;
 }
 
+/** A confirming Dynamic draft, ready for the next final to reuse as its transcription. */
+interface PendingDraft {
+  generation: number;
+  windowId: number;
+  transcription: CaptionTranscriptionResult;
+  snapshot: DraftReuseSnapshot;
+}
+
 interface QueuedChunk {
   audio: Blob;
   generation: number;
   /** The Dynamic window whose in-progress Heard text this final replaces. */
   draftWindowId?: number;
+  draft?: PendingDraft;
 }
 
 const CONTROLLER_STORAGE_KEY = "caption-studio:main-controller:v1";
@@ -232,6 +246,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     new LiveSessionClient((key) => tRef.current(key)),
   );
   const draftRunnerRef = useRef<LiveDraftRunner>(async () => null);
+  const pendingDraftRef = useRef<PendingDraft | null>(null);
   const attemptsUsedRef = useRef(0);
   const liveDrafts = useLiveDrafts({
     enabled: settings.liveDraftsEnabled,
@@ -323,6 +338,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     captureAbortRef.current?.abort();
     captureAbortRef.current = null;
     queueRef.current = [];
+    pendingDraftRef.current = null;
     resetLiveDrafts();
     stopRecorder();
   }, [resetLiveDrafts, stopRecorder]);
@@ -612,7 +628,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   publishBufferedEntryRef.current = publishBufferedEntry;
 
   const processChunk = useCallback(
-    async (audio: Blob, generation: number) => {
+    async (audio: Blob, generation: number, draft?: PendingDraft) => {
       const isCurrentCapture = () =>
         Boolean(serviceRef.current) &&
         capturingRef.current &&
@@ -623,7 +639,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       const startedAt = performance.now();
       const current = activeTranslationSettingsRef.current;
       if (!current) return;
-      const liveSettings = liveWordsToSettings(liveWordEntriesRef.current);
+      const liveWordsAtStart = liveWordEntriesRef.current;
+      const liveSettings = liveWordsToSettings(liveWordsAtStart);
       const activeGlossary = mergeGlossaries(
         parseGlossaryInput(current.keywordText, current.targetLanguage),
         parseGlossaryInput(liveSettings.keywordText, current.targetLanguage),
@@ -632,50 +649,92 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       if (!signal) return;
       const serviceAtStart = serviceRef.current;
       if (!serviceAtStart) return;
-      const inference = await runCaptionInference({
-        audio,
-        settings: current,
-        glossary: activeGlossary,
-        controllerToken: serviceAtStart.controllerToken,
-        recentContext: recentContextRef.current,
-        liveNote: settingsRef.current.liveNote,
-        signal,
-        isCurrent: isCurrentCapture,
-        currentRevision: serviceAtStart.translationRevision,
-        onRevisionMismatch: (lease) =>
-          reconcileExternalTranslationRevision(lease.translationRevision, lease.transcriptionRequests),
-        onLease: (lease) => {
-          attemptsUsedRef.current = lease.transcriptionRequests;
-          if (isCurrentCapture()) {
-            setLiveState((state) => ({ ...state, transcriptionRequests: lease.transcriptionRequests }));
-          }
+      const reuseDraft = draft && draftReusedAsFinal(
+        { captureGeneration: draft.generation, snapshot: draft.snapshot },
+        {
+          captureGeneration: generation,
+          controllerToken: serviceAtStart.controllerToken,
+          translationRevision: serviceAtStart.translationRevision,
+          settings: current,
+          liveWords: liveWordsAtStart,
+          liveNote: settingsRef.current.liveNote,
         },
-        onDroppedSegments: (count) => setLiveState((state) => ({
-          ...state,
-          filteredSegments: state.filteredSegments + count,
-        })),
-        onTranslation: (result) => setLiveState((state) => ({
+      ) ? draft : null;
+      const recordTranscription = (transcription: CaptionTranscriptionResult) => {
+        attemptsUsedRef.current = transcription.lease.transcriptionRequests;
+        if (isCurrentCapture()) {
+          setLiveState((state) => ({
+            ...state,
+            transcriptionRequests: transcription.lease.transcriptionRequests,
+            filteredSegments: state.filteredSegments + transcription.droppedSegments,
+          }));
+        }
+      };
+      const onTranslation = (result: TranslationResult) =>
+        setLiveState((state) => ({
           ...state,
           llmUsage: accumulateLlmSessionUsage(state.llmUsage, result),
-        })),
-        onTranslationError: (error) => {
-          if (error instanceof CloudProviderClientError && (error.rateLimit || error.usage)) {
-            setLiveState((state) => ({
-              ...state,
-              llmUsage: error.usage
-                ? accumulateLlmSessionUsage(state.llmUsage, error)
-                : withLlmProviderRateLimit(state.llmUsage, error.rateLimit),
-            }));
-          }
-        },
-        dependencies: {
-          reserve: (token) => liveClientRef.current.reserveTranscriptionAttempt(token),
-          transcribe: (request, context, requestSignal) =>
-            cloudClientRef.current.transcribe(request, context, requestSignal),
-          translate: (request, context, requestSignal) =>
-            cloudClientRef.current.translate(request, context, requestSignal),
-        },
-      });
+        }));
+      const onTranslationError = (error: unknown) => {
+        if (error instanceof CloudProviderClientError && (error.rateLimit || error.usage)) {
+          setLiveState((state) => ({
+            ...state,
+            llmUsage: error.usage
+              ? accumulateLlmSessionUsage(state.llmUsage, error)
+              : withLlmProviderRateLimit(state.llmUsage, error.rateLimit),
+          }));
+        }
+      };
+      const translate = (request: Parameters<CloudProviderClient["translate"]>[0], context: Parameters<CloudProviderClient["translate"]>[1], requestSignal: Parameters<CloudProviderClient["translate"]>[2]) =>
+        cloudClientRef.current.translate(request, context, requestSignal);
+      let inference: CaptionInferenceResult | null;
+      if (reuseDraft) {
+        // The draft already reserved and claimed this caption's transcription attempt.
+        recordTranscription(reuseDraft.transcription);
+        inference = await runCaptionTranslation({
+          transcription: reuseDraft.transcription,
+          settings: current,
+          recentContext: recentContextRef.current,
+          liveNote: settingsRef.current.liveNote,
+          signal,
+          isCurrent: isCurrentCapture,
+          onTranslation,
+          onTranslationError,
+          dependencies: { translate },
+        });
+      } else {
+        inference = await runCaptionInference({
+          audio,
+          settings: current,
+          glossary: activeGlossary,
+          controllerToken: serviceAtStart.controllerToken,
+          recentContext: recentContextRef.current,
+          liveNote: settingsRef.current.liveNote,
+          signal,
+          isCurrent: isCurrentCapture,
+          currentRevision: serviceAtStart.translationRevision,
+          onRevisionMismatch: (lease) =>
+            reconcileExternalTranslationRevision(lease.translationRevision, lease.transcriptionRequests),
+          onLease: (lease) => {
+            attemptsUsedRef.current = lease.transcriptionRequests;
+            if (isCurrentCapture()) {
+              setLiveState((state) => ({ ...state, transcriptionRequests: lease.transcriptionRequests }));
+            }
+          },
+          onDroppedSegments: (count) => setLiveState((state) => ({
+            ...state,
+            filteredSegments: state.filteredSegments + count,
+          })),
+          onTranslation,
+          onTranslationError,
+          dependencies: {
+            reserve: (token) => liveClientRef.current.reserveTranscriptionAttempt(token),
+            transcribe: (request, context, requestSignal) =>
+              cloudClientRef.current.transcribe(request, context, requestSignal),
+            translate,
+          },
+        });
+      }
       if (!inference) return;
       const { lease, glossary, originalSource, sourceText, detectedLanguage, translation } = inference;
 
@@ -786,7 +845,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     const current = activeTranslationSettingsRef.current;
     const serviceAtStart = serviceRef.current;
     if (!current || !serviceAtStart || !capturingRef.current || !isCurrent()) return null;
-    const liveSettings = liveWordsToSettings(liveWordEntriesRef.current);
+    const liveWords = liveWordEntriesRef.current;
+    const liveNote = settingsRef.current.liveNote;
+    const liveSettings = liveWordsToSettings(liveWords);
     const activeGlossary = mergeGlossaries(
       parseGlossaryInput(current.keywordText, current.targetLanguage),
       parseGlossaryInput(liveSettings.keywordText, current.targetLanguage),
@@ -829,7 +890,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       },
     });
     if (!transcription || !isCurrentDraft()) return null;
-    return { sourceText: transcription.sourceText };
+    return {
+      sourceText: transcription.sourceText,
+      transcription,
+      snapshot: {
+        captureGeneration,
+        controllerToken: serviceAtStart.controllerToken,
+        translationRevision: serviceAtStart.translationRevision,
+        settings: current,
+        liveWords,
+        liveNote,
+      },
+    };
   }, [reconcileExternalTranslationRevision]);
   draftRunnerRef.current = runLiveDraft;
 
@@ -841,7 +913,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         const chunk = queueRef.current.shift();
         if (!chunk) continue;
         try {
-          await processChunk(chunk.audio, chunk.generation);
+          await processChunk(chunk.audio, chunk.generation, chunk.draft);
         } catch (error) {
           if (!capturingRef.current || chunk.generation !== captureGenerationRef.current) {
             continue;
@@ -925,10 +997,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         audio.size === 0
       ) {
         if (draftWindowId !== undefined) clearLiveDraft(draftWindowId);
+        pendingDraftRef.current = null;
         return;
       }
       if (queueRef.current.length >= 2) {
         if (draftWindowId !== undefined) clearLiveDraft(draftWindowId);
+        pendingDraftRef.current = null;
         if (serviceRef.current.saveHistory) {
           void experienceRequest("gap", {}, serviceRef.current.controllerToken).catch(() => {});
         }
@@ -940,10 +1014,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         }));
         return;
       }
+      const pending = pendingDraftRef.current;
+      pendingDraftRef.current = null;
       queueRef.current.push({
         audio,
         generation,
         ...(draftWindowId !== undefined ? { draftWindowId } : {}),
+        ...(pending?.generation === generation ? { draft: pending } : {}),
       });
       void drainQueue();
     },
@@ -993,6 +1070,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             })
           ) {
             if (draftWindowId !== null) clearLiveDraft(draftWindowId);
+            pendingDraftRef.current = null;
             startRecorderChunk();
             return;
           }
@@ -1070,6 +1148,15 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               if (outcome === "hold") {
                 draftHold = "rejected";
                 return;
+              }
+              // A surviving terminal-punctuation draft is this window's final transcription.
+              if (attempt.draft) {
+                pendingDraftRef.current = {
+                  generation,
+                  windowId: attempt.draft.windowId,
+                  transcription: attempt.draft.transcription,
+                  snapshot: attempt.draft.snapshot,
+                };
               }
               stopWindow();
             });

@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 
+import type { CaptionTranscriptionResult } from "@/live/caption-inference";
+
 import {
   MAX_TRANSCRIPTION_REQUESTS,
   recordingWindowBoundsMs,
   type RecordingWindowMs,
 } from "@/live/contracts";
 import { canDraft, createLiveDraftToggle } from "@/live/live-drafts";
-import { clearHeardDraft, type HeardDraft } from "@/live/live-heard";
+import { clearHeardDraft, type DraftReuseSnapshot, type HeardDraft } from "@/live/live-heard";
 
 export type LiveDraftPreview = HeardDraft;
 
@@ -23,6 +25,8 @@ export interface LiveDraftRunContext {
 
 export interface LiveDraftResult {
   sourceText: string;
+  transcription: CaptionTranscriptionResult;
+  snapshot: DraftReuseSnapshot;
 }
 
 export type LiveDraftRunner = (context: LiveDraftRunContext) => Promise<LiveDraftResult | null>;
@@ -39,9 +43,10 @@ interface DraftWindow {
 export interface LiveDraftAttempt {
   available: boolean;
   preview: LiveDraftPreview | null;
+  draft: (LiveDraftResult & { windowId: number }) | null;
 }
 
-const UNAVAILABLE: LiveDraftAttempt = { available: false, preview: null };
+const UNAVAILABLE: LiveDraftAttempt = { available: false, preview: null, draft: null };
 
 interface UseLiveDraftsOptions {
   enabled: boolean;
@@ -139,7 +144,7 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
       if (!result || !isCurrent() || controller.signal.aborted) return UNAVAILABLE;
       const preview: LiveDraftPreview = { windowId: window.id, sourceText: result.sourceText };
       setDraft(preview);
-      return { available: true, preview };
+      return { available: true, preview, draft: { ...result, windowId: window.id } };
     } catch {
       if (activeWindowRef.current?.id !== window.id || controller.signal.aborted) {
         return UNAVAILABLE;
