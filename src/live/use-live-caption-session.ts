@@ -50,6 +50,8 @@ import { startSerialPolling } from "@/live/serial-polling";
 import { initialSpeechGateState, observeSpeechSample, shouldSendWindow } from "@/live/speech-gate";
 import { isProviderLimitError } from "@/live/provider-limit";
 import { useMicrophoneInput } from "@/live/use-microphone-input";
+import { useMicTestClip } from "@/live/use-mic-test-clip";
+import { recorderOptions } from "@/live/recorder-options";
 import { useI18n } from "@/i18n/provider";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
 import { useRecentOutputs } from "@/live/use-recent-outputs";
@@ -125,18 +127,6 @@ const INITIAL_LIVE_STATE: LiveSessionState = {
   service: null,
 };
 
-const RECORDER_TYPES = [
-  "audio/webm;codecs=opus",
-  "audio/webm",
-  "audio/ogg;codecs=opus",
-  "audio/mp4",
-];
-
-function recorderOptions() {
-  const mimeType = RECORDER_TYPES.find((value) => MediaRecorder.isTypeSupported(value));
-  return mimeType ? { mimeType, audioBitsPerSecond: 64_000 } : undefined;
-}
-
 function isControllerReplaced(error: unknown) {
   return (
     (error instanceof LiveApiError || error instanceof CloudProviderClientError) &&
@@ -164,6 +154,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     stopMicrophone,
     refreshDevices,
   } = useMicrophoneInput();
+  const micTest = useMicTestClip(() => ensureMicrophone(selectedDeviceId || undefined));
+  const discardMicTest = micTest.discard;
   const [liveState, setLiveState] = useState<LiveSessionState>(() => ({
     ...INITIAL_LIVE_STATE,
     message: t("live.message.loadingChannel"),
@@ -1411,6 +1403,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const startSession = useCallback(
     async (takeover = false) => {
       if (serviceRef.current || endingRef.current) return;
+      discardMicTest();
       startLiveDraftSession();
       attemptsUsedRef.current = 0;
       loadGenerationRef.current += 1;
@@ -1546,6 +1539,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       endService,
       ensureMicrophone,
       liveState.channel?.configured,
+      discardMicTest,
       requireTranslationRefresh,
       resetOutputBuffer,
       resetRecentOutputs,
@@ -2269,7 +2263,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   return {
     devices,
     selectedDeviceId,
-    setSelectedDeviceId: chooseDevice,
+    setSelectedDeviceId: (deviceId: string) => {
+      micTest.discard();
+      chooseDevice(deviceId);
+    },
     microphoneState,
     microphoneError,
     level,
@@ -2286,6 +2283,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     rotationRecoveryRequired,
     cancelTakeover: () => setTakeoverRequired(false),
     startAudioTest: () => ensureMicrophone(selectedDeviceId || undefined),
+    micTest,
     createChannel,
     rotateChannel,
     saveChannelStyle,
