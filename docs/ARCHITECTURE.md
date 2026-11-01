@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 1 November 2026 against merged PR #85 (`863bf10`). Cloudflare deployed `20597d8`
+Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -95,7 +95,7 @@ still consumes its claim; it cannot be replayed to spend again.
 | `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol | OBS and latest-viewer WebSockets |
 | `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation. `…/pair` needs Access only, so any workspace operator can pair a phone; the other operations still need the controller |
 | `GET`/`POST`/`DELETE …/experience/preferences` | Access | The signed-in operator's saved configuration; POST merges a partial record, `null` clears a field |
-| `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/metadata`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index with metadata-only reads, one sermon's workspace-wide archive |
+| `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/metadata`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index with metadata-only reads, one transcript's workspace-wide archive |
 | `POST …/sermons/{id}/summary`, `…/remove`, `…/correct`, `…/delete`, `…/metadata` | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion, record-only session details |
 | `GET /api/live/reader` | `x-caption-reader` header | Appending reader paragraphs and operator notes, 50 per poll |
 
@@ -142,7 +142,7 @@ displaces the controller, so only takeover moves microphone capture. The room ke
 most 32 watcher and 32 paired-phone credentials per service, one of each per hashed Access
 identity — the same ceiling as its 32 watcher sockets — and the next identity past the cap
 evicts the oldest. Every paired phone drives the same single-command queue: one command
-may be pending at a time, whoever sent it. The phone stays a live remote: saved sermons
+may be pending at a time, whoever sent it. The phone stays a live remote: saved transcripts
 are reviewed on the dashboard, not on `/operator/mobile`.
 
 The latest viewer is revoked at End, expiry, takeover or replacement. Watcher and phone
@@ -181,7 +181,7 @@ acknowledged by the host. A missing host cannot be reported as confirmed.
 
 The reader polls about every two seconds, pages saved paragraphs, and follows new content
 only when near the bottom. It keeps earlier paragraphs/revisions/languages rather than
-rewriting the whole sermon. The journal keeps retryable lifecycle metadata and, when
+rewriting the whole transcript. The journal keeps retryable lifecycle metadata and, when
 saving is enabled, a reader-flight checkpoint. Interrupted generation falls back without
 another model dispatch. Summary-flight interruption fails visibly for manual review.
 

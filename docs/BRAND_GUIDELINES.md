@@ -1,6 +1,6 @@
 # Brand guidelines
 
-Reviewed 1 November 2026 against merged PR #88 (`1c656ea`).
+Reviewed 1 November 2026 against merged PR #89 (`dbddccd`).
 
 The baseline every Caption Studio screen follows: how the product sounds, which token
 to use for which job, and how text, space and components are laid out. Agents and
@@ -18,7 +18,7 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
 | Operator dashboard (`/`) | Rotating church volunteers, often monthly, with no training; one setup person | One obvious next step; nothing to remember between visits |
 | Operator phone remote (`/operator/mobile`) | The same volunteer, one-handed, near the stage | Three big actions; status at a glance |
 | Phone viewer (`/view`) | Congregation members on their own phones | Readable captions; nothing else |
-| Sermon reader (`/read`) | People reading after or during the service | Comfortable long-form reading |
+| Transcript reader (`/read`) | People reading after or during the service | Comfortable long-form reading |
 | OBS overlay (`/overlay`) | The audience, through the projector or stream | Only the caption, in the operator's configured style |
 
 ### Principles
@@ -48,13 +48,13 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
   "Start captions", "Translation", not "Start Captions" or "AI Behavior".
 - Speak to the operator as **you**. Use active voice: "Copy the OBS link", not "The
   OBS link can be copied".
-- **Buttons name the outcome** with a verb: "End service", "Delete sermon",
+- **Buttons name the outcome** with a verb: "End service", "Delete transcript",
   "Replace link". Never "OK", "Confirm" or "Submit" alone.
 - **Errors say what happened, then what to do**: "The browser is blocking the
   microphone. Click the microphone icon in the address bar, choose Allow, then press
   Try again."
 - Use numerals ("8 seconds", "3 words"), `…` not `...`, and curly quotes and
-  apostrophes (’ “ ”). Placeholders are examples ending in `…`: "e.g. Pastor Ken…".
+  apostrophes (’ “ ”). Placeholders are examples ending in `…`: "e.g. Speaker’s name…".
   Progress text ends in `…`: "Saving…".
 - Keep a hint to one sentence. If it needs a paragraph, it belongs in the help page.
 - Confirmation dialogs ask a question as the title ("End this service?"). The safe
@@ -72,14 +72,14 @@ code, documentation, Usage and diagnostics.
 | Clear screen | Clear live caption, clear public caption |
 | End service | Deactivate, stop channel |
 | Phone viewer, phone viewer link | Mobile translation viewer, viewer URL |
-| Sermon reader, reader link | Reader token, bearer link |
+| Transcript reader, reader link | Reader token, bearer link |
 | OBS link | OBS URL, channel credential, browser source URL |
 | Phone remote, Pair phone | Remote pairing, operator remote credential |
 | Terms | Glossary, terminology, keyword hints, public caption filter, quick block |
 | Caption wait time | Recording window, chunk, audio window |
 | Check captions before they show, Next up | Output buffer, buffer queue, dwell |
 | Heard / Audience view | Source transcript / public caption |
-| Sermons | Sermon archive, experience, journal |
+| Transcripts | Transcript archive, experience, journal |
 | Take over | Controller takeover, lease |
 | Apply now / Undo changes | Review refresh, confirm refresh, discard drafts |
 | Replace link | Rotate |
@@ -133,7 +133,7 @@ hex, rgb or named colour to a stylesheet or inline style. The only exceptions ar
 | `--text-sm` | Helper text, metadata, captions under fields |
 | `--text-xs` | Uppercase labels and chips only, with `--tracking-caps`; never a sentence |
 
-The sermon reader may use a larger reading size and line height than the dashboard for
+The transcript reader may use a larger reading size and line height than the dashboard for
 long-form text; that is its one documented exception.
 
 ## Space and layout
@@ -184,7 +184,7 @@ Use the shared classes in the design system before writing a new rule.
   the same size** (`--control-height`, `--text-base`); emphasis comes from colour, never
   from size. Never give a button its own height, padding, font size or minimum width, and
   never add a size modifier. A disabled button always has visible text nearby saying why.
-- **Settings layout.** Every Settings section (and a selected sermon) is a header, then
+- **Settings layout.** Every Settings section (and a selected transcript) is a header, then
   titled groups, then one **Save for everyone** bar, built from `SettingsParts.tsx`. Never
   nest a card inside a card.
 - **Forms.** The label sits above its control, the hint below. Every input has a
@@ -197,7 +197,7 @@ Use the shared classes in the design system before writing a new rule.
 - **Banners.** Full width, above the content they concern, with at most two actions.
   Error banners use `role="alert"`; warning and info banners do not interrupt.
 - **Dialogs.** Only to confirm a destructive or irreversible action (End service, Delete
-  sermon, Replace link). `role="alertdialog"`, focus moves in, Escape cancels, the
+  transcript, Replace link). `role="alertdialog"`, focus moves in, Escape cancels, the
   action button sits on the right.
 - **Disclosures.** Advanced or rarely used options sit behind `<details>`, named for
   the situation ("Reader link shared by mistake?", "Check captions before they
@@ -205,7 +205,7 @@ Use the shared classes in the design system before writing a new rule.
 - **Tabs and navigation.** Mark the current item with `aria-current="page"` (or
   `aria-selected` inside a `tablist`). Keep each view reachable by a `#` link so it can
   be bookmarked and refreshed.
-- **Empty states.** Say what is missing and how to get it: "No saved sermons yet. Tick
+- **Empty states.** Say what is missing and how to get it: "No saved transcripts yet. Tick
   ‘Save the transcript’ before you start a service."
 - **Live controls.** While a service runs, Pause/Resume, Clear screen and End service
   stay in one place on screen. End service is visually separated from Pause and Clear.

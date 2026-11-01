@@ -1,6 +1,6 @@
 # Caption Studio: gap analysis and improvement plan
 
-Reviewed 1 November 2026 against merged PR #88 (`1c656ea`). Plan 1 (`20597d8`) deployed
+Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). Plan 1 (`20597d8`) deployed
 successfully after the Access proxy fix; merges through `080e6ca`, including the rename
 to the `caption-studio` Worker, deployed via Workers Builds on 26–28 October, but none has
 a recorded service rehearsal. Only `main` builds; preview-branch
@@ -11,7 +11,7 @@ Local checks pass; this is not a production, semantic-quality or accessibility c
 
 The implementation includes fast captions, separate latest-viewer/reader/remote surfaces,
 opt-in seven-day private journals, manual and optional automatic summaries, rolling 30-day
-usage, a shared church setup and Sermons archive, watching/takeover by any workspace
+usage, a shared church setup and Transcripts archive, watching/takeover by any workspace
 operator, and live overrides (Quick override, paused Manual caption, output buffer, Live
 note). The largest remaining gaps concern language quality, actual account configuration,
 physical devices, recovery and full-service measurement. Optional Workers AI remains
@@ -119,10 +119,10 @@ Estimate full-service usage from observations, not a monthly multiplication alon
 ### G09 — P1: human usability and accessibility
 
 Synthetic browser/Axe checks (`npm run qa`) pass at 1920, 1200, 390 and 320px for the
-Live, Sermons and Settings screens, remote, reader and viewer. Physical Safari/phones,
+Live, Transcripts and Settings screens, remote, reader and viewer. Physical Safari/phones,
 actual browser zoom, screen readers and volunteer comprehension remain unverified. Have
 representative operators configure a service and explain the difference between Clear
-screen, Remove passage and Delete sermon, and between Quick override, Terms and Live note.
+screen, Remove passage and Delete transcript, and between Quick override, Terms and Live note.
 Verify that pending phone commands cannot be mistaken for physical microphone confirmation.
 
 ### G10 — P2: market feature gaps need demand and a scope decision
@@ -143,7 +143,7 @@ research, not a description of current feature availability.
 Rehearse opt-in consent, source preservation, partial-history failures, independent
 pagination, removal/exclusion, summary citations, interrupted jobs, deletion races,
 seven-day content expiry and 30-day usage expiry. Include automatic summary drafts at End,
-session details, and any signed-in operator reviewing or deleting a shared sermon.
+session details, and any signed-in operator reviewing or deleting a shared transcript.
 Application deletion cannot recall
 exports or promise immediate physical erasure of provider recovery copies. Account
 backups and participant notice need explicit operational review.

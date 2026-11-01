@@ -1,6 +1,6 @@
 # Design system
 
-Reviewed 1 November 2026 against merged PR #86 (`96c005a`).
+Reviewed 1 November 2026 against merged PR #89 (`dbddccd`).
 
 Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
@@ -89,7 +89,7 @@ The dashboard theme never changes the configured OBS caption colours.
   per the colour roles in the brand guidelines) and the `.operatorTab` links, the current
   one marked `aria-current="page"`.
 - `.operatorScreen`: one screen, capped at `--content-max`, with `--space-3` gutters
-  (`--space-2` at 680px and narrower). `.operatorColumns` puts the Settings and Sermons
+  (`--space-2` at 680px and narrower). `.operatorColumns` puts the Settings and Transcripts
   list beside its panel. Live uses `.liveGrid`: two rows of paired cards (`.liveCaptions`
   beside the checklist, `.liveActions` beside `.liveShare`) that stretch to equal height
   and stack into one column at 980px and narrower. In `.liveCaptions` the Heard box and
@@ -101,9 +101,9 @@ The dashboard theme never changes the configured OBS caption colours.
   padding). `.operatorBanner` (`data-tone` warn or bad) sits above the content it concerns.
 - `.liveControlBar`: pinned to the bottom of Live while a service runs; `.operatorShell`
   reserves matching `scroll-padding-bottom` so the bar never hides a focused control.
-- `.settingsNav`: the Settings section links (and the Sermons list), current one marked
+- `.settingsNav`: the Settings section links (and the Transcripts list), current one marked
   `aria-current="page"`; below 981px it becomes one sideways-scrolling row.
-- Settings sections and the selected sermon share one structure from
+- Settings sections and the selected transcript share one structure from
   `SettingsParts.tsx`: a `.settingsHeader` (title and one-line description), then
   `SettingGroup`s (an `h3`, an optional `.settingHint`, the controls), each above a hairline,
   then one `SaveBar` (**Save for everyone** and its status). `.buttonRow` lines buttons up;

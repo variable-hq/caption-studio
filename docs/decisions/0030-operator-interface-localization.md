@@ -48,7 +48,8 @@ review**. Reviewers should use this terminology consistently:
 | Capture system | sistem caption | The device that runs the dashboard and microphone |
 | Operator view | Tampilan operator | Heard pane, visible to the operator only |
 | Audience view | Tampilan audiens | Public caption pane |
-| Sermons | Khotbah | Saved service archive |
+| Transcripts | Transkrip | Saved service archive |
+| speaker | pembicara | The person talking during a service |
 
 ## Tradeoffs and verification
 

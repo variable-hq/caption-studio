@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 28 October 2026 against merged PR #75 (`080e6ca`). The 13 September deployment
+Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -14,7 +14,7 @@ overlay URL. Until a dedicated private reporting address exists, contact the rep
 owner through an agreed private channel and include only the minimum synthetic evidence
 needed to reproduce the issue.
 
-Do not attach real sermon audio, transcripts, member details, passwords, API keys,
+Do not attach real service audio, transcripts, member details, passwords, API keys,
 Cloudflare Access JWTs, or overlay tokens. If a credential may have been exposed, tell
 the owner which credential and environment are affected without sending the credential
 itself.
@@ -126,7 +126,7 @@ Treat these as sensitive even when the app does not persist them:
 
 - provider keys, Access tokens, OBS URLs, and mobile viewer links;
 - raw or processed audio;
-- source, translated, or public sermon text;
+- source, translated, or public service text;
 - summaries and biblical-reference annotations;
 - member identities, church roles, and unpublished service details;
 - private glossary terms, public-filter drafts, and custom translation prompts; and
@@ -187,10 +187,10 @@ Current behavior:
 - a translation-session refresh clears unfinished/queued audio, recent translation
   context, and current public output without rotating the controller, viewer, or OBS
   credentials or extending the original service expiry; and
-- opted-in sermon journals store original source, reviewed corrections, exclusions,
+- opted-in transcript archives store original source, reviewed corrections, exclusions,
   reader paragraphs, and summary drafts. These are workspace-wide, not per-operator: one
   Access tenant is one workspace, and every signed-in operator may read, correct, export
-  and delete any saved transcript or sermon in it. They stay unreachable from the
+  and delete any saved transcript in it. They stay unreachable from the
   overlay, mobile viewer and reader. Numeric usage has independent 30-day retention. No
   audio bucket or third-party analytics store is introduced.
 
@@ -216,7 +216,7 @@ into the response, before the response is trusted. It is a heuristic safety net,
 guarantee: only its construction has been tested, not its effectiveness against a live
 model, and a sufficiently subtle prompt-injection attempt could still pass both checks.
 
-Groq Zero Data Retention must be enabled before approved real-sermon testing. Groq's
+Groq Zero Data Retention must be enabled before approved real-service testing. Groq's
 published policy says non-content usage metadata is still retained. Verify the active
 organization's Data Controls rather than assuming a key inherits another account's ZDR
 setting.
@@ -293,7 +293,7 @@ If a secret or token is exposed:
 2. Rotate the Groq or OBS encryption key, or invalidate the affected Cloudflare Access
    session, as appropriate. Rotating the encryption key also requires rotating the OBS URL.
 3. Check Worker and provider logs for time, routes, and usage metadata without copying
-   sermon content into the incident record.
+   service content into the incident record.
 4. Remove the exposed material from the source location and repository history where
    necessary; deletion from the latest commit alone may be insufficient.
 5. Document the root cause, affected window, remediation, and follow-up controls in a
@@ -303,7 +303,7 @@ If a secret or token is exposed:
 
 The approved Plan 1 privacy and threat review is recorded in
 [the implementation decision](docs/decisions/0011-service-history-and-optional-inference.md).
-Sermon journals are shared among this app's authorized operators, not isolated by email.
+Transcript archives are shared among this app's authorized operators, not isolated by email.
 History consent is explicit before Start and cannot be enabled retroactively. Content
 expires seven days after End/expiry; reader access ends after a 30-minute grace period.
 Read-time checks enforce expiry even if cleanup alarms are delayed. Original source is
@@ -326,7 +326,7 @@ checks cannot prove semantic faithfulness. Operators must review summaries befor
 Deletion and source revisions invalidate pending jobs; persistent tombstones prevent
 late responses from recreating deleted content. No exact TB2 reference corpus is present.
 Complete the protected rehearsal and approved content evaluation before enabling this
-workflow for real sermons.
+workflow for real services.
 
 An operator who opts in to automatic summaries ([ADR 0019](docs/decisions/0019-automatic-post-service-summary.md))
 gets the same Workers AI summary job queued when they end a saved service, from their

@@ -4,7 +4,7 @@ Last reviewed 30 October 2026 against merged PR #80 (`3a7d1d2`).
 
 Thank you for helping build Caption Studio. The repository is private and has no
 open-source license; access to collaborate does not grant permission to redistribute
-the code or sermon data.
+the code or service data.
 
 ## Before you begin
 
@@ -15,7 +15,7 @@ the code or sermon data.
   project.
 - Follow [the stakeholder test guide](docs/STAKEHOLDER_TEST_GUIDE.md) for deployed
   rehearsals and keep the test evidence content-free.
-- Never put credentials, active OBS/mobile-viewer URLs, private names, or sermon content
+- Never put credentials, active OBS/mobile-viewer URLs, private names, or service content
   in Git, issues, pull requests, test fixtures, screenshots, logs, or chat.
 
 ## Set up the project

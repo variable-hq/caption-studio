@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 1 November 2026 against merged PR #88 (`1c656ea`), including the Live/Sermons/Settings dashboard. Use a protected, verified deployment,
+Reviewed 1 November 2026 against merged PR #89 (`dbddccd`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 
@@ -28,7 +28,7 @@ The browser is the sole client; there are no native/signing checklists.
 - Decide whether this synthetic service should save history. Saving must be explicitly
   enabled before Start; off is the default. Explain seven-day content and independent
   30-day numeric retention to operators/participants.
-- Keep tokens, emails, private sermon content, prompts and active bearer URLs out of
+- Keep tokens, emails, private service content, prompts and active bearer URLs out of
   screenshots, Git, issues and shared evidence. Use sample IDs and status/timing metadata.
 - Schedule a short rehearsal before a duration run. Paused time counts toward the
   original 90-minute service expiry.
@@ -42,7 +42,7 @@ The browser is the sole client; there are no native/signing checklists.
 2. Check at 1920, 1200, 390 and 320 CSS pixels. Use keyboard navigation, visible focus,
    actual zoom, reduced motion and an assistive-technology user where available. No control,
    dialog or long record should create horizontal page overflow or hide the next action.
-   Verify the **Live**, **Sermons** and **Settings** tabs and each Settings section, their
+   Verify the **Live**, **Transcripts** and **Settings** tabs and each Settings section, their
    bookmarks (`#live`, `#sermons`, `#settings=<section>`, `#help`), reload and browser
    Back/Forward. Switch **Settings › System › Theme** to Dark and back to
    Light: text, status pill, focus outlines and the caption preview must stay readable, and
@@ -126,10 +126,10 @@ The browser is the sole client; there are no native/signing checklists.
 | End/expiry | OBS blank but reusable; latest viewer/remote revoked; reader remains for 30-minute grace |
 | Network loss/reconnect | Truthful state and bounded recovery; record actual detection time, not only mocked socket behavior |
 
-The phone viewer link (**Copy link**), sermon reader (**Get link**) and **Pair phone** are
+The phone viewer link (**Copy link**), transcript reader (**Get link**) and **Pair phone** are
 under **Live › Share**, with **Replace reader link** under "Reader link shared by
 mistake?". Phone viewer and OBS link replacement (**Replace…**) are under **Settings ›
-OBS & links**. Private transcript review and summaries are under **Sermons**.
+OBS & links**. Private transcript review and summaries are under **Transcripts**.
 
 Test authenticated missing/duplicate/stale/paused/expired attempt rejection through the
 synthetic harness. Do not publish credential values or spend inference quota to prove a
@@ -138,7 +138,7 @@ usage; accounting failure stops capture.
 
 ## Private archive and summaries
 
-1. End an opted-in service, open **Sermons** and choose it from the list. Under
+1. End an opted-in service, open **Transcripts** and choose it from the list. Under
    **Transcript › Show the transcript** and **Reader passages**, original source,
    corrections and paragraph/source IDs stay distinct; **Load full transcript** and **Load
    more passages** do not repeat/skip records. **Edit details** changes the session details.
@@ -162,7 +162,7 @@ usage; accounting failure stops capture.
 7. **Export transcript** privately as JSON. **Export summary** requires ticking **I checked
    this summary against the transcript**. Clear local exports after the synthetic test; app
    deletion cannot recall copies.
-8. Press **Delete sermon**, cancel once with **Keep it**, then confirm after End.
+8. Press **Delete transcript**, cancel once with **Keep it**, then confirm after End.
    Archive/index and reader access disappear;
    late jobs cannot restore content. Read-time expiry must deny content seven days after
    End/expiry even if cleanup is late. Use a test clock only in isolated automated tests,

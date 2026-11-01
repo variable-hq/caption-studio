@@ -1,6 +1,6 @@
 # Evidence-gated pilot improvements
 
-Reviewed 1 November 2026 against merged PR #88 (`1c656ea`).
+Reviewed 1 November 2026 against merged PR #89 (`dbddccd`).
 
 Prepared 12 September; scope reconciled 13 September 2026. QR joining, reusable saved
 terminology packs and live public-caption correction remain proposals. Plan 1 has since
@@ -230,7 +230,7 @@ deliberate paused workflow, not a live history editor:
 1. Offer **Correct current caption** only for the latest real caption while live,
    not for a synthetic test. It captures one nonempty public caption, its recorded
    language, sequence, and translation revision in page memory, then requests the
-   existing Pause. Do not capture source text or a sermon history into a new store.
+   existing Pause. Do not capture source text or a transcript history into a new store.
    Editing is available only after the server confirms Pause; a failure retains the
    existing recovery choices and never publishes the draft.
 2. Show one target-text draft with **Discard** and **Review correction**. Lock its
@@ -264,7 +264,7 @@ required for this minimal proposal.
 
 Fast-caption filtering runs in the browser pipeline; the Main room does not own the
 complete active translation settings. Plan 1 additionally sends bounded filter/glossary
-context to the sermon journal for reader processing. Reusing the existing masking function preserves that
+context to the transcript archive for reader processing. Reusing the existing masking function preserves that
 trust model but does not create server-authoritative filtering. Any requirement for
 server-owned rules needs a separate data/control decision. Also decide whether approved
 term replacements should rewrite a human edit: blindly reapplying the mapping that

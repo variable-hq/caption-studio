@@ -1,6 +1,6 @@
 # Documentation index
 
-Reviewed 1 November 2026 against merged PR #88 (`1c656ea`). Maintained specifications
+Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). Maintained specifications
 describe merged source, not an assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
 records to establish release evidence.
 
@@ -31,12 +31,12 @@ records to establish release evidence.
   [ADR 0020](decisions/0020-remove-ios-shell.md) then removed the unused iOS shell.
 - [ADR 0004](decisions/0004-first-visit-operator-tutorial.md) described the first-visit
   operator guide; [ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)
-  superseded it with the Live, Sermons and Settings layout.
+  superseded it with the Live, Transcripts and Settings layout.
 - [ADR 0022](decisions/0022-shared-church-setup-and-words-list.md) records one church setup
   shared by all operators, the Terms list, one summary model and one buffer wait choice.
 - [ADR 0023](decisions/0023-live-note-and-recent-outputs.md) records the immediate, bounded
   Live note prompt and the controlling tab's display-only Recent outputs strip.
-- [ADR 0024](decisions/0024-session-metadata.md) records optional saved-sermon details and
+- [ADR 0024](decisions/0024-session-metadata.md) records optional saved-transcript details and
   why they remain outside all model prompts.
 - [ADR 0025](decisions/0025-worker-driven-background-timers.md) records worker-driven
   capture timers and continued sessions while the operator tab is backgrounded.
@@ -60,7 +60,7 @@ records to establish release evidence.
   operator configuration is bound to the Cloudflare Access identity in an
   `OperatorPreferences` Durable Object, with `localStorage` kept only as a fallback.
 - [ADR 0015](decisions/0015-named-workspace-sized-for-its-operators.md) records why the
-  Access tenant is named *BEST Church workspace* in the operator UI, why the saved-sermon
+  Access tenant is named *BEST Church workspace* in the operator UI, why the saved-transcript
   copy states that every operator shares the archive, and why the watcher and paired-phone
   identity cap rose from 8 to 32.
 - [ADR 0016](decisions/0016-client-side-output-buffer.md) records why the new output

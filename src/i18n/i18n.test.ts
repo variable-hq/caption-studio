@@ -200,6 +200,38 @@ describe("operator interface translations", () => {
     expect(id["wordsEditor.empty"]).toBe("Belum ada istilah. Tambahkan nama atau istilah yang perlu dikenali AI, misalnya nama pembicara, tempat, atau produk, atau istilah yang tidak boleh ditampilkan.");
   });
 
+  it("names the saved archive Transcripts in both catalogs", () => {
+    expect(en["shell.navigation.sermons"]).toBe("Transcripts");
+    expect(id["shell.navigation.sermons"]).toBe("Transkrip");
+    expect(en["sermons.title"]).toBe("Transcripts");
+    expect(id["sermons.title"]).toBe("Transkrip");
+    expect(en["serviceExperience.readerTitle"]).toBe("Transcript reader");
+    expect(id["serviceExperience.readerTitle"]).toBe("Pembaca transkrip");
+    expect(en["serviceExperience.savedSermons"]).toBe("Saved transcripts");
+    expect(id["serviceExperience.savedSermons"]).toBe("Transkrip tersimpan");
+  });
+
+  it("calls the person talking the speaker and drops the example names", () => {
+    for (const key of ["liveWord.placeholderWord", "liveWord.placeholderFix", "wordsEditor.placeholderWord"] as const) {
+      expect(en[key]).toBe("e.g. Speaker’s name…");
+      expect(id[key]).toBe("mis. Nama pembicara…");
+    }
+    expect(en["live.startHelp.ready"]).toBe("Press Start when the speaker begins.");
+    expect(id["live.startHelp.ready"]).toBe("Tekan Mulai saat pembicara mulai berbicara.");
+    expect(en["help.step3.after"]).toBe("when the speaker begins.");
+    expect(id["help.step3.after"]).toBe("saat pembicara mulai berbicara.");
+    expect(id["translationChange.spokenLanguage"]).toBe("Bahasa pembicara");
+  });
+
+  it("no operator message uses sermon, preacher or pastor wording", () => {
+    const forbidden = ["sermon", "khotbah", "preacher", "pengkhotbah", "pastor"];
+    for (const [key, message] of [...Object.entries(en), ...Object.entries(id)]) {
+      for (const phrase of forbidden) {
+        expect(message.toLowerCase(), `${key} avoids “${phrase}”`).not.toContain(phrase);
+      }
+    }
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");

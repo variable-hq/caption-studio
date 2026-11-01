@@ -1,6 +1,6 @@
 # Roadmap
 
-Reviewed 1 November 2026 against merged PR #88 (`1c656ea`). Status describes source
+Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). Status describes source
 implementation; deployment and church-approved quality require separate evidence.
 
 ## Implemented baseline
@@ -28,7 +28,7 @@ implementation; deployment and church-approved quality require separate evidence
   Recent captions ([ADR 0023](decisions/0023-live-note-and-recent-outputs.md)).
 - One *BEST Church workspace* per Access tenant
   ([ADR 0015](decisions/0015-named-workspace-sized-for-its-operators.md)): every signed-in
-  operator can watch the running service and take it over, reads the shared Sermons
+  operator can watch the running service and take it over, reads the shared Transcripts
   archive, and uses one church setup with the Settings › Terms list
   ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)); only the theme stays
   per operator ([ADR 0014](decisions/0014-operator-preferences-by-access-identity.md)).
@@ -37,7 +37,7 @@ implementation; deployment and church-approved quality require separate evidence
   details ([ADR 0024](decisions/0024-session-metadata.md)).
 - Optional operator-only Live drafts re-transcribe the current audio window within the
   existing reserved-attempt ceiling ([ADR 0027](decisions/0027-operator-only-live-drafts.md)).
-- Live, Sermons and Settings dashboard for volunteer operators, with a readiness
+- Live, Transcripts and Settings dashboard for volunteer operators, with a readiness
   checklist, a pinned live control bar and bookmarkable screens
   ([ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)), following
   [Brand guidelines](BRAND_GUIDELINES.md) with light and dark themes.
@@ -66,7 +66,7 @@ Delivered under [ADR 0011](decisions/0011-service-history-and-optional-inference
 
 Workers AI remains disabled unless explicitly configured. Fallback reader text works
 without it; summaries then report unavailable. Models require quality evaluation before
-real sermon processing. Exact TB2 text retrieval is not implemented.
+real service processing. Exact TB2 text retrieval is not implemented.
 
 ## Next release gates
 

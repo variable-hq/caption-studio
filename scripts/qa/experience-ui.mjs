@@ -108,7 +108,7 @@ try {
   await page.getByText('Terjemahan Live', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'id'); await check('viewer-id');
   await page.goto(origin + '/read#' + id + '.' + 'r'.repeat(43));
-  await page.getByText('Pembaca khotbah', { exact: true }).waitFor();
+  await page.getByText('Pembaca transkrip', { exact: true }).waitFor();
   await page.getByText('Live · teks muncul setelah sekitar 30 detik', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'id'); await check('reader-id');
   await page.setExtraHTTPHeaders({ 'accept-language': 'en-US,en;q=0.9' });
@@ -125,14 +125,14 @@ try {
   await page.getByText('Bersihkan layar: dikonfirmasi oleh sistem caption.', { exact: true }).waitFor(); await check('remote');
   assert.ok(requests.every((url) => url === '/api/live/experience/remote'));
   await page.evaluate(() => localStorage.removeItem('caption-studio:ui-locale:v1'));
-  await page.goto(origin + '/#sermons'); await page.getByRole('heading', { name: 'Sermons', exact: true }).waitFor();
+  await page.goto(origin + '/#sermons'); await page.getByRole('heading', { name: 'Transcripts', exact: true }).waitFor();
   await page.locator('.archiveList button').first().click();
   await page.getByText('Show the transcript', { exact: true }).click();
   await page.getByRole('button', { name: 'Correct', exact: true }).click();
   await page.getByLabel('Corrected text').fill('Reviewed synthetic source.');
   await page.getByRole('button', { name: 'Save correction', exact: true }).click();
   await page.getByRole('button', { name: 'Generate summary', exact: true }).click();
-  await page.getByText('Couldn’t reach the sermon store. Check the connection, then try again.', { exact: true }).waitFor();
+  await page.getByText('Couldn’t reach the transcript store. Check the connection, then try again.', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Generate summary', exact: true }).click();
   await page.getByText('Synthetic supported summary.', { exact: false }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'Export summary', exact: true }).isDisabled(), true);
