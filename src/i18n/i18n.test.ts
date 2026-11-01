@@ -129,6 +129,77 @@ describe("operator interface translations", () => {
     }
   });
 
+  it("renames the Words feature to Terms in both catalogs", () => {
+    expect(en["settings.section.words.title"]).toBe("Terms");
+    expect(id["settings.section.words.title"]).toBe("Istilah");
+    expect(en["settings.section.words.description"]).toBe("Names the AI should know, and terms to keep off the screen.");
+    expect(id["settings.section.words.description"]).toBe("Nama yang harus diketahui AI, dan istilah yang tidak boleh tampil di layar.");
+    expect(en["readiness.words"]).toBe("Terms");
+    expect(id["readiness.words"]).toBe("Istilah");
+    expect(en["readiness.wordCount.one"]).toBe("{count} term");
+    expect(id["readiness.wordCount.one"]).toBe("{count} istilah");
+    expect(en["readiness.wordCount.other"]).toBe("{count} terms");
+    expect(id["readiness.wordCount.other"]).toBe("{count} istilah");
+    expect(en["settings.message.savedTranslationDefaults"]).toContain("caption wait time, Terms, caption cleanup");
+    expect(id["settings.message.savedTranslationDefaults"]).toContain("waktu tunggu caption, Istilah, pembersihan caption");
+    expect(en["liveNote.hint"]).toContain("Settings › Terms");
+    expect(id["liveNote.hint"]).toContain("Pengaturan › Istilah");
+    expect(en["liveWord.hint"]).toContain("Keep in Terms");
+    expect(id["liveWord.hint"]).toContain("Simpan di Istilah");
+    expect(en["liveWord.keep"]).toBe("Keep in Terms");
+    expect(id["liveWord.keep"]).toBe("Simpan di Istilah");
+    expect(en["liveWord.word"]).toBe("Term");
+    expect(id["liveWord.word"]).toBe("Istilah");
+    expect(en["liveWord.empty"]).toBe("No quick overrides in use. Add a term and choose what to do.");
+    expect(id["liveWord.empty"]).toBe("Tidak ada quick override yang digunakan. Tambahkan istilah dan pilih tindakan.");
+    expect(en["common.typeWordFirst"]).toBe("Type the term first.");
+    expect(id["common.typeWordFirst"]).toBe("Ketik istilah terlebih dahulu.");
+    expect(en["wordsEditor.yourWordsTitle"]).toBe("Your terms");
+    expect(id["wordsEditor.yourWordsTitle"]).toBe("Istilah Anda");
+    expect(en["wordsEditor.word"]).toBe("Term");
+    expect(id["wordsEditor.word"]).toBe("Istilah");
+    expect(en["wordsEditor.addTitle"]).toBe("Add a term");
+    expect(id["wordsEditor.addTitle"]).toBe("Tambah istilah");
+    expect(en["wordsEditor.add"]).toBe("Add term");
+    expect(id["wordsEditor.add"]).toBe("Tambah istilah");
+    expect(en["wordsEditor.overLimit"]).toBe("Only the first {max} names and terms and the first {max} hidden terms are used. Remove some you no longer need.");
+    expect(id["wordsEditor.overLimit"]).toBe("Hanya {max} nama dan istilah pertama serta {max} istilah tersembunyi pertama yang digunakan. Hapus beberapa yang tidak lagi diperlukan.");
+  });
+
+  it("keeps ordinary word wording and the imported names", () => {
+    expect(en["wordAction.mask"]).toBe("Hide the word (***)");
+    expect(id["wordAction.mask"]).toBe("Sembunyikan kata (***)");
+    expect(en["recentOutputs.hint"]).toBe("Wrong word? Use Quick override.");
+    expect(id["recentOutputs.hint"]).toBe("Kata keliru? Gunakan Quick override.");
+    expect(en["inference.low"]).toBe("Close: nearly word for word");
+    expect(id["inference.low"]).toBe("Dekat: hampir kata per kata");
+    expect(id["promptEditor.filterHint"]).toContain("kata kasar");
+    expect(en["sanitize.balanced.detail"]).toContain("filler words");
+    expect(en["liveNote.hint"]).toContain("sound words");
+    expect(id["liveNote.hint"]).toContain("kata bunyi");
+  });
+
+  it("names the Add a term language hint after the current actions", () => {
+    expect(en["wordsEditor.addHint"]).toBeTruthy();
+    expect(id["wordsEditor.addHint"]).toBeTruthy();
+    for (const catalog of [en, id]) {
+      for (const key of ["wordAction.recognise", "wordAction.fix", "wordAction.translate"] as const) {
+        expect(catalog["wordsEditor.addHint"]).toContain(catalog[key]);
+      }
+    }
+  });
+
+  it("no operator message names the feature Words", () => {
+    for (const [key, message] of [...Object.entries(en), ...Object.entries(id)]) {
+      expect(message, `${key} avoids the feature name “Words”`).not.toContain("Words");
+    }
+  });
+
+  it("gives the empty Terms list generic examples", () => {
+    expect(en["wordsEditor.empty"]).toBe("No terms yet. Add names or terms the AI should know, such as a speaker, place or product name, or terms never to show.");
+    expect(id["wordsEditor.empty"]).toBe("Belum ada istilah. Tambahkan nama atau istilah yang perlu dikenali AI, misalnya nama pembicara, tempat, atau produk, atau istilah yang tidak boleh ditampilkan.");
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");

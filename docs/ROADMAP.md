@@ -1,6 +1,6 @@
 # Roadmap
 
-Reviewed 1 November 2026 against merged PR #85 (`863bf10`). Status describes source
+Reviewed 1 November 2026 against merged PR #88 (`1c656ea`). Status describes source
 implementation; deployment and church-approved quality require separate evidence.
 
 ## Implemented baseline
@@ -29,7 +29,7 @@ implementation; deployment and church-approved quality require separate evidence
 - One *BEST Church workspace* per Access tenant
   ([ADR 0015](decisions/0015-named-workspace-sized-for-its-operators.md)): every signed-in
   operator can watch the running service and take it over, reads the shared Sermons
-  archive, and uses one church setup with the Settings › Words list
+  archive, and uses one church setup with the Settings › Terms list
   ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)); only the theme stays
   per operator ([ADR 0014](decisions/0014-operator-preferences-by-access-identity.md)).
   Optional automatic summary drafts at End
@@ -105,7 +105,7 @@ Local tests and screenshots do not constitute these deployment, hardware or qual
   and Live note guides upcoming translations; none edits a displayed OBS caption, and
   archive source corrections change only private summary input.
 - Local QR joining, subject to the measured need in [Pilot improvements](PILOT_IMPROVEMENTS.md).
-  (Reusable terminology is now the shared Settings › Words list.)
+  (Reusable terminology is now the shared Settings › Terms list.)
 - Display density/line policy, speaker identification and meaningful non-speech cues.
 - Authorized TB2 passage retrieval, provenance and licensing; additional summary providers
   only after a separate data/cost decision.

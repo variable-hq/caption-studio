@@ -37,7 +37,7 @@ review**. Reviewers should use this terminology consistently:
 | --- | --- | --- |
 | caption | caption | Published text shown to the audience |
 | service | layanan | One live church session |
-| Words | Words | Settings section for names, terms, and filters |
+| Terms | Istilah | Settings section for names, terms, and filters |
 | caption wait time | waktu tunggu caption | Recording window setting |
 | Apply now | Terapkan sekarang | Apply drafted translation settings |
 | Quick override | Quick override | Immediate live correction control |

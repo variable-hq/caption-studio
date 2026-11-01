@@ -1,6 +1,6 @@
 # Brand guidelines
 
-Reviewed 1 November 2026 against merged PR #87 (`804f130`).
+Reviewed 1 November 2026 against merged PR #88 (`1c656ea`).
 
 The baseline every Caption Studio screen follows: how the product sounds, which token
 to use for which job, and how text, space and components are laid out. Agents and
@@ -75,7 +75,7 @@ code, documentation, Usage and diagnostics.
 | Sermon reader, reader link | Reader token, bearer link |
 | OBS link | OBS URL, channel credential, browser source URL |
 | Phone remote, Pair phone | Remote pairing, operator remote credential |
-| Words | Glossary, terminology, keyword hints, public caption filter, quick block |
+| Terms | Glossary, terminology, keyword hints, public caption filter, quick block |
 | Caption wait time | Recording window, chunk, audio window |
 | Check captions before they show, Next up | Output buffer, buffer queue, dwell |
 | Heard / Audience view | Source transcript / public caption |
@@ -251,7 +251,7 @@ On top of the rules above:
 
 ## Known differences in the current UI
 
-None are open. The phone remote now says "Pause" and "Clear screen", and the one Words
+None are open. The phone remote now says "Pause" and "Clear screen", and the one Terms
 list and shared church setup shipped with
 [ADR 0022](decisions/0022-shared-church-setup-and-words-list.md). Record any new
 difference here, fix it when the screen is next changed, and don't copy it into new work.

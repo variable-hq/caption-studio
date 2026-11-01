@@ -25,6 +25,7 @@ import {
 } from "@/live/contracts";
 
 const TRANSLATION_SETTINGS_STORAGE_VERSION = 4;
+export const DEFAULT_KEYWORD_TEXT = "";
 export const MAX_TERMINOLOGY_INPUT_CHARS = 8_000;
 export const MAX_FILTER_INPUT_CHARS = 4_000;
 

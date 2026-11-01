@@ -1,6 +1,6 @@
 # Documentation index
 
-Reviewed 31 October 2026 against merged PR #84 (`1f16a3b`). Maintained specifications
+Reviewed 1 November 2026 against merged PR #88 (`1c656ea`). Maintained specifications
 describe merged source, not an assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
 records to establish release evidence.
 
@@ -33,7 +33,7 @@ records to establish release evidence.
   operator guide; [ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)
   superseded it with the Live, Sermons and Settings layout.
 - [ADR 0022](decisions/0022-shared-church-setup-and-words-list.md) records one church setup
-  shared by all operators, the Words list, one summary model and one buffer wait choice.
+  shared by all operators, the Terms list, one summary model and one buffer wait choice.
 - [ADR 0023](decisions/0023-live-note-and-recent-outputs.md) records the immediate, bounded
   Live note prompt and the controlling tab's display-only Recent outputs strip.
 - [ADR 0024](decisions/0024-session-metadata.md) records optional saved-sermon details and
@@ -45,7 +45,7 @@ records to establish release evidence.
 - [ADR 0027](decisions/0027-operator-only-live-drafts.md) records bounded, operator-only
   in-progress caption drafts and their quota safeguards.
 - [ADR 0028](decisions/0028-live-quick-overrides.md) records the in-memory live word
-  corrections, their priority over saved Words, and the Keep in Words flow.
+  corrections, their priority over saved Terms, and the Keep in Terms flow.
 - [ADR 0029](decisions/0029-transcription-prompt-budget.md) records the conservative
   transcription prompt byte budget and its fallback for provider 400 responses.
 - [ADR 0030](decisions/0030-operator-interface-localization.md) records the typed

@@ -25,7 +25,7 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
 - **Translation**: GPT-OSS 20B translates through an immutable safety envelope and
   approved terminology. **Settings › Translation** sets **How closely to follow the
   words** (Close, Balanced or Free), **Sanitization** of filler (Off by default; Low,
-  Balanced or High) and **Filter inappropriate language** (on by default). One **Words**
+  Balanced or High) and **Filter inappropriate language** (on by default). One **Terms**
   list teaches names, fixes mishearings, sets preferred translations, and hides or
   replaces words on screen. A **Live note** gives the translator situational guidance for
   the current passage from the next caption, without **Apply now**.
@@ -81,7 +81,7 @@ lists the steps of a service in order.
    OBS Browser Source on the separate OBS computer.
 2. **Settings › System** — choose the microphone or audio interface and check the
    level.
-3. **Settings › Language**, **Translation** and **Words** — choose the spoken and caption
+3. **Settings › Language**, **Translation** and **Terms** — choose the spoken and caption
    languages, set the caption wait time, and add names and terms or words never to show.
 4. **Settings › Output** — style the captions.
 5. **Live** — tick **Save the transcript for 7 days** if wanted (optionally fill in

@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 1 November 2026 against merged PR #86 (`96c005a`), including the Live/Sermons/Settings dashboard. Use a protected, verified deployment,
+Reviewed 1 November 2026 against merged PR #88 (`1c656ea`), including the Live/Sermons/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 
@@ -49,10 +49,10 @@ The browser is the sole client; there are no native/signing checklists.
    the OBS overlay must stay transparent. Reload and confirm the theme returns from the account.
    Confirm drafts and the transcript checkbox survive moving between screens, and no
    navigation action starts capture.
-   Save the translator instructions, summary style, Output, Words and the languages
+   Save the translator instructions, summary style, Output, Terms and the languages
    setup with **Save for everyone**, then open the dashboard as a different Access user: the
    church setup must match. Change the theme there; it must not change for the first user.
-   In **Settings › Words**, add one word with each **What to do** action and confirm each
+   In **Settings › Terms**, add one term with each **What to do** action and confirm each
    behaves as described.
 3. Sign in; after Start, confirm the configured models under **Live › Quick fixes ›
    Service details** (Speech model, Translation model). Defaults are
@@ -63,10 +63,10 @@ The browser is the sole client; there are no native/signing checklists.
 5. In **Settings › Language**, choose **Input · Speaker’s language** Indonesian and
    **Output · Show captions in** English; in **Settings › Translation**, set **Caption wait
    time** "Balanced: listens 9 seconds at a time".
-   Review **Settings › Words › Bible names › Import names** (TB2) and approved mappings;
+   Review **Settings › Terms › Bible names › Import names** (TB2) and approved mappings;
    add `swauf` with **Fix spelling to…** `Saul` only as an explicit reviewed alias.
    Compare original recognition and translation separately; do not infer the biblical identity.
-6. Add safe synthetic Words rows. Review **Settings › Translation** (how closely to follow
+6. Add safe synthetic Terms rows. Review **Settings › Translation** (how closely to follow
    the words, Sanitization, Filter inappropriate language, Instructions for the translator).
    Unsaved drafts stay page-local; **Save for everyone** writes the shared church setup and
    keeps an unencrypted browser `localStorage` copy.
@@ -80,11 +80,11 @@ The browser is the sole client; there are no native/signing checklists.
    optionally fill **Session details**, then press **Start captions**; Start performs
    readiness and ownership checks. **Heard** and **Audience view** show the private source
    and the public caption.
-9. Speak approved samples. Confirm private source versus moderated public output, Words
+9. Speak approved samples. Confirm private source versus moderated public output, Terms
    behavior, masks, caption language, **Recent captions**, and the **Service details**
    counters (Delay after speech, Audio chunks dropped). The delay excludes the recording
    window, queue wait and audience rendering.
-10. While live and paused, draft language, Words, caption wait time and translator changes in
+10. While live and paused, draft language, Terms, caption wait time and translator changes in
     Settings. The **Your changes aren’t in use yet** banner appears: press **Undo changes**
     once, make them again, then **Apply now**. Old output/context disappears; old results
     cannot reappear. Timer, controller, links, usage and live/paused state remain. Repeat a

@@ -110,7 +110,7 @@ export function WordsEditor({ keywordText, filterText, sourceLanguage, targetLan
         <p className="emptyState">{t("wordsEditor.empty")}</p>
       )}
       </SettingGroup>
-      <SettingGroup title={t("wordsEditor.addTitle")}>
+      <SettingGroup title={t("wordsEditor.addTitle")} hint={t("wordsEditor.addHint")}>
       {overLimit ? (
         <p className="operatorBanner" data-tone="warn" role="status">
           {t("wordsEditor.overLimit", { max: 40 })}
