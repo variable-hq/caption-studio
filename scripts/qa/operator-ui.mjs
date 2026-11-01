@@ -111,7 +111,7 @@ try {
   await page.screenshot({path:output+`/live-drafts-${colorScheme}-${width}.png`,fullPage:true});
   await liveDraftSwitch.uncheck();
   await page.getByText('Drafts appear while a longer recording window is in progress. 6s windows never draft.',{exact:true}).waitFor({state:'hidden'});
-  assert.equal(controls.some(entry=>entry.preferenceWrite&&Object.hasOwn(entry.preferenceWrite,'liveDraftsEnabled')),false,'The session switch must not save the church default');
+  assert.equal(controls.some(entry=>entry.preferenceWrite&&Object.hasOwn(entry.preferenceWrite,'liveDraftsEnabled')),false,'The session switch must not save the default');
   assert.equal(inferenceCalls,0,'Toggling drafts must not invoke inference');
   await page.screenshot({path:output+`/live-idle-${colorScheme}-${width}.png`,fullPage:true});
 
