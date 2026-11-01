@@ -23,7 +23,7 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
   Groq Whisper with bounded biblical/church-name hints, approved recognition aliases, and
   the end of the previous chunk's transcript as continuity context.
 - **Translation**: GPT-OSS 20B translates through an immutable safety envelope and
-  approved terminology. **Settings › AI translator** sets **How closely to follow the
+  approved terminology. **Settings › Translation** sets **How closely to follow the
   words** (Close, Balanced or Free), **Sanitization** of filler (Off by default; Low,
   Balanced or High) and **Filter inappropriate language** (on by default). One **Words**
   list teaches names, fixes mishearings, sets preferred translations, and hides or
@@ -79,11 +79,11 @@ lists the steps of a service in order.
 
 1. **Settings › OBS & links** — create the OBS link once and paste it into a 1920 × 1080
    OBS Browser Source on the separate OBS computer.
-2. **Settings › This system** — choose the microphone or audio interface and check the
+2. **Settings › System** — choose the microphone or audio interface and check the
    level.
-3. **Settings › Languages & timing** and **Words** — choose the spoken and caption
+3. **Settings › Language** and **Words** — choose the spoken and caption
    languages, caption speed, names and terms, and words never to show.
-4. **Settings › Caption look** — style the captions.
+4. **Settings › Output** — style the captions.
 5. **Live** — tick **Save the transcript for 7 days** if wanted (optionally fill in
    **Session details**), press **Start captions**, check a test phrase reaches OBS, then
    use **Share** for the **Phone viewer** and **Sermon reader** links and **Pair phone**.

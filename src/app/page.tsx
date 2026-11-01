@@ -113,9 +113,9 @@ type SettingsSectionId =
   | "summary"
   | "usage";
 
-const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey; descriptionKey: MessageKey }[] = [
-  { id: "computer", titleKey: "settings.section.computer.title", descriptionKey: "settings.section.computer.description" },
-  { id: "languages", titleKey: "settings.section.languages.title", descriptionKey: "settings.section.languages.description" },
+const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey; descriptionKey?: MessageKey }[] = [
+  { id: "computer", titleKey: "settings.section.computer.title" },
+  { id: "languages", titleKey: "settings.section.languages.title" },
   { id: "words", titleKey: "settings.section.words.title", descriptionKey: "settings.section.words.description" },
   { id: "look", titleKey: "settings.section.look.title", descriptionKey: "settings.section.look.description" },
   { id: "obs", titleKey: "settings.section.obs.title", descriptionKey: "settings.section.obs.description" },
@@ -1553,10 +1553,14 @@ function OperatorDashboardContent() {
           <p className="operatorHint">{t("settings.scopeHint", { workspace: WORKSPACE_NAME })}</p>
         </nav>
         <section className="operatorCard settingsPanel" aria-labelledby="settings-section-heading">
-          <header className="settingsHeader">
-            <h2 id="settings-section-heading">{t(currentSection.titleKey)}</h2>
-            <p className="settingHint">{t(currentSection.descriptionKey)}</p>
-          </header>
+          {currentSection.descriptionKey ? (
+            <header className="settingsHeader">
+              <h2 id="settings-section-heading">{t(currentSection.titleKey)}</h2>
+              <p className="settingHint">{t(currentSection.descriptionKey)}</p>
+            </header>
+          ) : (
+            <h2 id="settings-section-heading" className="visuallyHidden">{t(currentSection.titleKey)}</h2>
+          )}
           {["languages", "words", "translator"].includes(settingsSection) ? pendingBanner : null}
 
           {settingsSection === "computer" ? (

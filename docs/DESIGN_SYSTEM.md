@@ -35,8 +35,8 @@ The light palette is the default. A dark palette is declared twice: under
 `color-scheme` follows the palette. Dark body text measures about 17:1 against the page
 and muted text at least 6.9:1 against cards.
 
-**Settings › This system** holds a **Light or dark** select (Match this system,
-Light, Dark). The choice is applied to `<html data-theme>`, cached in `localStorage` under
+**Settings › System** holds a **Theme** select (System default, Light, Dark). The choice
+is applied to `<html data-theme>`, cached in `localStorage` under
 `caption-studio:theme:v1`, and saved with the operator's account through the
 preferences record, so it follows the operator between browsers. The paired operator
 remote applies the cached theme; the audience `/view` and `/read` pages follow the

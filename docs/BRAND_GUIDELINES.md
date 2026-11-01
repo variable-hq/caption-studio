@@ -45,7 +45,7 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
 ## Voice and copy
 
 - **Sentence case** for everything: headings, buttons, tabs, navigation, menu items.
-  "Start captions", "AI translator", not "Start Captions" or "AI Behavior".
+  "Start captions", "Translation", not "Start Captions" or "AI Behavior".
 - Speak to the operator as **you**. Use active voice: "Copy the OBS link", not "The
   OBS link can be copied".
 - **Buttons name the outcome** with a verb: "End service", "Delete sermon",

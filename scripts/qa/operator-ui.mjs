@@ -156,7 +156,7 @@ try {
   await page.getByText('Ready to go',{exact:true}).waitFor();
   await openSettings(page,'look');
   await page.reload();
-  await page.getByRole('heading',{name:'Caption look',exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Output',exact:true}).waitFor();
   // Old sidebar bookmarks land on the matching screen.
   await page.goto('http://127.0.0.1:3100/#workspace=history');
   await page.getByRole('heading',{name:'Sermons',exact:true}).waitFor();

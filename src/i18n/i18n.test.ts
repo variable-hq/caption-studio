@@ -56,6 +56,35 @@ describe("operator interface translations", () => {
     expect(id["live.audienceSees"]).toBe("Tampilan audiens");
   });
 
+  it("names the Settings sections and Theme", () => {
+    expect(en["settings.section.computer.title"]).toBe("System");
+    expect(id["settings.section.computer.title"]).toBe("Sistem");
+    expect(en["settings.section.languages.title"]).toBe("Language");
+    expect(id["settings.section.languages.title"]).toBe("Bahasa");
+    expect(en["settings.section.look.title"]).toBe("Output");
+    expect(id["settings.section.look.title"]).toBe("Keluaran");
+    expect(en["settings.section.translator.title"]).toBe("Translation");
+    expect(id["settings.section.translator.title"]).toBe("Terjemahan");
+    expect(en["settings.section.summary.title"]).toBe("Summary");
+    expect(id["settings.section.summary.title"]).toBe("Ringkasan");
+    expect(en["settings.appearance.title"]).toBe("Theme");
+    expect(id["settings.appearance.title"]).toBe("Tema");
+  });
+
+  it("drops the System and Language section descriptions", () => {
+    expect("settings.section.computer.description" in en).toBe(false);
+    expect("settings.section.computer.description" in id).toBe(false);
+    expect("settings.section.languages.description" in en).toBe(false);
+    expect("settings.section.languages.description" in id).toBe(false);
+  });
+
+  it("uses System default for follow-the-device choices", () => {
+    expect(en["settings.appearance.matchComputer"]).toBe("System default");
+    expect(id["settings.appearance.matchComputer"]).toBe("Default sistem");
+    expect(en["settings.interfaceLanguage.matchBrowser"]).toBe("System default");
+    expect(id["settings.interfaceLanguage.matchBrowser"]).toBe("Default sistem");
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");

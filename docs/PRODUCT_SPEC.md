@@ -122,7 +122,7 @@ plain words. Nothing opens automatically.
    paragraphs and summaries remain for seven days after End/expiry. No audio is stored.
 5. The separate reader has 30 minutes of post-End reading grace. An operator may manually
    generate a summary when optional AI is enabled; End itself makes no summary call
-   unless the church setup opts in to automatic summaries (see AI summary below).
+   unless the church setup opts in to automatic summaries (see Summary below).
 6. Numeric usage survives service/content actions for a rolling 30 days.
 
 ## Supported languages
@@ -144,9 +144,9 @@ Mandarin; Cantonese requires a separate language and model-quality decision.
 
 ## Operator interface language
 
-**Settings › This system › Interface language** selects English, Indonesian, or
-**Match this system**. The choice is personal to the signed-in operator and is kept
-separate from the shared caption source and target languages. Match this system uses
+**Settings › System › Interface language** selects English, Indonesian, or
+**System default**. The choice is personal to the signed-in operator and is kept
+separate from the shared caption source and target languages. System default uses
 the browser's `navigator.languages` preference, choosing Indonesian when an Indonesian
 language is listed and English otherwise. An account preference takes precedence; a
 browser copy is used only when account preferences cannot be reached. The active language
@@ -210,7 +210,7 @@ implemented.
   is instructed to prioritize it over conflicting custom text; this prompt ordering is
   risk reduction, not guaranteed enforcement. The request is one bounded model call
   rather than an agent.
-- An Inference Level setting, shown in Settings › AI translator as **How closely to follow
+- An Inference Level setting, shown in Settings › Translation as **How closely to follow
   the words** (Close, Balanced — default, Free; stored as `low`, `balanced`, `high`),
   controls how aggressively the model may infer meaning and rephrase versus sticking
   close to word-for-word. Close corrects only clear transcription errors; Balanced permits conservative corrections so every
@@ -467,7 +467,7 @@ the row to the draft Words list and leaves the live entry active.
 
 - The operator console follows [Brand guidelines](BRAND_GUIDELINES.md) and uses neutral
   light and dark palettes built from shared design tokens (see [Design system](DESIGN_SYSTEM.md)).
-  **Settings › This system › Light or dark** offers Match this system, Light and Dark, and
+  **Settings › System › Theme** offers System default, Light and Dark, and
   the choice is saved with the operator's account. Status text and control labels do not
   depend on colour alone.
 - A top bar holds the brand, one status pill (Ready, Checking…, Not ready, Live, Paused,
@@ -506,10 +506,10 @@ the row to the draft Words list and leaves the live entry active.
   committed reader paragraphs.
 - When another operator's service is running, Live names them, mirrors their output
   read-only and offers **Take over**; Start stays disabled.
-- **Settings** lists its sections beside the selected one: This system (microphone,
-  level test, light or dark), Languages & timing, Words (names and terms, the public caption
-  filter, and the TB2 import), Caption look (with a preview), OBS & links (OBS link,
-  phone viewer link and their replacement), AI translator, AI summary and Usage. Channel
+- **Settings** lists its sections beside the selected one: System (microphone,
+  level test, Theme and interface language), Language, Words (names and terms, the public
+  caption filter, and the TB2 import), Output (with a preview), OBS & links (OBS link,
+  phone viewer link and their replacement), Translation, Summary and Usage. Channel
   errors offer **Retry channel** or, when the OBS credential must be rebuilt, **Rotate and
   recover**, in a banner at the top of Live.
 - **Sermons** loads the workspace's saved sermons on opening, states that every signed-in
@@ -657,9 +657,9 @@ Code-level acceptance:
   incoming one instead. Pause freezes the shown caption's remaining hold time; Clear
   removes only it; Fast-forward publishes it immediately. Editing cannot reach Live
   unmoderated, and auto-resumes on Submit.
-- Caption look controls update the dashboard preview continuously before Save.
+- Output controls update the dashboard preview continuously before Save.
 - The output monitor renders the real 1920 × 1080 canvas scaled to the card and shows the
-  published caption on Live; Settings › Caption look keeps a sample above its editor.
+  published caption on Live; Settings › Output keeps a sample above its editor.
 - The primary operator viewport is 1920 × 1080, with dashboard content capped at a
   readable 1160px rather than stretched across the full display.
 - Every screen reflows without horizontal scrolling from 320px through desktop
