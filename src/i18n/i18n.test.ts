@@ -47,6 +47,15 @@ describe("operator interface translations", () => {
     }
   });
 
+  it("names the Live panes by role", () => {
+    expect(en["live.onlyYou"]).toBe("Operator view");
+    expect(id["live.onlyYou"]).toBe("Tampilan operator");
+    expect(en["captionPreview.heardLabel"]).toBe("Heard \u00b7 operator view");
+    expect(id["captionPreview.heardLabel"]).toBe("Terdengar \u00b7 tampilan operator");
+    expect(en["live.audienceSees"]).toBe("Audience view");
+    expect(id["live.audienceSees"]).toBe("Tampilan audiens");
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");

@@ -367,7 +367,7 @@ While the current recording window is still being captured, the controller may r
 the audio already recorded and replace the previous operator-only preview with a newer
 draft. When enabled without a draft yet, the card explains that drafts appear during longer
 windows and that 6-second windows never draft. The preview sits below Heard and Audience
-sees in Live's Captions card. It is never published, buffered, added to recent translation
+view panes in Live's Captions card. It is never published, buffered, added to recent translation
 context, or sent to OBS, viewers, or the sermon journal. The final caption still follows the
 normal end-of-window path.
 
@@ -481,7 +481,7 @@ the row to the draft Words list and leaves the live entry active.
 - **Live** is two rows of paired cards, each pair the same height: captions beside the
   readiness checklist, then the Start card (or **Quick fixes**) beside **Share**; on narrow
   screens they stack as captions, Start/Quick fixes, checklist, Share. The captions card
-  shows **Heard** (the source text, operator only) beside **Audience sees** (a scaled copy
+  shows **Heard** (the source text, operator only) beside **Audience view** (a scaled copy
   of the OBS screen in the channel's saved style, letterboxed), always the same size, and
   the microphone level, with **Recent captions** folded below.
   Before Start it holds one Start card: **Start captions**, **Show a test caption**, a line

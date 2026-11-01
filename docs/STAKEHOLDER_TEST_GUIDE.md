@@ -77,7 +77,7 @@ The browser is the sole client; there are no native/signing checklists.
 8. Use **Show a test caption** and **Clear screen** for a synthetic idle test. It makes no
    AI call or microphone capture. On **Live**, decide **Save the transcript for 7 days**,
    optionally fill **Session details**, then press **Start captions**; Start performs
-   readiness and ownership checks. **Heard** and **Audience sees** show the private source
+   readiness and ownership checks. **Heard** and **Audience view** show the private source
    and the public caption.
 9. Speak approved samples. Confirm private source versus moderated public output, Words
    behavior, masks, caption language, **Recent captions**, and the **Service details**
