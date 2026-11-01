@@ -1,6 +1,6 @@
 # Roadmap
 
-Reviewed 30 October 2026 against merged PR #77 (`e242c1c`). Status describes source
+Reviewed 1 November 2026 against merged PR #85 (`863bf10`). Status describes source
 implementation; deployment and church-approved quality require separate evidence.
 
 ## Implemented baseline
@@ -54,7 +54,7 @@ corrected deploy command completed at 08:05 UTC. [Deployment](DEPLOYMENT.md) rec
 Delivered under [ADR 0011](decisions/0011-service-history-and-optional-inference.md):
 
 - Indonesian TB2 name vocabulary and explicitly approved recognition aliases.
-- Paired phone remote controlling the capture computer.
+- Paired phone remote controlling the capture system.
 - Separate appending reader with shared 30-second paragraph processing.
 - Immutable pre-service opt-in, private seven-day source history, corrections/exclusions,
   deletion and JSON export.
@@ -82,7 +82,7 @@ real sermon processing. Exact TB2 text retrieval is not implemented.
    still unscored. Add approved audio for Saul/name ambiguity and chunk boundaries, plus
    the Inference, Sanitization, filter and Live note checks in
    [G03](GAP_ANALYSIS.md#g03--p0-language-and-theological-quality).
-4. Rehearse the capture computer, separate OBS computer, paired operator phone, a second
+4. Rehearse the capture system, separate OBS computer, paired operator phone, a second
    watching operator and both audience surfaces with synthetic or consented speech.
 5. Exercise Clear/Pause/refresh and output-buffer races, takeover from a watcher, host
    acknowledgement, reader expiry/replacement, summary grounding (manual and automatic),

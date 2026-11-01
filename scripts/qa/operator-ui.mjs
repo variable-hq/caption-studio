@@ -190,7 +190,7 @@ try {
    // A second tab watches the running service: it names the operator and offers Take over, not Start.
    const other=await context.newPage();
    await other.goto('http://127.0.0.1:3100/#live');
-   await other.getByText('operator@example.test is running captions on another computer.',{exact:true}).waitFor();
+   await other.getByText('operator@example.test is running captions on another system.',{exact:true}).waitFor();
    assert.equal(await other.getByRole('button',{name:'Take over',exact:true}).count(),1);
    assert.equal(await other.getByRole('button',{name:'Start captions',exact:true}).isDisabled(),true);
    assert.equal(await other.getByRole('switch',{name:'Live drafts',exact:true}).count(),0,'Observers must not see the controller switch');

@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 31 October 2026 against merged PR #84 (`1f16a3b`). Cloudflare deployed `20597d8`
+Reviewed 1 November 2026 against merged PR #85 (`863bf10`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -122,7 +122,7 @@ notes.
 
 Bearer links use fragments, not query strings. OBS/latest-viewer sockets send credentials
 as purpose-specific subprotocols; the reader sends `x-caption-reader` and the paired
-phone sends `x-caption-remote`, beside the capture computer's `x-caption-controller` and
+phone sends `x-caption-remote`, beside the capture system's `x-caption-controller` and
 `x-caption-transcription-attempt`.
 Wrong-purpose credentials are rejected. Audience clients receive no private source,
 summary, usage, controller or provider secrets.
@@ -170,7 +170,7 @@ The journal caps stored operator notes at 50 per service and flushes any already
 not-yet-committed reader text before recording one, so a note cannot appear ahead of
 speech that happened before it.
 
-The capture computer polls paired remote status about every two seconds. Server-side
+The capture system polls paired remote status about every two seconds. Server-side
 remote Pause blocks claims before the host acknowledges physical capture stopping.
 Commands use bounded IDs and cached results; duplicate retries do not repeat actions.
 The host counts as connected only while its heartbeat is under 15 seconds old; remote

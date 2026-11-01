@@ -30,6 +30,23 @@ describe("operator interface translations", () => {
     expect("outputBuffer.empty" in id).toBe(false);
   });
 
+  it("uses system for the local device and the capture role", () => {
+    const forbidden = [
+      "this computer",
+      "another computer",
+      "capture computer",
+      "caption computer",
+      "komputer ini",
+      "komputer lain",
+      "komputer caption",
+    ];
+    for (const [key, message] of [...Object.entries(en), ...Object.entries(id)]) {
+      for (const phrase of forbidden) {
+        expect(message.toLowerCase(), `${key} avoids “${phrase}”`).not.toContain(phrase);
+      }
+    }
+  });
+
   it("falls back to English when an Indonesian message is not translated yet", () => {
     expect(translate("id", "shell.navigation.live")).toBe("Live");
     expect(translate("id", "shell.status.ready")).toBe("Siap");

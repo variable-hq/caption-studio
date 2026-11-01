@@ -67,7 +67,7 @@ a sign-in.
 
 | Surface | Purpose |
 | --- | --- |
-| `/` | Capture computer: setup, live controls, archives, usage |
+| `/` | Capture system: setup, live controls, archives, usage |
 | `/operator/mobile` | Paired Pause/Resume/Clear remote (Access-protected) |
 | `/overlay` | Reusable OBS Browser Source |
 | `/view` | Per-service latest-caption viewer link |
@@ -79,7 +79,7 @@ lists the steps of a service in order.
 
 1. **Settings › OBS & links** — create the OBS link once and paste it into a 1920 × 1080
    OBS Browser Source on the separate OBS computer.
-2. **Settings › This computer** — choose the microphone or audio interface and check the
+2. **Settings › This system** — choose the microphone or audio interface and check the
    level.
 3. **Settings › Languages & timing** and **Words** — choose the spoken and caption
    languages, caption speed, names and terms, and words never to show.
@@ -112,9 +112,9 @@ more model calls. Manual captions shown while paused appear here too, as separat
 operator notes alongside the translated paragraphs.
 
 **Paired operator remote.** `/operator/mobile` offers a Pause/Resume/Clear remote; the
-microphone always stays on the capture computer, and actions report as confirmed only
+microphone always stays on the capture system, and actions report as confirmed only
 after it acknowledges them. Server-side Pause blocks new inference immediately; Resume
-requires the capture computer to still be connected.
+requires the capture system to still be connected.
 
 **Live settings and drafts.** Language, words, recording window, translator settings
 and instruction edits stay drafts until **Apply now** in the banner on Live and the

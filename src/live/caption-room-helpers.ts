@@ -31,7 +31,7 @@ export interface RemoteCommand {
   at: number;
 }
 
-/** A remote command the capture computer has not acknowledged by then is reported unconfirmed so the phone unlocks. */
+/** A remote command the capture system has not acknowledged by then is reported unconfirmed so the phone unlocks. */
 export const REMOTE_COMMAND_TIMEOUT_MS = 45_000;
 
 export interface ArchiveEntry {

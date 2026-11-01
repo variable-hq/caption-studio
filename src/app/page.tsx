@@ -712,7 +712,7 @@ function OperatorDashboardContent() {
   }, [hasService]);
 
   useEffect(() => {
-    // Start found another computer running captions; ask before taking over.
+    // Start found another system running captions; ask before taking over.
     if (takeoverRequired && !takeoverDialogRef.current?.open) takeoverDialogRef.current?.showModal();
   }, [takeoverRequired]);
 

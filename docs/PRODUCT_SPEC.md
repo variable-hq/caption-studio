@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 31 October 2026 against merged PR #84 (`1f16a3b`). The corrected 13 September
+Reviewed 1 November 2026 against merged PR #85 (`863bf10`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -23,7 +23,7 @@ reviewer and must never invent speech, scripture, or doctrine.
 - **Audience reader:** opens `/read` for appending translated paragraphs, separate from
   the latest-caption viewer.
 - **Operator remote:** uses an Access-authenticated, paired phone to control Pause,
-  Resume and Clear on the capture computer.
+  Resume and Clear on the capture system.
 - **Archive reviewer:** any Access-approved operator can review/correct saved source and
   generate/export summary drafts. There is no distinct reviewer role or per-email
   archive ownership: one Access tenant is one workspace, named *BEST Church workspace*
@@ -144,9 +144,9 @@ Mandarin; Cantonese requires a separate language and model-quality decision.
 
 ## Operator interface language
 
-**Settings › This computer › Interface language** selects English, Indonesian, or
-**Match this computer**. The choice is personal to the signed-in operator and is kept
-separate from the shared caption source and target languages. Match this computer uses
+**Settings › This system › Interface language** selects English, Indonesian, or
+**Match this system**. The choice is personal to the signed-in operator and is kept
+separate from the shared caption source and target languages. Match this system uses
 the browser's `navigator.languages` preference, choosing Indonesian when an Indonesian
 language is listed and English otherwise. An account preference takes precedence; a
 browser copy is used only when account preferences cannot be reached. The active language
@@ -467,11 +467,11 @@ the row to the draft Words list and leaves the live entry active.
 
 - The operator console follows [Brand guidelines](BRAND_GUIDELINES.md) and uses neutral
   light and dark palettes built from shared design tokens (see [Design system](DESIGN_SYSTEM.md)).
-  **Settings › This computer › Light or dark** offers Match this computer, Light and Dark, and
+  **Settings › This system › Light or dark** offers Match this system, Light and Dark, and
   the choice is saved with the operator's account. Status text and control labels do not
   depend on colour alone.
 - A top bar holds the brand, one status pill (Ready, Checking…, Not ready, Live, Paused,
-  Applying changes…, Live on another computer, Needs attention, Ending…) and the **Live**, **Sermons** and
+  Applying changes…, Live on another system, Needs attention, Ending…) and the **Live**, **Sermons** and
   **Settings** tabs plus **Help**. Each screen has its own address (`#live`, `#sermons`,
   `#settings=<section>`, `#help`), so links, reload and browser Back/Forward work; old
   `#workspace=…` links land on the matching screen. Moving between screens keeps
@@ -506,7 +506,7 @@ the row to the draft Words list and leaves the live entry active.
   committed reader paragraphs.
 - When another operator's service is running, Live names them, mirrors their output
   read-only and offers **Take over**; Start stays disabled.
-- **Settings** lists its sections beside the selected one: This computer (microphone,
+- **Settings** lists its sections beside the selected one: This system (microphone,
   level test, light or dark), Languages & timing, Words (names and terms, the public caption
   filter, and the TB2 import), Caption look (with a preview), OBS & links (OBS link,
   phone viewer link and their replacement), AI translator, AI summary and Usage. Channel
@@ -737,8 +737,8 @@ archive exists. They are record-keeping only: they are not sent to translation o
 models, do not extend retention, and are deleted with the archive.
 
 The paired `/operator/mobile` phone remote offers **Pause**, **Resume** and **Clear
-screen**; Resume stays disabled while the capture computer is disconnected,
-and each action reads as pending until the capture computer acknowledges it. The remote
+screen**; Resume stays disabled while the capture system is disconnected,
+and each action reads as pending until the capture system acknowledges it. The remote
 stays scoped to those live commands: saved transcripts and sermons are reviewed on the
 dashboard's Sermons screen, which any signed-in operator may open on any device.
 
