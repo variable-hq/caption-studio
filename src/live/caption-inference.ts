@@ -4,6 +4,7 @@ import type {
   TranslationResult,
 } from "@/ai/contracts";
 import type { CloudProviderClient } from "@/ai/cloud-provider-client";
+import type { LanguageLocale } from "@/domain/languages";
 import type { TranslationSessionSettings } from "@/live/translation-settings";
 import { parseGlossaryInput, preferredTermMap } from "@/live/config";
 import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
@@ -13,13 +14,18 @@ import type { LiveSessionClient } from "@/live/session-client";
 
 type TranscriptionLease = Awaited<ReturnType<LiveSessionClient["reserveTranscriptionAttempt"]>>;
 
-export interface CaptionInferenceResult {
+/** One reserve → transcribe pass, before any translation. */
+export interface CaptionTranscriptionResult {
   lease: TranscriptionLease;
   inferenceContext: InferenceAttemptContext;
   glossary: ReturnType<typeof parseGlossaryInput>;
   originalSource: string;
   sourceText: string;
-  detectedLanguage: string;
+  detectedLanguage: LanguageLocale;
+  droppedSegments: number;
+}
+
+export interface CaptionInferenceResult extends CaptionTranscriptionResult {
   translation: TranslationResult;
 }
 
@@ -27,6 +33,34 @@ interface CaptionInferenceDependencies {
   reserve: (controllerToken: string) => Promise<TranscriptionLease>;
   transcribe: CloudProviderClient["transcribe"];
   translate: CloudProviderClient["translate"];
+}
+
+interface RunCaptionTranscriptionOptions {
+  audio: Blob;
+  settings: TranslationSessionSettings;
+  glossary?: ReturnType<typeof parseGlossaryInput>;
+  controllerToken: string;
+  recentContext: string[];
+  signal: AbortSignal;
+  isCurrent: () => boolean;
+  currentRevision: number;
+  onRevisionMismatch: (lease: TranscriptionLease) => void;
+  onLease: (lease: TranscriptionLease) => void;
+  onDroppedSegments: (count: number) => void;
+  onTranscriptionError?: (error: unknown) => void;
+  dependencies: Pick<CaptionInferenceDependencies, "reserve" | "transcribe">;
+}
+
+interface RunCaptionTranslationOptions {
+  transcription: CaptionTranscriptionResult;
+  settings: TranslationSessionSettings;
+  recentContext: string[];
+  liveNote?: string;
+  signal: AbortSignal;
+  isCurrent: () => boolean;
+  onTranslation: (translation: TranslationResult) => void;
+  onTranslationError: (error: unknown) => void;
+  dependencies: Pick<CaptionInferenceDependencies, "translate">;
 }
 
 interface RunCaptionInferenceOptions {
@@ -48,10 +82,10 @@ interface RunCaptionInferenceOptions {
   dependencies: CaptionInferenceDependencies;
 }
 
-/** The shared reserve → transcribe → translate path used by finals and drafts. */
-export async function runCaptionInference(
-  options: RunCaptionInferenceOptions,
-): Promise<CaptionInferenceResult | null> {
+/** Reserve an attempt and transcribe one window; no translation call. */
+export async function runCaptionTranscription(
+  options: RunCaptionTranscriptionOptions,
+): Promise<CaptionTranscriptionResult | null> {
   const lease = await options.dependencies.reserve(options.controllerToken);
   options.onLease(lease);
   if (!options.isCurrent()) return null;
@@ -95,25 +129,41 @@ export async function runCaptionInference(
   if (!detectedLanguage) {
     throw new Error("The spoken language could not be detected. Select it explicitly and restart.");
   }
+  return {
+    lease,
+    inferenceContext,
+    glossary,
+    originalSource,
+    sourceText,
+    detectedLanguage,
+    droppedSegments: transcription.droppedSegments,
+  };
+}
 
-  let translation: TranslationResult = { text: sourceText };
-  if (detectedLanguage !== current.targetLanguage) {
+/** Translate a transcription result, returning the complete caption inference. */
+export async function runCaptionTranslation(
+  options: RunCaptionTranslationOptions,
+): Promise<CaptionInferenceResult | null> {
+  const { transcription } = options;
+  const current = options.settings;
+  let translation: TranslationResult = { text: transcription.sourceText };
+  if (transcription.detectedLanguage !== current.targetLanguage) {
     try {
       const liveNote = normalizeLiveNote(options.liveNote);
       translation = await options.dependencies.translate(
         {
-          text: sourceText,
-          sourceLanguage: detectedLanguage,
+          text: transcription.sourceText,
+          sourceLanguage: transcription.detectedLanguage,
           targetLanguage: current.targetLanguage,
           recentContext: options.recentContext,
-          preferredTerms: preferredTermMap(glossary, current.targetLanguage),
+          preferredTerms: preferredTermMap(transcription.glossary, current.targetLanguage),
           translationSystemPrompt: current.translationSystemPrompt,
           inferenceLevel: current.inferenceLevel,
           sanitizeLevel: current.sanitizeLevel,
           filterInappropriateLanguage: current.filterInappropriateLanguage,
           ...(liveNote ? { liveNote } : {}),
         },
-        inferenceContext,
+        transcription.inferenceContext,
         options.signal,
       );
     } catch (error) {
@@ -123,5 +173,24 @@ export async function runCaptionInference(
     options.onTranslation(translation);
   }
   if (!options.isCurrent()) return null;
-  return { lease, inferenceContext, glossary, originalSource, sourceText, detectedLanguage, translation };
+  return { ...transcription, translation };
+}
+
+/** The shared reserve → transcribe → translate path used by finals. */
+export async function runCaptionInference(
+  options: RunCaptionInferenceOptions,
+): Promise<CaptionInferenceResult | null> {
+  const transcription = await runCaptionTranscription(options);
+  if (!transcription) return null;
+  return runCaptionTranslation({
+    transcription,
+    settings: options.settings,
+    recentContext: options.recentContext,
+    liveNote: options.liveNote,
+    signal: options.signal,
+    isCurrent: options.isCurrent,
+    onTranslation: options.onTranslation,
+    onTranslationError: options.onTranslationError,
+    dependencies: { translate: options.dependencies.translate },
+  });
 }
