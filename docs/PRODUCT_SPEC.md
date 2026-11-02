@@ -43,7 +43,7 @@ The browser is the sole client. The deferred iPhone/iPad shell was removed
 ### Before the service
 
 The dashboard opens on **Live** ([ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)).
-Its readiness checklist (caption service, microphone, languages, words, OBS) shows a tick
+Its readiness checklist (caption service, microphone, OBS, languages, Terms) shows a tick
 or a red item with a **Fix** or **Set up** button that opens the matching Settings
 section. A **Help** page, one click from every screen, lists the steps of a service in
 plain words. Nothing opens automatically.

@@ -1155,6 +1155,13 @@ function OperatorDashboardContent() {
       fixLabel: t("readiness.fix"),
     },
     {
+      label: t("readiness.obs"),
+      ok: channelConfigured || checkingChannel,
+      value: checkingChannel ? t("common.checking") : channelConfigured ? t("readiness.setUp") : t("readiness.notSetUpYet"),
+      href: "#settings=obs",
+      fixLabel: t("readiness.setUp"),
+    },
+    {
       label: t("readiness.languages"),
       ok: true,
       value: t("readiness.languagesValue", {
@@ -1171,13 +1178,6 @@ function OperatorDashboardContent() {
       value: translatePlural(locale, "readiness.wordCount", wordCount),
       href: "#settings=words",
       fixLabel: t("readiness.fix"),
-    },
-    {
-      label: t("readiness.obs"),
-      ok: channelConfigured || checkingChannel,
-      value: checkingChannel ? t("common.checking") : channelConfigured ? t("readiness.setUp") : t("readiness.notSetUpYet"),
-      href: "#settings=obs",
-      fixLabel: t("readiness.setUp"),
     },
   ];
   const setupBlocked = readinessChecks.some((check) => !check.ok);

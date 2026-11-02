@@ -119,6 +119,7 @@ try {
   assert.equal(await page.locator('.liveCaptions .monitorGrid ~ .outputBufferControls').count(),1,'The output buffer follows the panes in the Captions card');
   assert.equal(await page.locator('.liveActions .outputBufferPanel').count(),0,'The Start card no longer holds the output buffer');
   assert.equal(await page.getByTestId('output-buffer-wait').isVisible(),true,'The wait setting is visible without opening a disclosure');
+  assert.deepEqual(await page.locator('.checkList li .checkText > span:first-child').allTextContents(),['Caption service','Microphone','OBS','Languages','Terms'],'OBS is third in Ready to go');
   // Live saves its per-service choices with one shared control; Save for everyone stays in Settings.
   assert.equal(await page.getByRole('button',{name:'Save for everyone',exact:true}).count(),0,'Live has no per-control Save for everyone');
   await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).check();
