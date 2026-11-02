@@ -252,6 +252,23 @@ try {
   await openScreen(page,'Live');
   assert.equal(await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).isChecked(),true,'Consent survives moving between screens');
   await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).uncheck();
+
+  // A default-save status belongs to the screen state that produced it: save before Start,
+  // then start and end without another save, and it must neither follow nor return.
+  const preStartSave=page.getByRole('button',{name:'Save selected settings as default',exact:true});
+  await preStartSave.click();
+  await page.getByText('Saved for everyone. New services start with this choice.',{exact:true}).waitFor();
+  await preStartSave.waitFor({state:'hidden'});
+  await page.getByRole('button',{name:'Start captions',exact:true}).click();
+  await page.getByRole('region',{name:'Live controls'}).getByRole('button',{name:'Pause',exact:true}).waitFor();
+  assert.equal((await page.locator('.liveCaptions .outputBufferControls [role="status"]').textContent())?.trim(),'','A before-Start default-save status does not follow the service');
+  await page.getByRole('region',{name:'Live controls'}).getByRole('button',{name:'End service',exact:true}).click();
+  const statusEndDialog=page.getByRole('alertdialog',{name:'End this service?',exact:true});
+  await statusEndDialog.waitFor();
+  await statusEndDialog.getByRole('button',{name:'End service',exact:true}).click();
+  await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
+  assert.equal(await page.locator('.liveActions [role="status"]').textContent(),'','A default-save status does not return to the Start card after End');
+
   await page.getByRole('button',{name:'Start captions',exact:true}).click();
   const liveControls=page.getByRole('region',{name:'Live controls'});
   await liveControls.getByRole('button',{name:'Pause',exact:true}).waitFor();

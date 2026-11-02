@@ -208,7 +208,10 @@ function OperatorDashboardContent() {
   const metadataPostedFor = useRef<string | null>(null);
   const metadataWrite = useRef<Promise<void> | null>(null);
   const shouldAutoSaveMetadata = useRef(false);
-  const [liveDefaultsMessage, setLiveDefaultsMessage] = useState("");
+  const [liveDefaultsReport, setLiveDefaultsReport] = useState<{ hasService: boolean; message: string }>({
+    hasService: false,
+    message: "",
+  });
   const [autoSummaryMessage, setAutoSummaryMessage] = useState("");
   const [theme, setTheme] = useState<ThemePreference>("system");
   const [recordingWindowMs, setRecordingWindowMs] = useState<RecordingWindowMs>(
@@ -590,6 +593,13 @@ function OperatorDashboardContent() {
     setFilterText(next.filterText);
   };
   const hasService = Boolean(liveState.service);
+  // A default-save status belongs to the screen state that produced it: the Start settings
+  // card before a service, and the Captions card while one runs. A transition clears it
+  // during render, so it can neither follow the change nor return when that state does.
+  if (liveDefaultsReport.hasService !== hasService) {
+    setLiveDefaultsReport({ hasService, message: "" });
+  }
+  const liveDefaultsMessage = liveDefaultsReport.message;
   const liveDefaultsChanged = liveScreenDefaultsChanged(
     { hasService, saveHistory, outputBufferCount, outputBufferDwellMs },
     {
@@ -822,11 +832,11 @@ function OperatorDashboardContent() {
         }
         if (loaded.outputBufferCount !== null && !hasServiceRef.current) {
           setOutputBufferCount(loaded.outputBufferCount);
-          setLiveDefaultsMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedChurchSetup") });
         }
         if (loaded.outputBufferDwellMs !== null && !hasServiceRef.current) {
           setOutputBufferDwellMs(loaded.outputBufferDwellMs);
-          setLiveDefaultsMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedChurchSetup") });
         }
       })
       .catch(() => {
@@ -885,7 +895,7 @@ function OperatorDashboardContent() {
     void saveLiveScreenDefaults({
       choices: { hasService, saveHistory, outputBufferCount, outputBufferDwellMs },
       save: syncAccountPreferences,
-      report: setLiveDefaultsMessage,
+      report: (message) => setLiveDefaultsReport({ hasService, message }),
       messages: {
         saving: t("common.savingForEveryone"),
         saved: t("settings.message.savedDefaultChoice"),
