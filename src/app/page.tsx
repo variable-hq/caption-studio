@@ -82,6 +82,7 @@ import {
 import { LIVE_NOTE_STORAGE_KEY, useLiveCaptionSession } from "@/live/use-live-caption-session";
 import { useObservedSession } from "@/live/use-observed-session";
 import { heardSourceText } from "@/live/live-heard";
+import { liveScreenDefaultsChanged, saveLiveScreenDefaults } from "@/live/live-screen-defaults";
 import { normalizeLiveNote } from "@/live/live-note";
 import { EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata } from "@/experience/contracts";
 import { experienceRequest } from "@/experience/client";
@@ -206,7 +207,7 @@ function OperatorDashboardContent() {
   const metadataPostedFor = useRef<string | null>(null);
   const metadataWrite = useRef<Promise<void> | null>(null);
   const shouldAutoSaveMetadata = useRef(false);
-  const [saveHistoryDefaultMessage, setSaveHistoryDefaultMessage] = useState("");
+  const [liveDefaultsMessage, setLiveDefaultsMessage] = useState("");
   const [autoSummaryMessage, setAutoSummaryMessage] = useState("");
   const [theme, setTheme] = useState<ThemePreference>("system");
   const [recordingWindowMs, setRecordingWindowMs] = useState<RecordingWindowMs>(
@@ -238,7 +239,6 @@ function OperatorDashboardContent() {
     [personalPreferences, sharedSetup],
   );
   const [translationDefaultsMessage, setTranslationDefaultsMessage] = useState("");
-  const [outputBufferSavedMessage, setOutputBufferSavedMessage] = useState("");
   const [summaryDefaults, setSummaryDefaults] = useState<SummaryOptions>(DEFAULT_SUMMARY_OPTIONS);
   const [savedSummaryDefaults, setSavedSummaryDefaults] = useState<SummaryOptions | null>(null);
   const [summaryStorageMessage, setSummaryStorageMessage] = useState("");
@@ -589,6 +589,14 @@ function OperatorDashboardContent() {
     setFilterText(next.filterText);
   };
   const hasService = Boolean(liveState.service);
+  const liveDefaultsChanged = liveScreenDefaultsChanged(
+    { hasService, saveHistory, outputBufferCount, outputBufferDwellMs },
+    {
+      saveHistoryDefault: accountPreferences?.saveHistoryDefault ?? null,
+      outputBufferCount: accountPreferences?.outputBufferCount ?? null,
+      outputBufferDwellMs: accountPreferences?.outputBufferDwellMs ?? null,
+    },
+  );
   const isLive = liveState.status === "live";
   const isPaused = liveState.status === "paused";
   const isRefreshing = liveState.status === "refreshing";
@@ -813,11 +821,11 @@ function OperatorDashboardContent() {
         }
         if (loaded.outputBufferCount !== null && !hasServiceRef.current) {
           setOutputBufferCount(loaded.outputBufferCount);
-          setOutputBufferSavedMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setLiveDefaultsMessage(tRef.current("settings.message.loadedChurchSetup"));
         }
         if (loaded.outputBufferDwellMs !== null && !hasServiceRef.current) {
           setOutputBufferDwellMs(loaded.outputBufferDwellMs);
-          setOutputBufferSavedMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setLiveDefaultsMessage(tRef.current("settings.message.loadedChurchSetup"));
         }
       })
       .catch(() => {
@@ -872,15 +880,17 @@ function OperatorDashboardContent() {
     );
   };
 
-  const saveOutputBufferDefault = () => {
-    setOutputBufferSavedMessage(t("common.savingForEveryone"));
-    void syncAccountPreferences({ outputBufferCount, outputBufferDwellMs }).then((ok) =>
-      setOutputBufferSavedMessage(
-        ok
-          ? t("settings.message.savedDefaultChoice")
-          : t("settings.error.churchSetup"),
-      ),
-    );
+  const saveLiveDefaults = () => {
+    void saveLiveScreenDefaults({
+      choices: { hasService, saveHistory, outputBufferCount, outputBufferDwellMs },
+      save: syncAccountPreferences,
+      report: setLiveDefaultsMessage,
+      messages: {
+        saving: t("common.savingForEveryone"),
+        saved: t("settings.message.savedDefaultChoice"),
+        failed: t("settings.error.churchSetup"),
+      },
+    });
   };
 
   useEffect(() => {
@@ -912,17 +922,6 @@ function OperatorDashboardContent() {
     } catch {
       setSummaryStorageMessage(t("settings.error.save"));
     }
-  };
-
-  const saveHistoryAsDefault = () => {
-    setSaveHistoryDefaultMessage(t("common.savingForEveryone"));
-    void syncAccountPreferences({ saveHistoryDefault: saveHistory }).then((ok) =>
-      setSaveHistoryDefaultMessage(
-        ok
-          ? t("settings.message.savedTranscriptDefault", { state: saveHistory ? t("common.on") : t("common.off") })
-          : t("settings.error.churchSetup"),
-      ),
-    );
   };
 
   const changeAutoSummary = (enabled: boolean) => {
@@ -1247,13 +1246,6 @@ function OperatorDashboardContent() {
       onCountChange={setOutputBufferCount}
       dwellMs={outputBufferDwellMs}
       onDwellChange={setOutputBufferDwellMs}
-      onSaveDefault={saveOutputBufferDefault}
-      savedMessage={
-        outputBufferSavedMessage ||
-        (accountPreferences && accountPreferences.outputBufferCount !== null
-          ? t("live.outputBufferSavedChoice")
-          : t("live.outputBufferSavesForEveryone"))
-      }
       disabled={isBusy}
       defaultCount={accountPreferences?.outputBufferCount ?? null}
       defaultDwellMs={accountPreferences?.outputBufferDwellMs ?? null}
@@ -1372,12 +1364,12 @@ function OperatorDashboardContent() {
               </span>
             </label>
             <div className="buttonRow">
-              {accountPreferences?.saveHistoryDefault !== saveHistory ? (
-                <button className="textButton" type="button" disabled={isBusy} onClick={saveHistoryAsDefault}>
+              {liveDefaultsChanged ? (
+                <button className="textButton" type="button" disabled={isBusy} onClick={saveLiveDefaults}>
                   {t("live.makeDefault")}
                 </button>
               ) : null}
-              <p className="operatorHint" role="status" aria-live="polite">{saveHistoryDefaultMessage}</p>
+              <p className="operatorHint" role="status" aria-live="polite">{liveDefaultsMessage}</p>
             </div>
             <details className="advancedActions">
               <summary>{t("live.sessionDetails")}</summary>

@@ -47,8 +47,10 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
   [Brand guidelines](docs/BRAND_GUIDELINES.md) and [Design system](docs/DESIGN_SYSTEM.md).
 - **One church setup**: languages and timing, words, translator settings and
   instructions, caption style, summary defaults and automatic summaries, the output
-  buffer and the transcript-saving default are saved once for every operator with **Save
-  for everyone**; only the light/dark choice is personal ([ADR 0022](docs/decisions/0022-shared-church-setup-and-words-list.md)).
+  buffer and the transcript-saving default are saved once for every operator:
+  **Save for everyone** in Settings writes the full setup, and **Save selected settings
+  as default** on Live saves the per-service choices shown there. Only the light/dark
+  choice is personal ([ADR 0022](docs/decisions/0022-shared-church-setup-and-words-list.md)).
 - **Service history**: optional workspace-wide private archives with **Session details**
   (topic, speaker, description, date), corrections, exclusions, and AI-generated
   summaries, on request or automatically after End, retained seven days after End.

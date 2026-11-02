@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 2 November 2026 against merged PR #93 (`3e257a8`). The corrected 13 September
+Reviewed 2 November 2026 against merged PR #94 (`233b532`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -437,7 +437,8 @@ filter lives in Settings › Terms.
   (removed from the queue), or **fast-forwarded** (shown on Live immediately). These are
   separate from Quick override: pausing the service, clearing the current Live
   caption, a translation refresh, takeover, and End all discard the whole buffer.
-- **Save for everyone** stores the choice in the church setup; new services start from it.
+- On Live, the shared **Save selected settings as default** control stores the choice in
+  the church setup; new services start from it.
 
 ### Church setup and Terms
 
@@ -445,9 +446,11 @@ One **church setup** is shared by all signed-in operators
 ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). It includes languages,
 caption wait time, Terms, Inference and Sanitization; translator instructions; caption style;
 summary defaults and automatic summaries; the output buffer; and the transcript-saving
-default. Theme and interface language remain personal preferences. **Save for everyone**
-(and **Save selected settings as default**
-beside the transcript choice) writes it. Until anyone saves it, each operator keeps the
+default. Theme and interface language remain personal preferences. From Settings,
+**Save for everyone** writes the shared setup. On Live, **Save selected settings as
+default** writes only the per-service choices that are visible: before a service, the
+transcript-saving choice and the output buffer wait; during a service, the wait alone.
+Until anyone saves it, each operator keeps the
 setup they saved earlier; afterwards a value the church setup has never set still falls
 back to the operator's own, and the first save carries the saving operator's earlier
 setup across. Discrete-choice controls mark the saved option "· Saved default",
@@ -725,8 +728,9 @@ reprocessed by optional AI phrasing, or reapplied against glossary/filter rules,
 the operator already typed final text.
 
 History saving is off by default and cannot be enabled after Start. An operator can choose
-**Save selected settings as default** beside the checkbox to have it pre-ticked (or cleared) at each
-Start; it stays visible and changeable until Start. Saved records expire
+**Save selected settings as default** beside the checkbox to have it pre-ticked (or
+cleared) at each Start and to save the output buffer wait; the choice stays visible and
+changeable until Start. Saved records expire
 seven days after End/expiry. Archive pages expose private original source, separate
 corrections, source-linked reader paragraphs, and any operator notes. Confirmed Remove
 passage excludes its source IDs and invalidates summaries without deleting originals. If

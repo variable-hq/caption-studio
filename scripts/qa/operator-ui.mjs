@@ -36,6 +36,8 @@ try {
   const controls=[];
   let accountUiLocale=null;
   let accountPreferencesUnavailable=false;
+  let sharedSetup=null;
+  const emptySetup={version:1,uiLocale:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,outputBufferCount:null,outputBufferDwellMs:null,saveHistoryDefault:null,autoSummary:false,updatedAt:null};
   await context.route('**/*',async route=>{
    const url=new URL(route.request().url());
    if(url.origin!=='http://127.0.0.1:3100') return route.abort();
@@ -49,9 +51,13 @@ try {
    }
    if(path==='/api/ai/health'||path==='/api/ai/readiness')payload=health;
   else if(path==='/api/live/experience/preferences'||path==='/api/live/experience/setup'){
+    const isShared=path==='/api/live/experience/setup';
     if(method!=='GET')controls.push({preferenceWrite:body});
-    if(path==='/api/live/experience/preferences'&&method==='POST'&&Object.hasOwn(body,'uiLocale'))accountUiLocale=body.uiLocale;
-    payload=method==='GET'?{version:1,theme:'system',uiLocale:path==='/api/live/experience/preferences'?accountUiLocale:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,updatedAt:null}:{...body,uiLocale:path==='/api/live/experience/preferences'?accountUiLocale:null,version:1,updatedAt:Date.now()};
+    if(!isShared&&method==='POST'&&Object.hasOwn(body,'uiLocale'))accountUiLocale=body.uiLocale;
+    if(isShared&&method==='POST')sharedSetup={...emptySetup,...sharedSetup,...body,updatedAt:Date.now()};
+    payload=method==='GET'
+      ?(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,uiLocale:accountUiLocale})
+      :(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,...body,uiLocale:accountUiLocale,updatedAt:Date.now()});
   }
    else if(path==='/api/live/channel')payload={channelId:'main',configured:true,status,overlayUrl:'http://127.0.0.1:3100/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
    else if(path==='/api/live/channel/style'){style=body.style;payload={ok:true}}
@@ -106,6 +112,22 @@ try {
   assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).isEnabled(),true);
   assert.equal(await page.getByRole('region',{name:'Live controls'}).count(),0);
   assert.equal(await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).isChecked(),false);
+  // Live saves its per-service choices with one shared control; Save for everyone stays in Settings.
+  assert.equal(await page.getByRole('button',{name:'Save for everyone',exact:true}).count(),0,'Live has no per-control Save for everyone');
+  await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).check();
+  await page.getByTestId('output-buffer-wait').selectOption('2000');
+  const sharedSave=page.getByRole('button',{name:'Save selected settings as default',exact:true});
+  assert.equal(await sharedSave.count(),1,'The shared save appears when a visible choice differs from its saved default');
+  const savesBefore=controls.length;
+  await sharedSave.click();
+  await page.getByText('Saved for everyone. New services start with this choice.',{exact:true}).waitFor();
+  assert.equal(controls.length,savesBefore+1,'The shared save writes once');
+  const sharedWrite=controls.at(-1).preferenceWrite;
+  assert.equal(sharedWrite.saveHistoryDefault,true,'The shared save includes the visible transcript choice');
+  assert.equal(sharedWrite.outputBufferCount,1,'The shared save includes the visible buffer choice');
+  assert.equal(sharedWrite.outputBufferDwellMs,2000,'The shared save includes the visible buffer wait');
+  assert.equal(await sharedSave.count(),0,'The shared save hides once the choices match the saved default');
+  await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).uncheck();
   assert.equal(inferenceCalls,0,'Idle Live must not invoke inference');
   await page.screenshot({path:output+`/live-idle-${colorScheme}-${width}.png`,fullPage:true});
 
