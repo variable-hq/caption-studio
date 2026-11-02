@@ -1,5 +1,6 @@
 import type { OperatorPreferences } from "@/experience/preferences";
 import {
+  DEFAULT_OUTPUT_BUFFER_COUNT,
   DEFAULT_OUTPUT_BUFFER_DWELL_MS,
   type OutputBufferCount,
   type OutputBufferDwellMs,
@@ -44,8 +45,12 @@ function outputBufferDiffers(
   choices: LiveScreenChoices,
   defaults: LiveScreenSavedDefaults,
 ): boolean {
-  if (defaults.outputBufferCount === null) return true;
-  if (defaults.outputBufferCount !== choices.outputBufferCount) return true;
+  // A default that was never saved compares against the choice a new session starts with.
+  if (
+    (defaults.outputBufferCount ?? DEFAULT_OUTPUT_BUFFER_COUNT) !== choices.outputBufferCount
+  ) {
+    return true;
+  }
   // The dwell only matters while the buffer is on; Off has no duration.
   return (
     choices.outputBufferCount > 0 &&
@@ -53,14 +58,16 @@ function outputBufferDiffers(
   );
 }
 
-/** The Live save button appears only while a visible choice differs from its saved default.
- * The transcript choice is visible only before a service starts. */
+/** The Live save button appears only while a visible choice differs from its saved default,
+ * or from the built-in value when nothing has been saved. The transcript choice is visible
+ * only before a service starts. */
 export function liveScreenDefaultsChanged(
   choices: LiveScreenChoices,
   defaults: LiveScreenSavedDefaults,
 ): boolean {
   const transcriptChanged =
-    !choices.hasService && defaults.saveHistoryDefault !== choices.saveHistory;
+    !choices.hasService &&
+    (defaults.saveHistoryDefault ?? false) !== choices.saveHistory;
   return transcriptChanged || outputBufferDiffers(choices, defaults);
 }
 
