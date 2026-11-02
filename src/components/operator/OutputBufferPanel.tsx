@@ -18,22 +18,18 @@ interface OutputBufferPanelProps {
   onCountChange: (value: OutputBufferCount) => void;
   dwellMs: OutputBufferDwellMs;
   onDwellChange: (value: OutputBufferDwellMs) => void;
-  onSaveDefault: () => void;
-  savedMessage: string;
   disabled?: boolean;
   defaultCount?: OutputBufferCount | null;
   defaultDwellMs?: OutputBufferDwellMs | null;
 }
 
-/** "Check captions before they show": one choice, Off or how long each caption waits.
+/** "Wait before showing each caption": one choice, Off or how long each caption waits.
  * Stored as the existing count (0 or 1) and dwell, so saved setups keep their format. */
 export function OutputBufferPanel({
   count,
   onCountChange,
   dwellMs,
   onDwellChange,
-  onSaveDefault,
-  savedMessage,
   disabled = false,
   defaultCount = null,
   defaultDwellMs = null,
@@ -72,14 +68,6 @@ export function OutputBufferPanel({
       <p className="helpText" id={helpId}>
         {t("outputBuffer.help")}
       </p>
-      <div className="saveRow">
-        <button className="secondaryButton" type="button" onClick={onSaveDefault} disabled={disabled}>
-          {t("common.saveForEveryone")}
-        </button>
-        <p role="status" aria-live="polite" aria-atomic="true">
-          {savedMessage}
-        </p>
-      </div>
     </div>
   );
 }

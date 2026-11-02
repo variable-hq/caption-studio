@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 2 November 2026 against merged PR #93 (`3e257a8`). The corrected 13 September
+Reviewed 2 November 2026 against merged PR #94 (`233b532`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -43,7 +43,7 @@ The browser is the sole client. The deferred iPhone/iPad shell was removed
 ### Before the service
 
 The dashboard opens on **Live** ([ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)).
-Its readiness checklist (caption service, microphone, languages, words, OBS) shows a tick
+Its readiness checklist (caption service, microphone, OBS, languages, Terms) shows a tick
 or a red item with a **Fix** or **Set up** button that opens the matching Settings
 section. A **Help** page, one click from every screen, lists the steps of a service in
 plain words. Nothing opens automatically.
@@ -409,11 +409,10 @@ between a translated, moderated caption and its arrival on the public Live outpu
 the mobile viewer). It lives only in the controlling operator's browser tab, applies
 immediately without a translation refresh, and is unrelated to the recording window
 duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md) and
-[ADR 0017](decisions/0017-configurable-output-buffer-dwell.md). The setting and its church
-default sit under **Check captions before they show** on the Live screen, both before Start and
-during a service; the queued captions and their controls appear under **Caption controls**
-in Live's **Quick fixes**, alongside Quick override and Manual caption. The public caption
-filter lives in Settings › Terms.
+[ADR 0017](decisions/0017-configurable-output-buffer-dwell.md). The wait setting sits in
+the Captions card, below the **Heard** and **Audience view** panes, both before Start and
+during a service. While the wait is above zero, the next-up caption and its controls follow
+it there. The public caption filter lives in Settings › Terms.
 
 - One choice, **Wait before showing each caption**: Off (the default, matching behavior
   before this feature existed) or Wait 1, 2, 3, 4 or 5 seconds before each caption advances
@@ -437,7 +436,8 @@ filter lives in Settings › Terms.
   (removed from the queue), or **fast-forwarded** (shown on Live immediately). These are
   separate from Quick override: pausing the service, clearing the current Live
   caption, a translation refresh, takeover, and End all discard the whole buffer.
-- **Save for everyone** stores the choice in the church setup; new services start from it.
+- On Live, the shared **Save selected settings as default** control stores the choice in
+  the church setup; new services start from it.
 
 ### Church setup and Terms
 
@@ -445,9 +445,11 @@ One **church setup** is shared by all signed-in operators
 ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). It includes languages,
 caption wait time, Terms, Inference and Sanitization; translator instructions; caption style;
 summary defaults and automatic summaries; the output buffer; and the transcript-saving
-default. Theme and interface language remain personal preferences. **Save for everyone**
-(and **Save selected settings as default**
-beside the transcript choice) writes it. Until anyone saves it, each operator keeps the
+default. Theme and interface language remain personal preferences. From Settings,
+**Save for everyone** writes the shared setup. On Live, **Save selected settings as
+default** writes only the per-service choices that are visible: before a service, the
+transcript-saving choice and the output buffer wait; during a service, the wait alone.
+Until anyone saves it, each operator keeps the
 setup they saved earlier; afterwards a value the church setup has never set still falls
 back to the operator's own, and the first save carries the saving operator's earlier
 setup across. Discrete-choice controls mark the saved option "· Saved default",
@@ -481,28 +483,33 @@ Terms list and leaves the live entry active.
   translation drafts and the before-Start transcript choice; reload preserves the screen,
   not unsaved drafts. Links never include credentials. The status pill announces state
   changes to screen readers; the running clock beside it is not announced.
-- **Live** is two rows of paired cards, each pair the same height: captions beside the
-  readiness checklist, then the Start card (or **Quick fixes**) beside **Share**; on narrow
-  screens they stack as captions, Start/Quick fixes, checklist, Share. The captions card
-  shows **Heard** (the source text, operator only) beside **Audience view** (a scaled copy
-  of the OBS screen in the channel's saved style, letterboxed), always the same size, and
-  the microphone level, with **Recent captions** folded below.
-  Before Start it holds one Start card: **Start captions**, **Show a test caption**, a line
-  saying what to do next or what blocks Start, the transcript-saving choice, **Session details**, and
-  the output buffer under **Check captions before they show**. Each checklist row links to the
-  Settings section that changes it (a chevron when ready, a Fix, Set up or Help button when not).
+- **Live** opens before a service with a full-width Start bar: **Start captions**, **Show
+  a test caption**, and a line saying what to do next or what blocks Start. Below it are
+  two rows of paired cards, each pair the same height: captions beside the readiness
+  checklist, then the Start settings card (or **Quick fixes**) beside **Share**; on narrow
+  screens they stack as the Start bar, captions, Start settings/Quick fixes, checklist,
+  Share. The captions card shows **Heard** (the source text, operator only) beside
+  **Audience view** (a scaled copy of the OBS screen in the channel's saved style,
+  letterboxed), always the same size, the microphone level, and the output buffer wait
+  (with the next-up queue while running), with **Recent captions** folded below.
+  Before Start the Start settings card holds the transcript-saving choice, the shared
+  **Save selected settings as default** control, and **Session details**. Each checklist
+  row links to the Settings section that changes it (a chevron when ready, a Fix, Set up or
+  Help button when not).
   **Share** holds the phone viewer link, transcript reader link, **Phone remote** pairing, and
   replacing a reader link shared by mistake.
 - During a service a bar pinned to the bottom of Live holds **Pause**/**Resume**, **Clear
   screen**, the minutes left and whether the transcript is being saved, and **End service**
   (or **Try End again** when End could not be confirmed); the
   page reserves scroll space so the bar never covers a focused control. **Quick fixes**
-  replaces the Start card: **Caption controls** (Quick override, Manual caption while
-  paused, and queued captions),
+  replaces the Start settings card: **Caption controls** (Quick override and Manual caption
+  while paused),
   **Live note**, a test caption while paused, **Session details** (with **Save session
   details**), and under **Service
   details** the delay after speech, segments filtered (when filtering is on), dropped audio
-  chunks, transcription and translation counts, tokens, and model names.
+  chunks, transcription and translation counts, tokens, and model names. The output buffer
+  stays in the Captions card, where its wait and next-up queue are joined by the shared
+  **Save selected settings as default** control when the wait differs from the saved default.
   End and Take over open native confirmation dialogs
   (**End this service?**: Keep going / End service; **Take over captions?**: Keep watching
   / Take over). **Clear screen** blanks OBS and the latest viewer while preserving
@@ -725,8 +732,9 @@ reprocessed by optional AI phrasing, or reapplied against glossary/filter rules,
 the operator already typed final text.
 
 History saving is off by default and cannot be enabled after Start. An operator can choose
-**Save selected settings as default** beside the checkbox to have it pre-ticked (or cleared) at each
-Start; it stays visible and changeable until Start. Saved records expire
+**Save selected settings as default** beside the checkbox to have it pre-ticked (or
+cleared) at each Start and to save the output buffer wait; the choice stays visible and
+changeable until Start. Saved records expire
 seven days after End/expiry. Archive pages expose private original source, separate
 corrections, source-linked reader paragraphs, and any operator notes. Confirmed Remove
 passage excludes its source IDs and invalidates summaries without deleting originals. If
@@ -736,8 +744,8 @@ Confirmed Delete requires End, removes content and the archive index, and reject
 
 Optional **Session details** (Topic and Speaker up to 120 characters each, Description up
 to 1,000 characters, and an optional session date/time) sit under a **Session details**
-disclosure on Live's Start card and, during a service, in **Quick fixes** with **Save
-session details**. They are saved only with opted-in history. They remain editable by any signed-in workspace operator while the seven-day
+disclosure on Live's Start settings card and, during a service, in **Quick fixes** with
+**Save session details**. They are saved only with opted-in history. They remain editable by any signed-in workspace operator while the seven-day
 archive exists. They are record-keeping only: they are not sent to translation or summary
 models, do not extend retention, and are deleted with the archive.
 

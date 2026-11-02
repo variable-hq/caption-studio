@@ -36,6 +36,8 @@ try {
   const controls=[];
   let accountUiLocale=null;
   let accountPreferencesUnavailable=false;
+  let sharedSetup=null;
+  const emptySetup={version:1,uiLocale:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,outputBufferCount:null,outputBufferDwellMs:null,saveHistoryDefault:null,autoSummary:false,updatedAt:null};
   await context.route('**/*',async route=>{
    const url=new URL(route.request().url());
    if(url.origin!=='http://127.0.0.1:3100') return route.abort();
@@ -49,9 +51,13 @@ try {
    }
    if(path==='/api/ai/health'||path==='/api/ai/readiness')payload=health;
   else if(path==='/api/live/experience/preferences'||path==='/api/live/experience/setup'){
+    const isShared=path==='/api/live/experience/setup';
     if(method!=='GET')controls.push({preferenceWrite:body});
-    if(path==='/api/live/experience/preferences'&&method==='POST'&&Object.hasOwn(body,'uiLocale'))accountUiLocale=body.uiLocale;
-    payload=method==='GET'?{version:1,theme:'system',uiLocale:path==='/api/live/experience/preferences'?accountUiLocale:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,updatedAt:null}:{...body,uiLocale:path==='/api/live/experience/preferences'?accountUiLocale:null,version:1,updatedAt:Date.now()};
+    if(!isShared&&method==='POST'&&Object.hasOwn(body,'uiLocale'))accountUiLocale=body.uiLocale;
+    if(isShared&&method==='POST')sharedSetup={...emptySetup,...sharedSetup,...body,updatedAt:Date.now()};
+    payload=method==='GET'
+      ?(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,uiLocale:accountUiLocale})
+      :(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,...body,uiLocale:accountUiLocale,updatedAt:Date.now()});
   }
    else if(path==='/api/live/channel')payload={channelId:'main',configured:true,status,overlayUrl:'http://127.0.0.1:3100/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
    else if(path==='/api/live/channel/style'){style=body.style;payload={ok:true}}
@@ -106,6 +112,30 @@ try {
   assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).isEnabled(),true);
   assert.equal(await page.getByRole('region',{name:'Live controls'}).count(),0);
   assert.equal(await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).isChecked(),false);
+  // The Start bar spans both columns above the grid; the output buffer sits in Captions.
+  assert.equal(await page.locator('.liveStartBar').count(),1,'The Start bar shows before a service');
+  assert.equal(await page.locator('.liveStartBar').getByRole('button',{name:'Start captions',exact:true}).count(),1,'Start captions belongs to the Start bar');
+  assert.equal(await page.evaluate(()=>{const bar=document.querySelector('.liveStartBar');const grid=document.querySelector('.liveGrid');return !!bar&&!!grid&&(bar.compareDocumentPosition(grid)&Node.DOCUMENT_POSITION_FOLLOWING)!==0;}),true,'The Start bar precedes the Live grid');
+  assert.equal(await page.locator('.liveCaptions .monitorGrid ~ .outputBufferControls').count(),1,'The output buffer follows the panes in the Captions card');
+  assert.equal(await page.locator('.liveActions .outputBufferPanel').count(),0,'The Start card no longer holds the output buffer');
+  assert.equal(await page.getByTestId('output-buffer-wait').isVisible(),true,'The wait setting is visible without opening a disclosure');
+  assert.deepEqual(await page.locator('.checkList li .checkText > span:first-child').allTextContents(),['Caption service','Microphone','OBS','Languages','Terms'],'OBS is third in Ready to go');
+  // Live saves its per-service choices with one shared control; Save for everyone stays in Settings.
+  assert.equal(await page.getByRole('button',{name:'Save for everyone',exact:true}).count(),0,'Live has no per-control Save for everyone');
+  await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).check();
+  await page.getByTestId('output-buffer-wait').selectOption('2000');
+  const sharedSave=page.getByRole('button',{name:'Save selected settings as default',exact:true});
+  assert.equal(await sharedSave.count(),1,'The shared save appears when a visible choice differs from its saved default');
+  const savesBefore=controls.length;
+  await sharedSave.click();
+  await page.getByText('Saved for everyone. New services start with this choice.',{exact:true}).waitFor();
+  assert.equal(controls.length,savesBefore+1,'The shared save writes once');
+  const sharedWrite=controls.at(-1).preferenceWrite;
+  assert.equal(sharedWrite.saveHistoryDefault,true,'The shared save includes the visible transcript choice');
+  assert.equal(sharedWrite.outputBufferCount,1,'The shared save includes the visible buffer choice');
+  assert.equal(sharedWrite.outputBufferDwellMs,2000,'The shared save includes the visible buffer wait');
+  assert.equal(await sharedSave.count(),0,'The shared save hides once the choices match the saved default');
+  await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).uncheck();
   assert.equal(inferenceCalls,0,'Idle Live must not invoke inference');
   await page.screenshot({path:output+`/live-idle-${colorScheme}-${width}.png`,fullPage:true});
 
@@ -222,12 +252,44 @@ try {
   await openScreen(page,'Live');
   assert.equal(await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).isChecked(),true,'Consent survives moving between screens');
   await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).uncheck();
+
+  // A default-save status belongs to the screen state that produced it: save before Start,
+  // then start and end without another save, and it must neither follow nor return.
+  const preStartSave=page.getByRole('button',{name:'Save selected settings as default',exact:true});
+  await preStartSave.click();
+  await page.getByText('Saved for everyone. New services start with this choice.',{exact:true}).waitFor();
+  await preStartSave.waitFor({state:'hidden'});
+  await page.getByRole('button',{name:'Start captions',exact:true}).click();
+  await page.getByRole('region',{name:'Live controls'}).getByRole('button',{name:'Pause',exact:true}).waitFor();
+  assert.equal((await page.locator('.liveCaptions .outputBufferControls [role="status"]').textContent())?.trim(),'','A before-Start default-save status does not follow the service');
+  await page.getByRole('region',{name:'Live controls'}).getByRole('button',{name:'End service',exact:true}).click();
+  const statusEndDialog=page.getByRole('alertdialog',{name:'End this service?',exact:true});
+  await statusEndDialog.waitFor();
+  await statusEndDialog.getByRole('button',{name:'End service',exact:true}).click();
+  await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
+  assert.equal(await page.locator('.liveActions [role="status"]').textContent(),'','A default-save status does not return to the Start card after End');
+
   await page.getByRole('button',{name:'Start captions',exact:true}).click();
   const liveControls=page.getByRole('region',{name:'Live controls'});
   await liveControls.getByRole('button',{name:'Pause',exact:true}).waitFor();
   assert.equal(status,'live');
   await check('live-running');
   await barClear('live-running');
+  // The Start bar is gone; the buffer and its shared save stay in the Captions card.
+  assert.equal(await page.locator('.liveStartBar').count(),0,'The Start bar is replaced once a service runs');
+  assert.equal(await page.locator('.liveCaptions .monitorGrid ~ .outputBufferControls').count(),1,'The output buffer stays in the Captions card during a service');
+  assert.equal(await page.locator('.liveActions .outputBufferPanel').count(),0,'Quick fixes no longer holds the output buffer');
+  assert.equal(await page.locator('.liveCaptions .outputBufferQueue').count(),1,'The Next up queue follows the panes while the wait is on');
+  await page.getByTestId('output-buffer-wait').selectOption('3000');
+  const liveSharedSave=page.locator('.liveCaptions').getByRole('button',{name:'Save selected settings as default',exact:true});
+  await liveSharedSave.waitFor();
+  const liveSavesBefore=controls.length;
+  await liveSharedSave.click();
+  await liveSharedSave.waitFor({state:'hidden'});
+  assert.equal(controls.length,liveSavesBefore+1,'A live save writes once');
+  const liveWrite=controls.at(-1).preferenceWrite;
+  assert.equal(liveWrite.outputBufferDwellMs,3000,'A live save includes the visible buffer wait');
+  assert.equal(Object.hasOwn(liveWrite,'saveHistoryDefault'),false,'A live save never includes the hidden transcript choice');
   await page.screenshot({path:output+`/live-running-${colorScheme}-${width}.png`,fullPage:true});
   // Moving to Settings and back never pauses or clears capture.
   const controlsBefore=controls.length;

@@ -26,6 +26,7 @@ import { SessionMetadataFields } from "@/components/operator/SessionMetadataFiel
 import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
 import { OperatorTopBar, type OperatorScreenId, type OperatorStatusLabel, type StatusTone } from "@/components/operator/OperatorTopBar";
 import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
+import { OutputBufferQueueControl } from "@/components/operator/OutputBufferQueueControl";
 import { ReadinessChecks, type ReadinessCheck } from "@/components/operator/ReadinessChecks";
 import { PromptEditor } from "@/components/operator/PromptEditor";
 import { StyleEditor, type StyleEditorProps } from "@/components/operator/StyleEditor";
@@ -82,6 +83,7 @@ import {
 import { LIVE_NOTE_STORAGE_KEY, useLiveCaptionSession } from "@/live/use-live-caption-session";
 import { useObservedSession } from "@/live/use-observed-session";
 import { heardSourceText } from "@/live/live-heard";
+import { liveScreenDefaultsChanged, saveLiveScreenDefaults } from "@/live/live-screen-defaults";
 import { normalizeLiveNote } from "@/live/live-note";
 import { EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata } from "@/experience/contracts";
 import { experienceRequest } from "@/experience/client";
@@ -206,7 +208,10 @@ function OperatorDashboardContent() {
   const metadataPostedFor = useRef<string | null>(null);
   const metadataWrite = useRef<Promise<void> | null>(null);
   const shouldAutoSaveMetadata = useRef(false);
-  const [saveHistoryDefaultMessage, setSaveHistoryDefaultMessage] = useState("");
+  const [liveDefaultsReport, setLiveDefaultsReport] = useState<{ hasService: boolean; message: string }>({
+    hasService: false,
+    message: "",
+  });
   const [autoSummaryMessage, setAutoSummaryMessage] = useState("");
   const [theme, setTheme] = useState<ThemePreference>("system");
   const [recordingWindowMs, setRecordingWindowMs] = useState<RecordingWindowMs>(
@@ -238,7 +243,6 @@ function OperatorDashboardContent() {
     [personalPreferences, sharedSetup],
   );
   const [translationDefaultsMessage, setTranslationDefaultsMessage] = useState("");
-  const [outputBufferSavedMessage, setOutputBufferSavedMessage] = useState("");
   const [summaryDefaults, setSummaryDefaults] = useState<SummaryOptions>(DEFAULT_SUMMARY_OPTIONS);
   const [savedSummaryDefaults, setSavedSummaryDefaults] = useState<SummaryOptions | null>(null);
   const [summaryStorageMessage, setSummaryStorageMessage] = useState("");
@@ -589,6 +593,21 @@ function OperatorDashboardContent() {
     setFilterText(next.filterText);
   };
   const hasService = Boolean(liveState.service);
+  // A default-save status belongs to the screen state that produced it: the Start settings
+  // card before a service, and the Captions card while one runs. A transition clears it
+  // during render, so it can neither follow the change nor return when that state does.
+  if (liveDefaultsReport.hasService !== hasService) {
+    setLiveDefaultsReport({ hasService, message: "" });
+  }
+  const liveDefaultsMessage = liveDefaultsReport.message;
+  const liveDefaultsChanged = liveScreenDefaultsChanged(
+    { hasService, saveHistory, outputBufferCount, outputBufferDwellMs },
+    {
+      saveHistoryDefault: accountPreferences?.saveHistoryDefault ?? null,
+      outputBufferCount: accountPreferences?.outputBufferCount ?? null,
+      outputBufferDwellMs: accountPreferences?.outputBufferDwellMs ?? null,
+    },
+  );
   const isLive = liveState.status === "live";
   const isPaused = liveState.status === "paused";
   const isRefreshing = liveState.status === "refreshing";
@@ -813,11 +832,11 @@ function OperatorDashboardContent() {
         }
         if (loaded.outputBufferCount !== null && !hasServiceRef.current) {
           setOutputBufferCount(loaded.outputBufferCount);
-          setOutputBufferSavedMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedChurchSetup") });
         }
         if (loaded.outputBufferDwellMs !== null && !hasServiceRef.current) {
           setOutputBufferDwellMs(loaded.outputBufferDwellMs);
-          setOutputBufferSavedMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedChurchSetup") });
         }
       })
       .catch(() => {
@@ -872,15 +891,17 @@ function OperatorDashboardContent() {
     );
   };
 
-  const saveOutputBufferDefault = () => {
-    setOutputBufferSavedMessage(t("common.savingForEveryone"));
-    void syncAccountPreferences({ outputBufferCount, outputBufferDwellMs }).then((ok) =>
-      setOutputBufferSavedMessage(
-        ok
-          ? t("settings.message.savedDefaultChoice")
-          : t("settings.error.churchSetup"),
-      ),
-    );
+  const saveLiveDefaults = () => {
+    void saveLiveScreenDefaults({
+      choices: { hasService, saveHistory, outputBufferCount, outputBufferDwellMs },
+      save: syncAccountPreferences,
+      report: (message) => setLiveDefaultsReport({ hasService, message }),
+      messages: {
+        saving: t("common.savingForEveryone"),
+        saved: t("settings.message.savedDefaultChoice"),
+        failed: t("settings.error.churchSetup"),
+      },
+    });
   };
 
   useEffect(() => {
@@ -912,17 +933,6 @@ function OperatorDashboardContent() {
     } catch {
       setSummaryStorageMessage(t("settings.error.save"));
     }
-  };
-
-  const saveHistoryAsDefault = () => {
-    setSaveHistoryDefaultMessage(t("common.savingForEveryone"));
-    void syncAccountPreferences({ saveHistoryDefault: saveHistory }).then((ok) =>
-      setSaveHistoryDefaultMessage(
-        ok
-          ? t("settings.message.savedTranscriptDefault", { state: saveHistory ? t("common.on") : t("common.off") })
-          : t("settings.error.churchSetup"),
-      ),
-    );
   };
 
   const changeAutoSummary = (enabled: boolean) => {
@@ -1155,6 +1165,13 @@ function OperatorDashboardContent() {
       fixLabel: t("readiness.fix"),
     },
     {
+      label: t("readiness.obs"),
+      ok: channelConfigured || checkingChannel,
+      value: checkingChannel ? t("common.checking") : channelConfigured ? t("readiness.setUp") : t("readiness.notSetUpYet"),
+      href: "#settings=obs",
+      fixLabel: t("readiness.setUp"),
+    },
+    {
       label: t("readiness.languages"),
       ok: true,
       value: t("readiness.languagesValue", {
@@ -1171,13 +1188,6 @@ function OperatorDashboardContent() {
       value: translatePlural(locale, "readiness.wordCount", wordCount),
       href: "#settings=words",
       fixLabel: t("readiness.fix"),
-    },
-    {
-      label: t("readiness.obs"),
-      ok: channelConfigured || checkingChannel,
-      value: checkingChannel ? t("common.checking") : channelConfigured ? t("readiness.setUp") : t("readiness.notSetUpYet"),
-      href: "#settings=obs",
-      fixLabel: t("readiness.setUp"),
     },
   ];
   const setupBlocked = readinessChecks.some((check) => !check.ok);
@@ -1247,13 +1257,6 @@ function OperatorDashboardContent() {
       onCountChange={setOutputBufferCount}
       dwellMs={outputBufferDwellMs}
       onDwellChange={setOutputBufferDwellMs}
-      onSaveDefault={saveOutputBufferDefault}
-      savedMessage={
-        outputBufferSavedMessage ||
-        (accountPreferences && accountPreferences.outputBufferCount !== null
-          ? t("live.outputBufferSavedChoice")
-          : t("live.outputBufferSavesForEveryone"))
-      }
       disabled={isBusy}
       defaultCount={accountPreferences?.outputBufferCount ?? null}
       defaultDwellMs={accountPreferences?.outputBufferDwellMs ?? null}
@@ -1293,6 +1296,34 @@ function OperatorDashboardContent() {
         </p>
       ) : null}
 
+      {!hasService ? (
+        <section className="liveStartBar" aria-label={t("live.startCard")}>
+          <div className="startActions">
+            <button
+              type="button"
+              className="primaryButton"
+              disabled={startBlocked}
+              aria-describedby="start-help"
+              onClick={() => { shouldAutoSaveMetadata.current = true; setLiveNote(""); void startSession(); }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
+              {liveState.status === "starting" ? t("live.starting") : t("live.start")}
+            </button>
+            <button
+              type="button"
+              className="secondaryButton"
+              disabled={!channelConfigured || isBusy || controlAction !== null || anotherOperatorActive}
+              onClick={() => void showTestCaption()}
+            >
+              {controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
+            </button>
+          </div>
+          <p id="start-help" className="operatorHint" data-tone={(setupBlocked || anotherOperatorActive || liveState.status === "error") && !checkingChannel && cloudState !== "checking" ? "bad" : undefined}>
+            {startHelp}
+          </p>
+        </section>
+      ) : null}
+
       <div className="liveGrid">
         <section className="operatorCard liveCaptions" aria-label={t("live.captionsCard")}>
           <div className="monitorGrid">
@@ -1323,6 +1354,34 @@ function OperatorDashboardContent() {
             <AudioLevelMeter level={level} />
           </div>
           {!observed.observer ? (
+            <div className="outputBufferControls" role="group" aria-label={t("live.checkBeforeShow")}>
+              {outputBufferPanel}
+              {hasService && outputBufferCount > 0 ? (
+                <OutputBufferQueueControl
+                  queue={outputBufferQueue}
+                  disabled={isBusy}
+                  onPause={setOutputBufferEntryPaused}
+                  onClear={clearOutputBufferEntry}
+                  onFastForward={fastForwardOutputBufferEntry}
+                  onBeginEdit={beginOutputBufferEdit}
+                  onEditDraftChange={updateOutputBufferEditDraft}
+                  onCancelEdit={cancelOutputBufferEdit}
+                  onSubmitEdit={submitOutputBufferEdit}
+                />
+              ) : null}
+              {hasService ? (
+                <div className="buttonRow">
+                  {liveDefaultsChanged ? (
+                    <button className="textButton" type="button" disabled={isBusy} onClick={saveLiveDefaults}>
+                      {t("live.makeDefault")}
+                    </button>
+                  ) : null}
+                  <p className="operatorHint" role="status" aria-live="polite">{liveDefaultsMessage}</p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {!observed.observer ? (
             <details className="advancedActions">
               <summary>{t("live.recentCaptions")}</summary>
               <RecentOutputsStrip outputs={recentOutputs} />
@@ -1333,30 +1392,7 @@ function OperatorDashboardContent() {
         <ReadinessChecks title={hasService ? t("readiness.titleSetup") : setupBlocked ? t("readiness.titleBeforeStart") : t("readiness.titleReady")} checks={readinessChecks} />
 
         {!hasService ? (
-          <section className="operatorCard liveActions" aria-label={t("live.startCard")}>
-            <div className="startActions">
-              <button
-                type="button"
-                className="primaryButton"
-                disabled={startBlocked}
-                aria-describedby="start-help"
-                onClick={() => { shouldAutoSaveMetadata.current = true; setLiveNote(""); void startSession(); }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
-                {liveState.status === "starting" ? t("live.starting") : t("live.start")}
-              </button>
-              <button
-                type="button"
-                className="secondaryButton"
-                disabled={!channelConfigured || isBusy || controlAction !== null || anotherOperatorActive}
-                onClick={() => void showTestCaption()}
-              >
-                {controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
-              </button>
-            </div>
-            <p id="start-help" className="operatorHint" data-tone={(setupBlocked || anotherOperatorActive || liveState.status === "error") && !checkingChannel && cloudState !== "checking" ? "bad" : undefined}>
-              {startHelp}
-            </p>
+          <section className="operatorCard liveActions" aria-label={t("live.saveTranscript")}>
             <label className="checkLabel">
               <input
                 type="checkbox"
@@ -1372,12 +1408,12 @@ function OperatorDashboardContent() {
               </span>
             </label>
             <div className="buttonRow">
-              {accountPreferences?.saveHistoryDefault !== saveHistory ? (
-                <button className="textButton" type="button" disabled={isBusy} onClick={saveHistoryAsDefault}>
+              {liveDefaultsChanged ? (
+                <button className="textButton" type="button" disabled={isBusy} onClick={saveLiveDefaults}>
                   {t("live.makeDefault")}
                 </button>
               ) : null}
-              <p className="operatorHint" role="status" aria-live="polite">{saveHistoryDefaultMessage}</p>
+              <p className="operatorHint" role="status" aria-live="polite">{liveDefaultsMessage}</p>
             </div>
             <details className="advancedActions">
               <summary>{t("live.sessionDetails")}</summary>
@@ -1386,10 +1422,6 @@ function OperatorDashboardContent() {
                 setSessionMetadata(value);
                 if (value.sessionAt !== sessionMetadata.sessionAt) setSessionDateEdited(true);
               }} />
-            </details>
-            <details className="advancedActions">
-              <summary>{t("live.checkBeforeShow")}</summary>
-              {outputBufferPanel}
             </details>
           </section>
         ) : (
@@ -1405,17 +1437,6 @@ function OperatorDashboardContent() {
               controlBusy={controlAction !== null}
               manualCaptionBusy={controlAction === "manual"}
               onShowManualCaption={(text) => void showManualCaption(text)}
-              outputBuffer={{
-                show: outputBufferCount > 0,
-                queue: outputBufferQueue,
-                onPause: setOutputBufferEntryPaused,
-                onClear: clearOutputBufferEntry,
-                onFastForward: fastForwardOutputBufferEntry,
-                onBeginEdit: beginOutputBufferEdit,
-                onEditDraftChange: updateOutputBufferEditDraft,
-                onCancelEdit: cancelOutputBufferEdit,
-                onSubmitEdit: submitOutputBufferEdit,
-              }}
             />
             <LiveNoteControl value={liveNote} disabled={!liveState.service || observed.observer !== null} onChange={setLiveNote} />
             {isPaused ? (
@@ -1429,10 +1450,6 @@ function OperatorDashboardContent() {
               <SessionMetadataFields value={sessionMetadata} disabled={!liveState.service?.saveHistory || isBusy} onChange={setSessionMetadata} />
               <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.service?.saveHistory || !liveState.service.serviceId || isBusy} onClick={() => void saveLiveSessionMetadata()}>{t("live.saveSessionDetails")}</button></div>
               <p className="settingHint" role="status" aria-live="polite">{sessionMetadataMessage}</p>
-            </details>
-            <details className="advancedActions">
-              <summary>{t("live.checkBeforeShow")}</summary>
-              {outputBufferPanel}
             </details>
             <details className="advancedActions">
               <summary>{t("live.serviceDetails")}</summary>

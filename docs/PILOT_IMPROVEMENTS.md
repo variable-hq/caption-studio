@@ -1,6 +1,6 @@
 # Evidence-gated pilot improvements
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`).
+Reviewed 2 November 2026 against merged PR #94 (`233b532`).
 
 Prepared 12 September; scope reconciled 13 September 2026. QR joining, reusable saved
 terminology packs and live public-caption correction remain proposals. Plan 1 has since
@@ -195,14 +195,15 @@ shared profiles belongs to the separate workspace/role/retention design in the r
 ## Candidate 3: pause, review, and publish a correction
 
 **Status (30 October 2026):** the proposal below is not implemented as written, but
-neighbouring controls now ship on Live › Quick fixes:
+neighbouring controls now ship on Live:
 
 - **Manual caption** while paused shows up to 240 typed characters in the active target
   language to OBS and the latest viewer, and archives it as a separate operator note
   ([ADR 0013](decisions/0013-manual-caption-archived-as-operator-notes.md)). Unlike this
   proposal, it does not capture or edit the previous caption, has no expected-sequence
   check, and bypasses the public filter and glossary as already-reviewed operator text.
-- The optional **output buffer** holds each caption 1–5 seconds before Live; the next
+- The optional **output buffer** holds each caption 1–5 seconds before Live; its wait
+  setting and next-up queue sit in the Captions card. The next
   caption can be paused, edited (re-moderated before it can show), cleared or
   fast-forwarded ([ADR 0016](decisions/0016-client-side-output-buffer.md)). This is a
   limited review-before-publication, not correction after publication.

@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 2 November 2026 against merged PR #93 (`3e257a8`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
+Reviewed 2 November 2026 against merged PR #94 (`233b532`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical service, semantic quality or WCAG conformance.
 
@@ -79,8 +79,11 @@ The browser is the sole client; there are no native/signing checklists.
    a recording. In **Settings › Output**, set text size, font, colours, band, placement
    and margins; the preview updates continuously and the saved shared look survives reload.
 8. Use **Show a test caption** and **Clear screen** for a synthetic idle test. It makes no
-   AI call or microphone capture. On **Live**, decide **Save the transcript for 7 days**,
-   optionally fill **Session details**, then press **Start captions**; Start performs
+   AI call or microphone capture. On **Live**, the full-width Start bar holds **Start
+   captions** and **Show a test caption** above the two columns. In the Start settings card,
+   decide **Save the transcript for 7 days**, optionally save that choice and the output
+   buffer wait with **Save selected settings as default**, optionally fill **Session
+   details**, then press **Start captions** in the Start bar; Start performs
    readiness and ownership checks. **Heard** and **Audience view** show the private source
    and the public caption.
 9. Speak approved samples with **Dynamic** selected. Confirm **Heard** fills in with the
@@ -97,7 +100,7 @@ The browser is the sole client; there are no native/signing checklists.
     cannot reappear. Timer, controller, links, usage and live/paused state remain. Repeat a
     short sample at 6 and 18 seconds; longer windows do not guarantee complete sentences.
 11. In **Quick fixes**, test **Hide captions with it** (hides the whole caption at once),
-    a **Live note**, and **Check captions before they show** with a short wait: under
+    a **Live note**, and the output buffer in the Captions card with a short wait: under
     **Next up**, edit, pause, clear and fast-forward a queued caption.
 12. Pause at a natural break: microphone and queued work stop, OBS/latest viewer blank,
     and attempts stop increasing. While paused, show a test caption and **Show your own
