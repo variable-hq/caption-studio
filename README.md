@@ -33,13 +33,16 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
 - **Live delivery**: moderated captions reach a reusable OBS Browser Source, a per-service
   mobile viewer, and an appending reader, with an instant quick block for unanticipated
   words, a typed message while paused, and an optional pre-publish output buffer
-  (**Check captions before they show**: wait 1–5 seconds; pause, edit, clear, or
+  (the wait setting in the captions card: 1–5 seconds; pause, edit, clear, or
   fast-forward the next-up caption).
 - **Operator dashboard**: three screens, **Live**, **Transcripts** and **Settings**, plus
-  **Help**, built for volunteers. Live is two rows of equal-height paired cards: the
+  **Help**, built for volunteers. Live opens before a service with a full-width Start bar
+  (**Start captions**, **Show a test caption** and the next-step line); below it are two
+  rows of equal-height paired cards: the
   captions card (**Heard** beside **Audience view**, with **Recent captions** folded
   below; in Dynamic mode Heard fills in at the speaker's first pause and the final
-  replaces it) beside the readiness checklist, then the Start card (**Quick fixes** during a
+  replaces it, and the output buffer wait sits below the panes) beside the readiness
+  checklist, then the Start settings card (**Quick fixes** during a
   service) beside **Share**. During a service a bar pinned to the bottom holds Pause,
   Clear screen, the minutes left and End service. Each screen has its own bookmarkable
   address (`#live`, `#sermons`, `#settings=<section>`, `#help`).
@@ -296,7 +299,7 @@ One successful Cloudflare deployment is on record (13 September 2026); merges si
 have no recorded build ID yet. See the [deployment runbook](docs/DEPLOYMENT.md) for
 build/Worker IDs, the fix that unblocked the first deploy, and remaining rehearsal gates.
 
-<sub>This document reviewed 28 October 2026 against merged [PR #75](https://github.com/variable-hq/caption-studio/pull/75) (`080e6ca`).</sub>
+<sub>This document reviewed 2 November 2026 against merged [PR #94](https://github.com/variable-hq/caption-studio/pull/94) (`233b532`).</sub>
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).

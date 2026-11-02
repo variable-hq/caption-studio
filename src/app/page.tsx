@@ -26,6 +26,7 @@ import { SessionMetadataFields } from "@/components/operator/SessionMetadataFiel
 import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
 import { OperatorTopBar, type OperatorScreenId, type OperatorStatusLabel, type StatusTone } from "@/components/operator/OperatorTopBar";
 import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
+import { OutputBufferQueueControl } from "@/components/operator/OutputBufferQueueControl";
 import { ReadinessChecks, type ReadinessCheck } from "@/components/operator/ReadinessChecks";
 import { PromptEditor } from "@/components/operator/PromptEditor";
 import { StyleEditor, type StyleEditorProps } from "@/components/operator/StyleEditor";
@@ -1285,6 +1286,34 @@ function OperatorDashboardContent() {
         </p>
       ) : null}
 
+      {!hasService ? (
+        <section className="liveStartBar" aria-label={t("live.startCard")}>
+          <div className="startActions">
+            <button
+              type="button"
+              className="primaryButton"
+              disabled={startBlocked}
+              aria-describedby="start-help"
+              onClick={() => { shouldAutoSaveMetadata.current = true; setLiveNote(""); void startSession(); }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
+              {liveState.status === "starting" ? t("live.starting") : t("live.start")}
+            </button>
+            <button
+              type="button"
+              className="secondaryButton"
+              disabled={!channelConfigured || isBusy || controlAction !== null || anotherOperatorActive}
+              onClick={() => void showTestCaption()}
+            >
+              {controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
+            </button>
+          </div>
+          <p id="start-help" className="operatorHint" data-tone={(setupBlocked || anotherOperatorActive || liveState.status === "error") && !checkingChannel && cloudState !== "checking" ? "bad" : undefined}>
+            {startHelp}
+          </p>
+        </section>
+      ) : null}
+
       <div className="liveGrid">
         <section className="operatorCard liveCaptions" aria-label={t("live.captionsCard")}>
           <div className="monitorGrid">
@@ -1315,6 +1344,34 @@ function OperatorDashboardContent() {
             <AudioLevelMeter level={level} />
           </div>
           {!observed.observer ? (
+            <div className="outputBufferControls" role="group" aria-label={t("live.checkBeforeShow")}>
+              {outputBufferPanel}
+              {hasService && outputBufferCount > 0 ? (
+                <OutputBufferQueueControl
+                  queue={outputBufferQueue}
+                  disabled={isBusy}
+                  onPause={setOutputBufferEntryPaused}
+                  onClear={clearOutputBufferEntry}
+                  onFastForward={fastForwardOutputBufferEntry}
+                  onBeginEdit={beginOutputBufferEdit}
+                  onEditDraftChange={updateOutputBufferEditDraft}
+                  onCancelEdit={cancelOutputBufferEdit}
+                  onSubmitEdit={submitOutputBufferEdit}
+                />
+              ) : null}
+              {hasService ? (
+                <div className="buttonRow">
+                  {liveDefaultsChanged ? (
+                    <button className="textButton" type="button" disabled={isBusy} onClick={saveLiveDefaults}>
+                      {t("live.makeDefault")}
+                    </button>
+                  ) : null}
+                  <p className="operatorHint" role="status" aria-live="polite">{liveDefaultsMessage}</p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {!observed.observer ? (
             <details className="advancedActions">
               <summary>{t("live.recentCaptions")}</summary>
               <RecentOutputsStrip outputs={recentOutputs} />
@@ -1325,30 +1382,7 @@ function OperatorDashboardContent() {
         <ReadinessChecks title={hasService ? t("readiness.titleSetup") : setupBlocked ? t("readiness.titleBeforeStart") : t("readiness.titleReady")} checks={readinessChecks} />
 
         {!hasService ? (
-          <section className="operatorCard liveActions" aria-label={t("live.startCard")}>
-            <div className="startActions">
-              <button
-                type="button"
-                className="primaryButton"
-                disabled={startBlocked}
-                aria-describedby="start-help"
-                onClick={() => { shouldAutoSaveMetadata.current = true; setLiveNote(""); void startSession(); }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
-                {liveState.status === "starting" ? t("live.starting") : t("live.start")}
-              </button>
-              <button
-                type="button"
-                className="secondaryButton"
-                disabled={!channelConfigured || isBusy || controlAction !== null || anotherOperatorActive}
-                onClick={() => void showTestCaption()}
-              >
-                {controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
-              </button>
-            </div>
-            <p id="start-help" className="operatorHint" data-tone={(setupBlocked || anotherOperatorActive || liveState.status === "error") && !checkingChannel && cloudState !== "checking" ? "bad" : undefined}>
-              {startHelp}
-            </p>
+          <section className="operatorCard liveActions" aria-label={t("live.saveTranscript")}>
             <label className="checkLabel">
               <input
                 type="checkbox"
@@ -1379,10 +1413,6 @@ function OperatorDashboardContent() {
                 if (value.sessionAt !== sessionMetadata.sessionAt) setSessionDateEdited(true);
               }} />
             </details>
-            <details className="advancedActions">
-              <summary>{t("live.checkBeforeShow")}</summary>
-              {outputBufferPanel}
-            </details>
           </section>
         ) : (
           <section className="operatorCard liveActions" aria-labelledby="quick-fixes-heading">
@@ -1397,17 +1427,6 @@ function OperatorDashboardContent() {
               controlBusy={controlAction !== null}
               manualCaptionBusy={controlAction === "manual"}
               onShowManualCaption={(text) => void showManualCaption(text)}
-              outputBuffer={{
-                show: outputBufferCount > 0,
-                queue: outputBufferQueue,
-                onPause: setOutputBufferEntryPaused,
-                onClear: clearOutputBufferEntry,
-                onFastForward: fastForwardOutputBufferEntry,
-                onBeginEdit: beginOutputBufferEdit,
-                onEditDraftChange: updateOutputBufferEditDraft,
-                onCancelEdit: cancelOutputBufferEdit,
-                onSubmitEdit: submitOutputBufferEdit,
-              }}
             />
             <LiveNoteControl value={liveNote} disabled={!liveState.service || observed.observer !== null} onChange={setLiveNote} />
             {isPaused ? (
@@ -1421,10 +1440,6 @@ function OperatorDashboardContent() {
               <SessionMetadataFields value={sessionMetadata} disabled={!liveState.service?.saveHistory || isBusy} onChange={setSessionMetadata} />
               <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.service?.saveHistory || !liveState.service.serviceId || isBusy} onClick={() => void saveLiveSessionMetadata()}>{t("live.saveSessionDetails")}</button></div>
               <p className="settingHint" role="status" aria-live="polite">{sessionMetadataMessage}</p>
-            </details>
-            <details className="advancedActions">
-              <summary>{t("live.checkBeforeShow")}</summary>
-              {outputBufferPanel}
             </details>
             <details className="advancedActions">
               <summary>{t("live.serviceDetails")}</summary>

@@ -153,6 +153,21 @@
   gap: var(--gap-lg);
 }
 
+/* Before a service, the main action spans both columns above the grid. */
+.liveStartBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-sm) var(--gap-md);
+  padding: var(--gap-md) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.liveStartBar .operatorHint { flex: 1 1 260px; min-width: 0; }
+
 .liveGrid > .operatorCard { order: 2; }
 .liveGrid > .liveCaptions { order: 0; }
 .liveGrid > .liveActions { order: 1; }
@@ -319,6 +334,16 @@
   align-items: center;
   gap: var(--gap-md);
 }
+
+/* The output buffer sits in the Captions card below both panes, before and during a service. */
+.outputBufferControls {
+  display: grid;
+  gap: var(--gap-sm);
+  padding-top: var(--gap-md);
+  border-top: 1px solid var(--line);
+}
+
+.outputBufferControls .outputBufferPanel { margin-top: 0; }
 
 .checkList {
   display: flex;
