@@ -40,8 +40,30 @@ describe("Live screen saved defaults", () => {
     ).toBe(false);
   });
 
+  it("compares choices with the built-in values while nothing has been saved", () => {
+    const unsaved = saved({
+      saveHistoryDefault: null,
+      outputBufferCount: null,
+      outputBufferDwellMs: null,
+    });
+    expect(liveScreenDefaultsChanged(choices(), unsaved)).toBe(false);
+    expect(liveScreenDefaultsChanged(choices({ saveHistory: true }), unsaved)).toBe(true);
+    expect(liveScreenDefaultsChanged(choices({ outputBufferCount: 1 }), unsaved)).toBe(true);
+    expect(
+      liveScreenDefaultsChanged(
+        choices({ outputBufferCount: 1, outputBufferDwellMs: 2_000 }),
+        unsaved,
+      ),
+    ).toBe(true);
+    expect(liveScreenDefaultsChanged(choices({ outputBufferDwellMs: 5_000 }), unsaved)).toBe(false);
+    expect(
+      liveScreenDefaultsChanged(choices({ hasService: true, saveHistory: true }), unsaved),
+    ).toBe(false);
+  });
+
   it("needs a save when the output buffer wait differs, and ignores the dwell while Off", () => {
-    expect(liveScreenDefaultsChanged(choices(), saved({ outputBufferCount: null }))).toBe(true);
+    // A never-saved wait matches the built-in Off default, so nothing is pending.
+    expect(liveScreenDefaultsChanged(choices(), saved({ outputBufferCount: null }))).toBe(false);
     expect(
       liveScreenDefaultsChanged(choices({ outputBufferCount: 1, outputBufferDwellMs: 2_000 }), saved()),
     ).toBe(true);

@@ -122,6 +122,7 @@ try {
   assert.deepEqual(await page.locator('.checkList li .checkText > span:first-child').allTextContents(),['Caption service','Microphone','OBS','Languages','Terms'],'OBS is third in Ready to go');
   // Live saves its per-service choices with one shared control; Save for everyone stays in Settings.
   assert.equal(await page.getByRole('button',{name:'Save for everyone',exact:true}).count(),0,'Live has no per-control Save for everyone');
+  assert.equal(await page.getByRole('button',{name:'Save selected settings as default',exact:true}).count(),0,'With no saved default, the shared save hides while the built-in choices are unchanged');
   await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).check();
   await page.getByTestId('output-buffer-wait').selectOption('2000');
   const sharedSave=page.getByRole('button',{name:'Save selected settings as default',exact:true});

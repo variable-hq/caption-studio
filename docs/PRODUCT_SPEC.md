@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 2 November 2026 against merged PR #94 (`233b532`). The corrected 13 September
+Reviewed 2 November 2026 against merged PR #95 (`aaff5b6`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -447,8 +447,10 @@ caption wait time, Terms, Inference and Sanitization; translator instructions; c
 summary defaults and automatic summaries; the output buffer; and the transcript-saving
 default. Theme and interface language remain personal preferences. From Settings,
 **Save for everyone** writes the shared setup. On Live, **Save selected settings as
-default** writes only the per-service choices that are visible: before a service, the
-transcript-saving choice and the output buffer wait; during a service, the wait alone.
+default** appears only after a visible choice differs from its saved default, or from the
+built-in value when nothing has been saved, and writes only the per-service choices that
+are visible: before a service, the transcript-saving choice and the output buffer wait;
+during a service, the wait alone.
 Until anyone saves it, each operator keeps the
 setup they saved earlier; afterwards a value the church setup has never set still falls
 back to the operator's own, and the first save carries the saving operator's earlier
@@ -509,7 +511,8 @@ Terms list and leaves the live entry active.
   details** the delay after speech, segments filtered (when filtering is on), dropped audio
   chunks, transcription and translation counts, tokens, and model names. The output buffer
   stays in the Captions card, where its wait and next-up queue are joined by the shared
-  **Save selected settings as default** control when the wait differs from the saved default.
+  **Save selected settings as default** control when the wait differs from the saved or
+  built-in default.
   End and Take over open native confirmation dialogs
   (**End this service?**: Keep going / End service; **Take over captions?**: Keep watching
   / Take over). **Clear screen** blanks OBS and the latest viewer while preserving
