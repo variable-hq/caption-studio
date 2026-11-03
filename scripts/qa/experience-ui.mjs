@@ -147,7 +147,8 @@ try {
   await page.reload();
   await page.getByText('Ibadah berakhir', { exact: true }).waitFor();
   viewerReady = { status: 'idle', preset: sermonSnapshot };
-  await page.reload();
+  // The page is on the reader; the viewer is a different address.
+  await page.goto(origin + '/view#main.' + 'v'.repeat(43));
   await page.locator('.status', { hasText: 'Ibadah berakhir' }).waitFor();
   readerPreset = undefined; readerStatus = 'live'; viewerReady = { status: 'live' };
   await page.setExtraHTTPHeaders({ 'accept-language': 'en-US,en;q=0.9' });
