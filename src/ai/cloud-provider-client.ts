@@ -148,6 +148,7 @@ export class CloudProviderClient
     form.append("sourceLanguage", request.sourceLanguage);
     form.append("keywordHints", JSON.stringify(request.keywordHints));
     if (request.previousTranscript) form.append("previousTranscript", request.previousTranscript);
+    if (request.presetId) form.append("presetId", request.presetId);
     form.append("sanitizeLevel", request.sanitizeLevel ?? DEFAULT_SANITIZE_LEVEL);
 
     const response = await fetch("/api/ai/transcribe", {

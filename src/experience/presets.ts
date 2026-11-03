@@ -18,6 +18,7 @@ export const MAX_PRESET_NAME_CHARS = 40;
 export const MAX_PRESET_DESCRIPTION_CHARS = 200;
 export const MAX_PRESET_AUTHOR_CHARS = 80;
 export const MAX_PRESET_TERM_CHARS = 40;
+export const MAX_TRANSCRIPTION_PREFIX_CHARS = 120;
 
 export const PRESET_LOCALES = ["en", "id"] as const;
 export type PresetLocale = (typeof PRESET_LOCALES)[number];
@@ -65,9 +66,11 @@ export type Preset = {
   terms: { en: PresetTermSet; id?: PresetTermSet };
   defaults?: PresetDefaults;
   messageOverrides?: PresetMessageOverrides;
+  /** Built-in only: the opening of the transcription prompt, before the Terms. */
+  transcriptionPrefix?: PresetLocalizedText;
 };
 
-const PRESET_FIELDS = ["schemaVersion", "version", "id", "name", "description", "author", "terms", "defaults", "messageOverrides"] as const;
+const PRESET_FIELDS = ["schemaVersion", "version", "id", "name", "description", "author", "terms", "defaults", "messageOverrides", "transcriptionPrefix"] as const;
 const PRESET_DEFAULT_FIELDS = [
   "recordingWindowMs",
   "inferenceLevel",
@@ -287,6 +290,11 @@ export function normalizePreset(input: unknown): Preset {
   };
   if (record.author !== undefined) preset.author = boundedText(record.author, "author", MAX_PRESET_AUTHOR_CHARS);
   if (record.defaults !== undefined) preset.defaults = presetDefaults(record.defaults);
+  if (record.transcriptionPrefix !== undefined) {
+    // Model-facing text is shipped with the app; a custom preset carries terms and defaults only.
+    if (!preset.id.startsWith("builtin:")) fail("transcriptionPrefix is allowed only on builtin: presets");
+    preset.transcriptionPrefix = localizedText(record.transcriptionPrefix, "transcriptionPrefix", MAX_TRANSCRIPTION_PREFIX_CHARS);
+  }
   if (record.messageOverrides !== undefined) {
     // Only shipped presets may replace messages; a custom preset carries terms alone.
     if (!preset.id.startsWith("builtin:")) fail("messageOverrides is allowed only on builtin: presets");
@@ -362,6 +370,10 @@ const SERMON_PRESET: Preset = {
       transcripts: { singular: "khotbah" },
     },
   },
+  transcriptionPrefix: {
+    en: "Sermon. Preserve biblical names and references:",
+    id: "Khotbah. Nama tokoh dan ayat Alkitab:",
+  },
   defaults: {
     recordingWindowMs: "dynamic",
     inferenceLevel: "balanced",
@@ -423,6 +435,10 @@ const TALKSHOW_PRESET: Preset = {
       transcripts: { singular: "episode" },
     },
   },
+  transcriptionPrefix: {
+    en: "Conversation between several speakers. Preserve names and spelling:",
+    id: "Percakapan beberapa pembicara. Nama dan ejaan:",
+  },
   defaults: {
     recordingWindowMs: 6_000,
     inferenceLevel: "low",
@@ -479,6 +495,10 @@ const KEYNOTE_PRESET: Preset = {
       audience: { singular: "peserta", plural: "peserta" },
       transcripts: { singular: "presentasi" },
     },
+  },
+  transcriptionPrefix: {
+    en: "Presentation. Preserve product, company and technical terms:",
+    id: "Presentasi. Istilah produk, perusahaan dan teknis:",
   },
   defaults: {
     recordingWindowMs: 14_000,

@@ -32,6 +32,7 @@ export interface DraftReuseSnapshot {
   settings: TranslationSessionSettings;
   liveWords: readonly LiveWordEntry[];
   liveNote: string | undefined;
+  presetId?: string;
 }
 
 export interface DraftForReuse {
@@ -56,6 +57,7 @@ export function draftReusedAsFinal(
     snapshot.translationRevision === current.translationRevision &&
     snapshot.settings === current.settings &&
     snapshot.liveWords === current.liveWords &&
-    snapshot.liveNote === current.liveNote
+    snapshot.liveNote === current.liveNote &&
+    snapshot.presetId === current.presetId
   );
 }

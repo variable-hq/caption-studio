@@ -41,6 +41,7 @@ interface RunCaptionTranscriptionOptions {
   glossary?: ReturnType<typeof parseGlossaryInput>;
   controllerToken: string;
   recentContext: string[];
+  presetId?: string;
   signal: AbortSignal;
   isCurrent: () => boolean;
   currentRevision: number;
@@ -56,6 +57,7 @@ interface RunCaptionTranslationOptions {
   settings: TranslationSessionSettings;
   recentContext: string[];
   liveNote?: string;
+  presetId?: string;
   signal: AbortSignal;
   isCurrent: () => boolean;
   onTranslation: (translation: TranslationResult) => void;
@@ -70,6 +72,7 @@ interface RunCaptionInferenceOptions {
   controllerToken: string;
   recentContext: string[];
   liveNote?: string;
+  presetId?: string;
   signal: AbortSignal;
   isCurrent: () => boolean;
   currentRevision: number;
@@ -108,6 +111,7 @@ export async function runCaptionTranscription(
         keywordHints: keywordHints(glossary.map((entry) => ({ ...entry, variants: [] }))),
         previousTranscript: options.recentContext.at(-1),
         sanitizeLevel: current.sanitizeLevel,
+        presetId: options.presetId,
       },
       inferenceContext,
       options.signal,
@@ -162,6 +166,7 @@ export async function runCaptionTranslation(
           sanitizeLevel: current.sanitizeLevel,
           filterInappropriateLanguage: current.filterInappropriateLanguage,
           ...(liveNote ? { liveNote } : {}),
+          presetId: options.presetId,
         },
         transcription.inferenceContext,
         options.signal,
@@ -187,6 +192,7 @@ export async function runCaptionInference(
     settings: options.settings,
     recentContext: options.recentContext,
     liveNote: options.liveNote,
+    presetId: options.presetId,
     signal: options.signal,
     isCurrent: options.isCurrent,
     onTranslation: options.onTranslation,

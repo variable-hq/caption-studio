@@ -61,6 +61,7 @@ export async function POST(request: Request) {
     const keywordHintsValue = String(form.get("keywordHints") ?? "[]");
     const previousTranscript = String(form.get("previousTranscript") ?? "").slice(-1_000);
     const sanitizeLevel = normalizeSanitizeLevel(form.get("sanitizeLevel"));
+    const presetId = String(form.get("presetId") ?? "");
 
     if (!(audio instanceof Blob) || audio.size === 0) {
       return NextResponse.json({ error: "An audio chunk is required." }, { status: 400 });
@@ -104,6 +105,7 @@ export async function POST(request: Request) {
       keywordHints,
       previousTranscript,
       sanitizeLevel,
+      presetId,
       signal: request.signal,
       telemetry,
     }));

@@ -7,6 +7,7 @@ import {
   buildTranslationEnvelopeRules,
 } from "@/ai/translation-prompt";
 import { buildTranscriptionPrompt, buildTranslationMessages } from "@/ai/server/groq";
+import { resolveWorkspacePreset } from "@/experience/presets";
 import { buildReaderPrompt, buildSummaryPrompt } from "@/experience/prompt";
 import { SUMMARY_SECTION_TASK, SUMMARY_SYNTHESIS_TASK } from "@/experience/transcript-journal";
 
@@ -149,5 +150,38 @@ describe("model-facing wording", () => {
         expect(translation, `${level}: ${rule}`).toContain(rule);
       }
     }
+  });
+});
+
+describe("per-format transcription prefix", () => {
+  const HINTS = Array.from({ length: 40 }, (_, index) => `Nama Panjang Sintetis ${index} dengan ejaan khusus`);
+  const TAIL = "kalimat sebelumnya yang menjadi konteks ".repeat(4).trim();
+
+  it("opens the prompt with each format's prefix in the caption language and General's otherwise", () => {
+    expect(buildTranscriptionPrompt(["Yesus Kristus"], "en", "", resolveWorkspacePreset("builtin:sermon")))
+      .toMatch(/^Sermon\. Preserve biblical names and references: Yesus Kristus$/u);
+    expect(buildTranscriptionPrompt(["Yesus Kristus"], "id", "", resolveWorkspacePreset("builtin:sermon")))
+      .toMatch(/^Khotbah\. Nama tokoh dan ayat Alkitab: Yesus Kristus$/u);
+    expect(buildTranscriptionPrompt(["Rina"], "auto", "", resolveWorkspacePreset("builtin:talkshow")))
+      .toMatch(/^Conversation between several speakers\. Preserve names and spelling: Rina$/u);
+    expect(buildTranscriptionPrompt([], "en", "", resolveWorkspacePreset("builtin:general")))
+      .toBe("Spoken recording. Preserve names and spelling:");
+    expect(buildTranscriptionPrompt([], "id", "", resolveWorkspacePreset("builtin:general")))
+      .toBe("Rekaman ucapan. Nama dan ejaan:");
+  });
+
+  it("keeps every format's prompt within 448 bytes with a long Terms list and previous-transcript tail", () => {
+    for (const id of ["builtin:general", "builtin:sermon", "builtin:talkshow", "builtin:keynote"]) {
+      for (const language of ["en", "id", "auto"] as const) {
+        const prompt = buildTranscriptionPrompt(HINTS, language, TAIL, resolveWorkspacePreset(id));
+        expect(bytes(prompt), `${id} ${language}`).toBeLessThanOrEqual(448);
+        expect(prompt.endsWith(TAIL), `${id} ${language} ends with the tail`).toBe(true);
+      }
+    }
+  });
+
+  it("treats an unknown or custom preset id as General", () => {
+    expect(resolveWorkspacePreset("builtin:market")).toBe(resolveWorkspacePreset("builtin:general"));
+    expect(resolveWorkspacePreset("custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b").id).toBe("builtin:general");
   });
 });

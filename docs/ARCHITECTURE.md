@@ -233,11 +233,13 @@ overrides resolve to the migrated translation default. Other explicit overrides 
 normal readiness and quality review.
 
 Transcription accepts WebM/Ogg/MP4, at most 3 MB of audio, bounded hints, the previous
-chunk's corrected transcript (at most 1,000 characters accepted), and a Sanitization level
-(Off, Low, Balanced, High; omitted or invalid values normalize to Off). The provider prompt
-uses a conservative 448 UTF-8-byte budget, with the last whole words of the previous
-transcript (at most 160 bytes) retained as Whisper's preceding-speech context and hints
-filling the rest. If Groq rejects a transcription with HTTP 400, one retry uses the former
+chunk's corrected transcript (at most 1,000 characters accepted), a Sanitization level
+(Off, Low, Balanced, High; omitted or invalid values normalize to Off), and a preset id.
+The server resolves the id from the built-in presets (unknown or custom ids are General);
+the request never supplies preset text. The provider prompt opens with the format's
+transcription prefix (General's when none) and uses a conservative 448 UTF-8-byte budget,
+with the last whole words of the previous transcript (at most 160 bytes) retained as
+Whisper's preceding-speech context and hints filling the rest. If Groq rejects a transcription with HTTP 400, one retry uses the former
 224-byte/96-byte budgets; a successful fallback selects those smaller budgets for later
 requests in the same Worker isolate. Start, translation refresh and Clear reset the transcript
 context. Only canonical names enter ASR hints; approved whole-word recognition variants are

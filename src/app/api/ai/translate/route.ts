@@ -121,6 +121,7 @@ export async function POST(request: Request) {
         sanitizeLevel: normalizeSanitizeLevel(body.sanitizeLevel),
         filterInappropriateLanguage: body.filterInappropriateLanguage !== false,
         ...(liveNote ? { liveNote } : {}),
+        presetId: typeof body.presetId === "string" ? body.presetId : undefined,
       },
       request.signal,
       telemetry,

@@ -210,6 +210,12 @@ one-caption output contract. This reduces accidental prompt-policy changes but i
 hard enforcement boundary, does not make model output authoritative, and does not eliminate
 prompt-injection or translation-quality risk; church-approved review remains required.
 
+A workspace format adds model-facing text only from the built-in presets in
+`src/experience/presets.ts`, selected by id on the server. A custom preset cannot add
+transcription, translation or summary text, and request text never supplies it. The text
+sits after the server envelope's safeguards and changes wording for the model only; it does
+not change the envelope, output contract or language direction.
+
 The same envelope pattern also structures the optional reader-join and summary prompts,
 which have no operator-editable text of their own. Independently of that input-side
 envelope, an output-side check screens each AI response for distinctive refusal-style
