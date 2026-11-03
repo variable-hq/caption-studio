@@ -206,7 +206,7 @@ implemented.
   preserving evident tone, formality, slang, and intentional rhetorical repetition. It is
   editable up to 4,000 characters; blank restores the reviewed default, while non-text,
   overlength, or unsupported-control-character values fail validation without truncation.
-- An optional, appendable guidance block corrects a specific Indonesian congregational
+- An optional, appendable guidance block corrects a specific Indonesian audience
   address-term ambiguity (for example "Saudara-saudara") for Indonesian-to-English
   sessions. It is prompt guidance, not a glossary substitution, since correct rendering
   depends on how the term is used in context, not on the word alone.
@@ -237,7 +237,7 @@ implemented.
   on-state. Low omits non-word filler sounds. Balanced also omits filler words with no
   meaning in context and keeps only the final version of an explicit self-correction. High
   also omits empty openers and tags that add no content, while preserving direct address and
-  congregation call-and-response. The model rule preserves other repetition and quoted or
+  audience call-and-response. The model rule preserves other repetition and quoted or
   acted-out speech, and never removes meaningful content, names, or scripture. Profanity is
   controlled separately by Filter inappropriate language.
 - Filter inappropriate language is an independent, default-on translation setting. When On,

@@ -697,7 +697,7 @@ describe("Groq cloud provider prompts", () => {
       expect(rule).toMatch(/leave all repetition as spoken/iu);
       expect(rule).toContain("only the unclear-word rule may normalize a single stretched or hyphenated word");
       expect(rule).toContain("Do not sanitize speech the speaker is quoting or acting out");
-      expect(rule).toContain("congregation call-and-response");
+      expect(rule).toContain("audience call-and-response");
       expect(rule).toContain("Never remove meaningful content");
       expect(rule).toContain("Never add or complete content, names, or scripture");
       expect(rule).not.toMatch(/profanity|non-speech noise|gibberish/iu);
