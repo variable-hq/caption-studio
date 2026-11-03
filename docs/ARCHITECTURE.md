@@ -241,8 +241,9 @@ the request never supplies preset text. The provider prompt opens with the forma
 transcription prefix (General's when none) and uses a conservative 448 UTF-8-byte budget,
 with the last whole words of the previous transcript (at most 160 bytes) retained as
 Whisper's preceding-speech context and hints filling the rest. If Groq rejects a
-transcription with HTTP 400, one retry uses the former 224-byte/96-byte budgets; a successful fallback selects those smaller budgets for later
-requests in the same Worker isolate. Start, translation refresh and Clear reset the transcript
+transcription with HTTP 400, one retry uses the former 224-byte/96-byte budgets; a
+successful fallback selects those smaller budgets for later requests in the same Worker
+isolate. Start, translation refresh and Clear reset the transcript
 context. Only canonical names enter ASR hints; approved whole-word recognition variants are
 deterministic corrections, not training.
 
