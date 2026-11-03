@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 3 November 2026 against merged PR #98 (`00c6164`). The corrected 13 September
+Reviewed 3 November 2026 against merged PR #100 (`b4c03ab`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -508,7 +508,10 @@ Terms list and leaves the live entry active.
   while paused),
   **Live note**, a test caption while paused, **Session details** (with **Save session
   details**), and under **Technical details** the delay after speech, segments filtered (when filtering is on), dropped audio
-  chunks, transcription and translation counts, tokens, and model names. The output buffer
+  chunks, how caption windows ended (cuts at a sentence end, at a pause and at the wait limit,
+  unfinished sentences held, and the typical and longest-10% caption wait), transcription and
+  translation counts, tokens, and model names. The wait counts are numbers kept in the
+  controlling tab only; they reset at Start and survive Pause, Resume, Clear and Apply now. The output buffer
   stays in the Captions card, where its wait and next-up queue are joined by the shared
   **Save selected settings as default** control when the wait differs from the saved or
   built-in default.

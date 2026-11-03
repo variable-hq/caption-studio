@@ -72,6 +72,12 @@ import {
   setBackgroundTimeout,
 } from "@/live/background-timer";
 import {
+  createCutMetrics,
+  classifyCut,
+  recordQueuedCutWindow,
+  type CutReason,
+} from "@/live/cut-metrics";
+import {
   initialWindowPolicyState,
   nextWindowDecision,
   dynamicDraftResult,
@@ -135,6 +141,7 @@ const INITIAL_LIVE_STATE: LiveSessionState = {
   droppedChunks: 0,
   filteredSegments: 0,
   transcriptionRequests: 0,
+  cutMetrics: createCutMetrics(),
   llmUsage: emptyLlmSessionUsage(),
   latestSourceText: "",
   latestPublicText: "",
@@ -987,7 +994,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   ]);
 
   const enqueueChunk = useCallback(
-    (audio: Blob, generation: number, draftWindowId?: number) => {
+    (audio: Blob, generation: number, draftWindowId?: number): boolean => {
       if (
         !sessionRef.current ||
         !capturingRef.current ||
@@ -996,7 +1003,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       ) {
         if (draftWindowId !== undefined) clearLiveDraft(draftWindowId);
         pendingDraftRef.current = null;
-        return;
+        return false;
       }
       if (queueRef.current.length >= 2) {
         if (draftWindowId !== undefined) clearLiveDraft(draftWindowId);
@@ -1010,7 +1017,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           droppedChunks: state.droppedChunks + 1,
           message: tRef.current("live.message.cloudBehind"),
         }));
-        return;
+        return false;
       }
       const pending = pendingDraftRef.current;
       pendingDraftRef.current = null;
@@ -1021,6 +1028,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         ...(pending?.generation === generation ? { draft: pending } : {}),
       });
       void drainQueue();
+      return true;
     },
     [clearLiveDraft, drainQueue],
   );
@@ -1040,6 +1048,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         let windowPeakRms = 0;
         let levelReadFailed = false;
         let draftWindowId: number | null = null;
+        let endReason: CutReason | null = null;
+        let heldDrafts = 0;
+        let stoppedAtMs: number | null = null;
+        const startedAtMs = performance.now();
         const recorder = new MediaRecorder(stream, recorderOptions());
         recorderRef.current = recorder;
         recorder.ondataavailable = ({ data }) => {
@@ -1073,7 +1085,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             return;
           }
           const mimeType = recorder.mimeType || chunks[0]?.type || "audio/webm";
-          enqueueChunk(new Blob(chunks, { type: mimeType }), generation, draftWindowId ?? undefined);
+          const queued = enqueueChunk(new Blob(chunks, { type: mimeType }), generation, draftWindowId ?? undefined);
+          if (endReason !== null) {
+            const cutWindow = {
+              reason: endReason,
+              lengthMs: (stoppedAtMs ?? performance.now()) - startedAtMs,
+              heldDrafts,
+            };
+            setLiveState((state) => ({
+              ...state,
+              cutMetrics: recordQueuedCutWindow(state.cutMetrics, cutWindow, queued),
+            }));
+          }
           startRecorderChunk();
         };
         const windowPolicy = recordingWindowBoundsMs(recordingWindowMs);
@@ -1086,7 +1109,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             type: recorder.mimeType || chunks[0]?.type || "audio/webm",
           }),
         });
-        const stopWindow = () => {
+        const stopWindow = (reason: CutReason) => {
+          if (endReason === null) {
+            endReason = reason;
+            stoppedAtMs = performance.now();
+          }
           if (dynamicWindowTimerRef.current !== null) {
             clearBackgroundInterval(dynamicWindowTimerRef.current);
             dynamicWindowTimerRef.current = null;
@@ -1123,7 +1150,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           }
           policyState = result.state;
           if (recordingWindowMs !== "dynamic") {
-            if (result.decision === "cut") stopWindow();
+            if (result.decision === "cut") {
+              stopWindow(classifyCut({ elapsedMs: result.state.elapsedMs, capMs: bounds.maxMs, confirmedByDraft: false }));
+            }
             return;
           }
           const action = dynamicPauseAction(result, bounds, draftHold);
@@ -1145,6 +1174,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               );
               if (outcome === "hold") {
                 draftHold = "rejected";
+                heldDrafts += 1;
                 return;
               }
               // A surviving terminal-punctuation draft is this window's final transcription.
@@ -1156,15 +1186,19 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
                   snapshot: attempt.draft.snapshot,
                 };
               }
-              stopWindow();
+              stopWindow(classifyCut({
+                elapsedMs: result.state.elapsedMs,
+                capMs: bounds.maxMs,
+                confirmedByDraft: attempt.available && attempt.preview !== null,
+              }));
             });
             return;
           }
-          stopWindow();
+          stopWindow(classifyCut({ elapsedMs: result.state.elapsedMs, capMs: bounds.maxMs, confirmedByDraft: false }));
         }, DYNAMIC_SAMPLE_MS);
         recorderTimerRef.current = setBackgroundTimeout(() => {
           recorderTimerRef.current = null;
-          stopWindow();
+          stopWindow(classifyCut({ elapsedMs: bounds.maxMs, capMs: bounds.maxMs, confirmedByDraft: false }));
         }, bounds.maxMs);
       };
       startRecorderChunk();
@@ -1501,6 +1535,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         droppedChunks: 0,
         filteredSegments: 0,
         transcriptionRequests: 0,
+        cutMetrics: createCutMetrics(),
         llmUsage: emptyLlmSessionUsage(),
         latestSourceText: "",
         latestPublicText: "",

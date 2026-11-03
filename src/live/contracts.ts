@@ -1,5 +1,6 @@
 import type { LlmSessionUsage } from "@/ai/contracts";
 import type { LanguageLocale } from "@/domain/languages";
+import type { CutMetrics } from "@/live/cut-metrics";
 
 export const RECORDING_WINDOW_OPTIONS = [6_000, 10_000, 14_000, "dynamic"] as const;
 export type RecordingWindowMs = (typeof RECORDING_WINDOW_OPTIONS)[number];
@@ -190,6 +191,8 @@ export interface LiveSessionState {
   droppedChunks: number;
   filteredSegments: number;
   transcriptionRequests: number;
+  /** How recording windows ended this session; numbers only, in this tab's memory. */
+  cutMetrics: CutMetrics;
   llmUsage: LlmSessionUsage;
   latestSourceText: string;
   latestPublicText: string;

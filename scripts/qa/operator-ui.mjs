@@ -282,6 +282,15 @@ try {
   const liveControls=page.getByRole('region',{name:'Live controls'});
   await liveControls.getByRole('button',{name:'Pause',exact:true}).waitFor();
   assert.equal(status,'live');
+  // Technical details lists how windows end; every row fits at every width.
+  await page.locator('summary',{hasText:'Technical details'}).click();
+  for(const label of ['Cuts at a sentence end','Cuts at a pause','Cuts at the wait limit','Unfinished sentences held','Caption wait, typical · longest 10%']){
+   const row=page.locator('.statRow',{hasText:label});
+   assert.equal(await row.count(),1,`Technical details shows "${label}"`);
+   assert.equal(await row.evaluate((node)=>node.scrollWidth<=node.clientWidth&&node.getBoundingClientRect().right<=innerWidth),true,`${width}: "${label}" row overflows`);
+  }
+  assert.equal((await page.locator('.statRow',{hasText:'Caption wait, typical'}).locator('span').last().textContent())?.trim(),'—','Caption wait is empty before the first window');
+  await page.locator('details.advancedActions',{hasText:'Technical details'}).screenshot({path:output+`/live-technical-details-${colorScheme}-${width}.png`});
   await check('live-running');
   await barClear('live-running');
   // The Start bar is gone; the buffer and its shared save stay in the Captions card.
@@ -411,7 +420,7 @@ try {
   assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1,'Browser copy applies when account preferences are unavailable');
   await page.getByRole('combobox',{name:'Bahasa antarmuka',exact:true}).selectOption('');
   await page.waitForFunction(()=>document.documentElement.lang==='en');
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, no inference before Start or after End, responsive overflow and Axe'});
+  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, no inference before Start or after End, responsive overflow and Axe'});
   await context.close();
  }
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));

@@ -91,6 +91,7 @@ import { experienceRequest } from "@/experience/client";
 import { SessionExperiencePanel } from "@/components/operator/SessionExperiencePanel";
 import { UsageHistory } from "@/components/operator/UsageHistory";
 import { formatCount, formatDecimal } from "@/components/operator/format-count";
+import { cutLengthPercentileMs } from "@/live/cut-metrics";
 import { formatClock } from "@/components/operator/format-clock";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
@@ -1232,6 +1233,14 @@ function OperatorDashboardContent() {
     />
   );
 
+  const typicalWaitMs = cutLengthPercentileMs(liveState.cutMetrics, 0.5);
+  const longestWaitMs = cutLengthPercentileMs(liveState.cutMetrics, 0.9);
+  const captionWaitSummary = typicalWaitMs === null || longestWaitMs === null
+    ? "—"
+    : t("live.captionWaitValue", {
+        typical: t("live.seconds", { value: formatDecimal(typicalWaitMs / 1000, locale) }),
+        longest: t("live.seconds", { value: formatDecimal(longestWaitMs / 1000, locale) }),
+      });
   const liveScreen = (
     <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
       <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1} className="visuallyHidden">{t("live.title")}</h1>
@@ -1427,6 +1436,11 @@ function OperatorDashboardContent() {
                 <div className="statRow"><span>{t("live.filteredSegments")}</span><span>{formatCount(liveState.filteredSegments, locale)}</span></div>
               ) : null}
               <div className="statRow"><span>{t("live.droppedChunks")}</span><span>{formatCount(liveState.droppedChunks, locale)}</span></div>
+              <div className="statRow"><span>{t("live.cutsSentence")}</span><span>{formatCount(liveState.cutMetrics.sentence, locale)}</span></div>
+              <div className="statRow"><span>{t("live.cutsPause")}</span><span>{formatCount(liveState.cutMetrics.pause, locale)}</span></div>
+              <div className="statRow"><span>{t("live.cutsLimit")}</span><span>{formatCount(liveState.cutMetrics.limit, locale)}</span></div>
+              <div className="statRow"><span>{t("live.heldDrafts")}</span><span>{formatCount(liveState.cutMetrics.heldDrafts, locale)}</span></div>
+              <div className="statRow"><span>{t("live.captionWait")}</span><span>{captionWaitSummary}</span></div>
               <div className="statRow"><span>{t("live.transcriptions")}</span><span>{formatCount(liveState.transcriptionRequests, locale)}</span></div>
               <div className="statRow"><span>{t("live.translationCalls")}</span><span>{formatCount(liveState.llmUsage.translationRequests, locale)}</span></div>
               <div className="statRow"><span>{t("live.translationTokens")}</span><span>{formatCount(liveState.llmUsage.totalTokens, locale)}</span></div>
