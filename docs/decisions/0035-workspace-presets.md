@@ -39,7 +39,7 @@ Caption Studio's wording is generic (ADR 0033), but an organization often wants 
 
 ### Model-facing text
 
-- A request carries only a preset id. The server validates it (a known built-in, else General) and resolves the text from the preset definition. Request text never supplies preset content.
+- A request carries only a preset id. The server validates it (a known built-in, else General) and resolves the text from the preset definition. Request text never supplies preset content. While a session runs, the id a request carries is the session's; before one starts, it is the Start bar's choice. A summary reads the session's format from its journal.
 - Each non-General built-in may add a transcription prefix, one conditional translation rule and a summary framing line with its guidance. The base safeguards against inventing or quoting source text come first and are unchanged. Every addition stays inside the existing instruction and transcription budgets.
 
 ### Session snapshot

@@ -156,6 +156,22 @@ export function I18nProvider({ children }: Readonly<{ children: React.ReactNode 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
+/**
+ * Renders its children with the wording of a session's format, so the screens that follow a
+ * running session read its terms. A null id leaves the surrounding wording unchanged.
+ */
+export function PresetScope({ presetId, children }: Readonly<{ presetId: BuiltInPresetId | null; children: React.ReactNode }>) {
+  const parent = useI18n();
+  const preset = useMemo(() => (presetId === null ? null : resolveWorkspacePreset(presetId)), [presetId]);
+  const value = useMemo<I18nValue>(
+    () => preset === null
+      ? parent
+      : { ...parent, workspacePreset: preset, t: (key: MessageKey, params?: MessageParams) => translate(parent.locale, key, params, preset) },
+    [parent, preset],
+  );
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+}
+
 export function useI18n() {
   const value = useContext(I18nContext);
   if (!value) throw new Error("useI18n must be used within I18nProvider.");

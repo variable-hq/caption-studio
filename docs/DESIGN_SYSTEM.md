@@ -1,6 +1,6 @@
 # Design system
 
-Reviewed 3 November 2026 against merged PR #105 (`eaec64a`).
+Reviewed 4 November 2026 against merged PR #107 (`b54637a`).
 
 Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
@@ -89,9 +89,16 @@ The dashboard theme never changes the configured OBS caption colours.
   per the colour roles in the brand guidelines) and the `.operatorTab` links, the current
   one marked `aria-current="page"`.
 - Top bar format: `.operatorBrandName a` links the format while no session is live, styled
-- Presets preview (Settings › Presets): rows use the `statRow` pattern; kept and not-changed rows show their status text in place of a value.
   `color: inherit` with an underline; while a session runs the same text is a `role="note"`
-  span with no link. Both carry `aria-label` "Session format: <name>".
+  span with no link. Both carry `aria-label` "Session format: <name>". While a session runs
+  the name is the session's format.
+- Presets preview (Settings › Presets): rows use the `statRow` pattern; kept and not-changed
+  rows show their status text in place of a value.
+- Session format: `.startFormat` is a labelled native select with a hint in the Live Start
+  bar; it wraps to its own row at 680px and narrower. While a session runs, a
+  `.statRow.sessionFormatRow` above Session details shows the format as a read-only
+  `.formatTag`. `.formatTag` is also the small tag on each saved transcript in the
+  Transcripts list.
 - `.operatorScreen`: one screen, capped at `--content-max`, with `--space-3` gutters
   (`--space-2` at 680px and narrower). `.operatorColumns` puts the Settings and Transcripts
   list beside its panel. Live uses `.liveGrid`: two rows of paired cards (`.liveCaptions`

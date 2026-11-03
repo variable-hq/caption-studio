@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CloudProviderClient } from "@/ai/cloud-provider-client";
 import {
@@ -41,7 +41,15 @@ import {
 } from "@/experience/preferences-client";
 import { SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPreferences } from "@/experience/preferences";
 import { planPresetApply } from "@/experience/preset-apply";
-import { resolveWorkspacePreset, type BuiltInPresetId } from "@/experience/presets";
+import { runningSessionFormat, screenFollowsSessionFormat } from "@/experience/session-format";
+import {
+  BUILT_IN_PRESETS,
+  GENERAL_PRESET_ID,
+  normalizeProfileId,
+  presetLocalizedText,
+  resolveWorkspacePreset,
+  type BuiltInPresetId,
+} from "@/experience/presets";
 import {
   DEFAULT_SUMMARY_OPTIONS,
   SUMMARY_DEFAULTS_PREFERENCE_KEY,
@@ -98,8 +106,8 @@ import { formatClock } from "@/components/operator/format-clock";
 import { PresetChooser } from "@/components/operator/PresetChooser";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
-import { I18nProvider, useI18n } from "@/i18n/provider";
-import { translatePlural, type MessageKey, type UiLocalePreference } from "@/i18n";
+import { I18nProvider, PresetScope, useI18n } from "@/i18n/provider";
+import { translate, translatePlural, type MessageKey, type MessageParams, type UiLocalePreference } from "@/i18n";
 import "./operator-shell.css";
 
 interface CloudModels {
@@ -144,12 +152,12 @@ function OperatorDashboardContent() {
     setBrowserFallbackPreference,
     setWorkspaceProfile,
     workspacePreset,
-    t,
+    t: workspaceT,
   } = useI18n();
-  const tRef = useRef(t);
+  const tRef = useRef(workspaceT);
   useEffect(() => {
-    tRef.current = t;
-  }, [t]);
+    tRef.current = workspaceT;
+  }, [workspaceT]);
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>(
     DEFAULT_SOURCE_LANGUAGE,
   );
@@ -179,6 +187,9 @@ function OperatorDashboardContent() {
   const [sessionDateEdited, setSessionDateEdited] = useState(false);
   const [sessionMetadataMessage, setSessionMetadataMessage] = useState("");
   const [liveNote, setLiveNote] = useState("");
+  // The Start bar's format for the next session; null follows the workspace format. It stays chosen across sessions until the page reloads.
+  const [pickedFormat, setPickedFormat] = useState<BuiltInPresetId | null>(null);
+  const startFormat: BuiltInPresetId = pickedFormat ?? normalizeProfileId(workspacePreset.id) ?? GENERAL_PRESET_ID;
   const liveNoteRestoredFor = useRef<string | null>(null);
   const priorSessionStartedAt = useRef<string | null>(null);
   const metadataPostedFor = useRef<string | null>(null);
@@ -297,9 +308,9 @@ function OperatorDashboardContent() {
       liveNote,
       outputBufferCount,
       outputBufferDwellMs,
-      presetId: workspacePreset.id,
+      presetId: startFormat,
     }),
-    [draftTranslationSettings, style, saveHistory, liveNote, outputBufferCount, outputBufferDwellMs, workspacePreset.id],
+    [draftTranslationSettings, style, saveHistory, liveNote, outputBufferCount, outputBufferDwellMs, startFormat],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {
@@ -404,9 +415,9 @@ function OperatorDashboardContent() {
     metadataPostedFor.current = liveSession.sessionId;
     const metadata = normalizeSessionMetadata({ ...sessionMetadata, sessionAt: sessionDateEdited ? sessionMetadata.sessionAt : Date.parse(liveSession.startedAt) });
     metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`transcripts/${liveSession.sessionId}/metadata`, metadata)
-      .then((result) => { setSessionMetadata(result.metadata); setSessionMetadataMessage(t("live.sessionDetailsSaved")); shouldAutoSaveMetadata.current = false; })
-      .catch(() => { setSessionMetadataMessage(t("live.sessionDetailsAutoSaveFailed")); shouldAutoSaveMetadata.current = false; });
-  }, [liveState.liveSession, liveState.status, sessionMetadata, sessionDateEdited, t]);
+      .then((result) => { setSessionMetadata(result.metadata); setSessionMetadataMessage(workspaceT("live.sessionDetailsSaved")); shouldAutoSaveMetadata.current = false; })
+      .catch(() => { setSessionMetadataMessage(workspaceT("live.sessionDetailsAutoSaveFailed")); shouldAutoSaveMetadata.current = false; });
+  }, [liveState.liveSession, liveState.status, sessionMetadata, sessionDateEdited, workspaceT]);
   async function saveLiveSessionMetadata() {
     const sessionId = liveState.liveSession?.sessionId;
     if (!sessionId || !liveState.liveSession?.saveHistory) return;
@@ -612,6 +623,23 @@ function OperatorDashboardContent() {
     (liveState.channel?.status === "live" || liveState.channel?.status === "paused");
   // Read-only mirror of the session a different workspace operator controls.
   const observed = useObservedSession(anotherOperatorActive);
+  // A running session fixes its own format. Live and Transcripts follow it, and Settings and Help
+  // keep the workspace format.
+  const sessionFormatId = runningSessionFormat(
+    hasSession || observed.observer !== null,
+    liveState.liveSession?.presetId,
+    observed.observer?.presetId,
+  );
+  const followsSession = screenFollowsSessionFormat(screen, sessionFormatId);
+  const sessionPreset = useMemo(
+    () => (followsSession && sessionFormatId !== null ? resolveWorkspacePreset(sessionFormatId) : null),
+    [followsSession, sessionFormatId],
+  );
+  const t = useCallback(
+    (key: MessageKey, params?: MessageParams) =>
+      sessionPreset === null ? workspaceT(key, params) : translate(locale, key, params, sessionPreset),
+    [sessionPreset, locale, workspaceT],
+  );
   const watchingOther = anotherOperatorActive && observed.status === "watching";
   // Who holds the microphone right now, for the other operators of this workspace.
   const runningOperator = anotherOperatorActive
@@ -1339,6 +1367,22 @@ function OperatorDashboardContent() {
               {controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
             </button>
           </div>
+          <label className="startFormat">
+            <span>{t("live.sessionFormat.label")}</span>
+            <select
+              name="sessionFormat"
+              autoComplete="off"
+              value={startFormat}
+              disabled={startBlocked || isBusy}
+              aria-describedby="session-format-hint"
+              onChange={(event) => setPickedFormat(normalizeProfileId(event.target.value))}
+            >
+              {BUILT_IN_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>{presetLocalizedText(preset.name, locale)}</option>
+              ))}
+            </select>
+          </label>
+          <p id="session-format-hint" className="settingHint startFormatHint">{t("live.sessionFormat.hint")}</p>
           <p id="start-help" className="operatorHint" data-tone={(setupBlocked || anotherOperatorActive || liveState.status === "error") && !checkingChannel && cloudState !== "checking" ? "bad" : undefined}>
             {startHelp}
           </p>
@@ -1465,6 +1509,10 @@ function OperatorDashboardContent() {
                 {controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
               </button>
             ) : null}
+            <div className="statRow sessionFormatRow">
+              <span>{t("live.sessionFormat.label")}</span>
+              <span className="formatTag" translate="no">{presetLocalizedText(resolveWorkspacePreset(sessionFormatId).name, locale)}</span>
+            </div>
             <details className="advancedActions">
               <summary>{t("live.sessionDetails")}</summary>
               {!liveState.liveSession?.saveHistory ? <p className="settingHint">{t("live.sessionDetailsBeforeStart")}</p> : null}
@@ -1761,8 +1809,11 @@ function OperatorDashboardContent() {
   return (
     <div className="operatorShell">
       <a className="skipLink" href="#main">{t("page.skipLink")}</a>
-      <OperatorTopBar screen={screen} status={status} sessionLive={hasSession} />
-      {screen === "live" ? liveScreen : screen === "transcripts" ? transcriptsScreen : screen === "settings" ? settingsScreen : helpScreen}
+      <PresetScope presetId={sessionFormatId}>
+        <OperatorTopBar screen={screen} status={status} sessionLive={hasSession} />
+      </PresetScope>
+      <PresetScope presetId={followsSession ? sessionFormatId : null}>
+        {screen === "live" ? liveScreen : screen === "transcripts" ? transcriptsScreen : screen === "settings" ? settingsScreen : helpScreen}
       {hasSession && screen === "live" ? (
         <LiveControlBar
           isPaused={isPaused}
@@ -1781,6 +1832,7 @@ function OperatorDashboardContent() {
           onRetryEnd={() => void stopSession()}
         />
       ) : null}
+      </PresetScope>
       <ConfirmDialog
         dialogRef={endDialogRef}
         title={t("dialog.endTitle")}

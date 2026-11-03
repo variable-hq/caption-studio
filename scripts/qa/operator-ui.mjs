@@ -37,6 +37,10 @@ try {
   let accountUiLocale=null;
   let accountPreferencesUnavailable=false;
   let sharedSetup=null;
+  // The format a running session fixed at start, the start bodies the mock saw, and the saved transcripts it lists.
+  let sessionPresetId='builtin:general';
+  const sessionStarts=[];
+  let historySessions=[];
   const emptySetup={version:1,uiLocale:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,outputBufferCount:null,outputBufferDwellMs:null,saveHistoryDefault:null,autoSummary:false,updatedAt:null};
   await context.route('**/*',async route=>{
    const url=new URL(route.request().url());
@@ -59,25 +63,26 @@ try {
       ?(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,uiLocale:accountUiLocale})
       :(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,...body,uiLocale:accountUiLocale,updatedAt:Date.now()});
   }
-   else if(path==='/api/live/channel')payload={channelId:'main',configured:true,status,overlayUrl:'http://127.0.0.1:3100/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
+   else if(path==='/api/live/channel')payload={channelId:'main',configured:true,presetId:sessionPresetId,status,overlayUrl:'http://127.0.0.1:3100/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
    else if(path==='/api/live/channel/style'){style=body.style;payload={ok:true}}
    else if(path==='/api/live/channel/session'&&method==='POST'){
+    sessionStarts.push(body);sessionPresetId=typeof body.presetId==='string'?body.presetId:'builtin:general';
     status='live';startedAt=new Date().toISOString();expiresAt=new Date(Date.now()+90*60000).toISOString();
-    payload={channelId:'main',controllerToken:'c'.repeat(43),viewerUrl:'http://127.0.0.1:3100/view#main.'+'v'.repeat(43),startedAt,expiresAt,translationRevision:0};
+    payload={channelId:'main',presetId:sessionPresetId,controllerToken:'c'.repeat(43),viewerUrl:'http://127.0.0.1:3100/view#main.'+'v'.repeat(43),startedAt,expiresAt,translationRevision:0};
    } else if(path==='/api/live/channel/session'&&method==='DELETE'){status='idle';startedAt=null;expiresAt=null;payload={ok:true}}
    else if(path==='/api/live/channel/control'){
     controls.push(body.action);if(body.action==='pause')status='paused';if(body.action==='resume')status='live';
     payload={action:body.action,status,translationRevision:0,sequence:1};
    } else if(path==='/api/live/channel/observer'&&method==='POST'){
     // A second tab of the same workspace watches the running service read-only.
-    payload={channelId:'main',sessionId:'11111111-1111-1111-1111-111111111111',saveHistory:false,
+    payload={channelId:'main',sessionId:'11111111-1111-1111-1111-111111111111',saveHistory:false,presetId:sessionPresetId,
      controllerLabel:'operator@example.test',status:status==='paused'?'paused':'live',
      observerToken:'w'.repeat(43),viewerUrl:'http://127.0.0.1:3100/view#main.'+'w'.repeat(43),
      startedAt,expiresAt,translationRevision:0};
    } else if(path==='/api/live/channel/lease')payload={valid:true,status:'live',expiresAt,transcriptionRequests:++transcriptionRequests,translationRevision:0};
    else if(path==='/api/ai/transcribe'){inferenceCalls++;payload={segments:[]};}
    else if(path==='/api/live/experience/usage')payload={records:[],next:null};
-   else if(path==='/api/live/experience/history')payload={sessions:[],services:[]};
+   else if(path==='/api/live/experience/history')payload={sessions:historySessions,services:historySessions};
    else {errors.push('Unexpected mocked request: '+method+' '+path);return route.fulfill({status:400,json:{error:'Unexpected test request'}})}
    await route.fulfill({status:200,json:payload});
   });
@@ -548,7 +553,53 @@ try {
   await check('presets-kept',{general:false});
   await chooseFormat('builtin:general','General');
 
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (chooser options and save body, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote),no inference before Start or after End, responsive overflow and Axe'});
+  // Session format: the Start bar picks it, a running session fixes it, and Live, Transcripts and the top bar follow it while Settings keeps the workspace format.
+  await openScreen(page,'Live');
+  const sessionFormat=page.getByRole('combobox',{name:'Session format',exact:true});
+  assert.deepEqual(await sessionFormat.locator('option').allTextContents(),['General','Sermon','Talkshow','Keynote'],'The Start bar offers the four formats');
+  assert.equal(await sessionFormat.inputValue(),'builtin:general','The Start bar defaults to the workspace format');
+  assert.equal(await sessionFormat.evaluate(node=>{const box=node.getBoundingClientRect();return box.left>=0&&box.right<=innerWidth}),true,`${width}: the Start bar format select fits`);
+  await check('live-session-format-idle');
+  await sessionFormat.selectOption('builtin:talkshow');
+  await page.getByRole('button',{name:'Start captions',exact:true}).click();
+  const formatControls=page.getByRole('region',{name:'Live controls'});
+  await formatControls.getByRole('button',{name:'End episode',exact:true}).waitFor();
+  assert.equal(sessionStarts.at(-1).presetId,'builtin:talkshow','Start sends the chosen format');
+  assert.equal(await sessionFormat.count(),0,'The Start bar choice is gone once the session runs');
+  await page.locator('.sessionFormatRow').getByText('Talkshow',{exact:true}).waitFor();
+  assert.equal(await topBarText(),'BEST Church workspace · Talkshow · Main channel','The top bar follows the running session');
+  await formatNote('Talkshow').waitFor();
+  await check('live-session-format-running',{general:false});
+  // Settings keeps the workspace wording while the session runs.
+  await openSettings(page,'summary');
+  await page.getByText(/^Only for sessions with transcript saving on\./u).waitFor();
+  assert.equal(await topBarText(),'BEST Church workspace · Talkshow · Main channel','The top bar still names the session on Settings');
+  await check('settings-session-format',{general:false});
+  // Transcripts follows the session.
+  await openScreen(page,'Episodes');
+  await page.getByRole('heading',{name:'Episodes',exact:true}).waitFor();
+  await check('transcripts-session-format',{general:false});
+  await openScreen(page,'Live');
+  await formatControls.getByRole('button',{name:'End episode',exact:true}).click();
+  const formatEnd=page.getByRole('alertdialog',{name:'End this episode?',exact:true});
+  await formatEnd.waitFor();
+  await formatEnd.getByRole('button',{name:'End episode',exact:true}).click();
+  await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
+  await formatLink('General').waitFor();
+  assert.equal(await topBarText(),'BEST Church workspace · General · Main channel','The workspace format returns after End');
+  assert.equal(await sessionFormat.inputValue(),'builtin:talkshow','The Start bar keeps the last choice until the page reloads');
+  // Saved transcripts carry a format tag; one saved before formats reads General.
+  historySessions=[
+   {id:'22222222-2222-2222-2222-222222222222',startedAt:Date.now()-3600000,metadata:{topic:'Synthetic topic one',speaker:'',description:'',sessionAt:null},presetId:'builtin:sermon'},
+   {id:'33333333-3333-3333-3333-333333333333',startedAt:Date.now()-7200000,metadata:{topic:'Synthetic topic two',speaker:'',description:'',sessionAt:null}},
+  ];
+  await openScreen(page,'Transcripts');
+  await page.getByRole('button',{name:/Synthetic topic one/u}).waitFor();
+  assert.deepEqual(await page.locator('.transcriptListItem .formatTag').allTextContents(),['Sermon','General'],'Each saved transcript shows its format');
+  await check('transcripts-format-tag');
+  historySessions=[];
+
+  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (chooser options and save body, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'});
   await context.close();
  }
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));

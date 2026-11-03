@@ -46,6 +46,7 @@ import {
   type TranslationSessionSettings,
 } from "@/live/translation-settings";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
+import { requestPresetId } from "@/live/request-preset";
 import { experienceRequest } from "@/experience/client";
 import { startSerialPolling } from "@/live/serial-polling";
 import { initialSpeechGateState, observeSpeechSample, shouldSendWindow } from "@/live/speech-gate";
@@ -665,7 +666,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           settings: current,
           liveWords: liveWordsAtStart,
           liveNote: settingsRef.current.liveNote,
-          presetId: settingsRef.current.presetId,
+          presetId: requestPresetId(sessionRef.current, settingsRef.current.presetId),
         },
       ) ? draft : null;
       const recordTranscription = (transcription: CaptionTranscriptionResult) => {
@@ -704,7 +705,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           settings: current,
           recentContext: recentContextRef.current,
           liveNote: settingsRef.current.liveNote,
-          presetId: settingsRef.current.presetId,
+          presetId: requestPresetId(sessionRef.current, settingsRef.current.presetId),
           signal,
           isCurrent: isCurrentCapture,
           onTranslation,
@@ -719,7 +720,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           controllerToken: sessionAtStart.controllerToken,
           recentContext: recentContextRef.current,
           liveNote: settingsRef.current.liveNote,
-          presetId: settingsRef.current.presetId,
+          presetId: requestPresetId(sessionRef.current, settingsRef.current.presetId),
           signal,
           isCurrent: isCurrentCapture,
           currentRevision: sessionAtStart.translationRevision,
@@ -910,7 +911,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         settings: current,
         liveWords,
         liveNote,
-        presetId: settingsRef.current.presetId,
+        presetId: requestPresetId(sessionRef.current, settingsRef.current.presetId),
       },
     };
   }, [reconcileExternalTranslationRevision]);
