@@ -62,6 +62,7 @@ records to establish release evidence.
 - [ADR 0034](decisions/0034-dynamic-pause-adaptation.md) records Dynamic pause measurement (how
   windows end, held drafts, window lengths), the labelled replay harness, the post-hold pause,
   and the retuning rule for Dynamic's pause lengths.
+- [ADR 0035](decisions/0035-workspace-presets.md) records the workspace preset design: presets as validated data, the term placeholders and lookup order, where a choice is stored and applied, model-facing text limits and the session snapshot.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator, and the default-on operator control for faithful
   rendering when that omission rule is disabled.
