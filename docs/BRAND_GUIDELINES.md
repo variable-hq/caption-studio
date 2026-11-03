@@ -15,7 +15,7 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
 
 | Surface | Who uses it | What matters most |
 | --- | --- | --- |
-| Operator dashboard (`/`) | Rotating church volunteers, often monthly, with no training; one setup person | One obvious next step; nothing to remember between visits |
+| Operator dashboard (`/`) | Rotating volunteers, often monthly, with no training; one setup person | One obvious next step; nothing to remember between visits |
 | Operator phone remote (`/operator/mobile`) | The same volunteer, one-handed, near the stage | Three big actions; status at a glance |
 | Phone viewer (`/view`) | Audience members on their own phones | Readable captions; nothing else |
 | Transcript reader (`/read`) | People reading after or during the session | Comfortable long-form reading |
@@ -27,7 +27,7 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
    screen, End session) are always visible. Everything else waits until asked for.
 2. **One obvious next step.** Each screen region has at most one primary action. When
    something blocks it, the screen says what and offers the fix next to the problem.
-3. **Plain words.** Volunteers see church words, not system words (see the glossary).
+3. **Plain words.** Volunteers see plain words, not system words (see the glossary).
    Technical detail lives under Usage or a "Technical details" disclosure.
 4. **Calm by default, loud when it matters.** Neutral surfaces and ink. Colour is
    reserved for state: ready, paused, live, error.
@@ -40,7 +40,7 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
   auto-translate the page.
 - The monogram is **CS**, in `--on-accent` on an `--accent` tile with `--radius-md`.
   It is decorative next to the wordmark (`aria-hidden="true"`).
-- The workspace line reads `<Church name> · Main channel`.
+- The workspace line reads `<Workspace name> · Main channel`.
 
 ## Voice and copy
 

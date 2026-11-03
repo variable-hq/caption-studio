@@ -20,7 +20,7 @@ The product began for one church and its sermons, so "sermon", "church" and the 
 ### Wording
 
 - Operator copy, the Indonesian catalog, the ADR 0030 glossary row, the layout description and the exported file names follow this vocabulary. The Indonesian drafts use "sesi" for session, "audiens" for audience and "hadirin" for attendees; "layanan" stays only where it names the backend.
-- The neutral wording is the general base. A later per-workspace layer may replace these phrases with terms of its own; those terms are data values, not identifiers.
+- The neutral wording is the general base. A later per-format preset layer may replace these phrases with terms of its own; preset ids are data values, not identifiers.
 - The church-specific wording that this change replaces, in both languages, is listed in the pull request that introduced this ADR, so a preset can restore it.
 
 ### Identifiers and stored names
