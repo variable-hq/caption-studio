@@ -1,3 +1,4 @@
+import { GENERAL_PRESET, presetTermParams } from "../experience/presets";
 import { en, type MessageKey } from "./messages/en";
 import { id } from "./messages/id";
 
@@ -58,15 +59,23 @@ export function localeFromAcceptLanguage(header: string | null | undefined): UiL
   return normalizeUiLocale(null, languages);
 }
 
+// Term values of the General preset; the active preset's values replace them once presets are chosen.
+const TERM_PARAMS: Record<UiLocale, MessageParams> = {
+  en: presetTermParams(GENERAL_PRESET, "en"),
+  id: presetTermParams(GENERAL_PRESET, "id"),
+};
+
 export function translate(
   locale: UiLocale,
   key: MessageKey,
   params?: MessageParams,
 ): string {
   const message = (locale === "id" ? id[key] : undefined) ?? en[key];
-  return message.replace(/\{([a-zA-Z0-9_]+)\}/gu, (placeholder, name: string) =>
-    params?.[name] === undefined ? placeholder : String(params[name]),
-  );
+  const termParams = TERM_PARAMS[locale];
+  return message.replace(/\{([a-zA-Z0-9_]+)\}/gu, (placeholder, name: string) => {
+    const value = params?.[name] ?? termParams[name];
+    return value === undefined ? placeholder : String(value);
+  });
 }
 
 export function translatePlural(

@@ -6,14 +6,25 @@ import {
   normalizeUiLocalePreference,
   translate,
   translatePlural,
+  type MessageKey,
 } from "@/i18n";
 import { en } from "@/i18n/messages/en";
 import { id } from "@/i18n/messages/id";
 import { formatCount, formatDecimal } from "@/components/operator/format-count";
+import { GENERAL_PRESET, presetTermParams } from "@/experience/presets";
+
+// Messages with the General term set filled in, as the operator interface shows them.
+const enDisplay: Record<string, string> = Object.fromEntries(
+  Object.keys(en).map((key) => [key, translate("en", key as MessageKey)]),
+);
+const idDisplay: Record<string, string> = Object.fromEntries(
+  Object.keys(id).map((key) => [key, translate("id", key as MessageKey)]),
+);
 
 describe("operator interface translations", () => {
   it("keeps every Indonesian key and placeholder aligned with English", () => {
-    const placeholders = (message: string) => [...message.matchAll(/\{([a-zA-Z0-9_]+)\}/gu)].map((match) => match[1]).sort();
+    // Term placeholders differ in capitalization between languages; the names still have to match.
+    const placeholders = (message: string) => [...message.matchAll(/\{([a-zA-Z0-9_]+)\}/gu)].map((match) => match[1].toLowerCase()).sort();
 
     for (const [key, message] of Object.entries(id)) {
       expect(key in en, `${key} exists in English`).toBe(true);
@@ -65,8 +76,8 @@ describe("operator interface translations", () => {
     expect(id["live.onlyYou"]).toBe("Tampilan operator");
     expect(en["captionPreview.heardLabel"]).toBe("Heard \u00b7 operator view");
     expect(id["captionPreview.heardLabel"]).toBe("Terdengar \u00b7 tampilan operator");
-    expect(en["live.audienceSees"]).toBe("Audience view");
-    expect(id["live.audienceSees"]).toBe("Tampilan audiens");
+    expect(enDisplay["live.audienceSees"]).toBe("Audience view");
+    expect(idDisplay["live.audienceSees"]).toBe("Tampilan audiens");
   });
 
   it("names the Settings sections and Theme", () => {
@@ -103,14 +114,14 @@ describe("operator interface translations", () => {
     expect(id["translationSettings.sourceKind"]).toBe("Input");
     expect(en["translationSettings.targetKind"]).toBe("Output");
     expect(id["translationSettings.targetKind"]).toBe("Output");
-    expect(en["translationSettings.source"]).toBe("Speaker\u2019s language");
-    expect(id["translationSettings.source"]).toBe("Bahasa pembicara");
+    expect(enDisplay["translationSettings.source"]).toBe("Speaker\u2019s language");
+    expect(idDisplay["translationSettings.source"]).toBe("Bahasa pembicara");
     expect(en["translationSettings.target"]).toBe("Show captions in");
     expect(id["translationSettings.target"]).toBe("Tampilkan caption dalam");
     expect(en["translationSettings.speedTitle"]).toBe("Caption wait time");
     expect(id["translationSettings.speedTitle"]).toBe("Waktu tunggu caption");
-    expect(en["translationSettings.languagesHint"]).toBe("Choosing the speaker\u2019s language manually helps improve reliability.");
-    expect(id["translationSettings.languagesHint"]).toBe("Memilih bahasa pembicara secara manual membantu meningkatkan keandalan.");
+    expect(enDisplay["translationSettings.languagesHint"]).toBe("Choosing the speaker\u2019s language manually helps improve reliability.");
+    expect(idDisplay["translationSettings.languagesHint"]).toBe("Memilih bahasa pembicara secara manual membantu meningkatkan keandalan.");
   });
 
   it("drops the old section names and the caption speed term", () => {
@@ -140,12 +151,12 @@ describe("operator interface translations", () => {
     expect(id["readiness.wordCount.one"]).toBe("{count} istilah");
     expect(en["readiness.wordCount.other"]).toBe("{count} terms");
     expect(id["readiness.wordCount.other"]).toBe("{count} istilah");
-    expect(en["settings.message.savedTranslationDefaults"]).toContain("caption wait time, Terms, caption cleanup");
-    expect(id["settings.message.savedTranslationDefaults"]).toContain("waktu tunggu caption, Istilah, pembersihan caption");
+    expect(enDisplay["settings.message.savedTranslationDefaults"]).toContain("caption wait time, Terms, caption cleanup");
+    expect(idDisplay["settings.message.savedTranslationDefaults"]).toContain("waktu tunggu caption, Istilah, pembersihan caption");
     expect(en["liveNote.hint"]).toContain("Settings › Terms");
     expect(id["liveNote.hint"]).toContain("Pengaturan › Istilah");
-    expect(en["liveWord.hint"]).toContain("Keep in Terms");
-    expect(id["liveWord.hint"]).toContain("Simpan di Istilah");
+    expect(enDisplay["liveWord.hint"]).toContain("Keep in Terms");
+    expect(idDisplay["liveWord.hint"]).toContain("Simpan di Istilah");
     expect(en["liveWord.keep"]).toBe("Keep in Terms");
     expect(id["liveWord.keep"]).toBe("Simpan di Istilah");
     expect(en["liveWord.word"]).toBe("Term");
@@ -180,8 +191,8 @@ describe("operator interface translations", () => {
   });
 
   it("names the Add a term language hint after the current actions", () => {
-    expect(en["wordsEditor.addHint"]).toBeTruthy();
-    expect(id["wordsEditor.addHint"]).toBeTruthy();
+    expect(enDisplay["wordsEditor.addHint"]).toBeTruthy();
+    expect(idDisplay["wordsEditor.addHint"]).toBeTruthy();
     for (const catalog of [en, id]) {
       for (const key of ["wordAction.recognise", "wordAction.fix", "wordAction.translate"] as const) {
         expect(catalog["wordsEditor.addHint"]).toContain(catalog[key]);
@@ -233,19 +244,19 @@ describe("operator interface translations", () => {
   });
 
   it("gives the empty Terms list generic examples", () => {
-    expect(en["wordsEditor.empty"]).toBe("No terms yet. Add names or terms the AI should know, such as a speaker, place or product name, or terms never to show.");
-    expect(id["wordsEditor.empty"]).toBe("Belum ada istilah. Tambahkan nama atau istilah yang perlu dikenali AI, misalnya nama pembicara, tempat, atau produk, atau istilah yang tidak boleh ditampilkan.");
+    expect(enDisplay["wordsEditor.empty"]).toBe("No terms yet. Add names or terms the AI should know, such as a speaker, place or product name, or terms never to show.");
+    expect(idDisplay["wordsEditor.empty"]).toBe("Belum ada istilah. Tambahkan nama atau istilah yang perlu dikenali AI, misalnya nama pembicara, tempat, atau produk, atau istilah yang tidak boleh ditampilkan.");
   });
 
   it("names the saved archive Transcripts in both catalogs", () => {
-    expect(en["shell.navigation.transcripts"]).toBe("Transcripts");
-    expect(id["shell.navigation.transcripts"]).toBe("Transkrip");
-    expect(en["transcripts.title"]).toBe("Transcripts");
-    expect(id["transcripts.title"]).toBe("Transkrip");
+    expect(enDisplay["shell.navigation.transcripts"]).toBe("Transcripts");
+    expect(idDisplay["shell.navigation.transcripts"]).toBe("Transkrip");
+    expect(enDisplay["transcripts.title"]).toBe("Transcripts");
+    expect(idDisplay["transcripts.title"]).toBe("Transkrip");
     expect(en["sessionExperience.readerTitle"]).toBe("Transcript reader");
     expect(id["sessionExperience.readerTitle"]).toBe("Pembaca transkrip");
-    expect(en["sessionExperience.savedTranscripts"]).toBe("Saved transcripts");
-    expect(id["sessionExperience.savedTranscripts"]).toBe("Transkrip tersimpan");
+    expect(enDisplay["sessionExperience.savedTranscripts"]).toBe("Saved transcripts");
+    expect(idDisplay["sessionExperience.savedTranscripts"]).toBe("Transkrip tersimpan");
   });
 
   it("calls the captioned event a session and keeps service for the backend", () => {
@@ -267,43 +278,43 @@ describe("operator interface translations", () => {
         expect(message, `${key} avoids layanan`).not.toMatch(/layanan/iu);
       }
     }
-    expect(en["shell.controls.endSession"]).toBe("End session");
-    expect(id["shell.controls.endSession"]).toBe("Akhiri sesi");
-    expect(en["dialog.endAction"]).toBe("End session");
-    expect(en["live.message.ended"]).toBe("Live session ended. The reusable OBS URL is ready for next time.");
-    expect(en["usage.sessions"]).toBe("Sessions");
-    expect(id["usage.sessions"]).toBe("Sesi");
-    expect(en["usage.bySession"]).toBe("Usage by session");
-    expect(id["usage.bySession"]).toBe("Penggunaan per sesi");
-    expect(en["reader.status.ended"]).toBe("Session ended");
-    expect(id["reader.status.ended"]).toBe("Sesi berakhir");
+    expect(enDisplay["shell.controls.endSession"]).toBe("End session");
+    expect(idDisplay["shell.controls.endSession"]).toBe("Akhiri sesi");
+    expect(enDisplay["dialog.endAction"]).toBe("End session");
+    expect(enDisplay["live.message.ended"]).toBe("Live session ended. The reusable OBS URL is ready for next time.");
+    expect(enDisplay["usage.sessions"]).toBe("Sessions");
+    expect(idDisplay["usage.sessions"]).toBe("Sesi");
+    expect(enDisplay["usage.bySession"]).toBe("Usage by session");
+    expect(idDisplay["usage.bySession"]).toBe("Penggunaan per sesi");
+    expect(enDisplay["reader.status.ended"]).toBe("Session ended");
+    expect(idDisplay["reader.status.ended"]).toBe("Sesi berakhir");
   });
 
   it("addresses the audience and attendees instead of the congregation", () => {
     for (const [key, message] of [...Object.entries(en), ...Object.entries(id)]) {
       expect(message, `${key} avoids congregation wording`).not.toMatch(/congregation|jemaat/iu);
     }
-    expect(en["liveOutputs.phoneViewerLiveHint"]).toBe(
+    expect(enDisplay["liveOutputs.phoneViewerLiveHint"]).toBe(
       "Share this with the audience. It shows only the current caption and stops working when the session ends.",
     );
-    expect(id["liveOutputs.phoneViewerLiveHint"]).toBe(
+    expect(idDisplay["liveOutputs.phoneViewerLiveHint"]).toBe(
       "Bagikan ini dengan audiens. Ini hanya menampilkan caption saat ini dan berhenti berfungsi saat sesi berakhir.",
     );
-    expect(en["live.saveTranscriptHint"]).toContain("Tell attendees when it’s on.");
-    expect(id["live.saveTranscriptHint"]).toContain("Beri tahu hadirin saat fitur ini aktif.");
-    expect(en["help.step4.after"]).toBe("link and share it with the audience.");
-    expect(id["help.step4.after"]).toBe("dan bagikan kepada audiens.");
+    expect(enDisplay["live.saveTranscriptHint"]).toContain("Tell attendees when it’s on.");
+    expect(idDisplay["live.saveTranscriptHint"]).toContain("Beri tahu hadirin saat fitur ini aktif.");
+    expect(enDisplay["help.step4.after"]).toBe("link and share it with the audience.");
+    expect(idDisplay["help.step4.after"]).toBe("dan bagikan kepada audiens.");
   });
 
   it("calls the person talking the speaker and drops the example names", () => {
     for (const key of ["liveWord.placeholderWord", "liveWord.placeholderFix", "wordsEditor.placeholderWord"] as const) {
-      expect(en[key]).toBe("e.g. Speaker’s name…");
-      expect(id[key]).toBe("mis. Nama pembicara…");
+      expect(enDisplay[key]).toBe("e.g. Speaker’s name…");
+      expect(idDisplay[key]).toBe("mis. Nama pembicara…");
     }
-    expect(en["live.startHelp.ready"]).toBe("Press Start when the speaker begins.");
-    expect(id["live.startHelp.ready"]).toBe("Tekan Mulai saat pembicara mulai berbicara.");
-    expect(en["help.step3.after"]).toBe("when the speaker begins.");
-    expect(id["help.step3.after"]).toBe("saat pembicara mulai berbicara.");
+    expect(enDisplay["live.startHelp.ready"]).toBe("Press Start when the speaker begins.");
+    expect(idDisplay["live.startHelp.ready"]).toBe("Tekan Mulai saat pembicara mulai berbicara.");
+    expect(enDisplay["help.step3.after"]).toBe("when the speaker begins.");
+    expect(idDisplay["help.step3.after"]).toBe("saat pembicara mulai berbicara.");
     expect(id["translationChange.spokenLanguage"]).toBe("Bahasa pembicara");
   });
 
@@ -325,10 +336,10 @@ describe("operator interface translations", () => {
     expect(id["translationSettings.windowBalanced"]).toBe("10 detik: seimbang");
     expect(en["translationSettings.windowSmooth"]).toBe("14 seconds: fuller sentences");
     expect(id["translationSettings.windowSmooth"]).toBe("14 detik: kalimat lebih utuh");
-    expect(en["translationSettings.windowAutomatic"]).toBe("Dynamic: adapts to the speaker, up to 14 seconds");
-    expect(id["translationSettings.windowAutomatic"]).toBe("Dynamic: menyesuaikan pembicara, hingga 14 detik");
-    expect(en["translationSettings.speedHint"]).toContain("Sets the longest each caption waits.");
-    expect(id["translationSettings.speedHint"]).toContain("waktu tunggu terlama");
+    expect(enDisplay["translationSettings.windowAutomatic"]).toBe("Dynamic: adapts to the speaker, up to 14 seconds");
+    expect(idDisplay["translationSettings.windowAutomatic"]).toBe("Dynamic: menyesuaikan pembicara, hingga 14 detik");
+    expect(enDisplay["translationSettings.speedHint"]).toContain("Sets the longest each caption waits.");
+    expect(idDisplay["translationSettings.speedHint"]).toContain("waktu tunggu terlama");
   });
 
   it("reports the provider busy back-off in both languages", () => {
@@ -380,5 +391,21 @@ describe("operator interface translations", () => {
   it("formats one-decimal values with the selected interface locale", () => {
     expect(formatDecimal(1.5, "en")).toBe("1.5");
     expect(formatDecimal(1.5, "id")).toBe("1,5");
+  });
+
+  it("fills every term placeholder from the General term set", () => {
+    for (const [locale, catalog] of [["en", en], ["id", id]] as const) {
+      const termNames = new Set(Object.keys(presetTermParams(GENERAL_PRESET, locale)));
+      for (const [key, message] of Object.entries<string>(catalog)) {
+        for (const [, name] of message.matchAll(/\{([a-zA-Z0-9_]+)\}/gu)) {
+          if (/^[Tt]erm_/u.test(name)) expect(termNames.has(name), `${locale} ${key} uses ${name}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("keeps the resolved General wording of every message", () => {
+    expect(enDisplay).toMatchSnapshot();
+    expect(idDisplay).toMatchSnapshot();
   });
 });
