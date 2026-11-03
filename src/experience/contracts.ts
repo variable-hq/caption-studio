@@ -40,7 +40,9 @@ export interface ExperienceEnvironment {
 }
 export interface UsageRecord {
   id: string;
-  serviceId: string;
+  sessionId: string;
+  /** Name written before sessionId; mapped on read and dropped on the next write. */
+  serviceId?: string;
   stage: UsageStage;
   provider: "groq" | "cloudflare";
   model: string;

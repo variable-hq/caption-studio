@@ -74,7 +74,7 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       }
       if (result.ok && parts[2] === "remove") {
         const removed = await result.clone().json() as { sourceIds: number[] };
-        await rpc(env.CAPTION_ROOMS, "channel:main", "/internal/experience/remove-current", { serviceId: parts[1], sourceIds: removed.sourceIds });
+        await rpc(env.CAPTION_ROOMS, "channel:main", "/internal/experience/remove-current", { sessionId: parts[1], sourceIds: removed.sourceIds });
       }
       return result;
     }

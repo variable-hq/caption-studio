@@ -1706,3 +1706,34 @@ describe("workspace watchers", () => {
     expect(configuration?.observers).toBeUndefined();
   });
 });
+
+describe("stored session names", () => {
+  it("keeps a configuration written with serviceId controllable and stores sessionId on the next write", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    expect((await startLiveSession(room)).status).toBe(200);
+    const stored = storage.values.get("configuration") as Record<string, unknown>;
+    const sessionId = stored.sessionId as string;
+    const legacy: Record<string, unknown> = { ...stored, serviceId: sessionId, serviceEventCount: stored.sessionEventCount };
+    delete legacy.sessionId;
+    delete legacy.sessionEventCount;
+    storage.values.set("configuration", legacy);
+
+    const rotated = await room.fetch(request("/internal/experience/reader-rotate", { controllerHash: CONTROLLER_A, readerHash: "e".repeat(64) }));
+    expect(await rotated.json()).toMatchObject({ serviceId: sessionId });
+    const written = storage.values.get("configuration") as Record<string, unknown>;
+    expect(written).toMatchObject({ sessionId, sessionEventCount: 0 });
+    expect(written).not.toHaveProperty("serviceId");
+    expect(written).not.toHaveProperty("serviceEventCount");
+  });
+
+  it("accepts sessionId and the pre-session serviceId in the experience request body", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    await startLiveSession(room);
+    const sessionId = (storage.values.get("configuration") as Record<string, unknown>).sessionId as string;
+    expect(await (await room.fetch(request("/internal/experience/remove-current", { sessionId, sourceIds: [] }))).json()).toEqual({ cleared: true });
+    expect(await (await room.fetch(request("/internal/experience/remove-current", { serviceId: sessionId, sourceIds: [] }))).json()).toEqual({ cleared: true });
+    expect(await (await room.fetch(request("/internal/experience/remove-current", { sessionId: "not-the-session", sourceIds: [] }))).json()).toEqual({ ignored: true });
+  });
+});

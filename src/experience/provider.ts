@@ -7,7 +7,7 @@ function estimateNeurons(model: string, input: number, output: number) {
   return Math.ceil((input * inputRate + output * outputRate) / 1_000_000);
 }
 
-export async function optionalInference(env: ExperienceEnvironment, serviceId: string,
+export async function optionalInference(env: ExperienceEnvironment, sessionId: string,
   stage: Extract<UsageStage, "reader" | "summary">, model: SummaryModel,
   messages: readonly { role: string; content: string }[]) {
   if (!env.AI || !env.AI_USAGE || env.CAPTION_OPTIONAL_AI_ENABLED !== "true") {
@@ -19,7 +19,7 @@ export async function optionalInference(env: ExperienceEnvironment, serviceId: s
   if (bytes + maxTokens > 22_000) throw new Error("Summary section exceeds its context budget.");
   const id = `${stage}:${crypto.randomUUID()}`;
   const admission = await rpc(env.AI_USAGE, "usage", "/admit", {
-    id, serviceId, stage, provider: "cloudflare", model,
+    id, sessionId, stage, provider: "cloudflare", model,
     reservedNeurons: estimateNeurons(model, bytes, maxTokens),
   });
   if (!admission.ok) throw new Error("Optional AI daily budget unavailable. Retry after reset.");

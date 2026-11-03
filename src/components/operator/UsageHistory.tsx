@@ -46,9 +46,9 @@ export function UsageHistory() {
   const services = new Map<string, { at: number; calls: number; tokens: number; unknown: number }>();
   const days = new Map<string, { calls: number; tokens: number; unknown: number }>();
   for (const row of records) {
-    const service = services.get(row.serviceId) ?? { at: row.at, calls: 0, tokens: 0, unknown: 0 };
+    const service = services.get(row.sessionId) ?? { at: row.at, calls: 0, tokens: 0, unknown: 0 };
     service.at = Math.min(service.at, row.at); service.calls++; service.tokens += row.tokens?.totalTokens ?? 0;
-    service.unknown += Number(row.status !== "completed"); services.set(row.serviceId, service);
+    service.unknown += Number(row.status !== "completed"); services.set(row.sessionId, service);
     const date = new Date(row.at).toISOString().slice(0, 10);
     const day = days.get(date) ?? { calls: 0, tokens: 0, unknown: 0 };
     day.calls++; day.tokens += row.tokens?.totalTokens ?? 0; day.unknown += Number(row.status !== "completed"); days.set(date, day);
