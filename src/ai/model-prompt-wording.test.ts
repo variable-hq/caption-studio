@@ -185,3 +185,70 @@ describe("per-format transcription prefix", () => {
     expect(resolveWorkspacePreset("custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b").id).toBe("builtin:general");
   });
 });
+
+describe("per-format translation rule", () => {
+  const FORMATS = ["builtin:sermon", "builtin:talkshow", "builtin:keynote"] as const;
+  const INFERENCE_LEVELS: InferenceLevel[] = ["low", "balanced", "high"];
+  const rulesFor = (presetId: string | undefined, sanitizeLevel: SanitizeLevel, inferenceLevel: InferenceLevel) =>
+    buildTranslationEnvelopeRules("Indonesian", "English", "en", {
+      inferenceLevel,
+      sanitizeLevel,
+      filterInappropriateLanguage: true,
+      hasLiveNote: false,
+      presetRule: resolveWorkspacePreset(presetId).translationRule,
+    });
+
+  it("keeps every base safeguard verbatim for every format at every sanitization and inference level", () => {
+    for (const presetId of FORMATS) {
+      for (const sanitizeLevel of [...SANITIZE_LEVELS, "off" as const]) {
+        for (const inferenceLevel of INFERENCE_LEVELS) {
+          const base = rulesFor(undefined, sanitizeLevel, inferenceLevel);
+          const withFormat = rulesFor(presetId, sanitizeLevel, inferenceLevel);
+          expect(withFormat, `${presetId} ${sanitizeLevel} ${inferenceLevel}`).toEqual(expect.arrayContaining(base));
+          expect(withFormat.length - base.length).toBe(1);
+          const added = withFormat.filter((rule) => !base.includes(rule));
+          expect(added.join("").length, `${presetId} rule budget`).toBeLessThanOrEqual(300);
+        }
+      }
+    }
+  });
+
+  it("places a format's rule after the base safeguards and before the output contract", () => {
+    const rules = rulesFor("builtin:sermon", "balanced", "balanced");
+    const ruleIndex = rules.indexOf(resolveWorkspacePreset("builtin:sermon").translationRule!);
+    expect(ruleIndex).toBeGreaterThan(rules.findIndex((rule) => rule.startsWith("Sanitization: BALANCED")));
+    expect(ruleIndex).toBeLessThan(rules.findIndex((rule) => rule.startsWith("Output contract")));
+  });
+
+  it("keeps the Sermon call-and-response clause next to the balanced sanitization filler rule", () => {
+    const rule = resolveWorkspacePreset("builtin:sermon").translationRule!;
+    expect(rule).toContain('"ya?"');
+    expect(rule).toContain('"amen?"');
+    expect(rule).toContain("call-and-response");
+    expect(rule).toMatch(/never filler/u);
+  });
+
+  it("treats an unknown or custom id as General with no added rule", () => {
+    for (const presetId of ["builtin:market", "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b", undefined]) {
+      expect(rulesFor(presetId, "balanced", "balanced")).toEqual(rulesFor(undefined, "balanced", "balanced"));
+    }
+    const generalMessages = buildTranslationMessages({
+      text: "Selamat pagi.", sourceLanguage: "id", targetLanguage: "en", recentContext: [], preferredTerms: {},
+      sanitizeLevel: "balanced", inferenceLevel: INFERENCE_LEVEL, filterInappropriateLanguage: true,
+    });
+    const unknownMessages = buildTranslationMessages({
+      text: "Selamat pagi.", sourceLanguage: "id", targetLanguage: "en", recentContext: [], preferredTerms: {},
+      sanitizeLevel: "balanced", inferenceLevel: INFERENCE_LEVEL, filterInappropriateLanguage: true, presetId: "builtin:market",
+    });
+    expect(unknownMessages).toEqual(generalMessages);
+  });
+
+  it("adds a format's rule to the translation request only for that format", () => {
+    const sermon = textOf(buildTranslationMessages({
+      text: "Amen?", sourceLanguage: "id", targetLanguage: "en", recentContext: [], preferredTerms: {},
+      sanitizeLevel: "balanced", inferenceLevel: INFERENCE_LEVEL, filterInappropriateLanguage: true, presetId: "builtin:sermon",
+    }));
+    expect(sermon).toContain(resolveWorkspacePreset("builtin:sermon").translationRule);
+    expect(translationText("balanced")).not.toContain("Context: a sermon");
+  });
+});

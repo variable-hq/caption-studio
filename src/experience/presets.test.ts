@@ -248,6 +248,14 @@ describe("built-in presets", () => {
       /transcriptionPrefix is allowed only on builtin: presets/u,
     );
     expectRejected(
+      customPreset({ translationRule: "Context: a sermon." }),
+      /translationRule is allowed only on builtin: presets/u,
+    );
+    expectRejected(
+      { ...GENERAL_PRESET, id: "builtin:test", translationRule: "x".repeat(301) },
+      /translationRule must be 300 characters or fewer/u,
+    );
+    expectRejected(
       { ...GENERAL_PRESET, id: "builtin:test", transcriptionPrefix: { en: "x".repeat(121) } },
       /transcriptionPrefix\.en must be 120 characters or fewer/u,
     );

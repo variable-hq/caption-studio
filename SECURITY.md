@@ -211,8 +211,9 @@ hard enforcement boundary, does not make model output authoritative, and does no
 prompt-injection or translation-quality risk; church-approved review remains required.
 
 A workspace format adds model-facing text only from the built-in presets in
-`src/experience/presets.ts`, selected by id on the server. A custom preset cannot add
-transcription, translation or summary text, and request text never supplies it. The text
+`src/experience/presets.ts`, selected by id on the server. A format's transcription prefix opens
+the transcription prompt, and its translation rule follows the envelope's safeguards. A
+custom preset cannot add any model text, and request text never supplies it. The text
 sits after the server envelope's safeguards and changes wording for the model only; it does
 not change the envelope, output contract or language direction.
 

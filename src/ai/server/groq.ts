@@ -315,6 +315,7 @@ export function buildTranslationMessages(request: TranslationRequest) {
           sanitizeLevel: normalizeSanitizeLevel(request.sanitizeLevel),
           filterInappropriateLanguage: request.filterInappropriateLanguage !== false,
           hasLiveNote: Boolean(liveNote),
+          presetRule: resolveWorkspacePreset(request.presetId).translationRule,
         },
       ),
       [
