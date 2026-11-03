@@ -3,7 +3,7 @@
 import { WORKSPACE_NAME } from "@/domain/workspace";
 import { useI18n } from "@/i18n/provider";
 
-export type OperatorScreenId = "live" | "sermons" | "settings" | "help";
+export type OperatorScreenId = "live" | "transcripts" | "settings" | "help";
 
 export type StatusTone = "ok" | "live" | "warn" | "bad" | "muted";
 export type OperatorStatusLabel =
@@ -19,13 +19,13 @@ export type OperatorStatusLabel =
 
 const TABS: readonly { id: Exclude<OperatorScreenId, "help">; href: string }[] = [
   { id: "live", href: "#live" },
-  { id: "sermons", href: "#sermons" },
+  { id: "transcripts", href: "#transcripts" },
   { id: "settings", href: "#settings" },
 ];
 
 const TAB_MESSAGE_KEYS = {
   live: "shell.navigation.live",
-  sermons: "shell.navigation.transcripts",
+  transcripts: "shell.navigation.transcripts",
   settings: "shell.navigation.settings",
 } as const;
 

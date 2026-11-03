@@ -25,7 +25,7 @@ export const SETTINGS_SECTION_IDS: readonly SettingsSectionId[] = [
 const LEGACY_WORKSPACE_ROUTES: Record<string, string> = {
   overview: "live",
   manualOverride: "settings=words",
-  history: "sermons",
+  history: "transcripts",
   audio: "settings=computer",
   translation: "settings=languages",
   appearance: "settings=look",
@@ -42,7 +42,9 @@ export function routeFromHash(hash: string): { screen: OperatorScreenId; section
   const settingsSection = SETTINGS_SECTION_IDS.includes(section as SettingsSectionId)
     ? (section as SettingsSectionId)
     : "computer";
-  if (screen === "sermons" || screen === "help") return { screen, section: settingsSection };
+  // The older #sermons address still opens Transcripts.
+  if (screen === "sermons" || screen === "transcripts") return { screen: "transcripts", section: settingsSection };
+  if (screen === "help") return { screen, section: settingsSection };
   if (screen === "settings") return { screen, section: settingsSection };
   return { screen: "live", section: settingsSection };
 }

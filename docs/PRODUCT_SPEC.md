@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 3 November 2026 against merged PR #97 (`a21da4f`). The corrected 13 September
+Reviewed 3 November 2026 against merged PR #98 (`00c6164`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -479,8 +479,8 @@ Terms list and leaves the live entry active.
   depend on colour alone.
 - A top bar holds the brand, one status pill (Ready, Checking…, Not ready, Live, Paused,
   Applying changes…, Live on another system, Needs attention, Ending…) and the **Live**, **Transcripts** and
-  **Settings** tabs plus **Help**. Each screen has its own address (`#live`, `#sermons`,
-  `#settings=<section>`, `#help`), so links, reload and browser Back/Forward work; old
+  **Settings** tabs plus **Help**. Each screen has its own address (`#live`, `#transcripts`,
+  `#settings=<section>`, `#help`; the older `#sermons` still opens Transcripts), so links, reload and browser Back/Forward work; old
   `#workspace=…` links land on the matching screen. Moving between screens keeps
   translation drafts and the before-Start transcript choice; reload preserves the screen,
   not unsaved drafts. Links never include credentials. The status pill announces state

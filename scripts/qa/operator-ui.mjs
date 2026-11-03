@@ -97,7 +97,7 @@ try {
   const check=async screen=>{
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
-   if(/^(live|sermons|help)/.test(screen)) await assertSessionWording(page,screen);
+   if(/^(live|transcripts|help)/.test(screen)) await assertSessionWording(page,screen);
    const axe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
    violations.push(...axe.violations.map(x=>({screen,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
   };
@@ -231,7 +231,7 @@ try {
     assert.equal(await page.getByRole('cell',{name:'synthetic-pasted',exact:true}).count(),1);
    }
   }
-  await openScreen(page,'Transcripts'); await check('sermons');
+  await openScreen(page,'Transcripts'); await check('transcripts');
   await page.getByRole('link',{name:'Help',exact:true}).click();
   await page.getByRole('heading',{name:'How it works',exact:true}).waitFor(); await check('help');
 

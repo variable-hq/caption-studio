@@ -1,5 +1,5 @@
 /*
- * Operator shell: top bar, Live / Sermons / Settings screens and the live control bar.
+ * Operator shell: top bar, Live / Transcripts / Settings screens and the live control bar.
  * Follows docs/BRAND_GUIDELINES.md; tokens only.
  */
 
@@ -718,14 +718,14 @@
 
 .settingsPanel { gap: var(--space-3); }
 
-/* Sermons: a list of saved sermons beside the selected one. */
-.sermonList .archiveList {
+/* Transcripts: a list of saved transcripts beside the selected one. */
+.transcriptList .archiveList {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.sermonListItem {
+.transcriptListItem {
   display: flex;
   align-items: center;
   width: 100%;
@@ -747,9 +747,9 @@
   transition: background-color 0.15s, color 0.15s;
 }
 
-.sermonListItem:hover { background: var(--surface-muted); color: var(--ink); }
-.sermonListItem[aria-current="page"] { background: var(--surface-strong); color: var(--ink); }
-.sermonListItem:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.transcriptListItem:hover { background: var(--surface-muted); color: var(--ink); }
+.transcriptListItem[aria-current="page"] { background: var(--surface-strong); color: var(--ink); }
+.transcriptListItem:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .correctionEditor {
   display: flex;
@@ -859,7 +859,7 @@
 
 .settingsPanel .archiveRecords article > p:not(.settingHint) { margin: 0; color: var(--ink); }
 
-/* Narrow screens: Settings and Sermons lists scroll sideways above the content,
+/* Narrow screens: Settings and Transcripts lists scroll sideways above the content,
    the Words form stacks, and each word becomes a small card. */
 @media (max-width: 980px) {
   .liveGrid { grid-template-columns: minmax(0, 1fr); }
@@ -877,10 +877,10 @@
   }
 
   .settingsNav a { flex: none; white-space: nowrap; }
-  .sermonListItem { flex: 0 0 min(70vw, 18rem); }
+  .transcriptListItem { flex: 0 0 min(70vw, 18rem); }
   .settingsNav .operatorHint,
   .settingsNav > .settingHint { display: none; }
-  .sermonList .archiveList { flex-direction: row; }
+  .transcriptList .archiveList { flex-direction: row; }
 }
 
 @media (max-width: 680px) {
@@ -917,7 +917,7 @@
 /* A text button sits on the text's edge; its focus ring still clears the label. */
 .operatorShell .textButton { padding-inline: 0; }
 
-/* The Sermons view sits in the experience panel's grid; keep its one column within the screen. */
+/* The Transcripts view sits in the experience panel's grid; keep its one column within the screen. */
 .operatorScreen .experienceStack { grid-template-columns: minmax(0, 1fr); }
 
 /* Live folds these behind a disclosure whose summary already names them. */

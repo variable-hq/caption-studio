@@ -88,7 +88,7 @@ import { liveScreenDefaultsChanged, saveLiveScreenDefaults } from "@/live/live-s
 import { normalizeLiveNote } from "@/live/live-note";
 import { EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata } from "@/experience/contracts";
 import { experienceRequest } from "@/experience/client";
-import { ServiceExperiencePanel } from "@/components/operator/ServiceExperiencePanel";
+import { SessionExperiencePanel } from "@/components/operator/SessionExperiencePanel";
 import { UsageHistory } from "@/components/operator/UsageHistory";
 import { formatCount, formatDecimal } from "@/components/operator/format-count";
 import { formatClock } from "@/components/operator/format-clock";
@@ -1448,20 +1448,20 @@ function OperatorDashboardContent() {
               {viewerCopied ? t("common.copied") : t("common.copyLink")}
             </button>
           </div>
-          <ServiceExperiencePanel view="sharing" service={liveState.service} observer={observed.observer} onReaderLink={rememberReaderLink} />
+          <SessionExperiencePanel view="sharing" service={liveState.service} observer={observed.observer} onReaderLink={rememberReaderLink} />
           <p className="operatorHint" role="status" aria-live="polite">{clipboardMessage}</p>
         </section>
       </div>
     </main>
   );
 
-  const sermonsScreen = (
+  const transcriptsScreen = (
     <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
       <header className="settingsHeader">
         <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>{t("transcripts.title")}</h1>
         <p className="settingHint">{t("transcripts.hint", { workspace: WORKSPACE_NAME })}</p>
       </header>
-      <ServiceExperiencePanel view="archive" service={liveState.service} onReaderLink={rememberReaderLink} summaryDefaults={summaryDefaults} />
+      <SessionExperiencePanel view="archive" service={liveState.service} onReaderLink={rememberReaderLink} summaryDefaults={summaryDefaults} />
     </main>
   );
 
@@ -1696,7 +1696,7 @@ function OperatorDashboardContent() {
     <div className="operatorShell">
       <a className="skipLink" href="#main">{t("page.skipLink")}</a>
       <OperatorTopBar screen={screen} status={status} />
-      {screen === "live" ? liveScreen : screen === "sermons" ? sermonsScreen : screen === "settings" ? settingsScreen : helpScreen}
+      {screen === "live" ? liveScreen : screen === "transcripts" ? transcriptsScreen : screen === "settings" ? settingsScreen : helpScreen}
       {hasService && screen === "live" ? (
         <LiveControlBar
           isPaused={isPaused}

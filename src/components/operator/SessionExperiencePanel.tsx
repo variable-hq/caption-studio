@@ -15,7 +15,7 @@ interface ServiceEntry { id: string; startedAt: number; metadata?: SessionMetada
 
 type PanelMessage = { key: MessageKey } | { text: string } | null;
 
-export function ServiceExperiencePanel({ view, service, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; service: LiveServiceDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
+export function SessionExperiencePanel({ view, service, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; service: LiveServiceDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
   const { locale, t } = useI18n();
   const [services, setServices] = useState<ServiceEntry[]>([]);
   const [archive, setArchive] = useState<Archive | null>(null);
@@ -151,10 +151,10 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
         <button className="dangerOutlineButton" disabled={busy} onClick={() => setConfirmation("reader")}>{t("sessionExperience.replaceReaderLink")}</button></details>}
     </>}
     {view === "archive" && <div className="operatorColumns">
-      <nav className="settingsNav sermonList" aria-label={t("sessionExperience.savedTranscripts")}>
+      <nav className="settingsNav transcriptList" aria-label={t("sessionExperience.savedTranscripts")}>
         <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void loadList()}>{t("sessionExperience.refreshList")}</button></div>
         {loadedList && !services.length && <p className="settingHint">{t("sessionExperience.noTranscripts")}</p>}
-        <div className="archiveList">{services.map((entry) => <button type="button" className="sermonListItem" key={entry.id} disabled={busy}
+        <div className="archiveList">{services.map((entry) => <button type="button" className="transcriptListItem" key={entry.id} disabled={busy}
           aria-current={archive?.details.id === entry.id ? "page" : undefined}
           onClick={() => void perform(() => load(entry.id))}>{entry.metadata?.topic ? `${entry.metadata.topic} · ` : ""}{dateTime(entry.metadata?.sessionAt ?? entry.startedAt, { dateStyle: "medium", timeStyle: "short" })}</button>)}</div>
       </nav>

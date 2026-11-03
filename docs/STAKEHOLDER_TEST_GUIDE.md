@@ -1,6 +1,6 @@
 # Stakeholder test guide
 
-Reviewed 3 November 2026 against merged PR #96 (`f74a25f`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
+Reviewed 3 November 2026 against merged PR #98 (`00c6164`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
 not establish a passing physical session, semantic quality or WCAG conformance.
 
@@ -43,7 +43,7 @@ The browser is the sole client; there are no native/signing checklists.
    actual zoom, reduced motion and an assistive-technology user where available. No control,
    dialog or long record should create horizontal page overflow or hide the next action.
    Verify the **Live**, **Transcripts** and **Settings** tabs and each Settings section, their
-   bookmarks (`#live`, `#sermons`, `#settings=<section>`, `#help`), reload and browser
+   bookmarks (`#live`, `#transcripts`, `#settings=<section>`, `#help`), reload and browser
    Back/Forward. Switch **Settings › System › Theme** to Dark and back to
    Light: text, status pill, focus outlines and the caption preview must stay readable, and
    the OBS overlay must stay transparent. Reload and confirm the theme returns from the account.
