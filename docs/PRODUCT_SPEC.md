@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 3 November 2026 against merged PR #100 (`b4c03ab`). The corrected 13 September
+Reviewed 3 November 2026 against merged PR #104 (`d7d344e`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -162,6 +162,19 @@ the public transcript reader and the Worker-rendered viewer document from the re
 server error text are not translated by the interface language setting. The phone remote
 does not load account preferences, so it follows that browser's saved interface-language
 copy or browser language, then English.
+
+## Workspace format
+
+**Settings › Presets** (second after System) chooses the workspace format: **General**
+(the default), **Sermon** (Khotbah), **Talkshow** or **Keynote**. The choice is saved with
+**Save for everyone** and applies to the whole workspace. In this release a format changes
+wording only: the operator screens use its terms (session, speaker, audience and
+transcripts) and its example placeholders. Defaults and AI model context are not changed by
+the format yet. Indonesian preset wording is a draft pending native review.
+
+The top bar shows the format after the workspace name. While no session is live it links to
+Settings › Presets; while a session is live it is plain text. Saved transcripts, the audience
+pages and the public reader keep their existing wording.
 
 ## Current functional requirements
 

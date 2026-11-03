@@ -54,6 +54,7 @@ try {
   let readerStatus = 'live', readerExpired = false, readerRemoved = false;
   let remote = { status: 'live', connected: true, command: null };
   let summary = null; let excluded = false; const summaryIds = [];
+  let workspaceProfile = null;
   await page.route('**/*', async (route) => {
    const request = route.request(); const url = new URL(request.url());
    if (url.origin !== origin) return route.abort();
@@ -77,7 +78,7 @@ try {
    else if (url.pathname.endsWith('/remove')) { assert.equal(body.confirm, true); excluded = true; summary = null; payload = { removed: true }; }
    else if (url.pathname.endsWith('/correct')) { assert.ok(body.text); summary = null; payload = { corrected: true }; }
    else if (url.pathname.endsWith('/delete')) { assert.equal(body.confirm, true); payload = { deleted: true }; }
-   else if (url.pathname.endsWith('/experience/preferences') || url.pathname.endsWith('/experience/setup')) payload = { version: 1, theme: 'system', translationSystemPrompt: null, summaryDefaults: null, captionStyle: null, translationDefaults: null, updatedAt: null };
+   else if (url.pathname.endsWith('/experience/preferences') || url.pathname.endsWith('/experience/setup')) payload = { version: 1, theme: 'system', profile: url.pathname.endsWith('/experience/setup') ? workspaceProfile : null, translationSystemPrompt: null, summaryDefaults: null, captionStyle: null, translationDefaults: null, updatedAt: workspaceProfile && url.pathname.endsWith('/experience/setup') ? Date.now() : null };
    else if (url.pathname.endsWith('/experience/usage')) payload = { records: [{ id: 'synthetic-attempt', sessionId: id, at: Date.now(), stage: 'translation', provider: 'groq', model: 'openai/gpt-oss-20b', status: 'completed', tokens: { promptTokens: 150, completionTokens: 50, totalTokens: 200 }, audioSeconds: null, estimatedNeurons: 0 }], next: null };
    else { errors.push('Unexpected API: ' + url.pathname); return route.fulfill({ status: 400, json: { error: 'Unexpected request' } }); }
    return route.fulfill({ status: 200, json: payload });
@@ -154,6 +155,11 @@ try {
   await fs.writeFile(`${output}/usage-before-${width}.txt`, await page.locator('body').innerText());
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.getByText('Usage by day (UTC)', { exact: true }).click(); assert.equal(await page.getByText('Plan monthly service capacity', { exact: true }).count(), 0); await check('usage');
+  // The saved Sermon format relabels the Transcripts heading.
+  workspaceProfile = 'builtin:sermon';
+  await page.goto(origin + '/#transcripts'); await page.reload();
+  await page.getByRole('heading', { name: 'Sermons', exact: true }).waitFor();
+  await check('transcripts-sermon');
   assert.deepEqual(errors, []); await context.close();
  }
  await fs.writeFile(output + '/results.json', JSON.stringify(results, null, 2));

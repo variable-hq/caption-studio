@@ -26,4 +26,9 @@ describe("operator hash routes", () => {
     expect(routeFromHash("#workspace=translation")).toEqual({ screen: "settings", section: "languages" });
     expect(routeFromHash("#workspace=usage")).toEqual({ screen: "settings", section: "usage" });
   });
+
+  it("opens the Presets section from its own address", () => {
+    expect(routeFromHash("#settings=presets")).toEqual({ screen: "settings", section: "presets" });
+    expect(routeFromHash("#settings=presets").section).not.toBe("computer");
+  });
 });

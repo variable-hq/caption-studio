@@ -94,10 +94,11 @@ try {
    const hit=copy.match(/.{0,40}(\bservices?\b|congregation).{0,40}/iu);
    assert.equal(hit,null,`${width}/${label} uses event wording: ${hit?.[0]}`);
   };
-  const check=async screen=>{
+  // Event wording is checked only under General; the other presets use their own terms.
+  const check=async (screen,{general=true}={})=>{
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
-   if(/^(live|transcripts|help)/.test(screen)) await assertSessionWording(page,screen);
+   if(general&&/^(live|transcripts|help)/.test(screen)) await assertSessionWording(page,screen);
    const axe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
    violations.push(...axe.violations.map(x=>({screen,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
   };
@@ -115,9 +116,15 @@ try {
    await page.evaluate(()=>window.scrollTo(0,0));
   };
 
+  // The top bar's format is the Presets link while no session runs.
+  const formatLink=name=>page.getByRole('link',{name:`Session format: ${name}`,exact:true});
+  const formatNote=name=>page.getByRole('note',{name:`Session format: ${name}`,exact:true});
+  const topBarText=async()=>(await page.locator('.operatorBrandName > span').textContent())?.replace(/\s+/gu,' ').trim();
   // Idle: one Start, a ready checklist, no live controls, no inference.
   await check('live-idle');
   assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).isEnabled(),true);
+  assert.equal(await formatLink('General').getAttribute('href'),'#settings=presets','With no session, the format links to Settings › Presets');
+  assert.equal(await topBarText(),'BEST Church workspace · General · Main channel','The top bar names the General format');
   assert.equal(await page.getByRole('region',{name:'Live controls'}).count(),0);
   assert.equal(await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).isChecked(),false);
   // The Start bar spans both columns above the grid; the output buffer sits in Captions.
@@ -293,6 +300,8 @@ try {
   await page.locator('details.advancedActions',{hasText:'Technical details'}).screenshot({path:output+`/live-technical-details-${colorScheme}-${width}.png`});
   await check('live-running');
   await barClear('live-running');
+  assert.equal(await formatLink('General').count(),0,'A running session shows the format as plain text, not a link');
+  assert.equal(await formatNote('General').count(),1,'A running session shows the format as a note');
   // The Start bar is gone; the buffer and its shared save stay in the Captions card.
   assert.equal(await page.locator('.liveStartBar').count(),0,'The Start bar is replaced once a service runs');
   assert.equal(await page.locator('.liveCaptions .monitorGrid ~ .outputBufferControls').count(),1,'The output buffer stays in the Captions card during a service');
@@ -420,7 +429,90 @@ try {
   assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1,'Browser copy applies when account preferences are unavailable');
   await page.getByRole('combobox',{name:'Bahasa antarmuka',exact:true}).selectOption('');
   await page.waitForFunction(()=>document.documentElement.lang==='en');
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, no inference before Start or after End, responsive overflow and Axe'});
+  // Presets: Settings › Presets saves the format for everyone; the top bar, Transcripts, Live and Help follow it.
+  // The account keeps English across the reload that loads its preferences again.
+  accountPreferencesUnavailable=false;
+  await openSettings(page,'languages');
+  await page.getByRole('combobox',{name:'Interface language',exact:true}).selectOption('en');
+  await page.waitForFunction(()=>document.documentElement.lang==='en');
+  await page.evaluate(()=>localStorage.removeItem('caption-studio:ui-locale:v1'));
+  await page.reload();
+  await page.waitForFunction(()=>document.documentElement.lang==='en');
+  await formatLink('General').waitFor();
+  const presetCheck=(screen,slug)=>check(`${screen}-${slug}`,{general:slug==='general'});
+  const openPresets=async()=>{
+   await openScreen(page,'Settings');
+   await page.getByRole('navigation',{name:'Settings sections',exact:true}).getByRole('link',{name:'Presets',exact:true}).click();
+   await page.getByRole('heading',{name:'Presets',exact:true}).waitFor();
+  };
+  const chooseFormat=async (profileId,name)=>{
+   await openPresets();
+   await page.getByRole('combobox',{name:'Format',exact:true}).selectOption(profileId);
+   const savesBefore=controls.length;
+   await page.getByRole('button',{name:'Save for everyone',exact:true}).click();
+   await page.getByText(`Saved for everyone. Operator screens now use ${name}.`,{exact:true}).waitFor();
+   assert.equal(controls.length,savesBefore+1,`Saving ${name} writes once`);
+   assert.equal(controls.at(-1).preferenceWrite.profile,profileId,`Saving ${name} sends ${profileId}`);
+   await formatLink(name).waitFor();
+   assert.equal(await topBarText(),`BEST Church workspace · ${name} · Main channel`,`The top bar names ${name}`);
+  };
+  // General is the default: the top bar links to Presets, and the chooser offers the four formats.
+  await formatLink('General').click();
+  await page.getByRole('heading',{name:'Presets',exact:true}).waitFor();
+  assert.equal(new URL(page.url()).hash,'#settings=presets','The format link opens Settings › Presets');
+  const formatSelect=page.getByRole('combobox',{name:'Format',exact:true});
+  assert.deepEqual(await formatSelect.locator('option').allTextContents(),['General','Sermon','Talkshow','Keynote'],'The chooser lists the four built-in formats');
+  assert.equal(await formatSelect.inputValue(),'builtin:general','General is the default format');
+  await page.getByText('The base wording, used when no format is chosen.',{exact:true}).waitFor();
+  await presetCheck('presets','general');
+  await openScreen(page,'Transcripts');
+  await page.getByRole('heading',{name:'Transcripts',exact:true}).waitFor();
+  await presetCheck('transcripts','general');
+  await openScreen(page,'Live');
+  await page.getByText('For Transcripts and AI summary, shared with everyone at BEST Church workspace. Tell attendees when it’s on.',{exact:true}).waitFor();
+  await presetCheck('live','general');
+
+  // Sermon: the Transcripts tab and heading, the Live save hint, and the top bar while a service runs.
+  await chooseFormat('builtin:sermon','Sermon');
+  await openScreen(page,'Sermons');
+  await page.getByRole('heading',{name:'Sermons',exact:true}).waitFor();
+  await page.getByText('Saved sermons are kept for 7 days and shared with everyone at BEST Church workspace.',{exact:true}).waitFor();
+  await presetCheck('transcripts','sermon');
+  await openScreen(page,'Live');
+  await page.getByText('For Sermons and AI summary, shared with everyone at BEST Church workspace. Tell the congregation when it’s on.',{exact:true}).waitFor();
+  await presetCheck('live','sermon');
+  await page.getByRole('button',{name:'Start captions',exact:true}).click();
+  const sermonControls=page.getByRole('region',{name:'Live controls'});
+  await sermonControls.getByRole('button',{name:'Pause',exact:true}).waitFor();
+  assert.equal(await formatLink('Sermon').count(),0,'A running service shows the format as plain text, not a link');
+  assert.equal(await formatNote('Sermon').count(),1,'A running service shows the format as a note');
+  assert.equal(await topBarText(),'BEST Church workspace · Sermon · Main channel','The running top bar names Sermon');
+  await sermonControls.getByRole('button',{name:/^End /}).click();
+  await page.getByRole('alertdialog').getByRole('button',{name:/^End /}).click();
+  await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
+
+  // Talkshow: the Transcripts tab and heading, the Live hint and the manual caption example.
+  await chooseFormat('builtin:talkshow','Talkshow');
+  await openScreen(page,'Episodes');
+  await page.getByRole('heading',{name:'Episodes',exact:true}).waitFor();
+  await presetCheck('transcripts','talkshow');
+  await openScreen(page,'Live');
+  await page.getByText('For Episodes and AI summary, shared with everyone at BEST Church workspace. Tell attendees when it’s on.',{exact:true}).waitFor();
+  await presetCheck('live','talkshow');
+
+  // Keynote: the Transcripts tab and heading, and the Live hint.
+  await chooseFormat('builtin:keynote','Keynote');
+  await openScreen(page,'Talks');
+  await page.getByRole('heading',{name:'Talks',exact:true}).waitFor();
+  await presetCheck('transcripts','keynote');
+  await openScreen(page,'Live');
+  await page.getByText('For Talks and AI summary, shared with everyone at BEST Church workspace. Tell attendees when it’s on.',{exact:true}).waitFor();
+  await presetCheck('live','keynote');
+
+  // Back to General saves it again.
+  await chooseFormat('builtin:general','General');
+
+  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (chooser options and save body, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote),no inference before Start or after End, responsive overflow and Axe'});
   await context.close();
  }
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));

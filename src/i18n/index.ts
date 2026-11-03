@@ -1,4 +1,4 @@
-import { GENERAL_PRESET, presetTermParams } from "../experience/presets";
+import { GENERAL_PRESET, presetTermParams, type Preset } from "../experience/presets";
 import { en, type MessageKey } from "./messages/en";
 import { id } from "./messages/id";
 
@@ -59,19 +59,31 @@ export function localeFromAcceptLanguage(header: string | null | undefined): UiL
   return normalizeUiLocale(null, languages);
 }
 
-// General preset term values that fill term placeholders the caller does not pass.
-const TERM_PARAMS: Record<UiLocale, MessageParams> = {
-  en: presetTermParams(GENERAL_PRESET, "en"),
-  id: presetTermParams(GENERAL_PRESET, "id"),
-};
+const termParamsByPreset = new WeakMap<Preset, Record<UiLocale, MessageParams>>();
+
+/** Term values a preset fills into placeholders the caller does not pass. */
+function presetTermParamsFor(preset: Preset, locale: UiLocale): MessageParams {
+  let byLocale = termParamsByPreset.get(preset);
+  if (!byLocale) {
+    byLocale = { en: presetTermParams(preset, "en"), id: presetTermParams(preset, "id") };
+    termParamsByPreset.set(preset, byLocale);
+  }
+  return byLocale[locale];
+}
+
+/** Message for a key in a locale: the preset's whole-message override, else the catalog text. */
+function messageFor(locale: UiLocale, key: MessageKey, preset: Preset): string {
+  return preset.messageOverrides?.[locale]?.[key] ?? ((locale === "id" ? id[key] : undefined) ?? en[key]);
+}
 
 export function translate(
   locale: UiLocale,
   key: MessageKey,
   params?: MessageParams,
+  preset: Preset = GENERAL_PRESET,
 ): string {
-  const message = (locale === "id" ? id[key] : undefined) ?? en[key];
-  const termParams = TERM_PARAMS[locale];
+  const message = messageFor(locale, key, preset);
+  const termParams = presetTermParamsFor(preset, locale);
   return message.replace(/\{([a-zA-Z0-9_]+)\}/gu, (placeholder, name: string) => {
     const value = params?.[name] ?? termParams[name];
     return value === undefined ? placeholder : String(value);
@@ -83,8 +95,9 @@ export function translatePlural(
   key: PluralMessageKey,
   count: number,
   params: MessageParams = {},
+  preset: Preset = GENERAL_PRESET,
 ): string {
   const category = new Intl.PluralRules(locale).select(count);
   const pluralKey = `${key}.${category === "one" ? "one" : "other"}` as MessageKey;
-  return translate(locale, pluralKey, { ...params, count });
+  return translate(locale, pluralKey, { ...params, count }, preset);
 }

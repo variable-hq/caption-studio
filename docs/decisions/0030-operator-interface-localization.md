@@ -50,6 +50,7 @@ review**. Reviewers should use this terminology consistently:
 | Audience view | Tampilan audiens | Public caption pane |
 | Transcripts | Transkrip | Saved service archive |
 | speaker | pembicara | The person talking during a service |
+| audience | audiens | The people watching the public captions; a format may substitute its own word |
 
 ## Tradeoffs and verification
 

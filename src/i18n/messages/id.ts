@@ -3,6 +3,7 @@ import type { MessageKey } from "./en";
 // Draft translations; pending native Indonesian review.
 export const id: Partial<Record<MessageKey, string>> = {
   "shell.brand.mainChannel": "Kanal utama",
+  "shell.format.ariaLabel": "Format sesi: {format}",
   "shell.navigation.main": "Navigasi utama",
   "shell.navigation.live": "Live",
   "shell.navigation.transcripts": "{Term_transcripts}",
@@ -523,6 +524,9 @@ export const id: Partial<Record<MessageKey, string>> = {
   "settings.previewLiveHint": "Perubahan langsung tampil di OBS. Simpan menyimpannya untuk minggu depan.",
   "settings.previewIdleHint": "Perubahan tampil di sini lebih dulu. Simpan mengirimnya ke OBS dan menyimpannya untuk minggu depan.",
   "settings.section.computer.title": "Sistem",
+  "settings.section.presets.title": "Preset",
+  "settings.section.presets.description": "Pilih format yang dipakai ruang kerja ini. Istilahnya berlaku di seluruh layar operator.",
+  "settings.presets.choiceLabel": "Format",
   "settings.section.languages.title": "Bahasa",
   "settings.section.words.title": "Istilah",
   "settings.section.words.description": "Nama yang harus diketahui AI, dan istilah yang tidak boleh tampil di layar.",
@@ -543,6 +547,7 @@ export const id: Partial<Record<MessageKey, string>> = {
   "settings.message.savedForEveryone": "Disimpan untuk semua orang.",
   "settings.message.savedBrowserSaving": "Disimpan di browser ini. Menyimpan untuk semua orang…",
   "settings.message.savedDefaultChoice": "Disimpan untuk semua orang. {Term_sessions} baru dimulai dengan pilihan ini.",
+  "settings.message.savedProfile": "Disimpan untuk semua orang. Layar operator kini memakai {format}.",
   "settings.message.savedTranslationDefaults": "Disimpan untuk semua orang. {Term_sessions} baru dimulai dengan bahasa, waktu tunggu caption, Istilah, pembersihan caption, dan penyaringan bahasa ini.",
   "settings.message.restoredBuiltIn": "Pengaturan bawaan dipulihkan. Simpan untuk menerapkannya bagi semua orang.",
   "settings.message.restoredDefaults": "Instruksi bawaan dipulihkan untuk semua orang.",

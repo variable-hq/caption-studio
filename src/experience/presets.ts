@@ -25,6 +25,8 @@ const PLURAL_TERM_NAMES: readonly PresetTermName[] = ["session", "speaker", "aud
 export type PresetTermForms = { singular: string; plural?: string };
 export type PresetTermSet = Record<PresetTermName, PresetTermForms>;
 export type PresetLocalizedText = { en: string; id?: string };
+/** Whole-message replacements keyed by catalog message key; built-in presets only. */
+export type PresetMessageOverrides = Partial<Record<PresetLocale, Record<string, string>>>;
 
 export type Preset = {
   schemaVersion: typeof PRESET_SCHEMA_VERSION;
@@ -35,13 +37,17 @@ export type Preset = {
   author?: string;
   /** Indonesian terms fall back through the lookup order in `resolvePresetTerm`. */
   terms: { en: PresetTermSet; id?: PresetTermSet };
+  messageOverrides?: PresetMessageOverrides;
 };
 
-const PRESET_FIELDS = ["schemaVersion", "version", "id", "name", "description", "author", "terms"] as const;
+const PRESET_FIELDS = ["schemaVersion", "version", "id", "name", "description", "author", "terms", "messageOverrides"] as const;
 const TERM_SET_LOCALES = ["en", "id"] as const;
 const CUSTOM_ID_PATTERN = /^custom:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 const BUILT_IN_ID_PATTERN = /^builtin:[a-z]+$/u;
 // C0 and C1 controls, line and paragraph separators, and bidirectional overrides and isolates.
+export const MAX_OVERRIDES_PER_LOCALE = 60;
+export const MAX_PRESET_OVERRIDE_CHARS = 400;
+const OVERRIDE_KEY_PATTERN = /^[a-zA-Z0-9_.]+$/u;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/u;
 
 export const GENERAL_PRESET: Preset = {
@@ -141,6 +147,25 @@ function presetTerms(value: unknown): Preset["terms"] {
   return terms;
 }
 
+function messageOverrides(value: unknown): PresetMessageOverrides {
+  const record = plainRecord(value, "messageOverrides");
+  rejectUnknownFields(record, PRESET_LOCALES, "messageOverrides");
+  const overrides: PresetMessageOverrides = {};
+  for (const locale of PRESET_LOCALES) {
+    if (record[locale] === undefined) continue;
+    const entries = plainRecord(record[locale], `messageOverrides.${locale}`);
+    const keys = Object.keys(entries);
+    if (keys.length > MAX_OVERRIDES_PER_LOCALE) fail(`messageOverrides.${locale} may have ${MAX_OVERRIDES_PER_LOCALE} keys at most`);
+    const table: Record<string, string> = {};
+    for (const key of keys) {
+      if (!OVERRIDE_KEY_PATTERN.test(key)) fail(`messageOverrides.${locale} key "${key}" is not a message key`);
+      table[key] = boundedText(entries[key], `messageOverrides.${locale}.${key}`, MAX_PRESET_OVERRIDE_CHARS);
+    }
+    overrides[locale] = table;
+  }
+  return overrides;
+}
+
 function presetId(value: unknown): string {
   if (typeof value !== "string") fail("id must be text");
   if (BUILT_IN_ID_PATTERN.test(value) || CUSTOM_ID_PATTERN.test(value)) return value;
@@ -170,6 +195,11 @@ export function normalizePreset(input: unknown): Preset {
     terms: presetTerms(record.terms),
   };
   if (record.author !== undefined) preset.author = boundedText(record.author, "author", MAX_PRESET_AUTHOR_CHARS);
+  if (record.messageOverrides !== undefined) {
+    // Only shipped presets may replace messages; a custom preset carries terms alone.
+    if (!preset.id.startsWith("builtin:")) fail("messageOverrides is allowed only on builtin: presets");
+    preset.messageOverrides = messageOverrides(record.messageOverrides);
+  }
   return preset;
 }
 
@@ -211,4 +241,157 @@ export function presetTermParams(preset: Preset, locale: PresetLocale, general: 
     }
   }
   return params;
+}
+
+/** Built-in ids. The workspace profile stores one of these; an absent or unknown value means General. */
+export const BUILT_IN_PRESET_IDS = ["builtin:general", "builtin:sermon", "builtin:talkshow", "builtin:keynote"] as const;
+export type BuiltInPresetId = (typeof BUILT_IN_PRESET_IDS)[number];
+
+const SERMON_PRESET: Preset = {
+  schemaVersion: PRESET_SCHEMA_VERSION,
+  version: 1,
+  id: "builtin:sermon",
+  name: { en: "Sermon", id: "Khotbah" },
+  description: {
+    en: "Church services: the congregation, the preacher and the service.",
+    id: "Ibadah gereja: jemaat, pengkhotbah, dan ibadah.",
+  },
+  terms: {
+    en: {
+      session: { singular: "service", plural: "services" },
+      speaker: { singular: "preacher", plural: "preachers" },
+      audience: { singular: "congregation", plural: "congregations" },
+      transcripts: { singular: "sermons" },
+    },
+    id: {
+      session: { singular: "ibadah", plural: "ibadah" },
+      speaker: { singular: "pengkhotbah", plural: "pengkhotbah" },
+      audience: { singular: "jemaat", plural: "jemaat" },
+      transcripts: { singular: "khotbah" },
+    },
+  },
+  messageOverrides: {
+    en: {
+      "live.saveTranscriptHint":
+        "For {Term_transcripts} and AI summary, shared with everyone at {workspace}. Tell the congregation when it’s on.",
+      "liveWord.placeholderWord": "e.g. Reading Psalm 23…",
+      "liveWord.placeholderFix": "e.g. Reading Psalm 23…",
+      "manualCaption.placeholder": "e.g. Reading Psalm 23…",
+    },
+    id: {
+      "live.saveTranscriptHint":
+        "Untuk {Term_transcripts} dan ringkasan AI, dibagikan kepada semua orang di {workspace}. Beri tahu jemaat saat fitur ini aktif.",
+      "liveWord.placeholderWord": "mis. Membaca Mazmur 23…",
+      "liveWord.placeholderFix": "mis. Membaca Mazmur 23…",
+      "manualCaption.placeholder": "mis. Membaca Mazmur 23…",
+    },
+  },
+};
+
+const TALKSHOW_PRESET: Preset = {
+  schemaVersion: PRESET_SCHEMA_VERSION,
+  version: 1,
+  id: "builtin:talkshow",
+  name: { en: "Talkshow", id: "Talkshow" },
+  description: {
+    en: "Talk shows and panels with several speakers.",
+    id: "Talk show dan panel dengan beberapa pembicara.",
+  },
+  terms: {
+    en: {
+      session: { singular: "episode", plural: "episodes" },
+      speaker: { singular: "host and guests", plural: "host and guests" },
+      audience: { singular: "audience", plural: "audiences" },
+      transcripts: { singular: "episodes" },
+    },
+    id: {
+      session: { singular: "episode", plural: "episode" },
+      speaker: { singular: "pembawa acara dan narasumber", plural: "pembawa acara dan narasumber" },
+      audience: { singular: "penonton", plural: "penonton" },
+      transcripts: { singular: "episode" },
+    },
+  },
+  messageOverrides: {
+    en: {
+      "liveWord.placeholderWord": "e.g. Guest: Dr. Rina…",
+      "liveWord.placeholderFix": "e.g. Guest: Dr. Rina…",
+      "manualCaption.placeholder": "e.g. Guest: Dr. Rina…",
+      // The plural term "host and guests" needs plural verbs and possessives.
+      "live.startHelp.ready": "Press Start when the host and guests begin.",
+      "help.step3.after": "when the host and guests begin.",
+      "translationSettings.speedHint":
+        "Sets the longest each caption waits. Captions appear sooner when the host and guests pause. Shorter limits keep viewers closer to the host and guests; longer limits allow fuller sentences. Dynamic adapts to how the host and guests pause, up to 14 seconds.",
+      "translationSettings.source": "Host and guests’ language",
+      "translationSettings.languagesHint": "Choosing the host and guests’ language manually helps improve reliability.",
+      "wordsEditor.addHint":
+        "Write the term in the host and guests’ language for “Help the AI recognise it”, “Fix spelling to…” and “Always translate as…”. Hide and replace actions match the finished captions, so use the caption language. The With value is the corrected spelling (host and guests’ language), the translation or the replacement (caption language).",
+      "wordsEditor.placeholderWord": "e.g. Guests’ names…",
+      "inference.high.detail": "Favors the host and guests’ intended meaning over exact wording; may reword boldly.",
+    },
+    id: {
+      "liveWord.placeholderWord": "mis. Tamu: Dr. Rina…",
+      "liveWord.placeholderFix": "mis. Tamu: Dr. Rina…",
+      "manualCaption.placeholder": "mis. Tamu: Dr. Rina…",
+    },
+  },
+};
+
+const KEYNOTE_PRESET: Preset = {
+  schemaVersion: PRESET_SCHEMA_VERSION,
+  version: 1,
+  id: "builtin:keynote",
+  name: { en: "Keynote", id: "Keynote" },
+  description: {
+    en: "Prepared talks and presentations.",
+    id: "Presentasi dan pidato yang disiapkan.",
+  },
+  terms: {
+    en: {
+      session: { singular: "talk", plural: "talks" },
+      speaker: { singular: "speaker", plural: "speakers" },
+      audience: { singular: "attendees", plural: "attendees" },
+      transcripts: { singular: "talks" },
+    },
+    id: {
+      session: { singular: "presentasi", plural: "presentasi" },
+      speaker: { singular: "pembicara", plural: "pembicara" },
+      audience: { singular: "peserta", plural: "peserta" },
+      transcripts: { singular: "presentasi" },
+    },
+  },
+  messageOverrides: {
+    en: {
+      "liveWord.placeholderWord": "e.g. Demo of Acme Cloud…",
+      "liveWord.placeholderFix": "e.g. Demo of Acme Cloud…",
+      "manualCaption.placeholder": "e.g. Demo of Acme Cloud…",
+    },
+    id: {
+      "liveWord.placeholderWord": "mis. Demo Acme Cloud…",
+      "liveWord.placeholderFix": "mis. Demo Acme Cloud…",
+      "manualCaption.placeholder": "mis. Demo Acme Cloud…",
+    },
+  },
+};
+
+/** Every shipped preset, validated by `normalizePreset()`; General is the first and the default. */
+export const BUILT_IN_PRESETS: readonly Preset[] = [GENERAL_PRESET, SERMON_PRESET, TALKSHOW_PRESET, KEYNOTE_PRESET].map(
+  (preset) => normalizePreset(preset),
+);
+
+/** The stored form of a workspace profile: a known built-in id, or null when none is saved. */
+export function normalizeProfileId(value: unknown): BuiltInPresetId | null {
+  return typeof value === "string" && (BUILT_IN_PRESET_IDS as readonly string[]).includes(value)
+    ? (value as BuiltInPresetId)
+    : null;
+}
+
+/** The preset a profile id resolves to; an absent or unknown id is General. */
+export function resolveWorkspacePreset(profileId: unknown): Preset {
+  const id = normalizeProfileId(profileId) ?? GENERAL_PRESET_ID;
+  return BUILT_IN_PRESETS.find((preset) => preset.id === id) ?? BUILT_IN_PRESETS[0];
+}
+
+/** Display text for a locale; Indonesian falls back to English when a value is missing. */
+export function presetLocalizedText(text: PresetLocalizedText, locale: PresetLocale): string {
+  return (locale === "id" ? text.id : undefined) ?? text.en;
 }

@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BUILT_IN_PRESETS,
   type Preset,
   GENERAL_PRESET,
   GENERAL_PRESET_ID,
   MAX_PRESET_NAME_CHARS,
   PresetValidationError,
   normalizePreset,
+  normalizeProfileId,
   presetTermParams,
   resolvePresetTerm,
+  resolveWorkspacePreset,
 } from "@/experience/presets";
 
 const CUSTOM_ID = "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b";
@@ -151,5 +154,56 @@ describe("term resolution", () => {
       Term_speaker: "Pembicara",
       term_transcripts: "transkrip",
     });
+  });
+});
+
+describe("built-in presets", () => {
+  it("validates every built-in and gives each a complete English and Indonesian term set", () => {
+    expect(BUILT_IN_PRESETS.map((preset) => preset.id)).toEqual([
+      "builtin:general",
+      "builtin:sermon",
+      "builtin:talkshow",
+      "builtin:keynote",
+    ]);
+    for (const preset of BUILT_IN_PRESETS) {
+      expect(() => normalizePreset(preset), preset.id).not.toThrow();
+      expect(preset.terms.id, `${preset.id} has an Indonesian term set`).toBeDefined();
+      for (const locale of ["en", "id"] as const) {
+        const terms = preset.terms[locale];
+        expect(terms?.session.plural, `${preset.id} ${locale} session plural`).toBeTruthy();
+        expect(terms?.speaker.plural, `${preset.id} ${locale} speaker plural`).toBeTruthy();
+        expect(terms?.audience.plural, `${preset.id} ${locale} audience plural`).toBeTruthy();
+        expect(terms?.transcripts.singular, `${preset.id} ${locale} transcripts`).toBeTruthy();
+      }
+    }
+  });
+
+  it("rejects messageOverrides on a custom preset", () => {
+    expectRejected(
+      customPreset({ messageOverrides: { en: { "liveWord.placeholderWord": "e.g. Guest" } } }),
+      /messageOverrides is allowed only on builtin: presets/u,
+    );
+  });
+
+  it("rejects override keys that are not message keys and override text that is too long", () => {
+    const builtIn = (messageOverrides: unknown) => ({ ...GENERAL_PRESET, id: "builtin:test", messageOverrides });
+    expectRejected(builtIn({ en: { "bad key": "x" } }), /is not a message key/u);
+    expectRejected(builtIn({ en: { "live.x": "x".repeat(401) } }), /must be 400 characters or fewer/u);
+    expectRejected(builtIn({ fr: { "live.x": "x" } }), /unknown field "fr"/u);
+  });
+
+  it("resolves an absent or unknown profile to General", () => {
+    expect(resolveWorkspacePreset(undefined).id).toBe("builtin:general");
+    expect(resolveWorkspacePreset(null).id).toBe("builtin:general");
+    expect(resolveWorkspacePreset("builtin:market")).toBe(resolveWorkspacePreset("builtin:general"));
+    expect(resolveWorkspacePreset(CUSTOM_ID).id).toBe("builtin:general");
+    expect(resolveWorkspacePreset("builtin:sermon").id).toBe("builtin:sermon");
+  });
+
+  it("stores only known built-in profile ids", () => {
+    expect(normalizeProfileId("builtin:keynote")).toBe("builtin:keynote");
+    expect(normalizeProfileId("builtin:unknown")).toBeNull();
+    expect(normalizeProfileId(CUSTOM_ID)).toBeNull();
+    expect(normalizeProfileId(42)).toBeNull();
   });
 });

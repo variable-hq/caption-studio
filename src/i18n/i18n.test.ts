@@ -11,7 +11,7 @@ import {
 import { en } from "@/i18n/messages/en";
 import { id } from "@/i18n/messages/id";
 import { formatCount, formatDecimal } from "@/components/operator/format-count";
-import { GENERAL_PRESET, presetTermParams } from "@/experience/presets";
+import { BUILT_IN_PRESETS, GENERAL_PRESET, presetTermParams, resolveWorkspacePreset } from "@/experience/presets";
 
 // Messages with the General term set filled in, as the operator interface shows them.
 const enDisplay: Record<string, string> = Object.fromEntries(
@@ -407,5 +407,70 @@ describe("operator interface translations", () => {
   it("keeps the resolved General wording of every message", () => {
     expect(enDisplay).toMatchSnapshot();
     expect(idDisplay).toMatchSnapshot();
+  });
+
+  it("keeps every preset override to a catalog key whose placeholders it uses", () => {
+    const names = (text: string) => [...text.matchAll(/\{([a-zA-Z0-9_]+)\}/gu)].map((match) => match[1]);
+    for (const preset of BUILT_IN_PRESETS) {
+      for (const locale of ["en", "id"] as const) {
+        const catalog: Record<string, string> = locale === "en" ? en : id;
+        for (const [key, message] of Object.entries(preset.messageOverrides?.[locale] ?? {})) {
+          expect(catalog[key], `${preset.id} ${locale} ${key} exists in the catalog`).toBeDefined();
+          for (const name of names(message)) {
+            expect(names(catalog[key]), `${preset.id} ${locale} ${key} uses ${name}, which the base message lacks`).toContain(name);
+          }
+        }
+      }
+    }
+  });
+
+  it("renders the Sermon, Talkshow and Keynote wording", () => {
+    const sermon = resolveWorkspacePreset("builtin:sermon");
+    expect(translate("en", "liveOutputs.phoneViewerLiveHint", undefined, sermon)).toBe(
+      "Share this with the congregation. It shows only the current caption and stops working when the service ends.",
+    );
+    expect(translate("en", "live.saveTranscriptHint", { workspace: "BEST" }, sermon)).toBe(
+      "For Sermons and AI summary, shared with everyone at BEST. Tell the congregation when it’s on.",
+    );
+    expect(translate("en", "liveWord.placeholderWord", undefined, sermon)).toBe("e.g. Reading Psalm 23…");
+    expect(translate("id", "liveOutputs.phoneViewerLiveHint", undefined, sermon)).toBe(
+      "Bagikan ini dengan jemaat. Ini hanya menampilkan caption saat ini dan berhenti berfungsi saat ibadah berakhir.",
+    );
+    expect(translate("en", "transcripts.title", undefined, sermon)).toBe("Sermons");
+    expect(translate("en", "help.step4.after", undefined, resolveWorkspacePreset("builtin:keynote"))).toBe(
+      "link and share it with the attendees.",
+    );
+    expect(translate("en", "manualCaption.placeholder", undefined, resolveWorkspacePreset("builtin:talkshow"))).toBe(
+      "e.g. Guest: Dr. Rina…",
+    );
+  });
+
+  it("gives the Talkshow plural speaker term plural verbs and possessives", () => {
+    const talkshow = resolveWorkspacePreset("builtin:talkshow");
+    const keys = [
+      "live.startHelp.ready",
+      "help.step3.after",
+      "translationSettings.speedHint",
+      "translationSettings.source",
+      "translationSettings.languagesHint",
+      "wordsEditor.addHint",
+      "wordsEditor.placeholderWord",
+      "inference.high.detail",
+    ] as const;
+    for (const key of keys) {
+      const text = translate("en", key, undefined, talkshow);
+      for (const bad of ["guests’s", "guests's", "guests begins", "guests pauses"]) {
+        expect(text, `${key} avoids “${bad}”`).not.toContain(bad);
+      }
+    }
+    expect(translate("en", "translationSettings.source", undefined, talkshow)).toBe("Host and guests’ language");
+    expect(translate("en", "help.step3.after", undefined, talkshow)).toBe("when the host and guests begin.");
+    expect(translate("id", "help.step3.after", undefined, talkshow)).toBe("saat pembawa acara dan narasumber mulai berbicara.");
+  });
+
+  it("renders the General wording when no preset is given or the profile is unknown", () => {
+    expect(translate("en", "liveOutputs.phoneViewerLiveHint", undefined, resolveWorkspacePreset("builtin:market"))).toBe(
+      enDisplay["liveOutputs.phoneViewerLiveHint"],
+    );
   });
 });
