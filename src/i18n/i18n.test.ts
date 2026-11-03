@@ -23,8 +23,8 @@ const idDisplay: Record<string, string> = Object.fromEntries(
 
 describe("operator interface translations", () => {
   it("keeps every Indonesian key and placeholder aligned with English", () => {
-    // Term placeholders differ in capitalization between languages; the names still have to match.
-    const placeholders = (message: string) => [...message.matchAll(/\{([a-zA-Z0-9_]+)\}/gu)].map((match) => match[1].toLowerCase()).sort();
+    // Term names may differ only in the capital letter of Term_ between languages; other names must match exactly.
+    const placeholders = (message: string) => [...message.matchAll(/\{([a-zA-Z0-9_]+)\}/gu)].map((match) => match[1].replace(/^Term_/u, "term_")).sort();
 
     for (const [key, message] of Object.entries(id)) {
       expect(key in en, `${key} exists in English`).toBe(true);

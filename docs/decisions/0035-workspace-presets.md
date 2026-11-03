@@ -49,7 +49,7 @@ Caption Studio's wording is generic (ADR 0033), but an organization often wants 
 - Keeping presets as data means a built-in's values can change without a logic change, and the same validator covers built-ins, custom presets and imports. The cost is a small schema that must be extended deliberately when a new field is needed.
 - Placeholders keep the catalogs as the single source for wording. The catalogs must keep the same term placeholders in both languages; the i18n tests check this, and that every placeholder is filled by the General term set.
 - Indonesian preset wording is a draft until a native speaker reviews it (ADR 0030).
-- The General wording is checked by a snapshot of every resolved message. Six English sentences changed wording so that no article or "The" stands before a term, and one Indonesian sentence dropped a suffix attached to the term. Those changes are the only differences from the wording before the placeholders.
+- The General wording is checked by a snapshot of every resolved message. Six English sentences changed wording: five drop "a" or "an" before a term (or replace it with "the"), and `shell.banner.needsAttention` drops "The" so its capitalized term starts the sentence. One Indonesian sentence dropped a suffix attached to the term. Those changes are the only differences from the wording before the placeholders.
 - The model-facing rules need a per-preset evaluation with synthetic speech before a built-in is shipped as a default. That check is deferred until the presets that use it are implemented.
 
 ## Related

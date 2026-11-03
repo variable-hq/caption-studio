@@ -41,7 +41,8 @@ const PRESET_FIELDS = ["schemaVersion", "version", "id", "name", "description", 
 const TERM_SET_LOCALES = ["en", "id"] as const;
 const CUSTOM_ID_PATTERN = /^custom:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 const BUILT_IN_ID_PATTERN = /^builtin:[a-z]+$/u;
-const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/u;
+// C0 and C1 controls, line and paragraph separators, and bidirectional overrides and isolates.
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/u;
 
 export const GENERAL_PRESET: Preset = {
   schemaVersion: PRESET_SCHEMA_VERSION,
@@ -92,10 +93,10 @@ function rejectUnknownFields(record: Record<string, unknown>, allowed: readonly 
 
 function boundedText(value: unknown, label: string, maxChars: number): string {
   if (typeof value !== "string") fail(`${label} must be text`);
+  if (CONTROL_CHARACTERS.test(value)) fail(`${label} must not contain control characters`);
   const text = value.trim();
   if (text === "") fail(`${label} must not be empty`);
   if (text.length > maxChars) fail(`${label} must be ${maxChars} characters or fewer`);
-  if (CONTROL_CHARACTERS.test(text)) fail(`${label} must not contain control characters`);
   return text;
 }
 

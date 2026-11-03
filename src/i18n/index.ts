@@ -59,7 +59,7 @@ export function localeFromAcceptLanguage(header: string | null | undefined): UiL
   return normalizeUiLocale(null, languages);
 }
 
-// Term values of the General preset; the active preset's values replace them once presets are chosen.
+// General preset term values that fill term placeholders the caller does not pass.
 const TERM_PARAMS: Record<UiLocale, MessageParams> = {
   en: presetTermParams(GENERAL_PRESET, "en"),
   id: presetTermParams(GENERAL_PRESET, "id"),

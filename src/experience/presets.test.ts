@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type Preset,
   GENERAL_PRESET,
   GENERAL_PRESET_ID,
   MAX_PRESET_NAME_CHARS,
@@ -58,6 +59,9 @@ describe("workspace preset schema", () => {
     );
     expectRejected({ ...GENERAL_PRESET, name: { en: "  " } }, /name\.en must not be empty/u);
     expectRejected({ ...GENERAL_PRESET, description: { en: "Line\nbreak" } }, /control characters/u);
+    for (const character of ["\u0085", "\u009f", "\u2028", "\u2029", "\u202e", "\u2066", "\u2069"]) {
+      expectRejected({ ...GENERAL_PRESET, name: { en: `Name${character}` } }, /control characters/u);
+    }
     expectRejected(customPreset({ author: "a".repeat(81) }), /author must be 80 characters or fewer/u);
   });
 
@@ -116,6 +120,20 @@ describe("term resolution", () => {
     const englishOnly = normalizePreset(customPreset({ terms: { en: sermonLike.terms.en } }));
     expect(resolvePresetTerm(englishOnly, "session", "id").singular).toBe("sesi");
     expect(resolvePresetTerm(englishOnly, "session", "en").singular).toBe("service");
+  });
+
+  it("reaches the preset English and General English steps when Indonesian sets are missing", () => {
+    const generalWithoutIndonesian = { ...GENERAL_PRESET, terms: { en: GENERAL_PRESET.terms.en } };
+    const englishOnly = normalizePreset(customPreset({ terms: { en: sermonLike.terms.en } }));
+    // Step 3: the preset's English set, with General having no Indonesian set.
+    expect(resolvePresetTerm(englishOnly, "session", "id", generalWithoutIndonesian).singular).toBe("service");
+    // Step 4 needs a preset whose English set lacks the term. Validated presets always have
+    // a complete English set, so this covers a caller that passes an unvalidated object.
+    const partialEnglish = {
+      ...englishOnly,
+      terms: { en: { ...englishOnly.terms.en, speaker: undefined } },
+    } as unknown as Preset;
+    expect(resolvePresetTerm(partialEnglish, "speaker", "id", generalWithoutIndonesian).singular).toBe("speaker");
   });
 
   it("gives the General preset the words used before the placeholders", () => {
