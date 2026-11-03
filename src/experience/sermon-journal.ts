@@ -32,6 +32,10 @@ export function parseSummary(text: string, allowedIds: Set<number>): SummaryPoin
 }
 
 /** One service per object. Unsaved source and reader buffers never enter durable storage. */
+/** Task text for the summary prompt; the prompt builder adds the envelope and the untrusted-data rules. */
+export const SUMMARY_SYNTHESIS_TASK = "Combine these grounded notes into a transcript summary. Include theme, outline, main points, mentioned references, speaker applications and uncertainty when supported.";
+export const SUMMARY_SECTION_TASK = "Summarize this transcript section, preserving evidence IDs.";
+
 export class SermonJournal {
   private pending: ReaderInput[] = [];
   private latest: ReaderParagraph | null = null;
@@ -262,7 +266,7 @@ export class SermonJournal {
     if (previous && (previous.id === body.requestId || ["queued", "running"].includes(previous.status))) return json(previous);
     const job: SummaryJob = { id: body.requestId, status: "queued", revision: current.revision,
       options: { model: body.model, language: body.language, guidance: body.guidance, length: body.length },
-      cursor: 0, notes: [], promptVersion: "tb2-grounded-v1" };
+      cursor: 0, notes: [], promptVersion: "source-grounded-v2" };
     await this.state.storage.put("summary", job);
     await this.schedule(current, 1000);
     return json(job, 202);
@@ -289,7 +293,7 @@ export class SermonJournal {
       if (await this.state.storage.get<SummaryJob>("summary")) return;
       await this.state.storage.put("summary", { id: `auto-${crypto.randomUUID()}`, status: "queued",
         revision: current.revision, options: request.options, cursor: 0, notes: [],
-        promptVersion: "tb2-grounded-v1", automatic: true } satisfies SummaryJob);
+        promptVersion: "source-grounded-v2", automatic: true } satisfies SummaryJob);
     });
   }
 
@@ -441,10 +445,10 @@ export class SermonJournal {
         // An interrupted call is recorded as unknown and requires a new manual request.
         await this.state.storage.put("summary-flight", { id: job.id, at: Date.now() });
         const data = synthesis ? {
-          task: "Combine these grounded notes into a sermon summary. Include theme, outline, main points, mentioned references, speaker applications and uncertainty when supported.",
+          task: SUMMARY_SYNTHESIS_TASK,
           language: job.options.language, length: job.options.length, incomplete: current.incomplete, notes: job.notes,
         } : {
-          task: "Summarize this sermon section, preserving evidence IDs.",
+          task: SUMMARY_SECTION_TASK,
           language: job.options.language, length: job.options.length,
           incomplete: current.incomplete, segments: selected.map((record) => ({ id: record.id, at: record.at, text: record.correction ?? record.text })),
         };

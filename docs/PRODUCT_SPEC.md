@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 3 November 2026 against merged PR #96 (`f74a25f`). The corrected 13 September
+Reviewed 3 November 2026 against merged PR #97 (`a21da4f`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -75,7 +75,7 @@ plain words. Nothing opens automatically.
 1. The browser records a window of 6, 10 or 14 seconds, or Dynamic for up to 14 seconds;
    every option cuts at a qualifying pause after its floor or at its cap. The pause decision
    uses raw microphone RMS on the browser and requires no model call or quota.
-2. The protected API transcribes the chunk with bounded church/biblical hints and the end
+2. The protected API transcribes the chunk with bounded name and term hints and the end
    of the previous chunk's transcript as continuity context.
 3. If source and target differ, the protected API translates with an immutable server
    safety/output envelope, the active bounded operator prompt, up to four recent source
@@ -187,8 +187,8 @@ copy or browser language, then English.
   backlog. Pause or confirmed translation refresh discards an unfinished active window,
   so operators should use either control at a natural break.
 - Source selection can be explicit or automatic; explicit selection is preferred live.
-- The hint prompt preserves biblical names, Bible books, verse numbers, church names,
-  locations, and operator-provided vocabulary.
+- The hint prompt preserves names, locations, and operator-provided vocabulary, after a
+  neutral spoken-recording instruction ("Spoken recording. Preserve names and spelling:").
 - Raw audio is neither logged nor stored by this application.
 
 The current provider emits finalized segments only. Interim word-by-word captions,
@@ -206,7 +206,7 @@ implemented.
   preserving evident tone, formality, slang, and intentional rhetorical repetition. It is
   editable up to 4,000 characters; blank restores the reviewed default, while non-text,
   overlength, or unsupported-control-character values fail validation without truncation.
-- An optional, appendable guidance block corrects a specific Indonesian congregational
+- An optional, appendable guidance block corrects a specific Indonesian audience
   address-term ambiguity (for example "Saudara-saudara") for Indonesian-to-English
   sessions. It is prompt guidance, not a glossary substitution, since correct rendering
   depends on how the term is used in context, not on the word alone.
@@ -237,7 +237,7 @@ implemented.
   on-state. Low omits non-word filler sounds. Balanced also omits filler words with no
   meaning in context and keeps only the final version of an explicit self-correction. High
   also omits empty openers and tags that add no content, while preserving direct address and
-  congregation call-and-response. The model rule preserves other repetition and quoted or
+  audience call-and-response. The model rule preserves other repetition and quoted or
   acted-out speech, and never removes meaningful content, names, or scripture. Profanity is
   controlled separately by Filter inappropriate language.
 - Filter inappropriate language is an independent, default-on translation setting. When On,
@@ -767,7 +767,7 @@ summary holds the saved defaults for output language, short/detailed length and 
 default Workers AI model; there is no model choice. **Generate summary** on a transcript sends those defaults and names
 them with a **Change defaults** link; it has no per-request overrides. The Usage history
 disclosures explain that nothing is listed until usage is
-loaded. Server-owned TB2 grounding rules cannot be edited. Bounded
+loaded. Server-owned grounding rules cannot be edited. Bounded
 source sections and final synthesis produce points linked to source IDs; failures at
 context, call or daily budgets are visible. Source membership validation is not semantic
 proof. Operators must review the private draft before JSON export. Transcript JSON export
@@ -779,7 +779,7 @@ same summary job from the saved summary defaults; it appears in Transcripts mark
 generated automatically, still needs review before export, and is skipped if a summary
 already exists. See [ADR 0019](decisions/0019-automatic-post-service-summary.md).
 
-Exact TB2 text, licensed retrieval, an editable structured summary, section-selection UI,
+Exact quoted source text, licensed retrieval, an editable structured summary, section-selection UI,
 workspace roles, multiple providers and autonomous agent tools are not implemented.
 Summaries must not manufacture scripture or claim a generated paraphrase is an exact quote.
 
@@ -800,8 +800,8 @@ settings, availability and approved semantic quality before enabling it for tran
 
 ## Remaining decisions before a live pilot
 
-1. TB2 is selected; which authorized text source/licence permits exact passage retrieval?
-2. Who approves church-specific theological terminology?
+1. Which authorized source texts and licences permit exact passage retrieval?
+2. Who approves domain terminology?
 3. What caption latency and error rate are acceptable for each language?
 4. Is live manual correction required before captions reach OBS?
 5. Should translation failure skip the caption or deliberately fall back to source text?

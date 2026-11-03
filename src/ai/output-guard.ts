@@ -1,7 +1,7 @@
 import { ENVELOPE_LEAK_MARKERS } from "./prompt-envelope";
 
 // Require distinctive AI-assistant phrasing (not just "I cannot"/"I'm sorry" alone,
-// which are common, unrelated confession/repentance language in sermon content).
+// which are common, unrelated confession/repentance language in spoken content).
 const REFUSAL_PATTERNS = [
   /\bas an ai\b/i,
   /\bas a language model\b/i,

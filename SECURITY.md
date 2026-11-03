@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 2 November 2026 against merged PR #92 (`e1a4e0b`). The 13 September deployment
+Reviewed 3 November 2026 against merged PR #97 (`a21da4f`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -326,7 +326,7 @@ Optional Workers AI generation is disabled until explicitly configured. Reader o
 moderated again; summaries use a fixed grounding policy and validate evidence IDs. These
 checks cannot prove semantic faithfulness. Operators must review summaries before export.
 Deletion and source revisions invalidate pending jobs; persistent tombstones prevent
-late responses from recreating deleted content. No exact TB2 reference corpus is present.
+late responses from recreating deleted content. No exact quoted-source reference corpus is present.
 Complete the protected rehearsal and approved content evaluation before enabling this
 workflow for real services.
 

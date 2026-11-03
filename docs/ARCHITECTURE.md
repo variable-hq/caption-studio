@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 3 November 2026 against merged PR #96 (`f74a25f`). Cloudflare deployed `20597d8`
+Reviewed 3 November 2026 against merged PR #97 (`a21da4f`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -263,8 +263,8 @@ filters, nor successful finish reasons establish semantic faithfulness.
 Optional Workers AI requires `CAPTION_OPTIONAL_AI_ENABLED=true`. Reader uses Llama 3.1
 8B FP8; summaries allow that model or Llama 3.3 70B FP8 Fast. Summary stages use bounded
 source sections (about 10 KB) and evidence notes (at most 14 KB), then synthesis.
-Immutable TB2 grounding and source-ID membership checks constrain drafts; they do not
-prove meaning. No authorized TB2 passage retrieval or autonomous tool loop is present.
+Immutable server grounding and source-ID membership checks constrain drafts; they do not
+prove meaning. No authorized source-text passage retrieval or autonomous tool loop is present.
 
 Journal bounds: public chunks at most 2,000 characters, filter text 4,000, keyword text
 8,000, source IDs at most 1,800 per service with source text and corrections at most

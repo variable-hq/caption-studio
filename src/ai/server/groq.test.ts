@@ -30,10 +30,10 @@ describe("Groq cloud provider prompts", () => {
     vi.resetModules();
   });
 
-  it("includes church keyword hints in the transcription prompt", () => {
+  it("includes keyword hints in the transcription prompt", () => {
     const prompt = buildTranscriptionPrompt(["Nebuchadnezzar", "Bethlehem"]);
 
-    expect(prompt).toContain("biblical names");
+    expect(prompt).toContain("Preserve names and spelling");
     expect(prompt).toContain("Nebuchadnezzar");
     expect(new TextEncoder().encode(prompt).length).toBeLessThanOrEqual(448);
   });
@@ -44,7 +44,7 @@ describe("Groq cloud provider prompts", () => {
     const bytes = new TextEncoder().encode(prompt).length;
     const contextTail = prompt.slice(prompt.indexOf("Korintus ") + "Korintus ".length);
 
-    expect(prompt.startsWith("Khotbah gereja.")).toBe(true);
+    expect(prompt.startsWith("Rekaman ucapan.")).toBe(true);
     expect(prompt).toContain("Yohanes");
     expect(prompt.endsWith("dan Yesus berkata kepada murid-murid-Nya")).toBe(true);
     expect(new TextEncoder().encode(contextTail).length).toBeGreaterThan(96);
@@ -697,7 +697,7 @@ describe("Groq cloud provider prompts", () => {
       expect(rule).toMatch(/leave all repetition as spoken/iu);
       expect(rule).toContain("only the unclear-word rule may normalize a single stretched or hyphenated word");
       expect(rule).toContain("Do not sanitize speech the speaker is quoting or acting out");
-      expect(rule).toContain("congregation call-and-response");
+      expect(rule).toContain("audience call-and-response");
       expect(rule).toContain("Never remove meaningful content");
       expect(rule).toContain("Never add or complete content, names, or scripture");
       expect(rule).not.toMatch(/profanity|non-speech noise|gibberish/iu);

@@ -21,7 +21,7 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
 - **Capture and transcription**: browser-based microphone selection with a level meter and
   test playback, a readiness checklist, and a 6-, 10- or 14-second caption wait time (or
   Dynamic) transcribed by
-  Groq Whisper with bounded biblical/church-name hints, approved recognition aliases, and
+  Groq Whisper with bounded name and term hints, approved recognition aliases, and
   the end of the previous chunk's transcript as continuity context.
 - **Translation**: GPT-OSS 20B translates through an immutable safety envelope and
   approved terminology. **Settings › Translation** sets **How closely to follow the
@@ -168,7 +168,7 @@ provider headroom and rolling usage history.
 ## Not yet implemented
 
 Application audio storage, a paid AI fallback, simultaneous target languages, a live
-correction of captions already shown, multiple or named church profiles, tenant roles, an authorized TB2
+correction of captions already shown, multiple or named church profiles, tenant roles, an authorized source-text
 passage corpus, and a native app (the deferred iOS shell was removed in
 [ADR 0020](docs/decisions/0020-remove-ios-shell.md)). See
 [Roadmap](docs/ROADMAP.md) and [remaining gaps](docs/GAP_ANALYSIS.md) for planned work.
@@ -299,7 +299,7 @@ One successful Cloudflare deployment is on record (13 September 2026); merges si
 have no recorded build ID yet. See the [deployment runbook](docs/DEPLOYMENT.md) for
 build/Worker IDs, the fix that unblocked the first deploy, and remaining rehearsal gates.
 
-<sub>This document reviewed 3 November 2026 against merged [PR #96](https://github.com/variable-hq/caption-studio/pull/96) (`f74a25f`).</sub>
+<sub>This document reviewed 3 November 2026 against merged [PR #97](https://github.com/variable-hq/caption-studio/pull/97) (`a21da4f`).</sub>
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).

@@ -233,7 +233,7 @@ function buildTranscriptionPromptWithinBudget(
   const tail = previousTranscriptTail(previousTranscript, previousTranscriptBudgetBytes);
   // Conservative byte budget also handles multi-byte source-language spellings.
   const hintBudget = promptBudgetBytes - (tail ? utf8Bytes(tail) + 1 : 0);
-  let prompt = language === "id" ? "Khotbah gereja. Nama dan ejaan: " : "Church service or sermon. Preserve biblical names: ";
+  let prompt = language === "id" ? "Rekaman ucapan. Nama dan ejaan: " : "Spoken recording. Preserve names and spelling: ";
   for (const term of keywordHints.map((value) => value.trim()).filter(Boolean).slice(0, 40)) {
     const candidate = prompt + term + ", ";
     if (utf8Bytes(candidate) > hintBudget) continue;

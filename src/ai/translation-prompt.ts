@@ -26,8 +26,8 @@ When speech is fragmented, muddled, or ambiguous, prioritize a clear rendering o
 // Optional, appendable guidance for a specific ambiguous construction — not folded into the
 // language-agnostic default above, and not a glossary term, since the correct rendering
 // depends on how the word is used in context, not on the word alone.
-export const ID_EN_ADDRESS_TERM_GUIDANCE = `INDONESIAN CONGREGATIONAL ADDRESS TERMS
-"Saudara", "Saudara-saudara", and "Saudaraku" are often used to address the congregation, not to name a literal sibling. When used that way, render them inclusively (for example "brothers and sisters", "everyone", or "friends"), or omit a repeated address tag if the target phrasing reads more naturally without it. When the speaker means an actual sibling or family member, translate literally instead.`;
+export const ID_EN_ADDRESS_TERM_GUIDANCE = `INDONESIAN AUDIENCE ADDRESS TERMS
+"Saudara", "Saudara-saudara", and "Saudaraku" are often used to address the audience, not to name a literal sibling. When used that way, render them inclusively (for example "brothers and sisters", "everyone", or "friends"), or omit a repeated address tag if the target phrasing reads more naturally without it. When the speaker means an actual sibling or family member, translate literally instead.`;
 
 export const DISALLOWED_CONTROL_CHARACTERS =
   /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u;
@@ -104,7 +104,7 @@ export function buildInappropriateLanguageRule(
 }
 
 const SANITIZE_SHARED_CLAUSES =
-  "Leave all repetition as spoken; only the unclear-word rule may normalize a single stretched or hyphenated word. Do not sanitize speech the speaker is quoting or acting out, or congregation call-and-response. Never remove meaningful content, names, or scripture. Never add or complete content, names, or scripture.";
+  "Leave all repetition as spoken; only the unclear-word rule may normalize a single stretched or hyphenated word. Do not sanitize speech the speaker is quoting or acting out, or audience call-and-response. Never remove meaningful content, names, or scripture. Never add or complete content, names, or scripture.";
 
 /** One cumulative model rule; non-speech artifacts are handled by the transcription guard. */
 export function buildSanitizeRule(level: SanitizeLevel): string {
@@ -112,7 +112,7 @@ export function buildSanitizeRule(level: SanitizeLevel): string {
 
   const low = "Omit non-word filler sounds (um, uh, eh, hmm).";
   const balanced = `${low} Also omit filler words that carry no meaning in context (for example “you know”, “like”, “I mean”, “kan”, or “ya” used as filler), and for an explicit self-correction keep only the final version.`;
-  const high = `${balanced} Also omit empty openers and tags that add no content (for example “so yeah” or “okay so”), but never omit direct address or call-and-response to the congregation (for example “Amen?” or “ya?”).`;
+  const high = `${balanced} Also omit empty openers and tags that add no content (for example “so yeah” or “okay so”), but never omit direct address or call-and-response to the audience (for example “Amen?” or “ya?”).`;
 
   switch (level) {
     case "low":
