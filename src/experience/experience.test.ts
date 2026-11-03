@@ -69,7 +69,7 @@ describe("TB2 terminology", () => {
   });
   it("keeps multilingual transcription hints inside the expanded byte budget", () => {
     const prompt = buildTranscriptionPrompt(["Saul", ...Array(40).fill("非常長的名字")], "id");
-    expect(prompt).toContain("Khotbah"); expect(prompt).toContain("Saul");
+    expect(prompt).toContain("Rekaman ucapan"); expect(prompt).toContain("Saul");
     expect(new TextEncoder().encode(prompt).length).toBeLessThanOrEqual(448);
   });
 });

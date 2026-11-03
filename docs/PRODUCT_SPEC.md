@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 3 November 2026 against merged PR #96 (`f74a25f`). The corrected 13 September
+Reviewed 3 November 2026 against merged PR #97 (`a21da4f`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -75,7 +75,7 @@ plain words. Nothing opens automatically.
 1. The browser records a window of 6, 10 or 14 seconds, or Dynamic for up to 14 seconds;
    every option cuts at a qualifying pause after its floor or at its cap. The pause decision
    uses raw microphone RMS on the browser and requires no model call or quota.
-2. The protected API transcribes the chunk with bounded church/biblical hints and the end
+2. The protected API transcribes the chunk with bounded name and term hints and the end
    of the previous chunk's transcript as continuity context.
 3. If source and target differ, the protected API translates with an immutable server
    safety/output envelope, the active bounded operator prompt, up to four recent source
@@ -187,8 +187,8 @@ copy or browser language, then English.
   backlog. Pause or confirmed translation refresh discards an unfinished active window,
   so operators should use either control at a natural break.
 - Source selection can be explicit or automatic; explicit selection is preferred live.
-- The hint prompt preserves biblical names, Bible books, verse numbers, church names,
-  locations, and operator-provided vocabulary.
+- The hint prompt preserves names, locations, and operator-provided vocabulary, after a
+  neutral spoken-recording instruction ("Spoken recording. Preserve names and spelling:").
 - Raw audio is neither logged nor stored by this application.
 
 The current provider emits finalized segments only. Interim word-by-word captions,
