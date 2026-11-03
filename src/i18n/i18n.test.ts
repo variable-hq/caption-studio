@@ -279,6 +279,22 @@ describe("operator interface translations", () => {
     expect(id["reader.status.ended"]).toBe("Sesi berakhir");
   });
 
+  it("addresses the audience and attendees instead of the congregation", () => {
+    for (const [key, message] of [...Object.entries(en), ...Object.entries(id)]) {
+      expect(message, `${key} avoids congregation wording`).not.toMatch(/congregation|jemaat/iu);
+    }
+    expect(en["liveOutputs.phoneViewerLiveHint"]).toBe(
+      "Share this with the audience. It shows only the current caption and stops working when the session ends.",
+    );
+    expect(id["liveOutputs.phoneViewerLiveHint"]).toBe(
+      "Bagikan ini dengan audiens. Ini hanya menampilkan caption saat ini dan berhenti berfungsi saat sesi berakhir.",
+    );
+    expect(en["live.saveTranscriptHint"]).toContain("Tell attendees when it’s on.");
+    expect(id["live.saveTranscriptHint"]).toContain("Beri tahu hadirin saat fitur ini aktif.");
+    expect(en["help.step4.after"]).toBe("link and share it with the audience.");
+    expect(id["help.step4.after"]).toBe("dan bagikan kepada audiens.");
+  });
+
   it("calls the person talking the speaker and drops the example names", () => {
     for (const key of ["liveWord.placeholderWord", "liveWord.placeholderFix", "wordsEditor.placeholderWord"] as const) {
       expect(en[key]).toBe("e.g. Speaker’s name…");

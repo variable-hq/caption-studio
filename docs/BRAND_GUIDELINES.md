@@ -17,7 +17,7 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
 | --- | --- | --- |
 | Operator dashboard (`/`) | Rotating church volunteers, often monthly, with no training; one setup person | One obvious next step; nothing to remember between visits |
 | Operator phone remote (`/operator/mobile`) | The same volunteer, one-handed, near the stage | Three big actions; status at a glance |
-| Phone viewer (`/view`) | Congregation members on their own phones | Readable captions; nothing else |
+| Phone viewer (`/view`) | Audience members on their own phones | Readable captions; nothing else |
 | Transcript reader (`/read`) | People reading after or during the session | Comfortable long-form reading |
 | OBS overlay (`/overlay`) | The audience, through the projector or stream | Only the caption, in the operator's configured style |
 
