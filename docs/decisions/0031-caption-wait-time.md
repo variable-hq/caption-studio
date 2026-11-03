@@ -54,3 +54,5 @@ well as its cap, which is the intended change.
   cuts at a pause after its floor and at its cap for continuous speech, a quiet speaker is
   never skipped, a silent stretch sends no windows or attempts, and a simulated rate-limit
   response raises the floors.
+
+Extended by [ADR 0034](0034-dynamic-pause-adaptation.md): Dynamic measurement, the post-hold pause and retuned pause lengths.
