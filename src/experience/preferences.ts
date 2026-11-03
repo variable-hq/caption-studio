@@ -14,6 +14,7 @@ import {
 } from "@/live/translation-settings";
 import { normalizeTranslationSystemPrompt } from "@/ai/translation-prompt";
 import { normalizeUiLocalePreference, type UiLocalePreference } from "@/i18n";
+import { normalizeProfileId, type BuiltInPresetId } from "./presets";
 
 /** Bounds a preference record; every field is optional and independently valid. */
 export const PREFERENCES_VERSION = 1;
@@ -34,6 +35,8 @@ export interface OperatorPreferences {
   outputBufferDwellMs: OutputBufferDwellMs | null;
   /** Pre-ticks "Save transcript history" at Start; the choice stays visible and changeable. */
   saveHistoryDefault: boolean | null;
+  /** The workspace format (a preset id); null means General. Only the shared setup sets it. */
+  profile: BuiltInPresetId | null;
   /** Generates an AI summary draft after each saved session this operator ends. */
   autoSummary: boolean;
   updatedAt: number | null;
@@ -50,6 +53,7 @@ export const EMPTY_PREFERENCES: OperatorPreferences = {
   outputBufferCount: null,
   outputBufferDwellMs: null,
   saveHistoryDefault: null,
+  profile: null,
   autoSummary: false,
   updatedAt: null,
 };
@@ -112,6 +116,7 @@ export function mergeOperatorPreferences(
     outputBufferCount: pick("outputBufferCount", base.outputBufferCount, normalizeOutputBufferCount),
     outputBufferDwellMs: pick("outputBufferDwellMs", base.outputBufferDwellMs, normalizeOutputBufferDwellMs),
     saveHistoryDefault: pick("saveHistoryDefault", base.saveHistoryDefault, (value) => value === true),
+    profile: pick("profile", base.profile, normalizeProfileId),
     autoSummary: "autoSummary" in input ? input.autoSummary === true : base.autoSummary,
     updatedAt: at,
   };
@@ -148,6 +153,7 @@ export const SHARED_SETUP_FIELDS = [
   "outputBufferCount",
   "outputBufferDwellMs",
   "saveHistoryDefault",
+  "profile",
   "autoSummary",
 ] as const satisfies readonly (keyof OperatorPreferences)[];
 
@@ -167,6 +173,7 @@ export function effectiveSetup(shared: OperatorPreferences, personal: OperatorPr
     outputBufferCount: shared.outputBufferCount ?? personal.outputBufferCount,
     outputBufferDwellMs: shared.outputBufferDwellMs ?? personal.outputBufferDwellMs,
     saveHistoryDefault: shared.saveHistoryDefault ?? personal.saveHistoryDefault,
+    profile: shared.profile ?? personal.profile,
     autoSummary: shared.autoSummary,
     updatedAt: shared.updatedAt,
   };
