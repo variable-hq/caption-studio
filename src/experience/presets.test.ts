@@ -192,6 +192,50 @@ describe("built-in presets", () => {
     expectRejected(builtIn({ fr: { "live.x": "x" } }), /unknown field "fr"/u);
   });
 
+  it("gives each non-General built-in the starting defaults of its format", () => {
+    const byId = (id: string) => BUILT_IN_PRESETS.find((preset) => preset.id === id)!;
+    expect(byId("builtin:general").defaults).toBeUndefined();
+    expect(byId("builtin:sermon").defaults).toMatchObject({
+      recordingWindowMs: "dynamic",
+      inferenceLevel: "balanced",
+      sanitizeLevel: "balanced",
+      outputBufferCount: 1,
+      outputBufferDwellMs: 3000,
+      summaryLength: "detailed",
+    });
+    expect(byId("builtin:sermon").defaults?.starterTerms).toHaveLength(9);
+    expect(byId("builtin:sermon").defaults?.starterTerms?.[0]).toEqual({ word: "Yesus Kristus", translation: "Jesus Christ" });
+    expect(byId("builtin:talkshow").defaults).toMatchObject({ recordingWindowMs: 6000, inferenceLevel: "low", sanitizeLevel: "balanced", summaryLength: "short" });
+    expect(byId("builtin:talkshow").defaults?.starterTerms).toBeUndefined();
+    expect(byId("builtin:keynote").defaults).toMatchObject({ recordingWindowMs: 14000, inferenceLevel: "low", sanitizeLevel: "low", summaryLength: "detailed" });
+  });
+
+  it("accepts defaults on any preset and rejects values outside the options of their setting", () => {
+    expect(normalizePreset(customPreset({ defaults: { inferenceLevel: "low" } })).defaults).toEqual({ inferenceLevel: "low" });
+    const withDefaults = (defaults: unknown) => ({ ...GENERAL_PRESET, id: "builtin:test", defaults });
+    expectRejected(withDefaults({ volume: 3 }), /defaults has unknown field "volume"/u);
+    expectRejected(withDefaults({ recordingWindowMs: 8000 }), /defaults\.recordingWindowMs must be one of/u);
+    expectRejected(withDefaults({ inferenceLevel: "max" }), /defaults\.inferenceLevel must be one of/u);
+    expectRejected(withDefaults({ sanitizeLevel: "strict" }), /defaults\.sanitizeLevel must be one of/u);
+    expectRejected(withDefaults({ outputBufferCount: 2 }), /defaults\.outputBufferCount must be one of/u);
+    expectRejected(withDefaults({ outputBufferDwellMs: 2500 }), /defaults\.outputBufferDwellMs must be one of/u);
+    expectRejected(withDefaults({ summaryLength: "long" }), /defaults\.summaryLength must be one of/u);
+    expectRejected(withDefaults({ summaryGuidance: "x".repeat(2001) }), /defaults\.summaryGuidance must be 2000 characters or fewer/u);
+  });
+
+  it("bounds starter terms and keeps them valid in the Words list", () => {
+    const withTerms = (starterTerms: unknown) => ({ ...GENERAL_PRESET, id: "builtin:test", defaults: { starterTerms } });
+    expectRejected(withTerms("Yesus"), /starterTerms must be a list/u);
+    expectRejected(withTerms([{ word: "Saul" }]), /starterTerms\[0\]\.translation must be text/u);
+    expectRejected(withTerms([{ word: "Saul", translation: "David", action: "fix" }]), /starterTerms\[0\] has unknown field "action"/u);
+    expectRejected(withTerms([{ word: "Saul, Paul", translation: "Paul" }]), /must not contain commas, pipes or =>/u);
+    expectRejected(withTerms([{ word: "Saul", translation: "A|B" }]), /must not contain commas, pipes or =>/u);
+    expectRejected(
+      withTerms(Array.from({ length: 41 }, (_, index) => ({ word: `Name ${index}`, translation: "Name" }))),
+      /starterTerms may have 40 entries at most/u,
+    );
+  });
+
   it("resolves an absent or unknown profile to General", () => {
     expect(resolveWorkspacePreset(undefined).id).toBe("builtin:general");
     expect(resolveWorkspacePreset(null).id).toBe("builtin:general");

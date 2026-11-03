@@ -27,6 +27,8 @@ export const WORD_ACTIONS: readonly { value: WordAction; label: string; needsWit
 ];
 
 const MAX_WORD_CHARS = 100;
+/** The pipeline reads at most this many glossary entries and this many filter entries. */
+export const MAX_WORD_ENTRIES = 40;
 
 /** Commas and newlines separate entries and `|`/`=>` are syntax, so none may appear in a value. */
 export function cleanWordValue(value: string) {

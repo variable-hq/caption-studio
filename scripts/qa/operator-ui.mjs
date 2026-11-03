@@ -350,6 +350,21 @@ try {
   await page.getByRole('button',{name:'Undo changes',exact:true}).click();
   await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor({state:'hidden'});
 
+  // Applying a format during a session holds its changes until Apply now or Undo changes; General then restores the format.
+  await openSettings(page,'presets');
+  await page.getByRole('combobox',{name:'Format',exact:true}).selectOption('builtin:sermon');
+  await page.getByRole('button',{name:'Apply preset',exact:true}).click();
+  await page.getByText('Sermon applied. Review the filled-in settings, then save each one for everyone.',{exact:true}).waitFor();
+  await openScreen(page,'Live');
+  await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Undo changes',exact:true}).click();
+  await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor({state:'hidden'});
+  await openSettings(page,'presets');
+  await page.getByRole('combobox',{name:'Format',exact:true}).selectOption('builtin:general');
+  await page.getByRole('button',{name:'Apply preset',exact:true}).click();
+  await page.getByText('General applied. Review the filled-in settings, then save each one for everyone.',{exact:true}).waitFor();
+  await openScreen(page,'Live');
+
   // Quick override actions apply immediately; Keep in Terms follows the Apply now flow.
   await page.locator('input[name="liveWord"]').fill('synthetic-hide-term');
   await page.locator('select[name="liveWordAction"]').selectOption('hide');
@@ -448,10 +463,15 @@ try {
   const chooseFormat=async (profileId,name)=>{
    await openPresets();
    await page.getByRole('combobox',{name:'Format',exact:true}).selectOption(profileId);
+   await page.getByRole('heading',{name:'What this format sets',exact:true}).waitFor();
+   if(profileId==='builtin:sermon'){
+    await page.getByText('9 starter terms added',{exact:true}).waitFor();
+    await page.getByText('Caption wait time',{exact:true}).first().waitFor();
+   }
    const savesBefore=controls.length;
-   await page.getByRole('button',{name:'Save for everyone',exact:true}).click();
-   await page.getByText(`Saved for everyone. Operator screens now use ${name}.`,{exact:true}).waitFor();
-   assert.equal(controls.length,savesBefore+1,`Saving ${name} writes once`);
+   await page.getByRole('button',{name:'Apply preset',exact:true}).click();
+   await page.getByText(`${name} applied. Review the filled-in settings, then save each one for everyone.`,{exact:true}).waitFor();
+   assert.equal(controls.length,savesBefore+1,`Applying ${name} writes once`);
    assert.equal(controls.at(-1).preferenceWrite.profile,profileId,`Saving ${name} sends ${profileId}`);
    await formatLink(name).waitFor();
    assert.equal(await topBarText(),`BEST Church workspace · ${name} · Main channel`,`The top bar names ${name}`);
@@ -510,6 +530,22 @@ try {
   await presetCheck('live','keynote');
 
   // Back to General saves it again.
+  await chooseFormat('builtin:general','General');
+
+  // Saved settings show as kept, and Apply preset sends only the format.
+  sharedSetup={...emptySetup,...sharedSetup,updatedAt:Date.now(),outputBufferCount:null,outputBufferDwellMs:null,translationDefaults:{sourceLanguage:'auto',targetLanguage:'en',keywordText:'',filterText:'',recordingWindowMs:6000,inferenceLevel:'low',sanitizeLevel:'off',filterInappropriateLanguage:true},summaryDefaults:{model:'openai/gpt-oss-20b',language:'en',length:'short',guidance:''}};
+  await page.reload();
+  await openPresets();
+  await page.getByRole('combobox',{name:'Format',exact:true}).selectOption('builtin:sermon');
+  await page.getByRole('heading',{name:'What this format sets',exact:true}).waitFor();
+  assert.equal(await page.getByText('Kept: saved for this workspace',{exact:true}).count(),5,'Caption wait, inference, sanitization, summary length and summary focus show as kept');
+  await page.getByText('9 starter terms added',{exact:true}).waitFor();
+  const keptSavesBefore=controls.length;
+  await page.getByRole('button',{name:'Apply preset',exact:true}).click();
+  await page.getByText('Sermon applied. Review the filled-in settings, then save each one for everyone.',{exact:true}).waitFor();
+  assert.equal(controls.length,keptSavesBefore+1,'Apply preset writes once');
+  assert.deepEqual(Object.keys(controls.at(-1).preferenceWrite),['profile'],'Apply preset sends only the format, so saved settings are not rewritten');
+  await check('presets-kept',{general:false});
   await chooseFormat('builtin:general','General');
 
   results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (chooser options and save body, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote),no inference before Start or after End, responsive overflow and Axe'});

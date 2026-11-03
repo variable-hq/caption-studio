@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 3 November 2026 against merged PR #104 (`d7d344e`). The corrected 13 September
+Reviewed 3 November 2026 against merged PR #105 (`eaec64a`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -166,11 +166,31 @@ copy or browser language, then English.
 ## Workspace format
 
 **Settings › Presets** (second after System) chooses the workspace format: **General**
-(the default), **Sermon** (Khotbah), **Talkshow** or **Keynote**. The choice is saved with
-**Save for everyone** and applies to the whole workspace. In this release a format changes
-wording only: the operator screens use its terms (session, speaker, audience and
-transcripts) and its example placeholders. Defaults and AI model context are not changed by
-the format yet. Indonesian preset wording is a draft pending native review.
+(the default), **Sermon** (Khotbah), **Talkshow** or **Keynote**. The preview lists what the
+format fills in. **Apply preset** saves the format for the whole workspace and fills only the
+settings the workspace has not saved, as changes on the Live, Words, Languages and Summary
+screens; a saved setting is shown as kept. Nothing reaches a running session, and nothing is
+saved as a default, until the operator uses **Apply now** or **Save for everyone**.
+
+A format fills these starting values:
+
+| | Sermon | Talkshow | Keynote |
+|---|---|---|---|
+| Caption wait time | Dynamic | 6 seconds | 14 seconds |
+| How closely to follow the words | Balanced | Close | Close |
+| Sanitization | Balanced | Balanced | Low |
+| Output buffer | 1 caption, 3 seconds | 1 caption, 3 seconds | 1 caption, 3 seconds |
+| Summary length | Detailed | Short | Detailed |
+| Summary focus | Theme, main passage if named, key points, application | Topics, notable moments | Key takeaways, announcements, names |
+
+Sermon also adds nine starter Terms (for example Yesus Kristus → Jesus Christ), skipping any
+already listed and any that would pass the Terms limit; the preview says how many were not
+added. Languages, caption style, translator instructions, summary language, automatic
+summaries and transcript saving are never filled. While a session is live the output buffer
+is not changed; it applies after the session ends. General fills nothing.
+
+In this release a format changes wording and these starting values. AI model context is not
+changed by the format yet. Indonesian preset wording is a draft pending native review.
 
 The top bar shows the format after the workspace name. While no session is live it links to
 Settings › Presets; while a session is live it is plain text. Saved transcripts, the audience
