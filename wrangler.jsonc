@@ -20,8 +20,8 @@
         "class_name": "CaptionRoom"
       },
       {
-        "name": "SERMON_JOURNALS",
-        "class_name": "SermonJournal"
+        "name": "TRANSCRIPT_JOURNALS",
+        "class_name": "TranscriptJournal"
       },
       {
         "name": "AI_USAGE",
@@ -45,6 +45,10 @@
     {
       "tag": "v3",
       "new_sqlite_classes": ["OperatorPreferences"]
+    },
+    {
+      "tag": "v4",
+      "renamed_classes": [{ "from": "SermonJournal", "to": "TranscriptJournal" }]
     }
   ]
 }

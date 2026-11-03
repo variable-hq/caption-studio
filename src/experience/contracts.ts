@@ -31,7 +31,7 @@ export interface Namespace {
   get(id: unknown): { fetch(request: Request): Promise<Response> };
 }
 export interface ExperienceEnvironment {
-  SERMON_JOURNALS?: Namespace;
+  TRANSCRIPT_JOURNALS?: Namespace;
   AI_USAGE?: Namespace;
   OPERATOR_PREFERENCES?: Namespace;
   AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> };

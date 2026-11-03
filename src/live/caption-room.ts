@@ -72,7 +72,7 @@ export class CaptionRoom {
   constructor(private readonly state: DurableObjectState, private readonly env?: ExperienceEnvironment) {}
 
   async fetch(request: Request) {
-    if (!this.env?.SERMON_JOURNALS) return this.dispatch(request);
+    if (!this.env?.TRANSCRIPT_JOURNALS) return this.dispatch(request);
     return this.state.blockConcurrencyWhile(async () => {
       try { await this.flushJournals(); await this.reconcileJournalState(); }
       catch { return json({ error: "Session history is reconnecting. Retry shortly." }, 503); }
@@ -103,7 +103,7 @@ export class CaptionRoom {
   }
 
   private async queueJournal(current: ChannelConfiguration, ended = false, revoked = false) {
-    if (!this.env?.SERMON_JOURNALS || !current.sessionId || !current.readerHash) return;
+    if (!this.env?.TRANSCRIPT_JOURNALS || !current.sessionId || !current.readerHash) return;
     const archived = ended ? await this.state.storage.get<ArchiveEntry>(`archive:${current.sessionId}`) : undefined;
     const snapshot = {
       id: current.sessionId, startedAt: current.startedAt!, expiresAt: current.expiresAt!,
@@ -120,10 +120,10 @@ export class CaptionRoom {
   }
 
   private async flushJournals() {
-    if (!this.env?.SERMON_JOURNALS) return;
+    if (!this.env?.TRANSCRIPT_JOURNALS) return;
     const pending = await this.state.storage.get<JournalState[]>("journal-sync") ?? [];
     for (const snapshot of pending) {
-      const response = await rpc(this.env.SERMON_JOURNALS, snapshot.id, "/sync", snapshot);
+      const response = await rpc(this.env.TRANSCRIPT_JOURNALS, snapshot.id, "/sync", snapshot);
       if (!response.ok && response.status !== 410) throw new Error("Transcript state synchronization failed.");
     }
     if (pending.length) await this.state.storage.delete("journal-sync");
@@ -269,13 +269,13 @@ export class CaptionRoom {
       if (current.status !== "live") return sessionError("Session paused.", "service_paused", 409);
       return json({ sessionId: current.sessionId, serviceId: current.sessionId });
     }
-    if (action === "source" && this.env?.SERMON_JOURNALS) {
+    if (action === "source" && this.env?.TRANSCRIPT_JOURNALS) {
       const source = body.source as { id?: number; translationRevision?: number } | undefined;
       if (!source || !current.claimedTranscriptionAttempts.includes(source.id!) ||
           source.id! <= current.inferenceAttemptFloor || source.translationRevision !== current.translationRevision) return json({ error: "Source attempt is no longer current." }, 409);
-      return rpc(this.env.SERMON_JOURNALS, current.sessionId!, "/source", source);
+      return rpc(this.env.TRANSCRIPT_JOURNALS, current.sessionId!, "/source", source);
     }
-    if (action === "gap" && this.env?.SERMON_JOURNALS) return rpc(this.env.SERMON_JOURNALS, current.sessionId!, "/gap", {});
+    if (action === "gap" && this.env?.TRANSCRIPT_JOURNALS) return rpc(this.env.TRANSCRIPT_JOURNALS, current.sessionId!, "/gap", {});
     return json({ error: "Unknown session action." }, 404);
   }
 
@@ -817,9 +817,9 @@ export class CaptionRoom {
 
     this.broadcastPublic({ type: "caption", caption: result.value });
     const current = storedConfiguration(await this.state.storage.get<ChannelConfiguration>("configuration"));
-    if (this.env?.SERMON_JOURNALS && current?.sessionId && body.reader && body.transcriptionAttempt) {
+    if (this.env?.TRANSCRIPT_JOURNALS && current?.sessionId && body.reader && body.transcriptionAttempt) {
       try {
-        const recorded = await rpc(this.env.SERMON_JOURNALS, current.sessionId, "/append", {
+        const recorded = await rpc(this.env.TRANSCRIPT_JOURNALS, current.sessionId, "/append", {
           ...body.reader, id: body.transcriptionAttempt, publicText: result.value.publicText,
           targetLanguage: result.value.targetLanguage, epoch: result.value.captionEpoch,
           translationRevision: result.value.translationRevision,
@@ -1267,11 +1267,11 @@ export class CaptionRoom {
       }
     }
     let historyIncomplete: boolean | undefined;
-    if (action === "manual" && caption && this.env?.SERMON_JOURNALS) {
+    if (action === "manual" && caption && this.env?.TRANSCRIPT_JOURNALS) {
       const current = storedConfiguration(await this.state.storage.get<ChannelConfiguration>("configuration"));
       if (current?.sessionId) {
         try {
-          const recorded = await rpc(this.env.SERMON_JOURNALS, current.sessionId, "/note", {
+          const recorded = await rpc(this.env.TRANSCRIPT_JOURNALS, current.sessionId, "/note", {
             id: caption.sequence,
             text: caption.publicText,
             targetLanguage: caption.targetLanguage,
@@ -1441,7 +1441,7 @@ export class CaptionRoom {
   }
 
   async alarm() {
-    if (this.env?.SERMON_JOURNALS) return this.state.blockConcurrencyWhile(() => this.runAlarm());
+    if (this.env?.TRANSCRIPT_JOURNALS) return this.state.blockConcurrencyWhile(() => this.runAlarm());
     return this.runAlarm();
   }
 
@@ -1451,7 +1451,7 @@ export class CaptionRoom {
     const configuration = storedConfiguration(await this.state.storage.get<ChannelConfiguration>(
       "configuration"
     ));
-    const nextArchiveExpiry = this.env?.SERMON_JOURNALS ? (await this.pruneArchives()).nextExpiry : Infinity;
+    const nextArchiveExpiry = this.env?.TRANSCRIPT_JOURNALS ? (await this.pruneArchives()).nextExpiry : Infinity;
     if (!configuration || !isActive(configuration)) {
       if (Number.isFinite(nextArchiveExpiry)) await this.state.storage.setAlarm(nextArchiveExpiry);
       else await this.state.storage.deleteAlarm();

@@ -1,6 +1,6 @@
 # Deployment runbook
 
-Reviewed 3 November 2026 against merged PR #99 (`a5add46`). This describes the current
+Reviewed 3 November 2026 against merged PR #100 (`b4c03ab`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
@@ -82,7 +82,7 @@ Preserve `custom-worker.ts` as the entry point and all bindings in `wrangler.jso
 | Binding | Purpose |
 | --- | --- |
 | `CAPTION_ROOMS` / `CaptionRoom` | Main channel, controller, inference claims and remote commands |
-| `SERMON_JOURNALS` / `SermonJournal` | Per-service reader, opted-in history and summary jobs |
+| `TRANSCRIPT_JOURNALS` / `TranscriptJournal` | Per-session reader, opted-in history and summary jobs |
 | `AI_USAGE` / `AiUsageLedger` | Numeric provider admissions and rolling usage |
 | `OPERATOR_PREFERENCES` / `OperatorPreferences` | Shared church setup (one workspace record) and each operator's theme, keyed by hashed Access email |
 | `AI` | Optional Workers AI inference |
@@ -91,9 +91,17 @@ Preserve `custom-worker.ts` as the entry point and all bindings in `wrangler.jso
 `observability.enabled` is also set, so Worker logs are retained by Cloudflare; keep
 captions, tokens and links out of `console` output.
 
-Keep all three SQLite migrations: v1 creates CaptionRoom; v2 adds SermonJournal and
-AiUsageLedger; v3 adds OperatorPreferences. Do not rename/delete established migration
-tags to repair a build.
+Keep all four SQLite migrations: v1 creates CaptionRoom; v2 adds SermonJournal and
+AiUsageLedger; v3 adds OperatorPreferences; v4 renames SermonJournal to TranscriptJournal
+(`renamed_classes`). Do not rename/delete established migration tags to repair a build.
+
+The v4 rename is one-way. Workers Builds deploys `main` on merge, so the merge is the deploy:
+merge it only after the build with session names (PR #100) has finished deploying and with no
+live session running. Once v4 is applied, a build from before it cannot
+bind `TRANSCRIPT_JOURNALS` / `TranscriptJournal`, so rolling back to an earlier build is not
+supported. After the deploy, check that the Worker's Durable Object bindings include
+`TRANSCRIPT_JOURNALS` / `TranscriptJournal` and that the v4 migration is applied, then open a
+reader link saved before the deploy and check that it and its summary still load.
 
 Encrypted Worker secrets: `GROQ_API_KEY` and `OBS_CHANNEL_ENCRYPTION_KEY`.
 Generate the latter with at least 32 random characters; changing it requires controlled
@@ -152,7 +160,7 @@ after the deploy, and deploy when no live session is running.
 1. Check both build and deploy stages. A successful compilation does not publish a Worker.
 2. Record the merged Git SHA, successful build ID and final Worker version. Secret changes
    can create newer versions, so reconcile the final deployment.
-3. Verify the four Durable Object bindings, AI binding, v3 migration and runtime variables
+3. Verify the four Durable Object bindings, AI binding, v4 migration and runtime variables
    without revealing secret values. Keep optional AI off until its account/privacy/quality gates pass.
 4. Check authenticated operator and unauthenticated reader boundaries, then run the
    [stakeholder rehearsal](STAKEHOLDER_TEST_GUIDE.md) with synthetic or approved data.

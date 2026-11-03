@@ -208,7 +208,7 @@ flowchart LR
   Host -->|"moderated caption"| Main["CaptionRoom"]
   Phone["Paired operator phone"] --> API
   Main --> OBS["OBS and latest viewer"]
-  Main --> Journal["SermonJournal"]
+  Main --> Journal["TranscriptJournal"]
   API -->|"opted-in source"| Journal
   Journal --> Reader["Appending reader"]
   Journal -->|"optional phrasing / summaries"| AI["Workers AI"]
@@ -218,7 +218,7 @@ flowchart LR
 
 `custom-worker.ts` dispatches live/experience routes before OpenNext and exports all
 four SQLite Durable Objects. `wrangler.jsonc` declares `CAPTION_ROOMS`,
-`SERMON_JOURNALS`, `AI_USAGE`, `OPERATOR_PREFERENCES`, `AI`, and `ASSETS` plus v1/v2/v3
+`TRANSCRIPT_JOURNALS`, `AI_USAGE`, `OPERATOR_PREFERENCES`, `AI`, and `ASSETS` plus v1 to v4
 migrations.
 GitHub provides source review; Cloudflare Workers Builds builds and deploys only `main`
 to the `caption-studio` Worker (preview-branch builds are off). There is no GitHub

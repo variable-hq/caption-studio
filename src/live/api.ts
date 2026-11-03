@@ -370,7 +370,7 @@ async function startLiveSession(request: Request, env: LiveWorkerEnvironment) {
   const viewerToken = randomToken();
   const readerToken = randomToken();
   if (body.saveHistory !== undefined && typeof body.saveHistory !== "boolean") throw new InvalidRequestBodyError();
-  if (body.saveHistory === true && !env.SERMON_JOURNALS) return json({ error: "Saved history is not configured." }, 503);
+  if (body.saveHistory === true && !env.TRANSCRIPT_JOURNALS) return json({ error: "Saved history is not configured." }, 503);
   const response = await channelRoom(env).fetch(
     new Request("https://caption-room/internal/session", {
       method: "POST",

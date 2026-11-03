@@ -5,7 +5,7 @@ deployed. [Deployment](../DEPLOYMENT.md) records the corrected build. Real-sermo
 acceptance remains subject to protected runtime rehearsal and church-approved Indonesian
 evaluation.
 
-Superseded in part by [ADR 0033](0033-generic-vocabulary-and-identifiers.md): the summary envelope and model-facing wording are source-neutral, and new summary jobs carry `promptVersion` `source-grounded-v2`. The TB2 names in this record describe the earlier profile.
+Superseded in part by [ADR 0033](0033-generic-vocabulary-and-identifiers.md): the summary envelope and model-facing wording are source-neutral, and new summary jobs carry `promptVersion` `source-grounded-v2`. The TB2 names in this record describe the earlier profile. The `SermonJournal` class and `SERMON_JOURNALS` binding are now `TranscriptJournal` and `TRANSCRIPT_JOURNALS` (ADR 0033, Phase 5); the migration history in this record keeps the earlier names.
 
 ## Decision
 

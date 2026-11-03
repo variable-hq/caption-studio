@@ -5,7 +5,7 @@ import { handleLiveApiRequest } from "./src/live/api";
 import { handleInferenceRequest } from "./src/live/inference-request";
 import { handleExperienceRequest } from "./src/experience/api";
 export { CaptionRoom } from "./src/live/caption-room";
-export { SermonJournal } from "./src/experience/sermon-journal";
+export { TranscriptJournal } from "./src/experience/transcript-journal";
 export { AiUsageLedger } from "./src/experience/usage-ledger";
 export { OperatorPreferences } from "./src/experience/operator-preferences";
 
