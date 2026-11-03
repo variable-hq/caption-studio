@@ -6,7 +6,7 @@ import {
   buildSanitizeRule,
   buildTranslationEnvelopeRules,
 } from "@/ai/translation-prompt";
-import { buildTranscriptionPrompt, buildTranslationMessages } from "@/ai/server/groq";
+import { buildLegacyTranscriptionPrompt, buildTranscriptionPrompt, buildTranslationMessages } from "@/ai/server/groq";
 import { resolveWorkspacePreset } from "@/experience/presets";
 import { buildReaderPrompt, buildSummaryPrompt } from "@/experience/prompt";
 import { SUMMARY_SECTION_TASK, SUMMARY_SYNTHESIS_TASK } from "@/experience/transcript-journal";
@@ -176,6 +176,17 @@ describe("per-format transcription prefix", () => {
         const prompt = buildTranscriptionPrompt(HINTS, language, TAIL, resolveWorkspacePreset(id));
         expect(bytes(prompt), `${id} ${language}`).toBeLessThanOrEqual(448);
         expect(prompt.endsWith(TAIL), `${id} ${language} ends with the tail`).toBe(true);
+      }
+    }
+  });
+
+  it("keeps every format's prompt within the legacy 224-byte budget used after an HTTP 400", () => {
+    for (const id of ["builtin:general", "builtin:sermon", "builtin:talkshow", "builtin:keynote"]) {
+      for (const language of ["en", "id", "auto"] as const) {
+        const legacyTail = "kata ".repeat(19).trim();
+        const prompt = buildLegacyTranscriptionPrompt(HINTS, language, legacyTail, resolveWorkspacePreset(id));
+        expect(bytes(prompt), `legacy ${id} ${language}`).toBeLessThanOrEqual(224);
+        expect(prompt.endsWith(legacyTail), `legacy ${id} ${language} ends with the tail`).toBe(true);
       }
     }
   });

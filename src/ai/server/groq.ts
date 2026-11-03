@@ -269,7 +269,7 @@ export function buildTranscriptionPrompt(
   );
 }
 
-function buildLegacyTranscriptionPrompt(
+export function buildLegacyTranscriptionPrompt(
   keywordHints: readonly string[],
   language: SourceLanguage,
   previousTranscript: string,
