@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 2 November 2026 against merged PR #93 (`3e257a8`). Cloudflare deployed `20597d8`
+Reviewed 3 November 2026 against merged PR #96 (`f74a25f`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -240,7 +240,7 @@ Groq `verbose_json` segment metadata (`no_speech_prob`, `avg_logprob`,
 remove a segment only when both no-speech and average-log-probability limits cross, or when
 the compression limit is crossed. Sanitization Off bypasses the guard. The response returns
 `segments` plus a non-negative `droppedSegments` count; only that content-free count enters
-live UI state, as **Segments filtered** under Live's Quick fixes › **Service details**. Dropped text is neither logged nor archived. Saved archive source contains
+live UI state, as **Segments filtered** under Live's Quick fixes › **Technical details**. Dropped text is neither logged nor archived. Saved archive source contains
 only segments that survived the guard; the translation rule does not rewrite the source.
 
 Translation receives current source, at most four retained source captions, relevant

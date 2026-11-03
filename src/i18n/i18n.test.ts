@@ -248,6 +248,37 @@ describe("operator interface translations", () => {
     expect(id["serviceExperience.savedSermons"]).toBe("Transkrip tersimpan");
   });
 
+  it("calls the captioned event a session and keeps service for the backend", () => {
+    const backendServiceKeys = new Set([
+      "aiUsage.title",
+      "readiness.service",
+      "live.startHelp.checkingService",
+      "live.startHelp.notConfigured",
+      "live.message.captionServiceBusy",
+      "usage.byAiService",
+    ]);
+    for (const [key, message] of Object.entries(en)) {
+      if (!backendServiceKeys.has(key)) {
+        expect(message, `${key} avoids the event sense of service`).not.toMatch(/\bservices?\b/iu);
+      }
+    }
+    for (const [key, message] of Object.entries(id)) {
+      if (!backendServiceKeys.has(key)) {
+        expect(message, `${key} avoids layanan`).not.toMatch(/layanan/iu);
+      }
+    }
+    expect(en["shell.controls.endService"]).toBe("End session");
+    expect(id["shell.controls.endService"]).toBe("Akhiri sesi");
+    expect(en["dialog.endAction"]).toBe("End session");
+    expect(en["live.message.ended"]).toBe("Live session ended. The reusable OBS URL is ready for next time.");
+    expect(en["usage.services"]).toBe("Sessions");
+    expect(id["usage.services"]).toBe("Sesi");
+    expect(en["usage.byService"]).toBe("Usage by session");
+    expect(id["usage.byService"]).toBe("Penggunaan per sesi");
+    expect(en["reader.status.ended"]).toBe("Session ended");
+    expect(id["reader.status.ended"]).toBe("Sesi berakhir");
+  });
+
   it("calls the person talking the speaker and drops the example names", () => {
     for (const key of ["liveWord.placeholderWord", "liveWord.placeholderFix", "wordsEditor.placeholderWord"] as const) {
       expect(en[key]).toBe("e.g. Speaker’s name…");

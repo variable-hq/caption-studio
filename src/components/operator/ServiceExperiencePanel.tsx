@@ -175,7 +175,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
             <button type="button" className="textButton" disabled={busy || !archive.details.saved || !archiveRetained} onClick={() => setEditingMetadata(true)}>{t("serviceExperience.editDetails")}</button></>}
         {archive.details.incomplete && <p className="operatorBanner" data-tone="warn">{t("serviceExperience.incomplete")}</p>}
         <div className="buttonRow"><button className="secondaryButton" disabled={busy} onClick={() => void perform(() => load(archive.details.id))}>{t("common.refresh")}</button>
-          <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => download("sermon-transcript.json", await allSources(archive.details.id)))}>{t("serviceExperience.exportTranscript")}</button>
+          <button className="secondaryButton" disabled={busy} onClick={() => void perform(async () => download("transcript.json", await allSources(archive.details.id)))}>{t("serviceExperience.exportTranscript")}</button>
           <button className="dangerOutlineButton" disabled={busy || archive.details.status !== "ended"} onClick={() => setConfirmation("delete")}>{t("serviceExperience.deleteSermon")}</button></div>
         <SettingGroup title={t("serviceExperience.summaryTitle")} hint={<>{guidance
           ? t("serviceExperience.summaryHintWithGuidance", {
@@ -210,7 +210,7 @@ export function ServiceExperiencePanel({ view, service, observer = null, onReade
               requestAnimationFrame(() => { const source = document.getElementById(`source-${id}`); source?.scrollIntoView({ block: "center" }); source?.focus({ preventScroll: true }); });
             })}>#{id}</button>)}</small></p>)}
             {archive.summary.status === "completed" && <><label className="checkLabel"><input type="checkbox" name="summaryReviewed" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} />{t("serviceExperience.summaryReviewed")}</label>
-              <div className="buttonRow"><button className="secondaryButton" disabled={!reviewed} onClick={() => download("sermon-summary.json", { summary: archive.summary, reviewed: true })}>{t("serviceExperience.exportSummary")}</button></div></>}
+              <div className="buttonRow"><button className="secondaryButton" disabled={!reviewed} onClick={() => download("summary.json", { summary: archive.summary, reviewed: true })}>{t("serviceExperience.exportSummary")}</button></div></>}
           </div>}
         </SettingGroup>
         <SettingGroup title={t("serviceExperience.transcriptTitle")} hint={t("serviceExperience.transcriptHint")}>

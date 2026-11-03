@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
   robots: { index: false, follow: false },
   title: "Caption Studio",
-  description: "Cloud-hosted multilingual church captions for OBS",
+  description: "Cloud-hosted multilingual live captions for OBS",
 };
 export const viewport: Viewport = {
   themeColor: [

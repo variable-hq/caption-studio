@@ -1,6 +1,6 @@
 # Brand guidelines
 
-Reviewed 2 November 2026 against merged PR #93 (`3e257a8`).
+Reviewed 3 November 2026 against merged PR #96 (`f74a25f`).
 
 The baseline every Caption Studio screen follows: how the product sounds, which token
 to use for which job, and how text, space and components are laid out. Agents and
@@ -18,17 +18,17 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
 | Operator dashboard (`/`) | Rotating church volunteers, often monthly, with no training; one setup person | One obvious next step; nothing to remember between visits |
 | Operator phone remote (`/operator/mobile`) | The same volunteer, one-handed, near the stage | Three big actions; status at a glance |
 | Phone viewer (`/view`) | Congregation members on their own phones | Readable captions; nothing else |
-| Transcript reader (`/read`) | People reading after or during the service | Comfortable long-form reading |
+| Transcript reader (`/read`) | People reading after or during the session | Comfortable long-form reading |
 | OBS overlay (`/overlay`) | The audience, through the projector or stream | Only the caption, in the operator's configured style |
 
 ### Principles
 
-1. **Live first.** During a service the controls that matter (Start, Pause, Clear
-   screen, End service) are always visible. Everything else waits until asked for.
+1. **Live first.** During a session the controls that matter (Start, Pause, Clear
+   screen, End session) are always visible. Everything else waits until asked for.
 2. **One obvious next step.** Each screen region has at most one primary action. When
    something blocks it, the screen says what and offers the fix next to the problem.
 3. **Plain words.** Volunteers see church words, not system words (see the glossary).
-   Technical detail lives under Usage or a "Service details" disclosure.
+   Technical detail lives under Usage or a "Technical details" disclosure.
 4. **Calm by default, loud when it matters.** Neutral surfaces and ink. Colour is
    reserved for state: ready, paused, live, error.
 5. **One look everywhere.** Every colour, size, space and radius comes from a token.
@@ -48,7 +48,7 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
   "Start captions", "Translation", not "Start Captions" or "AI Behavior".
 - Speak to the operator as **you**. Use active voice: "Copy the OBS link", not "The
   OBS link can be copied".
-- **Buttons name the outcome** with a verb: "End service", "Delete transcript",
+- **Buttons name the outcome** with a verb: "End session", "Delete transcript",
   "Replace link". Never "OK", "Confirm" or "Submit" alone.
 - **Errors say what happened, then what to do**: "The browser is blocking the
   microphone. Click the microphone icon in the address bar, choose Allow, then press
@@ -57,9 +57,9 @@ changes. If the two documents disagree, fix the one that is wrong in the same co
   apostrophes (’ “ ”). Placeholders are examples ending in `…`: "e.g. Speaker’s name…".
   Progress text ends in `…`: "Saving…".
 - Keep a hint to one sentence. If it needs a paragraph, it belongs in the help page.
-- Confirmation dialogs ask a question as the title ("End this service?"). The safe
+- Confirmation dialogs ask a question as the title ("End this session?"). The safe
   button names staying ("Keep going"); the action button names the action ("End
-  service").
+  session").
 
 ### Glossary
 
@@ -68,9 +68,9 @@ code, documentation, Usage and diagnostics.
 
 | Say | Not |
 | --- | --- |
-| Start captions / Pause / Resume | Start service, capture, inference |
+| Start captions / Pause / Resume | Start session, capture, inference |
 | Clear screen | Clear live caption, clear public caption |
-| End service | Deactivate, stop channel |
+| End session | Deactivate, stop channel |
 | Phone viewer, phone viewer link | Mobile translation viewer, viewer URL |
 | Transcript reader, reader link | Reader token, bearer link |
 | OBS link | OBS URL, channel credential, browser source URL |
@@ -101,7 +101,7 @@ hex, rgb or named colour to a stylesheet or inline style. The only exceptions ar
 | Primary action | `--accent`, `--accent-hover`, `--on-accent` | The one primary button in a region; the monogram; selected toggles | Links, decoration, status |
 | Ready / success | `--ok-ink`, `--ok-bg`, `--ok-line` | "Ready" status, ticks, level meter fill, "Copied" | Primary buttons |
 | Paused / needs attention | `--warn-ink`, `--warn-bg`, `--warn-line` | "Paused" status, another-operator and transcript-gap banners | Errors |
-| Live, errors, destructive | `--danger`, `--danger-bg`, `--on-danger` | The "Live" status indicator; error banners; End service, Delete, Replace link | Anything that is merely important |
+| Live, errors, destructive | `--danger`, `--danger-bg`, `--on-danger` | The "Live" status indicator; error banners; End session, Delete, Replace link | Anything that is merely important |
 | Focus | `--focus` | The `:focus-visible` outline | Anything else |
 | Overlay | `--backdrop` | Behind a dialog | Panels |
 
@@ -196,7 +196,7 @@ Use the shared classes in the design system before writing a new rule.
   `role="status"` so screen readers hear the change.
 - **Banners.** Full width, above the content they concern, with at most two actions.
   Error banners use `role="alert"`; warning and info banners do not interrupt.
-- **Dialogs.** Only to confirm a destructive or irreversible action (End service, Delete
+- **Dialogs.** Only to confirm a destructive or irreversible action (End session, Delete
   transcript, Replace link). `role="alertdialog"`, focus moves in, Escape cancels, the
   action button sits on the right.
 - **Disclosures.** Advanced or rarely used options sit behind `<details>`, named for
@@ -206,9 +206,9 @@ Use the shared classes in the design system before writing a new rule.
   `aria-selected` inside a `tablist`). Keep each view reachable by a `#` link so it can
   be bookmarked and refreshed.
 - **Empty states.** Say what is missing and how to get it: "No saved transcripts yet. Tick
-  ‘Save the transcript’ before you start a service."
-- **Live controls.** While a service runs, Pause/Resume, Clear screen and End service
-  stay in one place on screen. End service is visually separated from Pause and Clear.
+  ‘Save the transcript’ before you start a session."
+- **Live controls.** While a session runs, Pause/Resume, Clear screen and End session
+  stay in one place on screen. End session is visually separated from Pause and Clear.
 
 ## Icons
 

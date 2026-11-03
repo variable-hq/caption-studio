@@ -1,8 +1,8 @@
 # Stakeholder test guide
 
-Reviewed 2 November 2026 against merged PR #94 (`233b532`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
+Reviewed 3 November 2026 against merged PR #96 (`f74a25f`), including the Live/Transcripts/Settings dashboard. Use a protected, verified deployment,
 synthetic speech or explicitly approved recordings. Deployment success and local QA do
-not establish a passing physical service, semantic quality or WCAG conformance.
+not establish a passing physical session, semantic quality or WCAG conformance.
 
 ## Confirmed rehearsal setup
 
@@ -25,20 +25,20 @@ The browser is the sole client; there are no native/signing checklists.
 - Use the first Indonesian→English [30-sample review](evaluation/ID_EN_REVIEW.md);
   all scores and terminology approvals are still pending. Do not treat draft references
   as approved translations.
-- Decide whether this synthetic service should save history. Saving must be explicitly
+- Decide whether this synthetic session should save history. Saving must be explicitly
   enabled before Start; off is the default. Explain seven-day content and independent
   30-day numeric retention to operators/participants.
-- Keep tokens, emails, private service content, prompts and active bearer URLs out of
+- Keep tokens, emails, private session content, prompts and active bearer URLs out of
   screenshots, Git, issues and shared evidence. Use sample IDs and status/timing metadata.
 - Schedule a short rehearsal before a duration run. Paused time counts toward the
-  original 90-minute service expiry.
+  original 90-minute session expiry.
 
 ## Setup and fast-caption journey
 
 1. In a fresh browser profile, open the dashboard: it lands on **Live** with the
    **Before you start** checklist and nothing pops up. Each red item's **Fix**, **Set up**
    or **Help** button opens the screen that fixes it. Open **Help** (the **?** button,
-   "How it works") and return with **Back to Live**; no audio or service action occurs.
+   "How it works") and return with **Back to Live**; no audio or session action occurs.
 2. Check at 1920, 1200, 390 and 320 CSS pixels. Use keyboard navigation, visible focus,
    actual zoom, reduced motion and an assistive-technology user where available. No control,
    dialog or long record should create horizontal page overflow or hide the next action.
@@ -55,7 +55,7 @@ The browser is the sole client; there are no native/signing checklists.
    In **Settings › Terms**, add one term with each **What to do** action and confirm each
    behaves as described.
 3. Sign in; after Start, confirm the configured models under **Live › Quick fixes ›
-   Service details** (Speech model, Translation model). Defaults are
+   Session details** (Speech model, Translation model). Defaults are
    `whisper-large-v3-turbo` and `openai/gpt-oss-20b`. Configuration is not a model-output test.
 4. In **Settings › System › Microphone**, select the USB interface, press **Test the
    microphone** and speak into the AUX feed. Mute that feed and confirm nearby computer
@@ -91,7 +91,7 @@ The browser is the sole client; there are no native/signing checklists.
    replaced by the final. A caption confirmed by terminal punctuation publishes once; an
    unfinished clause still cuts sensibly at a later pause or the 14-second cap. Then confirm
    private source versus moderated public output, Terms behavior, masks, caption language,
-   **Recent captions**, and the **Service details** counters (Delay after speech, Audio
+   **Recent captions**, and the **Technical details** counters (Delay after speech, Audio
    chunks dropped). The delay excludes the recording window, queue wait and audience
    rendering.
 10. While live and paused, draft language, Terms, caption wait time and translator changes in
@@ -106,10 +106,10 @@ The browser is the sole client; there are no native/signing checklists.
     and attempts stop increasing. While paused, show a test caption and **Show your own
     message** (**Show now**); Resume clears it before capture.
     **Clear screen** alone keeps capture active, so new valid speech can appear afterward.
-    Pause/Resume, Clear screen and End service stay pinned to the bottom of Live while you
-    scroll. Cancel **End this service?** once with **Keep going** and check focus returns
-    to End service.
-13. Open the dashboard as a second Access user during the service: Live names the running
+    Pause/Resume, Clear screen and End session stay pinned to the bottom of Live while you
+    scroll. Cancel **End this session?** once with **Keep going** and check focus returns
+    to End session.
+13. Open the dashboard as a second Access user during the session: Live names the running
     operator, mirrors the output read-only and offers **Take over**; Start stays disabled.
     Cancel the takeover once with **Keep watching**.
 
@@ -125,7 +125,7 @@ The browser is the sole client; there are no native/signing checklists.
 | Optional AI on in approved synthetic test | Shared bounded phrasing improves tested punctuation without changing meaning; glossary/filter rules still apply |
 | Scroll reader away from bottom | New content does not yank scroll; return-to-live action is available |
 | Clear/Pause/refresh during pending paragraph work | Pending text discarded; committed paragraphs preserved; new revisions/languages separated |
-| Saving on, reader reload/late join | Paginated public history recovered for that service |
+| Saving on, reader reload/late join | Paginated public history recovered for that session |
 | Saving off | No durable source archive; explain that object eviction can lose unreceived reader text |
 | **Pair phone** (Live › Share) | Requires Access plus service remote credential; any earlier phone is unpaired; phone never captures audio |
 | Remote Pause | New server inference claims stop immediately; physical mic status confirmed only after host acknowledgement |
@@ -148,7 +148,7 @@ usage; accounting failure stops capture.
 
 ## Private archive and summaries
 
-1. End an opted-in service, open **Transcripts** and choose it from the list. Under
+1. End an opted-in session, open **Transcripts** and choose it from the list. Under
    **Transcript › Show the transcript** and **Reader passages**, original source,
    corrections and paragraph/source IDs stay distinct; **Load full transcript** and **Load
    more passages** do not repeat/skip records. **Edit details** changes the session details.
@@ -162,7 +162,7 @@ usage; accounting failure stops capture.
 4. With optional AI enabled for approved synthetic testing, set **Settings › Summary ›
    Summary style** (Language, Short/Detailed length, harmless **What to focus on**), then
    press **Generate summary** after End. Separately, turn on **Make a summary draft
-   automatically after each service** and confirm End of a saved service queues one draft.
+   automatically after each session** and confirm End of a saved session queues one draft.
    Duplicate submission/lost acknowledgement must not schedule duplicate jobs.
 5. Inspect source-linked points, uncertain references, names and omissions. Guidance must
    not override grounding. No exact TB2 passage text is imported; reject invented scripture
@@ -180,9 +180,9 @@ usage; accounting failure stops capture.
 
 ## Usage and duration
 
-In **Settings › Usage**, verify active-service time, reserved attempts, acknowledged
+In **Settings › Usage**, verify active-session time, reserved attempts, acknowledged
 translation tokens and latest provider headroom (**Translation service right now**)
-separately from the **Last 30 days** history. Check per-service/day/model
+separately from the **Last 30 days** history. Check per-session/day/model
 groups, unknown outcomes and capacity-estimate assumptions. More phones, Clear, End,
 takeover and archive deletion must not erase usage or create additional viewer inference.
 Each usage row expires 30 days after its original attempt, independently of content.
@@ -190,8 +190,8 @@ The ledger cannot see unrelated provider-account traffic or renew a monthly allo
 
 Run a short content-free channel test before a 90-minute endurance test with optional AI
 off: use fixed synthetic public captions, no inference routes, no reserved transcription
-attempts, and zero provider usage. Preserve the original service to verify actual expiry;
-test a second service and takeover separately. Channel endurance does not test audio/AI.
+attempts, and zero provider usage. Preserve the original session to verify actual expiry;
+test a second session and takeover separately. Channel endurance does not test audio/AI.
 
 For a separate approved audio-duration run, measure provider usage on short samples first,
 then verify sufficient headroom. Observe full audience delay, queue drops, input loss,
@@ -213,9 +213,9 @@ Fast output / glossary / filter / completion / attempt-claim results:
 Remote commands / host acknowledgement / disconnect results:
 Reader late join / Clear / Pause / revision / link expiry results:
 Source corrections / exclusions / summary grounding / export / deletion results:
-Service counters / rolling usage / unknown outcomes / retention results:
+Session counters / rolling usage / unknown outcomes / retention results:
 Capture-to-display delay / processing time / queue drops / duration:
-Recovery / second service / takeover / expiry / OBS URL reuse:
+Recovery / second session / takeover / expiry / OBS URL reuse:
 Issues / pass, fail or blocked / owner go-no-go:
 ```
 

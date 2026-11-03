@@ -129,7 +129,7 @@ try {
   assert.equal(await sharedSave.count(),1,'The shared save appears when a visible choice differs from its saved default');
   const savesBefore=controls.length;
   await sharedSave.click();
-  await page.getByText('Saved for everyone. New services start with this choice.',{exact:true}).waitFor();
+  await page.getByText('Saved for everyone. New sessions start with this choice.',{exact:true}).waitFor();
   assert.equal(controls.length,savesBefore+1,'The shared save writes once');
   const sharedWrite=controls.at(-1).preferenceWrite;
   assert.equal(sharedWrite.saveHistoryDefault,true,'The shared save includes the visible transcript choice');
@@ -258,15 +258,15 @@ try {
   // then start and end without another save, and it must neither follow nor return.
   const preStartSave=page.getByRole('button',{name:'Save selected settings as default',exact:true});
   await preStartSave.click();
-  await page.getByText('Saved for everyone. New services start with this choice.',{exact:true}).waitFor();
+  await page.getByText('Saved for everyone. New sessions start with this choice.',{exact:true}).waitFor();
   await preStartSave.waitFor({state:'hidden'});
   await page.getByRole('button',{name:'Start captions',exact:true}).click();
   await page.getByRole('region',{name:'Live controls'}).getByRole('button',{name:'Pause',exact:true}).waitFor();
   assert.equal((await page.locator('.liveCaptions .outputBufferControls [role="status"]').textContent())?.trim(),'','A before-Start default-save status does not follow the service');
-  await page.getByRole('region',{name:'Live controls'}).getByRole('button',{name:'End service',exact:true}).click();
-  const statusEndDialog=page.getByRole('alertdialog',{name:'End this service?',exact:true});
+  await page.getByRole('region',{name:'Live controls'}).getByRole('button',{name:'End session',exact:true}).click();
+  const statusEndDialog=page.getByRole('alertdialog',{name:'End this session?',exact:true});
   await statusEndDialog.waitFor();
-  await statusEndDialog.getByRole('button',{name:'End service',exact:true}).click();
+  await statusEndDialog.getByRole('button',{name:'End session',exact:true}).click();
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(await page.locator('.liveActions [role="status"]').textContent(),'','A default-save status does not return to the Start card after End');
 
@@ -371,16 +371,16 @@ try {
   await liveControls.getByRole('button',{name:'Clear screen',exact:true}).click();
   await page.waitForFunction(()=>true);
   assert.ok(controls.includes('clear'));
-  const end=liveControls.getByRole('button',{name:'End service',exact:true});
+  const end=liveControls.getByRole('button',{name:'End session',exact:true});
   await end.click();
-  const endDialog=page.getByRole('alertdialog',{name:'End this service?',exact:true});
+  const endDialog=page.getByRole('alertdialog',{name:'End this session?',exact:true});
   await endDialog.waitFor();
   await check('end-dialog');
   await page.keyboard.press('Escape');
   await endDialog.waitFor({state:'hidden'});
-  assert.equal(await page.locator(':focus').innerText(),'End service');
+  assert.equal(await page.locator(':focus').innerText(),'End session');
   await end.click();
-  await endDialog.getByRole('button',{name:'End service',exact:true}).click();
+  await endDialog.getByRole('button',{name:'End session',exact:true}).click();
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(status,'idle');
   // Live capture may or may not finish a window in this mocked run; only dashboard

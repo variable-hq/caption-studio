@@ -1,6 +1,6 @@
 # Roadmap
 
-Reviewed 2 November 2026 against merged PR #93 (`3e257a8`). Status describes source
+Reviewed 3 November 2026 against merged PR #96 (`f74a25f`). Status describes source
 implementation; deployment and church-approved quality require separate evidence.
 
 ## Implemented baseline
@@ -29,7 +29,7 @@ implementation; deployment and church-approved quality require separate evidence
   Recent captions ([ADR 0023](decisions/0023-live-note-and-recent-outputs.md)).
 - One *BEST Church workspace* per Access tenant
   ([ADR 0015](decisions/0015-named-workspace-sized-for-its-operators.md)): every signed-in
-  operator can watch the running service and take it over, reads the shared Transcripts
+  operator can watch the running session and take it over, reads the shared Transcripts
   archive, and uses one church setup with the Settings › Terms list
   ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)); only the theme stays
   per operator ([ADR 0014](decisions/0014-operator-preferences-by-access-identity.md)).

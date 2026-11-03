@@ -36,7 +36,7 @@ review**. Reviewers should use this terminology consistently:
 | English | Indonesian draft | Use |
 | --- | --- | --- |
 | caption | caption | Published text shown to the audience |
-| service | layanan | One live church session |
+| session | sesi | One live captioned session |
 | Terms | Istilah | Settings section for names, terms, and filters |
 | caption wait time | waktu tunggu caption | Recording window setting |
 | Apply now | Terapkan sekarang | Apply drafted translation settings |
