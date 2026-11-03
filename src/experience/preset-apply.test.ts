@@ -100,6 +100,33 @@ describe("planPresetApply", () => {
     expect(listed).toHaveLength(1);
   });
 
+  it("skips a starter term whose word is already a glossary spelling or variant, in any case", () => {
+    const plan = planPresetApply(
+      SERMON,
+      NOTHING_SAVED,
+      { keywordText: "petrus => Peter, Moses|Musa", filterText: "" },
+      false,
+    );
+    // Petrus is a listed canonical spelling and Musa a listed variant; neither gains a translation.
+    expect(plan.starterTerms.added).toBe(7);
+    const rows = wordsFromSettings(plan.starterTerms.keywordText, plan.starterTerms.filterText);
+    expect(rows.filter((row) => row.word.toLowerCase() === "petrus")).toEqual([
+      { word: "petrus", action: "translate", with: "Peter" },
+    ]);
+    expect(rows.filter((row) => row.word.toLowerCase() === "musa")).toEqual([
+      { word: "Musa", action: "fix", with: "Moses" },
+    ]);
+  });
+
+  it("still adds a starter term that is only a filter entry", () => {
+    const plan = planPresetApply(SERMON, NOTHING_SAVED, { keywordText: "", filterText: "Daud" }, false);
+    expect(wordsFromSettings(plan.starterTerms.keywordText, plan.starterTerms.filterText)).toContainEqual({
+      word: "Daud",
+      action: "translate",
+      with: "David",
+    });
+  });
+
   it("skips starter terms once the Terms list is full and reports how many", () => {
     const full = Array.from({ length: 40 }, (_, index) => `Name ${index} => Nama ${index}`).join(", ");
     const plan = planPresetApply(SERMON, NOTHING_SAVED, { keywordText: full, filterText: "" }, false);

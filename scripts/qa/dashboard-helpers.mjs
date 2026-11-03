@@ -10,6 +10,7 @@ export const CAPTION_WAIT_TIME_LABELS = [
 
 const SETTINGS_LABELS = {
   computer: "System",
+  presets: "Presets",
   languages: "Language",
   words: "Terms",
   look: "Output",

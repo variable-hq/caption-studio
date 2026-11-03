@@ -38,7 +38,11 @@ function planStarterTerms(starters: readonly PresetStarterTerm[], drafts: Preset
   let added = 0;
   let skipped = 0;
   for (const { word, translation } of starters) {
-    const listed = rows.some((row) => row.action === "translate" && row.word.toLowerCase() === word.toLowerCase());
+    // A word already in the glossary, as a canonical spelling or a variant, would gain a translation through a merge.
+    const key = word.toLowerCase();
+    const listed = rows.some((row) =>
+      row.action !== "mask" && row.action !== "replace" && row.action !== "hide" &&
+      (row.word.toLowerCase() === key || (row.action === "fix" && row.with.toLowerCase() === key)));
     if (listed) continue;
     const next = [...rows, { word, action: "translate" as const, with: translation }];
     const compiled = wordsToSettings(next);
