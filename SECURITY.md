@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 3 November 2026 against merged PR #97 (`a21da4f`). The 13 September deployment
+Reviewed 3 November 2026 against merged PR #99 (`a5add46`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -91,7 +91,7 @@ production remediation must account for the existing encrypted OBS credential. S
 - Every successful service start creates a new cryptographically random 256-bit mobile
   viewer token, separate from both the OBS and controller credentials.
 - The link keeps `main.token` in the URL fragment. The self-contained page sends it only
-  as the `church-caption-viewer-v1` WebSocket subprotocol; the token is never placed in a
+  as the `caption-studio-viewer-v1` WebSocket subprotocol (the earlier `church-caption-viewer-v1` is still accepted); the token is never placed in a
   page request or query string.
 - The Durable Object stores only the viewer-token SHA-256 hash. The raw link remains in
   the operator tab's `sessionStorage`; it is not recoverable by another operator tab.

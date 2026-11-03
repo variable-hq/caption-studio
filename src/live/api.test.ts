@@ -710,7 +710,7 @@ describe("reusable OBS channel worker API", () => {
     );
     expect(response?.headers.get("x-robots-tag")).toContain("noindex");
     expect(html).toContain("Live translation");
-    expect(html).toContain("church-caption-viewer-v1");
+    expect(html).toContain("caption-studio-viewer-v1");
     expect(html).toContain("/api/live/viewer?channel=");
     expect(html).toContain("textContent");
     expect(html).toContain("event.code===4002");

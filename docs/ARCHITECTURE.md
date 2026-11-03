@@ -92,7 +92,7 @@ still consumes its claim; it cannot be replayed to spend again.
 | `POST …/control` | Access + controller | `pause`, `resume`, `clear`, `show-test`, `manual`, `refresh-translation` |
 | `PUT …/style`, `POST …/rotate`, `POST …/viewer/rotate` | Access | Shared style; OBS rotation; viewer replacement (4,096-byte bodies) |
 | `POST /api/live/channel/observer` | Access | Registers the signed-in operator as a read-only watcher of the running service and returns that operator's own caption-stream credential |
-| `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol | OBS and latest-viewer WebSockets |
+| `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol (`caption-studio-v1` / `caption-studio-viewer-v1`; earlier `church-caption-*` names still accepted) | OBS and latest-viewer WebSockets |
 | `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation. `…/pair` needs Access only, so any workspace operator can pair a phone; the other operations still need the controller |
 | `GET`/`POST`/`DELETE …/experience/preferences` | Access | The signed-in operator's saved configuration; POST merges a partial record, `null` clears a field |
 | `GET …/experience/usage`, `GET …/experience/history`, `GET …/transcripts/{id}/metadata`, `GET …/transcripts/{id}/archive` (aliases `…/sermons/…`) | Access | Rolling usage, archive index with metadata-only reads, one transcript's workspace-wide archive |

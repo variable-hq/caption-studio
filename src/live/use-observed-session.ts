@@ -8,7 +8,7 @@ import { LiveSessionClient } from "@/live/session-client";
 import { startSerialPolling } from "@/live/serial-polling";
 import type { LiveObserverDetails, ObservedSessionState } from "@/live/contracts";
 
-const VIEWER_PROTOCOL = "church-caption-viewer-v1";
+const VIEWER_PROTOCOL = "caption-studio-viewer-v1";
 const SOURCE_POLL_MS = 8_000;
 const MAX_RECONNECT_ATTEMPTS = 8;
 const MAX_SOURCE_PAGES = 20;

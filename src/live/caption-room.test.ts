@@ -1668,6 +1668,28 @@ describe("workspace watchers", () => {
     expect(accepted).toEqual([["observer"]]);
   });
 
+  it("accepts a registered watcher on the current viewer subprotocol and on the earlier one", async () => {
+    for (const protocol of ["caption-studio-viewer-v1", "church-caption-viewer-v1"]) {
+      const { room, accepted } = roomFixture();
+      await createChannel(room);
+      await startLiveSession(room);
+      await room.fetch(observe(identity("1"), await captionTokenHash(observerToken)));
+      class FakePair {
+        readonly 0 = new FakeSocket();
+        readonly 1 = new FakeSocket();
+      }
+      vi.stubGlobal("WebSocketPair", FakePair);
+      try {
+        await room.fetch(new Request("https://caption-room/internal/viewer/connect", {
+          headers: { upgrade: "websocket", "sec-websocket-protocol": `${protocol}, ${observerToken}` },
+        })).catch(() => null);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+      expect(accepted).toEqual([["observer"]]);
+    }
+  });
+
   it("broadcasts public captions to watchers and keeps them through a viewer-link replacement", async () => {
     const { room, observerSockets } = roomFixture(1, 1);
     await createChannel(room);

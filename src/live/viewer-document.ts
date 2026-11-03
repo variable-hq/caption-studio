@@ -129,7 +129,7 @@ function viewerDocument(locale: UiLocale) {
         if(stopped)return;
         setStatus(attempt?copy.reconnecting:copy.connecting,attempt?"paused":"");
         const scheme=location.protocol==="https:"?"wss:":"ws:";
-        const socket=new WebSocket(scheme+"//"+location.host+"/api/live/viewer?channel="+encodeURIComponent(channel),["church-caption-viewer-v1",token]);
+        const socket=new WebSocket(scheme+"//"+location.host+"/api/live/viewer?channel="+encodeURIComponent(channel),["caption-studio-viewer-v1",token]);
         socket.onmessage=message=>{
           let payload;
           try{payload=JSON.parse(String(message.data))}catch{return}

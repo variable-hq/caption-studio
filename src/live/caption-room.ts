@@ -33,7 +33,7 @@ import {
   validCaptionBody,
   validTranslationAttemptBody,
   viewerCaption,
-  websocketToken,
+  websocketCredential,
   withCredential,
   type ArchiveEntry,
   type ChannelConfiguration,
@@ -59,8 +59,9 @@ function isSessionRoute(pathname: string) {
   return pathname === "/internal/session" || pathname === "/internal/service";
 }
 
-const OVERLAY_PROTOCOL = "church-caption-v1";
-const VIEWER_PROTOCOL = "church-caption-viewer-v1";
+/** The first name is current; the second is accepted for pages loaded before the rename. */
+const OVERLAY_PROTOCOLS = ["caption-studio-v1", "church-caption-v1"] as const;
+const VIEWER_PROTOCOLS = ["caption-studio-viewer-v1", "church-caption-viewer-v1"] as const;
 const OVERLAY_SOCKET_TAG = "overlay";
 const VIEWER_SOCKET_TAG = "viewer";
 const OBSERVER_SOCKET_TAG = "observer";
@@ -444,7 +445,8 @@ export class CaptionRoom {
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
       return json({ error: "A WebSocket upgrade is required." }, 426);
     }
-    const token = websocketToken(request, OVERLAY_PROTOCOL);
+    const credential = websocketCredential(request, OVERLAY_PROTOCOLS);
+    const token = credential?.token ?? null;
     const configuration = await this.expireSessionIfNeeded();
     if (
       !token ||
@@ -477,7 +479,7 @@ export class CaptionRoom {
     return new Response(null, {
       status: 101,
       webSocket: client,
-      headers: { "sec-websocket-protocol": OVERLAY_PROTOCOL },
+      headers: { "sec-websocket-protocol": credential?.protocol ?? OVERLAY_PROTOCOLS[0] },
     } as ResponseInit & { webSocket: WebSocket });
   }
 
@@ -485,7 +487,8 @@ export class CaptionRoom {
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
       return json({ error: "A WebSocket upgrade is required." }, 426);
     }
-    const token = websocketToken(request, VIEWER_PROTOCOL);
+    const credential = websocketCredential(request, VIEWER_PROTOCOLS);
+    const token = credential?.token ?? null;
     const configuration = await this.expireSessionIfNeeded();
     const hash = token ? await captionTokenHash(token) : null;
     const observer = Boolean(
@@ -536,7 +539,7 @@ export class CaptionRoom {
     return new Response(null, {
       status: 101,
       webSocket: client,
-      headers: { "sec-websocket-protocol": VIEWER_PROTOCOL },
+      headers: { "sec-websocket-protocol": credential?.protocol ?? VIEWER_PROTOCOLS[0] },
     } as ResponseInit & { webSocket: WebSocket });
   }
 

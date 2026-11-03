@@ -251,14 +251,16 @@ export function controllerMatches(configuration: ChannelConfiguration, hash: unk
   );
 }
 
-export function websocketToken(request: Request, protocol: string) {
-  const protocols = (request.headers.get("sec-websocket-protocol") ?? "")
+/** The capability token and the accepted subprotocol the client offered; the protocol is echoed back. */
+export function websocketCredential(request: Request, protocols: readonly string[]) {
+  const offered = (request.headers.get("sec-websocket-protocol") ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  if (!protocols.includes(protocol)) return null;
-  const token = protocols.find((value) => value !== protocol) ?? null;
-  return token && CAPABILITY_TOKEN_PATTERN.test(token) ? token : null;
+  const protocol = protocols.find((candidate) => offered.includes(candidate));
+  if (!protocol) return null;
+  const token = offered.find((value) => !protocols.includes(value)) ?? null;
+  return token && CAPABILITY_TOKEN_PATTERN.test(token) ? { token, protocol } : null;
 }
 
 export function validCaptionBody(body: Partial<PublicCaptionRequest>) {
