@@ -15,7 +15,7 @@ interface SessionEntry { id: string; startedAt: number; metadata?: SessionMetada
 
 type PanelMessage = { key: MessageKey } | { text: string } | null;
 
-export function SessionExperiencePanel({ view, service, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; service: LiveSessionDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
+export function SessionExperiencePanel({ view, liveSession, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; liveSession: LiveSessionDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
   const { locale, t } = useI18n();
   const [services, setServices] = useState<SessionEntry[]>([]);
   const [archive, setArchive] = useState<Archive | null>(null);
@@ -26,8 +26,8 @@ export function SessionExperiencePanel({ view, service, observer = null, onReade
   // Pairing works for every workspace operator, so the running session may be
   // one this browser only watches. A controller can pair whether or not its start
   // response carried the session id.
-  const canPair = Boolean(service || observer?.serviceId);
-  const pairedSessionId = service?.serviceId ?? observer?.serviceId ?? "";
+  const canPair = Boolean(liveSession || observer?.serviceId);
+  const pairedSessionId = liveSession?.serviceId ?? observer?.serviceId ?? "";
   const link = issuedLink?.serviceId === pairedSessionId ? issuedLink?.url : "";
   const dialogRef = useRef<HTMLDialogElement>(null);
   const transcriptRef = useRef<HTMLDetailsElement>(null);
@@ -130,23 +130,23 @@ export function SessionExperiencePanel({ view, service, observer = null, onReade
   return <div className="experienceStack">
     {view === "sharing" && <>
       <div className="shareRow">
-        <span><strong>{t("sessionExperience.readerTitle")}</strong><br /><span className="operatorHint">{service ? t("sessionExperience.readerReady") : t("common.afterStart")}</span></span>
-        <button className="secondaryButton" disabled={!service || busy} onClick={() => {
-          const current = readerLink && readerLink.serviceId === service?.serviceId ? readerLink.url : service?.readerUrl;
-          if (current) { setIssuedLink({ serviceId: service!.serviceId!, url: current }); setMessage({ key: "sessionExperience.readerLinkReady" }); }
+        <span><strong>{t("sessionExperience.readerTitle")}</strong><br /><span className="operatorHint">{liveSession ? t("sessionExperience.readerReady") : t("common.afterStart")}</span></span>
+        <button className="secondaryButton" disabled={!liveSession || busy} onClick={() => {
+          const current = readerLink && readerLink.serviceId === liveSession?.serviceId ? readerLink.url : liveSession?.readerUrl;
+          if (current) { setIssuedLink({ serviceId: liveSession!.serviceId!, url: current }); setMessage({ key: "sessionExperience.readerLinkReady" }); }
           else setConfirmation("reader");
         }}>{t("sessionExperience.getLink")}</button>
       </div>
       <div className="shareRow">
         <span><strong>{t("sessionExperience.remoteTitle")}</strong><br /><span className="operatorHint">{canPair ? t("sessionExperience.remoteReady") : t("common.afterStart")}</span></span>
         <button className="secondaryButton" disabled={!canPair || busy} onClick={() => void perform(async () => {
-          const result = await experienceRequest<{ url: string }>("pair", {}, service?.controllerToken); setIssuedLink({ serviceId: pairedSessionId, url: result.url }); setMessage({ key: "sessionExperience.phonePaired" });
+          const result = await experienceRequest<{ url: string }>("pair", {}, liveSession?.controllerToken); setIssuedLink({ serviceId: pairedSessionId, url: result.url }); setMessage({ key: "sessionExperience.phonePaired" });
         })}>{t("sessionExperience.pairPhone")}</button>
       </div>
-      {!service && observer && <p className="operatorHint">{t("sessionExperience.otherOperator")}</p>}
+      {!liveSession && observer && <p className="operatorHint">{t("sessionExperience.otherOperator")}</p>}
       {link && <label>{t("sessionExperience.phoneLinkLabel")}<input name="experienceLink" autoComplete="off" spellCheck={false} readOnly value={link} />
         <button className="secondaryButton" onClick={() => void perform(async () => { await navigator.clipboard.writeText(link); setMessage({ key: "sessionExperience.linkCopied" }); })}>{t("common.copyLink")}</button></label>}
-      {service && <details className="advancedActions"><summary>{t("sessionExperience.readerSharedByMistake")}</summary>
+      {liveSession && <details className="advancedActions"><summary>{t("sessionExperience.readerSharedByMistake")}</summary>
         <p className="operatorHint">{t("sessionExperience.readerReplaceHint")}</p>
         <button className="dangerOutlineButton" disabled={busy} onClick={() => setConfirmation("reader")}>{t("sessionExperience.replaceReaderLink")}</button></details>}
     </>}
@@ -246,8 +246,8 @@ export function SessionExperiencePanel({ view, service, observer = null, onReade
       <h2 id="experience-confirm-heading">{confirmation === "reader" ? t("sessionExperience.dialogReplaceReaderTitle") : confirmation === "delete" ? t("sessionExperience.dialogDeleteTitle") : t("sessionExperience.dialogRemoveTitle")}</h2>
       <p>{confirmation === "reader" ? t("sessionExperience.dialogReplaceReaderBody") : confirmation === "delete" ? t("sessionExperience.dialogDeleteBody") : t("sessionExperience.dialogRemoveBody")}</p>
       <div className="confirmationRow"><button className="secondaryButton" disabled={busy} onClick={() => setConfirmation(null)}>{confirmation === "delete" ? t("sessionExperience.keepIt") : t("common.cancel")}</button>
-        <button className="dangerButton" disabled={busy || (confirmation === "reader" && !service)} onClick={() => void perform(async () => {
-          if (confirmation === "reader") { const result = await experienceRequest<{ url: string }>("reader-rotate", {}, service!.controllerToken); setIssuedLink({ serviceId: service!.serviceId!, url: result.url }); setReaderLink({ serviceId: service!.serviceId!, url: result.url }); onReaderLink(result.url); }
+        <button className="dangerButton" disabled={busy || (confirmation === "reader" && !liveSession)} onClick={() => void perform(async () => {
+          if (confirmation === "reader") { const result = await experienceRequest<{ url: string }>("reader-rotate", {}, liveSession!.controllerToken); setIssuedLink({ serviceId: liveSession!.serviceId!, url: result.url }); setReaderLink({ serviceId: liveSession!.serviceId!, url: result.url }); onReaderLink(result.url); }
           else if (archive) {
             if (confirmation === "delete") { await experienceRequest(`sermons/${archive.details.id}/delete`, { confirm: true }); setServices(services.filter((entry) => entry.id !== archive.details.id)); setArchive(null); }
             else if (confirmation) { await experienceRequest(`sermons/${archive.details.id}/remove`, { id: Number(confirmation.split(":")[1]), confirm: true }); await load(archive.details.id); }

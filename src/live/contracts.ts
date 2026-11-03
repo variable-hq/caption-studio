@@ -198,7 +198,7 @@ export interface LiveSessionState {
   latestPublicLanguage: LanguageLocale | null;
   lastLatencyMs: number | null;
   channel: ObsChannelDetails | null;
-  service: LiveSessionDetails | null;
+  liveSession: LiveSessionDetails | null;
 }
 
 export type LiveApiErrorCode =

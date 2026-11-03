@@ -1397,10 +1397,10 @@ describe("transcription dispatch enforcement", () => {
       const cloud = new CloudProviderClient();
       const style = normalizeCaptionStyle({});
       await live.createChannel(style);
-      const service = await live.startLiveSession(style);
-      const lease = await live.reserveTranscriptionAttempt(service.controllerToken);
+      const liveSession = await live.startLiveSession(style);
+      const lease = await live.reserveTranscriptionAttempt(liveSession.controllerToken);
       const context = {
-        controllerToken: service.controllerToken,
+        controllerToken: liveSession.controllerToken,
         transcriptionAttempt: lease.transcriptionRequests,
       };
       const transcription = await cloud.transcribe({
@@ -1415,7 +1415,7 @@ describe("transcription dispatch enforcement", () => {
         recentContext: [],
         preferredTerms: {},
       }, context);
-      await live.publish(service.controllerToken, {
+      await live.publish(liveSession.controllerToken, {
         publicText: translation.text,
         targetLanguage: "id",
         style,

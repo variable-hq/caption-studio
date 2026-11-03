@@ -337,7 +337,7 @@ function OperatorDashboardContent() {
     submitOutputBufferEdit,
   } = useLiveCaptionSession(liveSettings);
   useEffect(() => {
-    const startedAt = liveState.service?.startedAt ?? null;
+    const startedAt = liveState.liveSession?.startedAt ?? null;
     if (!startedAt) {
       if (priorSessionStartedAt.current) {
         liveNoteRestoredFor.current = null;
@@ -364,39 +364,39 @@ function OperatorDashboardContent() {
       setLiveNote(restored);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [liveState.service?.startedAt]);
+  }, [liveState.liveSession?.startedAt]);
   useEffect(() => {
-    const startedAt = liveState.service?.startedAt;
+    const startedAt = liveState.liveSession?.startedAt;
     if (!startedAt || liveNoteRestoredFor.current !== startedAt) return;
     window.sessionStorage.setItem(LIVE_NOTE_STORAGE_KEY, JSON.stringify({ startedAt, value: normalizeLiveNote(liveNote) }));
-  }, [liveNote, liveState.service?.startedAt]);
+  }, [liveNote, liveState.liveSession?.startedAt]);
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setSessionMetadata((value) => value.sessionAt === null ? { ...value, sessionAt: Date.now() } : value));
     return () => window.cancelAnimationFrame(frame);
   }, []);
   useEffect(() => {
-    const startedAt = liveState.service?.startedAt;
+    const startedAt = liveState.liveSession?.startedAt;
     if (!startedAt || sessionDateEdited) return;
     const frame = window.requestAnimationFrame(() => setSessionMetadata((value) => ({ ...value, sessionAt: Date.parse(startedAt) })));
     return () => window.cancelAnimationFrame(frame);
-  }, [liveState.service?.startedAt, sessionDateEdited]);
+  }, [liveState.liveSession?.startedAt, sessionDateEdited]);
   useEffect(() => {
-    const service = liveState.service;
-    if (!service) {
+    const liveSession = liveState.liveSession;
+    if (!liveSession) {
       if (["error", "idle", "taken-over"].includes(liveState.status)) shouldAutoSaveMetadata.current = false;
       return;
     }
-    if (!service.saveHistory) { shouldAutoSaveMetadata.current = false; return; }
-    if (!shouldAutoSaveMetadata.current || !service?.saveHistory || !service.serviceId || metadataPostedFor.current === service.serviceId) return;
-    metadataPostedFor.current = service.serviceId;
-    const metadata = normalizeSessionMetadata({ ...sessionMetadata, sessionAt: sessionDateEdited ? sessionMetadata.sessionAt : Date.parse(service.startedAt) });
-    metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`sermons/${service.serviceId}/metadata`, metadata)
+    if (!liveSession.saveHistory) { shouldAutoSaveMetadata.current = false; return; }
+    if (!shouldAutoSaveMetadata.current || !liveSession?.saveHistory || !liveSession.serviceId || metadataPostedFor.current === liveSession.serviceId) return;
+    metadataPostedFor.current = liveSession.serviceId;
+    const metadata = normalizeSessionMetadata({ ...sessionMetadata, sessionAt: sessionDateEdited ? sessionMetadata.sessionAt : Date.parse(liveSession.startedAt) });
+    metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`sermons/${liveSession.serviceId}/metadata`, metadata)
       .then((result) => { setSessionMetadata(result.metadata); setSessionMetadataMessage(t("live.sessionDetailsSaved")); shouldAutoSaveMetadata.current = false; })
       .catch(() => { setSessionMetadataMessage(t("live.sessionDetailsAutoSaveFailed")); shouldAutoSaveMetadata.current = false; });
-  }, [liveState.service, liveState.status, sessionMetadata, sessionDateEdited, t]);
+  }, [liveState.liveSession, liveState.status, sessionMetadata, sessionDateEdited, t]);
   async function saveLiveSessionMetadata() {
-    const serviceId = liveState.service?.serviceId;
-    if (!serviceId || !liveState.service?.saveHistory) return;
+    const serviceId = liveState.liveSession?.serviceId;
+    if (!serviceId || !liveState.liveSession?.saveHistory) return;
     setSessionMetadataMessage(t("common.saving"));
     try {
       await metadataWrite.current;
@@ -561,7 +561,7 @@ function OperatorDashboardContent() {
     setKeywordText(next.keywordText);
     setFilterText(next.filterText);
   };
-  const hasSession = Boolean(liveState.service);
+  const hasSession = Boolean(liveState.liveSession);
   // A default-save status belongs to the screen state that produced it: the Start settings
   // card before a session, and the Captions card while one runs. A transition clears it
   // during render, so it can neither follow the change nor return when that state does.
@@ -604,7 +604,7 @@ function OperatorDashboardContent() {
   const runningOperator = anotherOperatorActive
     ? observed.observer?.controllerLabel ?? liveState.channel?.controllerLabel ?? null
     : null;
-  const usageSessionStartedAt = liveState.service?.startedAt ??
+  const usageSessionStartedAt = liveState.liveSession?.startedAt ??
     (anotherOperatorActive ? liveState.channel?.startedAt : null);
   const sessionStartedMs = usageSessionStartedAt
     ? new Date(usageSessionStartedAt).getTime()
@@ -634,7 +634,7 @@ function OperatorDashboardContent() {
               ? t("live.startHelp.setUpObs")
               : t("live.startHelp.ready");
   const startBlocked = startDisabled || anotherOperatorActive;
-  const viewerUrl = liveState.service?.viewerUrl ?? null;
+  const viewerUrl = liveState.liveSession?.viewerUrl ?? null;
   const translationChanges = activeTranslationSettings
     ? translationSettingsChanges(
         activeTranslationSettings,
@@ -735,8 +735,8 @@ function OperatorDashboardContent() {
 
   const hasSessionRef = useRef(false);
   useEffect(() => {
-    hasSessionRef.current = Boolean(liveState.service);
-  }, [liveState.service]);
+    hasSessionRef.current = Boolean(liveState.liveSession);
+  }, [liveState.liveSession]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1407,7 +1407,7 @@ function OperatorDashboardContent() {
               manualCaptionBusy={controlAction === "manual"}
               onShowManualCaption={(text) => void showManualCaption(text)}
             />
-            <LiveNoteControl value={liveNote} disabled={!liveState.service || observed.observer !== null} onChange={setLiveNote} />
+            <LiveNoteControl value={liveNote} disabled={!liveState.liveSession || observed.observer !== null} onChange={setLiveNote} />
             {isPaused ? (
               <button type="button" className="secondaryButton" disabled={isBusy || controlAction !== null} onClick={() => void showTestCaption()}>
                 {controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
@@ -1415,9 +1415,9 @@ function OperatorDashboardContent() {
             ) : null}
             <details className="advancedActions">
               <summary>{t("live.sessionDetails")}</summary>
-              {!liveState.service?.saveHistory ? <p className="settingHint">{t("live.sessionDetailsBeforeStart")}</p> : null}
-              <SessionMetadataFields value={sessionMetadata} disabled={!liveState.service?.saveHistory || isBusy} onChange={setSessionMetadata} />
-              <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.service?.saveHistory || !liveState.service.serviceId || isBusy} onClick={() => void saveLiveSessionMetadata()}>{t("live.saveSessionDetails")}</button></div>
+              {!liveState.liveSession?.saveHistory ? <p className="settingHint">{t("live.sessionDetailsBeforeStart")}</p> : null}
+              <SessionMetadataFields value={sessionMetadata} disabled={!liveState.liveSession?.saveHistory || isBusy} onChange={setSessionMetadata} />
+              <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.liveSession?.saveHistory || !liveState.liveSession.serviceId || isBusy} onClick={() => void saveLiveSessionMetadata()}>{t("live.saveSessionDetails")}</button></div>
               <p className="settingHint" role="status" aria-live="polite">{sessionMetadataMessage}</p>
             </details>
             <details className="advancedActions">
@@ -1448,7 +1448,7 @@ function OperatorDashboardContent() {
               {viewerCopied ? t("common.copied") : t("common.copyLink")}
             </button>
           </div>
-          <SessionExperiencePanel view="sharing" service={liveState.service} observer={observed.observer} onReaderLink={rememberReaderLink} />
+          <SessionExperiencePanel view="sharing" liveSession={liveState.liveSession} observer={observed.observer} onReaderLink={rememberReaderLink} />
           <p className="operatorHint" role="status" aria-live="polite">{clipboardMessage}</p>
         </section>
       </div>
@@ -1461,7 +1461,7 @@ function OperatorDashboardContent() {
         <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>{t("transcripts.title")}</h1>
         <p className="settingHint">{t("transcripts.hint", { workspace: WORKSPACE_NAME })}</p>
       </header>
-      <SessionExperiencePanel view="archive" service={liveState.service} onReaderLink={rememberReaderLink} summaryDefaults={summaryDefaults} />
+      <SessionExperiencePanel view="archive" liveSession={liveState.liveSession} onReaderLink={rememberReaderLink} summaryDefaults={summaryDefaults} />
     </main>
   );
 
@@ -1704,7 +1704,7 @@ function OperatorDashboardContent() {
           isResuming={liveState.status === "resuming"}
           clearing={controlAction === "clear"}
           minutesLeft={minutesLeft}
-          transcriptSaved={liveState.service?.saveHistory ?? false}
+          transcriptSaved={liveState.liveSession?.saveHistory ?? false}
           controlsDisabled={isBusy || controlAction !== null}
           endRetryRequired={endRetryRequired}
           endDisabled={endActionDisabled}
