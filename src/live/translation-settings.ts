@@ -153,7 +153,7 @@ export function serializeTranslationSessionSettings(
   identity: TranslationSessionIdentity,
 ) {
   if (!validTranslationSessionIdentity(identity)) {
-    throw new Error("The live-service identity is invalid.");
+    throw new Error("The live-session identity is invalid.");
   }
   return JSON.stringify({
     version: TRANSLATION_SETTINGS_STORAGE_VERSION,

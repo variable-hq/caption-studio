@@ -115,7 +115,7 @@ export class SermonJournal {
   }
 
   private async handleDelete(current: JournalState) {
-    if (!current.endedAt) return json({ error: "End the service before deleting its archive." }, 409);
+    if (!current.endedAt) return json({ error: "End the session before deleting its archive." }, 409);
     await this.erase();
     return json({ deleted: true });
   }
@@ -186,7 +186,7 @@ export class SermonJournal {
     const high = await this.state.storage.get<number>("acceptedNote") ?? 0;
     if (input.id <= high) return json({ duplicate: true });
     if (current.saved && (await this.state.storage.list({ prefix: "note:", limit: MAX_JOURNAL_NOTES })).size >= MAX_JOURNAL_NOTES) {
-      return json({ error: "Operator note limit reached for this service." }, 409);
+      return json({ error: "Operator note limit reached for this session." }, 409);
     }
     // Flush any already-spoken, not-yet-committed text first so its paragraph gets an
     // earlier timestamp than this note, keeping the reader's timestamp-sorted order correct.
@@ -255,7 +255,7 @@ export class SermonJournal {
   }
 
   private async handleSummary(request: Request, current: JournalState) {
-    if (!current.saved || !current.endedAt) return json({ error: "End a service with saved history before generating a summary." }, 409);
+    if (!current.saved || !current.endedAt) return json({ error: "End a session with saved history before generating a summary." }, 409);
     const body = await request.json() as SummaryOptions & { requestId: string };
     if (!validSummaryOptions(body) || !/^[a-zA-Z0-9-]{16,64}$/u.test(body.requestId)) return json({ error: "Invalid summary settings." }, 400);
     const previous = await this.state.storage.get<SummaryJob>("summary");
@@ -419,7 +419,7 @@ export class SermonJournal {
         const active = await this.state.storage.get<SummaryJob>("summary");
         if (!current || active?.id !== job.id || current.revision !== snapshot.revision) return null;
         if (job.revision !== current.revision || !current.endedAt || !current.saved) throw new Error("Summary source changed. Generate again.");
-        if (current.summaryCalls >= 60) throw new Error("This service's summary call budget was reached.");
+        if (current.summaryCalls >= 60) throw new Error("This session's summary call budget was reached.");
         const records = [...(await this.state.storage.list<SourceRecord>({ prefix: "source:", startAfter: key("source", job.cursor), limit: 50 })).values()];
         const selected: SourceRecord[] = [];
         let bytes = 0;

@@ -864,7 +864,7 @@ describe("reusable caption channel", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: "Translation usage does not match this service.",
+      error: "Translation usage does not match this session.",
     });
   });
 

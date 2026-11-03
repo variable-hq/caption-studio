@@ -658,7 +658,7 @@ export async function handleLiveApiRequest(
     if (url.pathname === "/api/live/channel/service") {
       if (request.method === "POST") return await startService(request, env);
       if (request.method === "DELETE") return await endService(request, env);
-      return json({ error: "Unsupported live-service operation." }, 405);
+      return json({ error: "Unsupported live-session operation." }, 405);
     }
     if (url.pathname === "/api/live/channel/observer") {
       return request.method === "POST"
@@ -705,7 +705,7 @@ export async function handleLiveApiRequest(
         : url.pathname.includes("control")
           ? "Live control"
           : url.pathname.includes("service")
-            ? "Live service"
+            ? "Live session"
             : "OBS channel operation";
     return protectedError(error, label);
   }
