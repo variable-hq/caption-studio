@@ -27,6 +27,7 @@ The product began for one church and its sermons, so "sermon", "church" and the 
 
 - Phase 1 changes no code identifiers, keys, routes, stored fields, wire fields, error codes or the Durable Object class. Those names are renamed in later phases, and each later phase appends a line below that records what changed.
 - Old names stay readable and accepted after any rename. Old stored data and saved links keep working without a later phase.
+- The counters disclosure label `live.serviceDetails` now reads "Technical details". When its key is renamed, the new key must not reuse `live.sessionDetails`, which names the session metadata card in the same panel.
 
 ## Tradeoffs and verification
 

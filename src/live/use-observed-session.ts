@@ -75,7 +75,7 @@ export function useObservedSession(active: boolean) {
       if (stopped) return;
       patch({
         status: attempt ? "reconnecting" : "connecting",
-        message: attempt ? "Reconnecting to the running service…" : "Connecting to the running service…",
+        message: attempt ? "Reconnecting to the running session…" : "Connecting to the running session…",
         observer,
       });
       const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -101,7 +101,7 @@ export function useObservedSession(active: boolean) {
           const update = captionUpdate(payload.caption);
           patch({
             status: "watching",
-            message: "Watching the service another operator is running.",
+            message: "Watching the session another operator is running.",
             ...(update ?? { latestPublicText: "", latestPublicLanguage: null, latestPublicAt: null }),
           });
         }
