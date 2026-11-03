@@ -1,6 +1,6 @@
 # Deployment runbook
 
-Reviewed 1 November 2026 against merged PR #89 (`dbddccd`). This describes the current
+Reviewed 3 November 2026 against merged PR #99 (`a5add46`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
@@ -124,6 +124,28 @@ Existing `/overlay*` and `/view*` applications may cover their respective docume
 Never broaden a bypass to `/api/live/*`, `/api/ai/*`, or `/operator/*`.
 A document/static bundle carries no operator or provider credential; its data endpoint
 must still reject absent, wrong-purpose, expired or replaced tokens.
+
+## Session names and pages loaded before a deploy
+
+There is no skew protection, so a page or a paired phone opened before a deploy keeps
+its earlier names. The server therefore accepts both name sets until they are removed,
+which is not planned:
+
+- Request bodies accept `sessionId` and fall back to `serviceId`.
+- The channel start/end route, the transcript routes and the internal start/end route
+  accept both spellings and reach the same handlers.
+- Responses carry `sessionId` and `serviceId` (and `sessions` and `services` in the
+  history list). Error responses keep `code` (`service_paused`, `service_inactive`) and
+  add `sessionCode` (`session_paused`, `session_inactive`). The current client reads
+  `sessionCode` and falls back to `code`.
+- The ended headers carry `x-ended-session` and `x-ended-service`.
+- A WebSocket connection offers either subprotocol set and the server echoes the one offered.
+- Stored configurations and usage records written before this change are read through the
+  normalizing helpers; the next normal write stores the new names.
+
+A build from before this change reads only the old names, so it cannot see a session or
+usage record written under the new names. Roll back only before the first session starts
+after the deploy, and deploy when no live session is running.
 
 ## After a merge
 

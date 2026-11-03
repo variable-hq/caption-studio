@@ -710,7 +710,7 @@ describe("reusable OBS channel worker API", () => {
     );
     expect(response?.headers.get("x-robots-tag")).toContain("noindex");
     expect(html).toContain("Live translation");
-    expect(html).toContain("church-caption-viewer-v1");
+    expect(html).toContain("caption-studio-viewer-v1");
     expect(html).toContain("/api/live/viewer?channel=");
     expect(html).toContain("textContent");
     expect(html).toContain("event.code===4002");
@@ -726,6 +726,7 @@ describe("reusable OBS channel worker API", () => {
       const url = new URL(request.url);
       seen.push({ path: url.pathname, body: await request.clone().json() });
       return Response.json({
+        sessionId: "12345678-1234-1234-1234-123456789012",
         serviceId: "12345678-1234-1234-1234-123456789012",
         saveHistory: true,
         controllerLabel: "first@example.test",
@@ -745,6 +746,7 @@ describe("reusable OBS channel worker API", () => {
     const details = (await response!.json()) as { observerToken: string; viewerUrl: string };
     expect(details).toMatchObject({
       channelId: "main",
+      sessionId: "12345678-1234-1234-1234-123456789012",
       serviceId: "12345678-1234-1234-1234-123456789012",
       saveHistory: true,
       controllerLabel: "first@example.test",

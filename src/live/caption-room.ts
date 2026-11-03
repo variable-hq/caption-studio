@@ -26,13 +26,14 @@ import {
   deactivate,
   isActive,
   normalizeConfiguration,
+  storedConfiguration,
   publicConfiguration,
   sessionExpired,
   translationSessionRefreshed,
   validCaptionBody,
   validTranslationAttemptBody,
   viewerCaption,
-  websocketToken,
+  websocketCredential,
   withCredential,
   type ArchiveEntry,
   type ChannelConfiguration,
@@ -47,8 +48,20 @@ import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { HASH_HEX_PATTERN, UUID_PATTERN, sha256Hex } from "@/http/tokens";
 import { json, rpc, type ExperienceEnvironment, type JournalState } from "@/experience/contracts";
 
-const OVERLAY_PROTOCOL = "church-caption-v1";
-const VIEWER_PROTOCOL = "church-caption-viewer-v1";
+/** Error bodies keep the earlier `code` value and add the session name in `sessionCode`. */
+const SESSION_CODES = { service_paused: "session_paused", service_inactive: "session_inactive" } as const;
+function sessionError(error: string, code: keyof typeof SESSION_CODES, status: number) {
+  return json({ error, code, sessionCode: SESSION_CODES[code] }, status);
+}
+
+/** The start and end routes; `/internal/service` is the name earlier builds used. */
+function isSessionRoute(pathname: string) {
+  return pathname === "/internal/session" || pathname === "/internal/service";
+}
+
+/** The first name is current; the second is accepted for pages loaded before the rename. */
+const OVERLAY_PROTOCOLS = ["caption-studio-v1", "church-caption-v1"] as const;
+const VIEWER_PROTOCOLS = ["caption-studio-viewer-v1", "church-caption-viewer-v1"] as const;
 const OVERLAY_SOCKET_TAG = "overlay";
 const VIEWER_SOCKET_TAG = "viewer";
 const OBSERVER_SOCKET_TAG = "observer";
@@ -63,18 +76,18 @@ export class CaptionRoom {
     return this.state.blockConcurrencyWhile(async () => {
       try { await this.flushJournals(); await this.reconcileJournalState(); }
       catch { return json({ error: "Session history is reconnecting. Retry shortly." }, 503); }
-      const before = await this.state.storage.get<ChannelConfiguration>("configuration");
+      const before = storedConfiguration(await this.state.storage.get<ChannelConfiguration>("configuration"));
       const response = await this.dispatch(request);
-      const after = await this.state.storage.get<ChannelConfiguration>("configuration");
-      if (before?.serviceId && before.serviceId !== after?.serviceId) await this.queueJournal(before, true, Boolean(after?.serviceId));
-      if (after?.serviceId && (before?.serviceId !== after.serviceId || before.captionEpoch !== after.captionEpoch ||
+      const after = storedConfiguration(await this.state.storage.get<ChannelConfiguration>("configuration"));
+      if (before?.sessionId && before.sessionId !== after?.sessionId) await this.queueJournal(before, true, Boolean(after?.sessionId));
+      if (after?.sessionId && (before?.sessionId !== after.sessionId || before.captionEpoch !== after.captionEpoch ||
           before.status !== after.status || before.readerHash !== after.readerHash)) await this.queueJournal(after);
       try {
         await this.flushJournals();
         await this.state.storage.put("journal-configuration", after ?? null);
       }
       catch {
-        if (after?.serviceId && before?.serviceId !== after.serviceId) {
+        if (after?.sessionId && before?.sessionId !== after.sessionId) {
           // The caller has not received its controller token. Release the failed start.
           await this.state.storage.put("configuration", deactivate(after));
           await this.state.storage.delete("latest");
@@ -90,18 +103,18 @@ export class CaptionRoom {
   }
 
   private async queueJournal(current: ChannelConfiguration, ended = false, revoked = false) {
-    if (!this.env?.SERMON_JOURNALS || !current.serviceId || !current.readerHash) return;
-    const archived = ended ? await this.state.storage.get<ArchiveEntry>(`archive:${current.serviceId}`) : undefined;
+    if (!this.env?.SERMON_JOURNALS || !current.sessionId || !current.readerHash) return;
+    const archived = ended ? await this.state.storage.get<ArchiveEntry>(`archive:${current.sessionId}`) : undefined;
     const snapshot = {
-      id: current.serviceId, startedAt: current.startedAt!, expiresAt: current.expiresAt!,
+      id: current.sessionId, startedAt: current.startedAt!, expiresAt: current.expiresAt!,
       saved: current.saveHistory === true, readerHash: current.readerHash,
       epoch: current.captionEpoch ?? 0, status: ended ? "ended" : current.status,
       ...(ended ? { endedAt: Math.min(Date.now(), current.expiresAt!, archived?.expiresAt ?? Infinity), revoked } : {}),
     } as JournalState;
     const pending = await this.state.storage.get<JournalState[]>("journal-sync") ?? [];
     await this.state.storage.put("journal-sync", [...pending.filter((item) => item.id !== snapshot.id), snapshot]);
-    if (ended) await this.state.storage.put(`archive:${current.serviceId}`, {
-      id: current.serviceId, startedAt: current.startedAt, expiresAt: snapshot.endedAt, saved: current.saveHistory,
+    if (ended) await this.state.storage.put(`archive:${current.sessionId}`, {
+      id: current.sessionId, startedAt: current.startedAt, expiresAt: snapshot.endedAt, saved: current.saveHistory,
     });
     await this.state.storage.setAlarm(Date.now() + 10_000);
   }
@@ -117,10 +130,10 @@ export class CaptionRoom {
   }
 
   private async reconcileJournalState() {
-    const before = await this.state.storage.get<ChannelConfiguration>("journal-configuration");
-    const after = await this.state.storage.get<ChannelConfiguration>("configuration");
-    if (before?.serviceId && before.serviceId !== after?.serviceId) await this.queueJournal(before, true, Boolean(after?.serviceId));
-    if (after?.serviceId && (before?.serviceId !== after.serviceId || before.captionEpoch !== after.captionEpoch ||
+    const before = storedConfiguration(await this.state.storage.get<ChannelConfiguration>("journal-configuration"));
+    const after = storedConfiguration(await this.state.storage.get<ChannelConfiguration>("configuration"));
+    if (before?.sessionId && before.sessionId !== after?.sessionId) await this.queueJournal(before, true, Boolean(after?.sessionId));
+    if (after?.sessionId && (before?.sessionId !== after.sessionId || before.captionEpoch !== after.captionEpoch ||
         before.status !== after.status || before.readerHash !== after.readerHash)) await this.queueJournal(after);
     await this.flushJournals();
     await this.state.storage.put("journal-configuration", after ?? null);
@@ -146,14 +159,15 @@ export class CaptionRoom {
     const action = new URL(request.url).pathname.split("/").at(-1);
     const body = await request.json() as { controllerHash?: string; remoteHash?: string; readerHash?: string;
       identityKey?: string; observerHash?: string;
-      serviceId?: string; action?: "pause" | "resume" | "clear"; id?: string;
+      sessionId?: string; serviceId?: string; action?: "pause" | "resume" | "clear"; id?: string;
       capturing?: boolean; acknowledgement?: string; success?: boolean;
       transcriptionAttempt?: number; stage?: string; source?: unknown; sourceIds?: number[] };
     const stored = await this.expireSessionIfNeeded();
-    if (!stored || !isActive(stored) || !stored.serviceId) return json({ error: "Session ended.", code: "service_inactive" }, 410);
+    if (!stored || !isActive(stored) || !stored.sessionId) return sessionError("Session ended.", "service_inactive", 410);
     const current = normalizeConfiguration(stored);
+    const requestedSessionId = body.sessionId ?? body.serviceId;
     if (action === "remove-current") {
-      if (body.serviceId !== current.serviceId) return json({ ignored: true });
+      if (requestedSessionId !== current.sessionId) return json({ ignored: true });
       const latest = await this.state.storage.get<PublicCaptionEvent>("latest");
       if (latest?.transcriptionAttempt && body.sourceIds?.includes(latest.transcriptionAttempt)) {
         current.captionEpoch = (current.captionEpoch ?? 0) + 1;
@@ -166,7 +180,7 @@ export class CaptionRoom {
     if (action === "remote") {
       const paired = body.remoteHash === current.remoteHash ||
         credentialMatches(current.remoteHashes, body.remoteHash);
-      if (body.serviceId !== current.serviceId || !body.remoteHash || !paired) return json({ error: "Remote pairing expired or replaced." }, 403);
+      if (requestedSessionId !== current.sessionId || !body.remoteHash || !paired) return json({ error: "Remote pairing expired or replaced." }, 403);
       if (current.remoteCommand?.status === "pending" && Date.now() - current.remoteCommand.at > REMOTE_COMMAND_TIMEOUT_MS) {
         // Server-side effects (a pause, a clear) already applied; only the microphone acknowledgement is missing.
         const expired: RemoteCommand = { ...current.remoteCommand, status: "failed" };
@@ -207,7 +221,8 @@ export class CaptionRoom {
       current.observers = withCredential(current.observers, body.identityKey!, body.observerHash!);
       await this.state.storage.put("configuration", current);
       return json({
-        serviceId: current.serviceId,
+        sessionId: current.sessionId,
+        serviceId: current.sessionId,
         saveHistory: current.saveHistory === true,
         controllerLabel: current.controllerLabel,
         status: current.status,
@@ -225,14 +240,14 @@ export class CaptionRoom {
       // The single-remote credential from before per-identity pairing is retired here.
       delete current.remoteHash;
       await this.state.storage.put("configuration", current);
-      return json({ serviceId: current.serviceId });
+      return json({ sessionId: current.sessionId, serviceId: current.sessionId });
     }
     if (!controllerMatches(current, body.controllerHash)) return controllerReplaced();
     if (action === "reader-rotate") {
       if (!HASH_HEX_PATTERN.test(body.readerHash ?? "")) return json({ error: "Invalid reader token." }, 400);
       current.readerHash = body.readerHash;
       await this.state.storage.put("configuration", current);
-      return json({ serviceId: current.serviceId });
+      return json({ sessionId: current.sessionId, serviceId: current.sessionId });
     }
     if (action === "host") {
       current.heartbeatAt = Date.now();
@@ -251,16 +266,16 @@ export class CaptionRoom {
       const attempt = body.transcriptionAttempt;
       if (!Number.isSafeInteger(attempt) || !["transcription", "translation"].includes(body.stage ?? "") ||
           !(body.stage === "transcription" ? current.claimedTranscriptionAttempts : current.claimedTranslationAttempts).includes(attempt!)) return json({ error: "Inference attempt was not claimed." }, 403);
-      if (current.status !== "live") return json({ error: "Session paused.", code: "service_paused" }, 409);
-      return json({ serviceId: current.serviceId });
+      if (current.status !== "live") return sessionError("Session paused.", "service_paused", 409);
+      return json({ sessionId: current.sessionId, serviceId: current.sessionId });
     }
     if (action === "source" && this.env?.SERMON_JOURNALS) {
       const source = body.source as { id?: number; translationRevision?: number } | undefined;
       if (!source || !current.claimedTranscriptionAttempts.includes(source.id!) ||
           source.id! <= current.inferenceAttemptFloor || source.translationRevision !== current.translationRevision) return json({ error: "Source attempt is no longer current." }, 409);
-      return rpc(this.env.SERMON_JOURNALS, current.serviceId!, "/source", source);
+      return rpc(this.env.SERMON_JOURNALS, current.sessionId!, "/source", source);
     }
-    if (action === "gap" && this.env?.SERMON_JOURNALS) return rpc(this.env.SERMON_JOURNALS, current.serviceId!, "/gap", {});
+    if (action === "gap" && this.env?.SERMON_JOURNALS) return rpc(this.env.SERMON_JOURNALS, current.sessionId!, "/gap", {});
     return json({ error: "Unknown session action." }, 404);
   }
 
@@ -268,13 +283,14 @@ export class CaptionRoom {
     const url = new URL(request.url);
 
     if (url.pathname === "/internal/history" && request.method === "GET") {
-      return json({ services: (await this.pruneArchives()).services });
+      const { services } = await this.pruneArchives();
+      return json({ sessions: services, services });
     }
     if (url.pathname === "/internal/history/delete" && request.method === "POST") {
       const { id } = await request.json() as { id: string };
       if (!UUID_PATTERN.test(id)) return json({ error: "Invalid archive." }, 400);
-      const current = await this.state.storage.get<ChannelConfiguration>("configuration");
-      if (current?.serviceId === id && isActive(current) && !sessionExpired(current)) return json({ error: "End the session first." }, 409);
+      const current = storedConfiguration(await this.state.storage.get<ChannelConfiguration>("configuration"));
+      if (current?.sessionId === id && isActive(current) && !sessionExpired(current)) return json({ error: "End the session first." }, 409);
       await this.state.storage.delete(`archive:${id}`);
       return json({ deleted: true });
     }
@@ -305,10 +321,10 @@ export class CaptionRoom {
     ) {
       return this.replaceViewerLink(request);
     }
-    if (url.pathname === "/internal/service" && request.method === "POST") {
+    if (isSessionRoute(url.pathname) && request.method === "POST") {
       return this.startLiveSession(request);
     }
-    if (url.pathname === "/internal/service" && request.method === "DELETE") {
+    if (isSessionRoute(url.pathname) && request.method === "DELETE") {
       return this.endLiveSession(request);
     }
     if (url.pathname === "/internal/lease" && request.method === "POST") {
@@ -367,7 +383,7 @@ export class CaptionRoom {
           style: normalizeCaptionStyle(body.style ?? {}),
           status: "idle",
           lastSequence: 0,
-          serviceEventCount: 0,
+          sessionEventCount: 0,
           transcriptionRequests: 0,
           llmUsage: emptyLlmSessionUsage(),
           claimedTranscriptionAttempts: [],
@@ -429,7 +445,8 @@ export class CaptionRoom {
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
       return json({ error: "A WebSocket upgrade is required." }, 426);
     }
-    const token = websocketToken(request, OVERLAY_PROTOCOL);
+    const credential = websocketCredential(request, OVERLAY_PROTOCOLS);
+    const token = credential?.token ?? null;
     const configuration = await this.expireSessionIfNeeded();
     if (
       !token ||
@@ -462,7 +479,7 @@ export class CaptionRoom {
     return new Response(null, {
       status: 101,
       webSocket: client,
-      headers: { "sec-websocket-protocol": OVERLAY_PROTOCOL },
+      headers: { "sec-websocket-protocol": credential?.protocol ?? OVERLAY_PROTOCOLS[0] },
     } as ResponseInit & { webSocket: WebSocket });
   }
 
@@ -470,7 +487,8 @@ export class CaptionRoom {
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
       return json({ error: "A WebSocket upgrade is required." }, 426);
     }
-    const token = websocketToken(request, VIEWER_PROTOCOL);
+    const credential = websocketCredential(request, VIEWER_PROTOCOLS);
+    const token = credential?.token ?? null;
     const configuration = await this.expireSessionIfNeeded();
     const hash = token ? await captionTokenHash(token) : null;
     const observer = Boolean(
@@ -521,7 +539,7 @@ export class CaptionRoom {
     return new Response(null, {
       status: 101,
       webSocket: client,
-      headers: { "sec-websocket-protocol": VIEWER_PROTOCOL },
+      headers: { "sec-websocket-protocol": credential?.protocol ?? VIEWER_PROTOCOLS[0] },
     } as ResponseInit & { webSocket: WebSocket });
   }
 
@@ -550,7 +568,7 @@ export class CaptionRoom {
 
       const startedAt = Date.now();
       configuration.status = "live";
-      configuration.serviceId = crypto.randomUUID();
+      configuration.sessionId = crypto.randomUUID();
       configuration.saveHistory = body.saveHistory === true;
       configuration.readerHash = body.readerHash;
       configuration.captionEpoch = 0;
@@ -566,7 +584,7 @@ export class CaptionRoom {
       configuration.viewerTokenHash = body.viewerTokenHash!;
       configuration.startedAt = startedAt;
       configuration.expiresAt = startedAt + MAX_LIVE_SESSION_MS;
-      configuration.serviceEventCount = 0;
+      configuration.sessionEventCount = 0;
       configuration.transcriptionRequests = 0;
       configuration.llmUsage = emptyLlmSessionUsage();
       configuration.claimedTranscriptionAttempts = [];
@@ -576,8 +594,8 @@ export class CaptionRoom {
       configuration.translationRevision += 1;
       delete configuration.lastTranslationRefreshRequestId;
       configuration.style = normalizeCaptionStyle(body.style ?? configuration.style);
-      await transaction.put(`archive:${configuration.serviceId}`, {
-        id: configuration.serviceId, startedAt, expiresAt: configuration.expiresAt,
+      await transaction.put(`archive:${configuration.sessionId}`, {
+        id: configuration.sessionId, startedAt, expiresAt: configuration.expiresAt,
         saved: configuration.saveHistory,
       });
       await Promise.all([
@@ -605,7 +623,8 @@ export class CaptionRoom {
     this.broadcastOverlay({ type: "style", style: result.value.style });
     return json({
       status: result.value.status,
-      serviceId: result.value.serviceId,
+      sessionId: result.value.sessionId,
+      serviceId: result.value.sessionId,
       saveHistory: result.value.saveHistory,
       startedAt: new Date(result.value.startedAt!).toISOString(),
       expiresAt: new Date(result.value.expiresAt!).toISOString(),
@@ -674,7 +693,7 @@ export class CaptionRoom {
 
   private async endLiveSession(request: Request) {
     const body = (await request.json()) as { controllerHash?: string };
-    const result = await this.state.storage.transaction<MutationResult<{ serviceId?: string; saved: boolean } | null>>(
+    const result = await this.state.storage.transaction<MutationResult<{ sessionId?: string; saved: boolean } | null>>(
       async (transaction) => {
         const stored = await transaction.get<ChannelConfiguration>("configuration");
         if (!stored) return { kind: "channel-not-configured" };
@@ -690,7 +709,7 @@ export class CaptionRoom {
         if (!controllerMatches(configuration, body.controllerHash)) {
           return { kind: "controller-replaced" };
         }
-        const ended = { serviceId: configuration.serviceId, saved: configuration.saveHistory === true };
+        const ended = { sessionId: configuration.sessionId, saved: configuration.saveHistory === true };
         configuration = deactivate(configuration);
         await Promise.all([
           transaction.put("configuration", configuration),
@@ -710,8 +729,8 @@ export class CaptionRoom {
     // Internal only: the Worker strips these before answering the operator.
     return new Response(null, {
       status: 204,
-      headers: ended?.serviceId
-        ? { "x-ended-service": ended.serviceId, "x-ended-saved": ended.saved ? "1" : "0" }
+      headers: ended?.sessionId
+        ? { "x-ended-session": ended.sessionId, "x-ended-service": ended.sessionId, "x-ended-saved": ended.saved ? "1" : "0" }
         : undefined,
     });
   }
@@ -750,7 +769,7 @@ export class CaptionRoom {
         };
       }
       if ((body.captionEpoch ?? 0) !== configuration.captionEpoch) return { kind: "caption-cleared" };
-      if (configuration.serviceEventCount >= MAX_CAPTION_EVENTS) {
+      if (configuration.sessionEventCount >= MAX_CAPTION_EVENTS) {
         return { kind: "invalid" };
       }
 
@@ -765,7 +784,7 @@ export class CaptionRoom {
         publishedAt: new Date().toISOString(),
       };
       configuration.lastSequence = event.sequence;
-      configuration.serviceEventCount += 1;
+      configuration.sessionEventCount += 1;
       configuration.style = event.style;
       await Promise.all([
         transaction.put("configuration", configuration),
@@ -777,7 +796,7 @@ export class CaptionRoom {
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "controller-replaced") return controllerReplaced();
     if (result.kind === "caption-cleared") return json({ error: "Caption predates Clear. Discard it.", code: "caption_cleared" }, 409);
-    if (result.kind === "paused") return json({ error: "Session paused.", code: "service_paused" }, 409);
+    if (result.kind === "paused") return sessionError("Session paused.", "service_paused", 409);
     if (result.kind === "translation-session-refreshed") {
       return translationSessionRefreshed(result.translationRevision);
     }
@@ -797,10 +816,10 @@ export class CaptionRoom {
     }
 
     this.broadcastPublic({ type: "caption", caption: result.value });
-    const current = await this.state.storage.get<ChannelConfiguration>("configuration");
-    if (this.env?.SERMON_JOURNALS && current?.serviceId && body.reader && body.transcriptionAttempt) {
+    const current = storedConfiguration(await this.state.storage.get<ChannelConfiguration>("configuration"));
+    if (this.env?.SERMON_JOURNALS && current?.sessionId && body.reader && body.transcriptionAttempt) {
       try {
-        const recorded = await rpc(this.env.SERMON_JOURNALS, current.serviceId, "/append", {
+        const recorded = await rpc(this.env.SERMON_JOURNALS, current.sessionId, "/append", {
           ...body.reader, id: body.transcriptionAttempt, publicText: result.value.publicText,
           targetLanguage: result.value.targetLanguage, epoch: result.value.captionEpoch,
           translationRevision: result.value.translationRevision,
@@ -880,7 +899,7 @@ export class CaptionRoom {
         429,
       );
     }
-    if (result.kind === "paused") return json({ error: "Session paused.", code: "service_paused" }, 409);
+    if (result.kind === "paused") return sessionError("Session paused.", "service_paused", 409);
     if (result.kind !== "ok") {
       return json({ error: "Transcription reservation failed." }, 500);
     }
@@ -937,7 +956,7 @@ export class CaptionRoom {
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
         this.closeViewerSockets(4002, "Live session ended.");
       }
-      return json({ error: "The live session is not accepting inference.", code: "service_inactive" }, 410);
+      return sessionError("The live session is not accepting inference.", "service_inactive", 410);
     }
     if (result.kind === "inference-attempt-used") {
       return json(
@@ -948,7 +967,7 @@ export class CaptionRoom {
         409,
       );
     }
-    if (result.kind === "paused") return json({ error: "Session paused.", code: "service_paused" }, 409);
+    if (result.kind === "paused") return sessionError("Session paused.", "service_paused", 409);
     if (result.kind === "invalid") {
       return json({ error: "Inference does not match a current reserved attempt.", code: `invalid_${stage}_attempt` }, 400);
     }
@@ -1249,10 +1268,10 @@ export class CaptionRoom {
     }
     let historyIncomplete: boolean | undefined;
     if (action === "manual" && caption && this.env?.SERMON_JOURNALS) {
-      const current = await this.state.storage.get<ChannelConfiguration>("configuration");
-      if (current?.serviceId) {
+      const current = storedConfiguration(await this.state.storage.get<ChannelConfiguration>("configuration"));
+      if (current?.sessionId) {
         try {
-          const recorded = await rpc(this.env.SERMON_JOURNALS, current.serviceId, "/note", {
+          const recorded = await rpc(this.env.SERMON_JOURNALS, current.sessionId, "/note", {
             id: caption.sequence,
             text: caption.publicText,
             targetLanguage: caption.targetLanguage,
@@ -1429,9 +1448,9 @@ export class CaptionRoom {
   private async runAlarm() {
     try { await this.flushJournals(); }
     catch { await this.state.storage.setAlarm(Date.now() + 10_000); return; }
-    const configuration = await this.state.storage.get<ChannelConfiguration>(
-      "configuration",
-    );
+    const configuration = storedConfiguration(await this.state.storage.get<ChannelConfiguration>(
+      "configuration"
+    ));
     const nextArchiveExpiry = this.env?.SERMON_JOURNALS ? (await this.pruneArchives()).nextExpiry : Infinity;
     if (!configuration || !isActive(configuration)) {
       if (Number.isFinite(nextArchiveExpiry)) await this.state.storage.setAlarm(nextArchiveExpiry);

@@ -287,8 +287,8 @@ describe("remote control and clear boundaries", () => {
     await room.fetch(request("/internal/channel", { tokenHash: "c".repeat(64), encryptedToken: "synthetic" }));
     const started = await room.fetch(request("/internal/service", { controllerHash, viewerTokenHash: "d".repeat(64), readerHash, saveHistory: true, takeover: false }));
     expect(started.status).toBe(200);
-    const details = await storage.get<{ serviceId: string }>("configuration");
-    return { room, storage, controllerHash, serviceId: details!.serviceId, journals };
+    const details = await storage.get<{ sessionId: string }>("configuration");
+    return { room, storage, controllerHash, serviceId: details!.sessionId, journals };
   }
   it("archives a manual caption as an operator note while paused", async () => {
     const { room, controllerHash, serviceId, journals } = await fixture();
@@ -345,7 +345,7 @@ describe("remote control and clear boundaries", () => {
     await room.fetch(request("/internal/experience/pair", { controllerHash, identityKey, remoteHash }));
     const command = { serviceId, remoteHash, id: "remote-command-0001", action: "pause" };
     expect((await room.fetch(request("/internal/experience/remote", command))).status).toBe(200);
-    expect(await (await room.fetch(request("/internal/lease", { controllerHash }))).json()).toMatchObject({ code: "service_paused" });
+    expect(await (await room.fetch(request("/internal/lease", { controllerHash }))).json()).toMatchObject({ code: "service_paused", sessionCode: "session_paused" });
     const first = await (await room.fetch(request("/internal/experience/remote", command))).json();
     expect(first).toMatchObject({ command: { status: "pending" }, connected: false });
     await room.fetch(request("/internal/experience/host", { controllerHash, acknowledgement: command.id, capturing: true, success: true }));
@@ -599,5 +599,34 @@ describe("automatic summary", () => {
     const sent = journalFetch.mock.calls[0] as unknown as [Request];
     expect(new URL(sent[0].url).pathname).toBe("/auto-summary");
     expect(await sent[0].json()).toEqual({ options: { model: SUMMARY_MODELS[0], language: "en", length: "detailed", guidance: "" } });
+  });
+});
+
+describe("stored session names", () => {
+  it("accepts the pre-session serviceId on admission, stores sessionId and returns it on history", async () => {
+    const ledger = new AiUsageLedger(state(new Storage()));
+    const admission = { id: "legacy-1", serviceId: id, stage: "reader", provider: "cloudflare", model: "test", reservedNeurons: 1 };
+    expect((await ledger.fetch(request("/admit", admission))).status).toBe(200);
+    const history = await (await ledger.fetch(request("/history"))).json() as { records: Record<string, unknown>[] };
+    expect(history.records[0]).toMatchObject({ id: "legacy-1", sessionId: id });
+    expect(history.records[0]).not.toHaveProperty("serviceId");
+  });
+
+  it("counts a legacy-named admission toward the daily budget", async () => {
+    const ledger = new AiUsageLedger(state(new Storage()));
+    expect((await ledger.fetch(request("/admit", { id: "legacy-2", serviceId: id, stage: "reader", provider: "cloudflare", model: "test", reservedNeurons: 5999 }))).status).toBe(200);
+    expect((await ledger.fetch(request("/admit", { id: "new-2", sessionId: id, stage: "reader", provider: "cloudflare", model: "test", reservedNeurons: 2 }))).status).toBe(429);
+  });
+
+  it("rewrites a record stored with only serviceId as sessionId when it is finished", async () => {
+    const storage = new Storage();
+    const at = Date.now();
+    const key = `event:${String(at).padStart(13, "0")}:legacy-3`;
+    storage.values.set(key, { id: "legacy-3", serviceId: id, stage: "reader", provider: "cloudflare", model: "test", at, status: "pending", tokens: null, audioSeconds: null, estimatedNeurons: 0, reservedNeurons: 1 });
+    storage.values.set("id:legacy-3", key);
+    const ledger = new AiUsageLedger(state(storage));
+    expect((await ledger.fetch(request("/finish", { id: "legacy-3", status: "unknown" }))).status).toBe(200);
+    expect(storage.values.get(key)).toMatchObject({ sessionId: id, status: "unknown" });
+    expect(storage.values.get(key)).not.toHaveProperty("serviceId");
   });
 });

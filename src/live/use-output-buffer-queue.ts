@@ -40,7 +40,7 @@ interface UseOutputBufferQueueParams {
   settingsRef: RefObject<SessionSettingsForBuffer>;
   /** Publishes one buffered entry to Live; shares fate-handling with the direct publish path.
    * A ref, not a plain callback: `publishBufferedEntry` itself needs this hook's `generationRef`
-   * and `reset` (see the `service_paused` case in `use-live-caption-session.ts`), which would
+   * and `reset` (see the `session_paused` case in `use-live-caption-session.ts`), which would
    * otherwise be a circular dependency between the two hooks. The caller keeps this ref's
    * `.current` up to date with its latest `publishBufferedEntry` closure every render. */
   publishBufferedEntryRef: RefObject<(entry: OutputBufferEntry) => Promise<void>>;

@@ -43,12 +43,12 @@ export function UsageHistory() {
     const initial = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(initial);
   }, []);
-  const services = new Map<string, { at: number; calls: number; tokens: number; unknown: number }>();
+  const sessions = new Map<string, { at: number; calls: number; tokens: number; unknown: number }>();
   const days = new Map<string, { calls: number; tokens: number; unknown: number }>();
   for (const row of records) {
-    const service = services.get(row.serviceId) ?? { at: row.at, calls: 0, tokens: 0, unknown: 0 };
-    service.at = Math.min(service.at, row.at); service.calls++; service.tokens += row.tokens?.totalTokens ?? 0;
-    service.unknown += Number(row.status !== "completed"); services.set(row.serviceId, service);
+    const total = sessions.get(row.sessionId) ?? { at: row.at, calls: 0, tokens: 0, unknown: 0 };
+    total.at = Math.min(total.at, row.at); total.calls++; total.tokens += row.tokens?.totalTokens ?? 0;
+    total.unknown += Number(row.status !== "completed"); sessions.set(row.sessionId, total);
     const date = new Date(row.at).toISOString().slice(0, 10);
     const day = days.get(date) ?? { calls: 0, tokens: 0, unknown: 0 };
     day.calls++; day.tokens += row.tokens?.totalTokens ?? 0; day.unknown += Number(row.status !== "completed"); days.set(date, day);
@@ -74,7 +74,7 @@ export function UsageHistory() {
   return (
     <SettingGroup title={t("usage.title")} hint={t("usage.hint")}>
       <div className="statTiles">
-        <div className="statTile"><span>{t("usage.sessions")}</span><strong>{count(services.size)}</strong></div>
+        <div className="statTile"><span>{t("usage.sessions")}</span><strong>{count(sessions.size)}</strong></div>
         <div className="statTile"><span>{t("usage.transcriptions")}</span><strong>{count(transcriptions)}</strong></div>
         <div className="statTile"><span>{t("usage.translations")}</span><strong>{count(translations)}</strong></div>
       </div>
@@ -91,11 +91,11 @@ export function UsageHistory() {
       </details>
       <details className="advancedActions">
         <summary>{t("usage.bySession")}</summary>
-        {services.size === 0 ? <p className="settingHint">{t("usage.nothing")}</p> : null}
-        {[...services].sort(([, first], [, second]) => second.at - first.at).map(([id, service]) => (
+        {sessions.size === 0 ? <p className="settingHint">{t("usage.nothing")}</p> : null}
+        {[...sessions].sort(([, first], [, second]) => second.at - first.at).map(([id, total]) => (
           <div className="statRow" key={id}>
-            <span>{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(service.at)}</span>
-            <span>{countsLine(service.calls, service.tokens, service.unknown)}</span>
+            <span>{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(total.at)}</span>
+            <span>{countsLine(total.calls, total.tokens, total.unknown)}</span>
           </div>
         ))}
       </details>

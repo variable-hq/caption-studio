@@ -8,7 +8,7 @@ import { LiveSessionClient } from "@/live/session-client";
 import { startSerialPolling } from "@/live/serial-polling";
 import type { LiveObserverDetails, ObservedSessionState } from "@/live/contracts";
 
-const VIEWER_PROTOCOL = "church-caption-viewer-v1";
+const VIEWER_PROTOCOL = "caption-studio-viewer-v1";
 const SOURCE_POLL_MS = 8_000;
 const MAX_RECONNECT_ATTEMPTS = 8;
 const MAX_SOURCE_PAGES = 20;
@@ -151,9 +151,9 @@ export function useObservedSession(active: boolean) {
     };
   }, [active]);
 
-  const serviceId = observed.observer?.saveHistory ? observed.observer.serviceId : null;
+  const sessionId = observed.observer?.saveHistory ? observed.observer.sessionId : null;
   useEffect(() => {
-    if (!serviceId) return;
+    if (!sessionId) return;
     let after = 0;
     return startSerialPolling(async () => {
       try {
@@ -161,7 +161,7 @@ export function useObservedSession(active: boolean) {
         // until it reaches the newest recognized passage.
         for (let page = 0; page < MAX_SOURCE_PAGES; page += 1) {
           const result = await experienceRequest<{ sources: SourceRecord[]; more: boolean }>(
-            `sermons/${serviceId}/archive?after=${after}&paragraphAfter=0`,
+            `transcripts/${sessionId}/archive?after=${after}&paragraphAfter=0`,
           );
           if (!result.sources.length) return;
           after = result.sources.at(-1)!.id;
@@ -175,7 +175,7 @@ export function useObservedSession(active: boolean) {
         // Source tailing is best-effort; the caption stream stays authoritative.
       }
     }, SOURCE_POLL_MS);
-  }, [serviceId]);
+  }, [sessionId]);
 
   return observed;
 }

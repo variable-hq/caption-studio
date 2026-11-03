@@ -56,7 +56,7 @@ const OVERLAY_DOCUMENT = `<!doctype html>
       const connect=()=>{
         if(stopped)return;
         const scheme=location.protocol==="https:"?"wss:":"ws:";
-        const socket=new WebSocket(scheme+"//"+location.host+"/api/live/overlay?channel="+encodeURIComponent(channel),["church-caption-v1",token]);
+        const socket=new WebSocket(scheme+"//"+location.host+"/api/live/overlay?channel="+encodeURIComponent(channel),["caption-studio-v1",token]);
         socket.onopen=()=>{attempt=0};
         socket.onmessage=message=>{
           const payload=JSON.parse(String(message.data));

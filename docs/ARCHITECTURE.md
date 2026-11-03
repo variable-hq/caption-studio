@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 3 November 2026 against merged PR #97 (`a21da4f`). Cloudflare deployed `20597d8`
+Reviewed 3 November 2026 against merged PR #99 (`a5add46`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -40,7 +40,7 @@ The default OpenNext config has no configured incremental/tag cache or skew prot
 
 ## API and inference sequence
 
-1. An Access-authenticated `POST /api/live/channel/service` starts or explicitly takes
+1. An Access-authenticated `POST /api/live/channel/session` starts or explicitly takes
    over the service. It creates a controller, latest-viewer and reader credentials,
    snapshots immutable history consent, and initializes a journal. Failed initialization
    releases the undisclosed controller.
@@ -62,7 +62,7 @@ The default OpenNext config has no configured incremental/tag cache or skew prot
 7. A journal alarm batches at most five chunks roughly every 30 seconds. Optional Workers
    AI phrasing is followed by glossary/filter processing again. Fallback joins already
    moderated translations. `GET /api/live/reader` polls existing output; no poll starts AI.
-8. `DELETE /api/live/channel/service` ends capture, finalizes history and starts reader
+8. `DELETE /api/live/channel/session` ends capture, finalizes history and starts reader
    grace. An Access-protected manual summary request can then queue bounded journal work.
    Every model stage admits/reconciles usage independently. If the church setup opts
    in to automatic summaries and saving was on, the Worker also asks the journal to queue
@@ -87,16 +87,16 @@ still consumes its claim; it cannot be replayed to spend again.
 | `GET /api/ai/health`, `POST /api/ai/readiness` | Access (readiness) | Configured models; readiness also checks Groq model availability |
 | `POST /api/ai/transcribe`, `POST /api/ai/translate` | Access + controller + attempt claim | Live inference; 3 MB audio + 16 KB fields, 32,000-byte JSON |
 | `GET`/`POST /api/live/channel` | Access | Read or create the Main channel |
-| `POST /api/live/channel/service`, `DELETE …/service` | Access | Start/takeover and End |
+| `POST /api/live/channel/session`, `DELETE …/session` (aliases `…/service`) | Access | Start/takeover and End |
 | `POST …/lease`, `POST …/caption` | Access + controller | Reserve an attempt; publish one moderated caption (8,192 bytes) |
 | `POST …/control` | Access + controller | `pause`, `resume`, `clear`, `show-test`, `manual`, `refresh-translation` |
 | `PUT …/style`, `POST …/rotate`, `POST …/viewer/rotate` | Access | Shared style; OBS rotation; viewer replacement (4,096-byte bodies) |
 | `POST /api/live/channel/observer` | Access | Registers the signed-in operator as a read-only watcher of the running service and returns that operator's own caption-stream credential |
-| `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol | OBS and latest-viewer WebSockets |
+| `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol (`caption-studio-v1` / `caption-studio-viewer-v1`; earlier `church-caption-*` names still accepted) | OBS and latest-viewer WebSockets |
 | `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation. `…/pair` needs Access only, so any workspace operator can pair a phone; the other operations still need the controller |
 | `GET`/`POST`/`DELETE …/experience/preferences` | Access | The signed-in operator's saved configuration; POST merges a partial record, `null` clears a field |
-| `GET …/experience/usage`, `GET …/experience/history`, `GET …/sermons/{id}/metadata`, `GET …/sermons/{id}/archive` | Access | Rolling usage, archive index with metadata-only reads, one transcript's workspace-wide archive |
-| `POST …/sermons/{id}/summary`, `…/remove`, `…/correct`, `…/delete`, `…/metadata` | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion, record-only session details |
+| `GET …/experience/usage`, `GET …/experience/history`, `GET …/transcripts/{id}/metadata`, `GET …/transcripts/{id}/archive` (aliases `…/sermons/…`) | Access | Rolling usage, archive index with metadata-only reads, one transcript's workspace-wide archive |
+| `POST …/transcripts/{id}/summary`, `…/remove`, `…/correct`, `…/delete`, `…/metadata` (aliases `…/sermons/…`) | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion, record-only session details |
 | `GET /api/live/reader` | `x-caption-reader` header | Appending reader paragraphs and operator notes, 50 per poll |
 
 Experience JSON bodies are limited to 32,768 bytes. Groq calls time out after 30 seconds
@@ -280,10 +280,10 @@ IDs each.
 | --- | --- | --- |
 | `channel_not_configured` | 404 | Main channel not created |
 | `channel_in_use` | 409 | Another controller is active; takeover requires confirmation |
-| `controller_replaced`, `service_paused`, `caption_cleared`, `translation_session_refreshed`, `{stage}_attempt_used` | 409 | Stale controller, paused service, superseded caption, stale settings revision, or reused claim |
+| `controller_replaced`, `service_paused` (`sessionCode` `session_paused`), `caption_cleared`, `translation_session_refreshed`, `{stage}_attempt_used` | 409 | Stale controller, paused session, superseded caption, stale settings revision, or reused claim. Error bodies keep `code` and add `sessionCode`; the current client reads `sessionCode` and falls back to `code` |
 | `invalid_{stage}_attempt` | 400 | Malformed or unreserved attempt |
 | `transcription_limit_reached` | 429 | 1,800 reserved attempts exhausted; usage admission may also return 409/429 |
-| `service_inactive` | 410 | Ended or expired service; reader links return 403/410 |
+| `service_inactive` (`sessionCode` `session_inactive`) | 410 | Ended or expired session; reader links return 403/410 |
 | `invalid_overlay_key`, `invalid_viewer_key` | 401 (503 when the OBS credential cannot be decrypted) | Wrong-purpose or revoked token |
 | `translation_incomplete` | 422 | Provider output skipped; usage retained |
 | `*_authorization_unavailable`, `translation_usage_unavailable`, viewer capacity | 503 | Room or ledger unavailable, or 250 viewer sockets reached |

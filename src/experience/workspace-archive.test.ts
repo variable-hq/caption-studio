@@ -42,14 +42,14 @@ function state(storage: Storage) {
   } as unknown as DurableObjectState;
 }
 
-const SERVICE_ID = "12345678-1234-1234-1234-123456789012";
+const SESSION_ID = "12345678-1234-1234-1234-123456789012";
 const STARTING_OPERATOR = "first.operator@example.test";
 const SECOND_OPERATOR = "second.operator@example.test";
-const ARCHIVED = [{ id: SERVICE_ID, startedAt: 1_700_000_000_000 }];
+const ARCHIVED = [{ id: SESSION_ID, startedAt: 1_700_000_000_000 }];
 
 function snapshot(overrides: Partial<JournalState> = {}): JournalState {
   return {
-    id: SERVICE_ID, startedAt: Date.now(), expiresAt: Date.now() + 90 * 60_000,
+    id: SESSION_ID, startedAt: Date.now(), expiresAt: Date.now() + 90 * 60_000,
     saved: true, readerHash: "a".repeat(64), status: "live", epoch: 0, revision: 0,
     incomplete: false, readerCalls: 0, summaryCalls: 0, ...overrides,
   };
@@ -77,7 +77,7 @@ beforeEach(async () => {
     get: () => ({
       fetch: async (request: Request) => {
         roomRequests.push(request);
-        return Response.json({ services: ARCHIVED });
+        return Response.json({ sessions: ARCHIVED, services: ARCHIVED });
       },
     }),
   };
@@ -94,8 +94,17 @@ beforeEach(async () => {
 });
 
 describe("workspace-wide transcript archives", () => {
+  it("serves the archive under the transcripts path and the older sermons alias", async () => {
+    const current = await handleExperienceRequest(as(STARTING_OPERATOR, `/api/live/experience/transcripts/${SESSION_ID}/archive`), environment);
+    const alias = await handleExperienceRequest(as(STARTING_OPERATOR, `/api/live/experience/sermons/${SESSION_ID}/archive`), environment);
+
+    expect(current?.status).toBe(200);
+    expect(alias?.status).toBe(200);
+    expect(await alias?.json()).toEqual(await current?.json());
+  });
+
   it("serves the same archive to an operator who did not run the service", async () => {
-    const path = `/api/live/experience/sermons/${SERVICE_ID}/archive`;
+    const path = `/api/live/experience/sermons/${SESSION_ID}/archive`;
     const starting = await handleExperienceRequest(as(STARTING_OPERATOR, path), environment);
     const second = await handleExperienceRequest(as(SECOND_OPERATOR, path), environment);
 
@@ -109,12 +118,12 @@ describe("workspace-wide transcript archives", () => {
 
   it("lets a second operator correct a passage the first operator recorded", async () => {
     const response = await handleExperienceRequest(
-      as(SECOND_OPERATOR, `/api/live/experience/sermons/${SERVICE_ID}/correct`, { id: 1, text: "Corrected transcript source." }),
+      as(SECOND_OPERATOR, `/api/live/experience/sermons/${SESSION_ID}/correct`, { id: 1, text: "Corrected transcript source." }),
       environment,
     );
     expect(response?.status).toBe(200);
 
-    const archive = await handleExperienceRequest(as(STARTING_OPERATOR, `/api/live/experience/sermons/${SERVICE_ID}/archive`), environment);
+    const archive = await handleExperienceRequest(as(STARTING_OPERATOR, `/api/live/experience/sermons/${SESSION_ID}/archive`), environment);
     const body = await archive!.json() as { sources: { correction?: string }[] };
     expect(body.sources[0]?.correction).toBe("Corrected transcript source.");
   });
@@ -124,7 +133,7 @@ describe("workspace-wide transcript archives", () => {
       body: JSON.stringify(snapshot({ status: "ended", endedAt: Date.now() })) }));
 
     const response = await handleExperienceRequest(
-      as(SECOND_OPERATOR, `/api/live/experience/sermons/${SERVICE_ID}/delete`, { confirm: true }),
+      as(SECOND_OPERATOR, `/api/live/experience/sermons/${SESSION_ID}/delete`, { confirm: true }),
       environment,
     );
     expect(response?.status).toBe(200);
@@ -135,7 +144,8 @@ describe("workspace-wide transcript archives", () => {
     const metadataRead = vi.spyOn(journal, "fetch");
     const response = await handleExperienceRequest(as(SECOND_OPERATOR, "/api/live/experience/history"), environment);
     expect(response?.status).toBe(200);
-    expect(await response!.json()).toEqual({ services: [{ ...ARCHIVED[0], metadata: { topic: "", speaker: "", description: "", sessionAt: null } }] });
+    const transcript = { ...ARCHIVED[0], metadata: { topic: "", speaker: "", description: "", sessionAt: null } };
+    expect(await response!.json()).toEqual({ sessions: [transcript], services: [transcript] });
     // The identity authorizes the read; it never scopes it, so nothing is forwarded.
     expect(roomRequests[0]?.headers.get("cf-access-jwt-assertion")).toBeNull();
     expect(await roomRequests[0]?.clone().text()).toBe("");
@@ -145,13 +155,13 @@ describe("workspace-wide transcript archives", () => {
 
   it("enforces the 32 KB cap on metadata writes", async () => {
     const body = { topic: "x".repeat(33_000) };
-    const response = await handleExperienceRequest(as(SECOND_OPERATOR, `/api/live/experience/sermons/${SERVICE_ID}/metadata`, body), environment);
+    const response = await handleExperienceRequest(as(SECOND_OPERATOR, `/api/live/experience/sermons/${SESSION_ID}/metadata`, body), environment);
     expect(response?.status).toBe(413);
   });
 
   it("still refuses an archive request that carries no Access session", async () => {
     const response = await handleExperienceRequest(
-      new Request(`https://caption.example.test/api/live/experience/sermons/${SERVICE_ID}/archive`),
+      new Request(`https://caption.example.test/api/live/experience/sermons/${SESSION_ID}/archive`),
       environment,
     );
     expect(response?.status).toBe(401);

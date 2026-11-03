@@ -5,6 +5,12 @@ const MAX_DAILY_NEURONS = 9_000;
 const MAX_READER_NEURONS = 6_000;
 const SAFE_ID = /^[a-zA-Z0-9:_-]{1,180}$/u;
 
+/** Maps a record stored before sessionId, so reads and later writes use the current name. */
+export function normalizeUsageRecord(record: UsageRecord): UsageRecord {
+  const { serviceId, ...current } = record;
+  return { ...current, sessionId: current.sessionId ?? serviceId! };
+}
+
 /** Numeric accounting only. This object never receives transcript text or credentials. */
 export class AiUsageLedger {
   constructor(private readonly state: DurableObjectState) {}
@@ -16,12 +22,13 @@ export class AiUsageLedger {
       const records = await this.state.storage.list<UsageRecord>({ prefix: "event:", limit: 1000,
         startAfter: new URL(request.url).searchParams.get("after") || undefined });
       const entries = [...records].filter(([, value]) => value.at > since);
-      return json({ records: entries.map(([, value]) => value),
+      return json({ records: entries.map(([, value]) => normalizeUsageRecord(value)),
         next: records.size === 1000 ? [...records.keys()].at(-1) : null });
     }
     if (path === "/admit" && request.method === "POST") {
       const body = await request.json() as Partial<UsageRecord>;
-      if (!SAFE_ID.test(body.id ?? "") || !SAFE_ID.test(body.serviceId ?? "") ||
+      const sessionId = body.sessionId ?? body.serviceId;
+      if (!SAFE_ID.test(body.id ?? "") || !SAFE_ID.test(sessionId ?? "") ||
           !["transcription", "translation", "reader", "summary"].includes(body.stage ?? "") ||
           !["groq", "cloudflare"].includes(body.provider ?? "") ||
           typeof body.model !== "string" || body.model.length > 160 ||
@@ -41,7 +48,7 @@ export class AiUsageLedger {
         }
         const key = `event:${String(at).padStart(13, "0")}:${body.id}`;
         const record: UsageRecord = {
-          id: body.id!, serviceId: body.serviceId!, stage: body.stage!, provider: body.provider!,
+          id: body.id!, sessionId: sessionId!, stage: body.stage!, provider: body.provider!,
           model: body.model!, at, status: "pending", tokens: null, audioSeconds: null,
           reservedNeurons: reserve, estimatedNeurons: 0,
         };
@@ -59,7 +66,8 @@ export class AiUsageLedger {
       if (!SAFE_ID.test(body.id ?? "")) return json({ error: "Invalid usage ID." }, 400);
       return this.state.storage.transaction(async (storage) => {
         const key = await storage.get<string>(`id:${body.id}`);
-        const record = key ? await storage.get<UsageRecord>(key) : undefined;
+        const stored = key ? await storage.get<UsageRecord>(key) : undefined;
+        const record = stored ? normalizeUsageRecord(stored) : undefined;
         if (!record || record.at + USAGE_RETENTION <= Date.now()) return json({ error: "Usage expired." }, 410);
         // Repeated acknowledgements do not add usage. A late known result may resolve unknown usage.
         if (record.status === "completed") return json({ recorded: true });

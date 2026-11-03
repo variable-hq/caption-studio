@@ -45,8 +45,8 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
     if (operation === "history" && request.method === "GET") {
       const history = await rpc(env.CAPTION_ROOMS, "channel:main", "/internal/history");
       if (!history.ok || !env.SERMON_JOURNALS) return history;
-      const body = await history.json() as { services: { id: string; startedAt: number }[] };
-      const services = await Promise.all(body.services.slice(0, 50).map(async (entry) => {
+      const body = await history.json() as { sessions: { id: string; startedAt: number }[] };
+      const sessions = await Promise.all(body.sessions.slice(0, 50).map(async (entry) => {
         try {
           const metadata = await rpc(env.SERMON_JOURNALS!, entry.id, "/metadata");
           if (!metadata.ok) return entry;
@@ -54,12 +54,12 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
           return { ...entry, metadata: details.metadata };
         } catch { return entry; }
       }));
-      return json({ ...body, services });
+      return json({ sessions, services: sessions });
     }
     const parts = operation.split("/");
-    if (parts.length === 3 && parts[0] === "sermons" && UUID_PATTERN.test(parts[1] ?? "") &&
+    if (parts.length === 3 && (parts[0] === "transcripts" || parts[0] === "sermons") && UUID_PATTERN.test(parts[1] ?? "") &&
         ["archive", "summary", "remove", "correct", "delete", "metadata"].includes(parts[2])) {
-      if (!env.SERMON_JOURNALS) return json({ error: "Sermon archive is not configured." }, 503);
+      if (!env.SERMON_JOURNALS) return json({ error: "Transcript archive is not configured." }, 503);
       if (parts[2] === "archive" && request.method === "GET") return rpc(env.SERMON_JOURNALS, parts[1],
         `/archive?after=${Math.max(0, Number(url.searchParams.get("after")) || 0)}&paragraphAfter=${Math.max(0, Number(url.searchParams.get("paragraphAfter")) || 0)}`);
       if (parts[2] === "metadata" && request.method === "GET") return rpc(env.SERMON_JOURNALS, parts[1], "/metadata");
@@ -74,7 +74,7 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       }
       if (result.ok && parts[2] === "remove") {
         const removed = await result.clone().json() as { sourceIds: number[] };
-        await rpc(env.CAPTION_ROOMS, "channel:main", "/internal/experience/remove-current", { serviceId: parts[1], sourceIds: removed.sourceIds });
+        await rpc(env.CAPTION_ROOMS, "channel:main", "/internal/experience/remove-current", { sessionId: parts[1], sourceIds: removed.sourceIds });
       }
       return result;
     }
@@ -90,9 +90,9 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       readerHash: operation === "reader-rotate" ? await captionTokenHash(issued!) : undefined };
     const response = await rpc(env.CAPTION_ROOMS, "channel:main", `/internal/experience/${operation}`, payload);
     if (!response.ok || !issued) return response;
-    const result = await response.json() as { serviceId: string };
+    const result = await response.json() as { sessionId: string };
     const link = new URL(operation === "pair" ? "/operator/mobile" : "/read", request.url);
-    link.hash = `${result.serviceId}.${issued}`;
+    link.hash = `${result.sessionId}.${issued}`;
     return json({ url: link.toString() });
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) return json({ error: "Request body is too large." }, 413);

@@ -1668,6 +1668,28 @@ describe("workspace watchers", () => {
     expect(accepted).toEqual([["observer"]]);
   });
 
+  it("accepts a registered watcher on the current viewer subprotocol and on the earlier one", async () => {
+    for (const protocol of ["caption-studio-viewer-v1", "church-caption-viewer-v1"]) {
+      const { room, accepted } = roomFixture();
+      await createChannel(room);
+      await startLiveSession(room);
+      await room.fetch(observe(identity("1"), await captionTokenHash(observerToken)));
+      class FakePair {
+        readonly 0 = new FakeSocket();
+        readonly 1 = new FakeSocket();
+      }
+      vi.stubGlobal("WebSocketPair", FakePair);
+      try {
+        await room.fetch(new Request("https://caption-room/internal/viewer/connect", {
+          headers: { upgrade: "websocket", "sec-websocket-protocol": `${protocol}, ${observerToken}` },
+        })).catch(() => null);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+      expect(accepted).toEqual([["observer"]]);
+    }
+  });
+
   it("broadcasts public captions to watchers and keeps them through a viewer-link replacement", async () => {
     const { room, observerSockets } = roomFixture(1, 1);
     await createChannel(room);
@@ -1704,5 +1726,63 @@ describe("workspace watchers", () => {
     });
     const configuration = await storage.get<{ observers?: unknown }>("configuration");
     expect(configuration?.observers).toBeUndefined();
+  });
+});
+
+describe("stored session names", () => {
+  it("keeps a configuration written with serviceId controllable and stores sessionId on the next write", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    expect((await startLiveSession(room)).status).toBe(200);
+    const stored = storage.values.get("configuration") as Record<string, unknown>;
+    const sessionId = stored.sessionId as string;
+    const legacy: Record<string, unknown> = { ...stored, serviceId: sessionId, serviceEventCount: stored.sessionEventCount };
+    delete legacy.sessionId;
+    delete legacy.sessionEventCount;
+    storage.values.set("configuration", legacy);
+
+    const rotated = await room.fetch(request("/internal/experience/reader-rotate", { controllerHash: CONTROLLER_A, readerHash: "e".repeat(64) }));
+    expect(await rotated.json()).toMatchObject({ serviceId: sessionId });
+    const written = storage.values.get("configuration") as Record<string, unknown>;
+    expect(written).toMatchObject({ sessionId, sessionEventCount: 0 });
+    expect(written).not.toHaveProperty("serviceId");
+    expect(written).not.toHaveProperty("serviceEventCount");
+  });
+
+  it("returns both session and earlier id names, both error code fields and both ended headers", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    const started = await (await room.fetch(request("/internal/session", { controllerHash: CONTROLLER_A, controllerLabel: "first@example.test", viewerTokenHash: VIEWER_A, takeover: false, style: { fontSize: 60 } }))).json() as Record<string, unknown>;
+    const sessionId = (storage.values.get("configuration") as Record<string, unknown>).sessionId;
+    expect(started).toMatchObject({ sessionId, serviceId: sessionId });
+
+    const paused = await room.fetch(request("/internal/control", { action: "pause", controllerHash: CONTROLLER_A }));
+    expect(paused.status).toBe(200);
+    const history = await (await room.fetch(request("/internal/history"))).json() as { sessions: unknown[]; services: unknown[] };
+    expect(history.sessions).toEqual(history.services);
+
+    const ended = await room.fetch(request("/internal/session", { controllerHash: CONTROLLER_A }, "DELETE"));
+    expect(ended.headers.get("x-ended-session")).toBe(sessionId);
+    expect(ended.headers.get("x-ended-service")).toBe(sessionId);
+  });
+
+  it("starts and ends a session under the internal session route and the older service route", async () => {
+    const { room } = roomFixture();
+    await createChannel(room);
+    const started = await room.fetch(request("/internal/session", { controllerHash: CONTROLLER_A, controllerLabel: "first@example.test", viewerTokenHash: VIEWER_A, takeover: false, style: { fontSize: 60 } }));
+    expect(started.status).toBe(200);
+    expect((await room.fetch(request("/internal/session", { controllerHash: CONTROLLER_A }, "DELETE"))).status).toBe(204);
+    expect((await room.fetch(request("/internal/service", { controllerHash: CONTROLLER_A, controllerLabel: "first@example.test", viewerTokenHash: VIEWER_A, takeover: false, style: { fontSize: 60 } }))).status).toBe(200);
+    expect((await room.fetch(request("/internal/service", { controllerHash: CONTROLLER_A }, "DELETE"))).status).toBe(204);
+  });
+
+  it("accepts sessionId and the pre-session serviceId in the experience request body", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    await startLiveSession(room);
+    const sessionId = (storage.values.get("configuration") as Record<string, unknown>).sessionId as string;
+    expect(await (await room.fetch(request("/internal/experience/remove-current", { sessionId, sourceIds: [] }))).json()).toEqual({ cleared: true });
+    expect(await (await room.fetch(request("/internal/experience/remove-current", { serviceId: sessionId, sourceIds: [] }))).json()).toEqual({ cleared: true });
+    expect(await (await room.fetch(request("/internal/experience/remove-current", { sessionId: "not-the-session", sourceIds: [] }))).json()).toEqual({ ignored: true });
   });
 });

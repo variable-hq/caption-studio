@@ -587,7 +587,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           return;
         }
         if (error instanceof LiveApiError && error.code === "caption_cleared") return;
-        if (error instanceof LiveApiError && error.code === "service_paused") {
+        if (error instanceof LiveApiError && error.code === "session_paused") {
           stopCapture();
           resetOutputBuffer();
           setLiveState((state) => ({
@@ -917,7 +917,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             continue;
           }
           if (error instanceof LiveApiError && error.code === "caption_cleared") continue;
-          if ((error instanceof LiveApiError || error instanceof CloudProviderClientError) && error.code === "service_paused") {
+          if ((error instanceof LiveApiError || error instanceof CloudProviderClientError) && error.code === "session_paused") {
             stopCapture();
             resetOutputBuffer();
             setLiveState((state) => ({ ...state, status: "paused", latestPublicText: "", latestPublicAt: null, latestSourceText: "", message: tRef.current("live.message.pausedRemote") }));
@@ -1224,7 +1224,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           );
           if (!loadIsCurrent()) return;
           const recovered: LiveSessionDetails = {
-            serviceId: channel.serviceId,
+            sessionId: channel.sessionId,
             saveHistory: channel.saveHistory,
             channelId: channel.channelId,
             controllerToken: storedController,
@@ -2314,7 +2314,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, [refreshDevices, stopCapture]);
 
   useEffect(() => {
-    if (!liveState.liveSession?.serviceId) return;
+    if (!liveState.liveSession?.sessionId) return;
     let cancelled = false;
     const controller = liveState.liveSession.controllerToken;
     const stop = startSerialPolling(async () => {
@@ -2338,7 +2338,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       } catch { /* The inference boundary still enforces server pause while reconnecting. */ }
     }, 2000);
     return () => { cancelled = true; stop(); };
-  }, [liveState.liveSession?.serviceId, liveState.liveSession?.controllerToken, pauseSession, resumeSession, clearCaption]);
+  }, [liveState.liveSession?.sessionId, liveState.liveSession?.controllerToken, pauseSession, resumeSession, clearCaption]);
 
   return {
     devices,

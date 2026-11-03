@@ -42,6 +42,8 @@ export interface ArchiveEntry {
 }
 
 export interface ChannelConfiguration {
+  sessionId?: string;
+  /** Name written before sessionId; read by normalizeConfiguration and dropped on the next write. */
   serviceId?: string;
   saveHistory?: boolean;
   readerHash?: string;
@@ -58,7 +60,9 @@ export interface ChannelConfiguration {
   style: CaptionStyle;
   status: Exclude<ChannelStatus, "unconfigured">;
   lastSequence: number;
-  serviceEventCount: number;
+  sessionEventCount: number;
+  /** Name written before sessionEventCount; read by normalizeConfiguration and dropped on the next write. */
+  serviceEventCount?: number;
   transcriptionRequests: number;
   llmUsage: LlmSessionUsage;
   claimedTranscriptionAttempts: number[];
@@ -165,8 +169,10 @@ export function credentialMatches(map: Record<string, string> | undefined, hash:
 }
 
 export function normalizeConfiguration(configuration: ChannelConfiguration) {
+  const { serviceId, serviceEventCount, ...current } = configuration;
   return {
-    ...configuration,
+    ...current,
+    sessionId: current.sessionId ?? serviceId,
     observers: normalizedCredentialMap(configuration.observers),
     remoteHashes: normalizedCredentialMap(configuration.remoteHashes),
     captionEpoch: normalizeTranslationRevision(configuration.captionEpoch),
@@ -177,9 +183,9 @@ export function normalizeConfiguration(configuration: ChannelConfiguration) {
     lastSequence: Number.isSafeInteger(configuration.lastSequence)
       ? Math.max(0, configuration.lastSequence)
       : 0,
-    serviceEventCount: Number.isSafeInteger(configuration.serviceEventCount)
-      ? Math.max(0, configuration.serviceEventCount)
-      : 0,
+    sessionEventCount: Number.isSafeInteger(configuration.sessionEventCount)
+      ? Math.max(0, configuration.sessionEventCount)
+      : Number.isSafeInteger(serviceEventCount) ? Math.max(0, serviceEventCount!) : 0,
     transcriptionRequests: Number.isSafeInteger(configuration.transcriptionRequests)
       ? Math.max(0, configuration.transcriptionRequests)
       : 0,
@@ -197,10 +203,15 @@ export function normalizeConfiguration(configuration: ChannelConfiguration) {
   } satisfies ChannelConfiguration;
 }
 
+/** Reads a stored configuration with the pre-session field names mapped to the current ones. */
+export function storedConfiguration(stored: ChannelConfiguration | undefined) {
+  return stored ? normalizeConfiguration(stored) : undefined;
+}
+
 export function deactivate(configuration: ChannelConfiguration) {
   const current = normalizeConfiguration(configuration);
   current.status = "idle";
-  current.serviceEventCount = 0;
+  current.sessionEventCount = 0;
   current.transcriptionRequests = 0;
   current.llmUsage = emptyLlmSessionUsage();
   current.claimedTranscriptionAttempts = [];
@@ -213,7 +224,7 @@ export function deactivate(configuration: ChannelConfiguration) {
   delete current.startedAt;
   delete current.expiresAt;
   delete current.lastTranslationRefreshRequestId;
-  delete current.serviceId;
+  delete current.sessionId;
   delete current.readerHash;
   delete current.remoteHash;
   delete current.remoteHashes;
@@ -240,14 +251,16 @@ export function controllerMatches(configuration: ChannelConfiguration, hash: unk
   );
 }
 
-export function websocketToken(request: Request, protocol: string) {
-  const protocols = (request.headers.get("sec-websocket-protocol") ?? "")
+/** The capability token and the accepted subprotocol the client offered; the protocol is echoed back. */
+export function websocketCredential(request: Request, protocols: readonly string[]) {
+  const offered = (request.headers.get("sec-websocket-protocol") ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  if (!protocols.includes(protocol)) return null;
-  const token = protocols.find((value) => value !== protocol) ?? null;
-  return token && CAPABILITY_TOKEN_PATTERN.test(token) ? token : null;
+  const protocol = protocols.find((candidate) => offered.includes(candidate));
+  if (!protocol) return null;
+  const token = offered.find((value) => !protocols.includes(value)) ?? null;
+  return token && CAPABILITY_TOKEN_PATTERN.test(token) ? { token, protocol } : null;
 }
 
 export function validCaptionBody(body: Partial<PublicCaptionRequest>) {
@@ -277,7 +290,8 @@ export function publicConfiguration(configuration: ChannelConfiguration) {
   const current = normalizeConfiguration(configuration);
   return {
     configured: true,
-    serviceId: current.serviceId,
+    sessionId: current.sessionId,
+    serviceId: current.sessionId,
     saveHistory: current.saveHistory,
     controllerLabel: current.controllerLabel,
     encryptedToken: current.encryptedToken,

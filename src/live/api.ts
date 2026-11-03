@@ -54,7 +54,13 @@ export interface LiveWorkerEnvironment extends ExperienceEnvironment {
   OBS_CHANNEL_ENCRYPTION_KEY?: string;
 }
 
+/** The field name used before sessionId; still sent so pages loaded before the rename keep working. */
+function previousSessionName(sessionId: string | undefined) {
+  return { serviceId: sessionId };
+}
+
 interface InternalChannelDetails {
+  sessionId?: string;
   serviceId?: string;
   saveHistory?: boolean;
   controllerLabel?: string;
@@ -178,7 +184,8 @@ async function publicChannelDetails(
   return {
     channelId: MAIN_CHANNEL_ID,
     configured: true,
-    serviceId: internal.serviceId,
+    sessionId: internal.sessionId,
+    ...previousSessionName(internal.sessionId),
     saveHistory: internal.saveHistory,
     controllerLabel: internal.controllerLabel,
     status: internal.status,
@@ -365,7 +372,7 @@ async function startLiveSession(request: Request, env: LiveWorkerEnvironment) {
   if (body.saveHistory !== undefined && typeof body.saveHistory !== "boolean") throw new InvalidRequestBodyError();
   if (body.saveHistory === true && !env.SERMON_JOURNALS) return json({ error: "Saved history is not configured." }, 503);
   const response = await channelRoom(env).fetch(
-    new Request("https://caption-room/internal/service", {
+    new Request("https://caption-room/internal/session", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -382,6 +389,7 @@ async function startLiveSession(request: Request, env: LiveWorkerEnvironment) {
   );
   if (!response.ok) return response;
   const details = await internalJson<{
+    sessionId: string;
     serviceId: string;
     saveHistory: boolean;
     status: "live";
@@ -392,9 +400,10 @@ async function startLiveSession(request: Request, env: LiveWorkerEnvironment) {
   return json({
     channelId: MAIN_CHANNEL_ID,
     controllerToken,
-    serviceId: details.serviceId,
+    sessionId: details.sessionId,
+    serviceId: details.sessionId,
     saveHistory: details.saveHistory,
-    readerUrl: `${new URL("/read", request.url)}#${details.serviceId}.${readerToken}`,
+    readerUrl: `${new URL("/read", request.url)}#${details.sessionId}.${readerToken}`,
     viewerUrl: viewerUrl(request, viewerToken),
     startedAt: details.startedAt,
     expiresAt: details.expiresAt,
@@ -426,6 +435,7 @@ async function observeSession(request: Request, env: LiveWorkerEnvironment) {
   );
   if (!response.ok) return response;
   const details = await internalJson<{
+    sessionId: string;
     serviceId: string;
     saveHistory: boolean;
     controllerLabel?: string;
@@ -436,7 +446,8 @@ async function observeSession(request: Request, env: LiveWorkerEnvironment) {
   }>(response);
   return json({
     channelId: MAIN_CHANNEL_ID,
-    serviceId: details.serviceId,
+    sessionId: details.sessionId,
+    ...previousSessionName(details.sessionId),
     saveHistory: details.saveHistory,
     controllerLabel: details.controllerLabel,
     status: details.status,
@@ -471,17 +482,17 @@ async function replaceViewerLink(
 async function endLiveSession(request: Request, env: LiveWorkerEnvironment) {
   const { email } = await requireOperator(request, env);
   const response = await channelRoom(env).fetch(
-    new Request("https://caption-room/internal/service", {
+    new Request("https://caption-room/internal/session", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ controllerHash: await controllerHash(request) }),
     }),
   );
   if (response.status !== 204) return response;
-  const serviceId = response.headers.get("x-ended-service");
-  if (serviceId && response.headers.get("x-ended-saved") === "1") {
+  const sessionId = response.headers.get("x-ended-session") ?? response.headers.get("x-ended-service");
+  if (sessionId && response.headers.get("x-ended-saved") === "1") {
     // End has already succeeded; an automatic summary problem must never turn it into a failure.
-    await queueAutoSummary(env, serviceId, email ?? "local").catch(() => {});
+    await queueAutoSummary(env, sessionId, email ?? "local").catch(() => {});
   }
   return new Response(null, { status: 204 });
 }
@@ -655,7 +666,7 @@ export async function handleLiveApiRequest(
         ? await rotateChannel(request, env)
         : json({ error: "Unsupported OBS channel rotation operation." }, 405);
     }
-    if (url.pathname === "/api/live/channel/service") {
+    if (url.pathname === "/api/live/channel/session" || url.pathname === "/api/live/channel/service") {
       if (request.method === "POST") return await startLiveSession(request, env);
       if (request.method === "DELETE") return await endLiveSession(request, env);
       return json({ error: "Unsupported live-session operation." }, 405);
@@ -704,7 +715,7 @@ export async function handleLiveApiRequest(
         ? "Caption style"
         : url.pathname.includes("control")
           ? "Live control"
-          : url.pathname.includes("service")
+          : url.pathname.includes("session") || url.pathname.includes("service")
             ? "Live session"
             : "OBS channel operation";
     return protectedError(error, label);

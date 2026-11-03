@@ -25,13 +25,13 @@ export async function meteredGroq<T>(request: Request, stage: "transcription" | 
     transcriptionAttempt: attempt, stage,
   });
   if (!context.ok) throw new Error("AI service authorization is no longer valid.");
-  const { serviceId } = await context.json() as { serviceId: string };
-  const id = `${serviceId}:${stage}:${attempt}`;
+  const { sessionId } = await context.json() as { sessionId: string };
+  const id = `${sessionId}:${stage}:${attempt}`;
   let dispatched = false;
   const telemetry: ProviderTelemetry = {
     async dispatch(model) {
       const admission = await rpc(env.AI_USAGE!, "usage", "/admit", {
-        id, serviceId, stage, provider: "groq", model, reservedNeurons: 0,
+        id, sessionId, stage, provider: "groq", model, reservedNeurons: 0,
       });
       if (!admission.ok) throw new Error("AI usage admission failed before provider dispatch.");
       dispatched = true;
