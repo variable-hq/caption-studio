@@ -7,7 +7,7 @@ import type { CloudProviderClient } from "@/ai/cloud-provider-client";
 import type { LanguageLocale } from "@/domain/languages";
 import type { TranslationSessionSettings } from "@/live/translation-settings";
 import { parseGlossaryInput, preferredTermMap } from "@/live/config";
-import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
+import { correctApprovedRecognitionVariants } from "@/pipeline/recognition-variants";
 import { keywordHints } from "@/pipeline/glossary";
 import { normalizeLiveNote } from "@/live/live-note";
 import type { LiveSessionClient } from "@/live/session-client";

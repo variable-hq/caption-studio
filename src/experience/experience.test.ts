@@ -5,7 +5,7 @@ import { DAY, HISTORY_RETENTION, MAX_JOURNAL_NOTES, READER_GRACE, SUMMARY_MODELS
 import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
 import { normalizeCaptionStyle } from "@/live/contracts";
 import { handleExperienceRequest } from "./api";
-import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
+import { correctApprovedRecognitionVariants } from "@/pipeline/recognition-variants";
 import { parseGlossaryInput } from "@/live/config";
 import { buildTranscriptionPrompt } from "@/ai/server/groq";
 import { queueAutoSummary } from "./auto-summary";
