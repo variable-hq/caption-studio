@@ -46,3 +46,7 @@ Per-capture learning of each speaker's sentence pause is deferred. It proceeds o
 - **Retuning is bounded.** The selection rule limits mid-sentence finals and the call-rate increase, and a tie keeps the current values, so a tuning change cannot trade a regression for a speed-up.
 - **No new provider call.** Metrics and the harness add no call. Counters are numbers in the controlling tab's memory and appear in no request, log or stored record.
 - **Manual checks.** Synthetic speech and pauses in Chrome and Safari confirm what the replay predicts: each cut row matches the labelled recording, and the held-draft case cuts later after the post-hold pause. Native-speaker review covers the five new Indonesian strings.
+
+## Progress
+
+- Measurement and replay harness landed (counters, five Technical details rows, `src/live/dynamic-replay.ts`). Rehearsal A, which measures how often drafts end in terminal punctuation mid-clause and at sentence ends, is still to run before the post-hold pause.

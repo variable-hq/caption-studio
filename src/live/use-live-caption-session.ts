@@ -72,6 +72,11 @@ import {
   setBackgroundTimeout,
 } from "@/live/background-timer";
 import {
+  createCutMetrics,
+  recordCutWindow,
+  type CutReason,
+} from "@/live/cut-metrics";
+import {
   initialWindowPolicyState,
   nextWindowDecision,
   dynamicDraftResult,
@@ -135,6 +140,7 @@ const INITIAL_LIVE_STATE: LiveSessionState = {
   droppedChunks: 0,
   filteredSegments: 0,
   transcriptionRequests: 0,
+  cutMetrics: createCutMetrics(),
   llmUsage: emptyLlmSessionUsage(),
   latestSourceText: "",
   latestPublicText: "",
@@ -1040,6 +1046,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         let windowPeakRms = 0;
         let levelReadFailed = false;
         let draftWindowId: number | null = null;
+        let endReason: CutReason | null = null;
+        let heldDrafts = 0;
+        let stoppedAtMs: number | null = null;
+        const startedAtMs = performance.now();
         const recorder = new MediaRecorder(stream, recorderOptions());
         recorderRef.current = recorder;
         recorder.ondataavailable = ({ data }) => {
@@ -1072,6 +1082,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             startRecorderChunk();
             return;
           }
+          if (endReason !== null) {
+            const cutWindow = {
+              reason: endReason,
+              lengthMs: (stoppedAtMs ?? performance.now()) - startedAtMs,
+              heldDrafts,
+            };
+            setLiveState((state) => ({ ...state, cutMetrics: recordCutWindow(state.cutMetrics, cutWindow) }));
+          }
           const mimeType = recorder.mimeType || chunks[0]?.type || "audio/webm";
           enqueueChunk(new Blob(chunks, { type: mimeType }), generation, draftWindowId ?? undefined);
           startRecorderChunk();
@@ -1086,7 +1104,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             type: recorder.mimeType || chunks[0]?.type || "audio/webm",
           }),
         });
-        const stopWindow = () => {
+        const stopWindow = (reason: CutReason) => {
+          if (endReason === null) {
+            endReason = reason;
+            stoppedAtMs = performance.now();
+          }
           if (dynamicWindowTimerRef.current !== null) {
             clearBackgroundInterval(dynamicWindowTimerRef.current);
             dynamicWindowTimerRef.current = null;
@@ -1123,7 +1145,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           }
           policyState = result.state;
           if (recordingWindowMs !== "dynamic") {
-            if (result.decision === "cut") stopWindow();
+            if (result.decision === "cut") {
+              stopWindow(result.state.elapsedMs >= bounds.maxMs ? "limit" : "pause");
+            }
             return;
           }
           const action = dynamicPauseAction(result, bounds, draftHold);
@@ -1145,6 +1169,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               );
               if (outcome === "hold") {
                 draftHold = "rejected";
+                heldDrafts += 1;
                 return;
               }
               // A surviving terminal-punctuation draft is this window's final transcription.
@@ -1156,15 +1181,15 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
                   snapshot: attempt.draft.snapshot,
                 };
               }
-              stopWindow();
+              stopWindow(attempt.available && attempt.preview !== null ? "sentence" : "pause");
             });
             return;
           }
-          stopWindow();
+          stopWindow(result.state.elapsedMs >= bounds.maxMs ? "limit" : "pause");
         }, DYNAMIC_SAMPLE_MS);
         recorderTimerRef.current = setBackgroundTimeout(() => {
           recorderTimerRef.current = null;
-          stopWindow();
+          stopWindow("limit");
         }, bounds.maxMs);
       };
       startRecorderChunk();
@@ -1501,6 +1526,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         droppedChunks: 0,
         filteredSegments: 0,
         transcriptionRequests: 0,
+        cutMetrics: createCutMetrics(),
         llmUsage: emptyLlmSessionUsage(),
         latestSourceText: "",
         latestPublicText: "",

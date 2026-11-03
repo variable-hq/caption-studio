@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 3 November 2026 against merged PR #99 (`a5add46`). Cloudflare deployed `20597d8`
+Reviewed 3 November 2026 against merged PR #100 (`b4c03ab`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -304,6 +304,14 @@ settings, Terms/Quick overrides and Live note to be unchanged and the same silen
 otherwise the final transcribes normally. A mid-clause draft costs at most one extra
 transcription call. Numbered wait options run no drafts, and drafts never enter the journal,
 recent translation context, output buffer, or public room state.
+
+`src/live/cut-metrics.ts` counts how each window sent for transcription ended (sentence,
+pause or limit), the unfinished drafts held, and window lengths in a fixed histogram of 100 ms
+bins up to 14 s, so the typical and longest-10% waits shown under **Technical details** need
+constant memory. Windows skipped by the speech gate are not counted. The counters sit in the
+controlling tab's live state and are never stored, sent or logged. `src/live/dynamic-replay.ts`
+is a test-only harness that replays labelled synthetic levels through the real window policy
+with a mock draft, to compare cut latency, mid-sentence finals and call rates.
 
 Reader/summary calls are capped at 200/60 per service. The ledger conservatively reserves
 up to 9,000 estimated neurons per UTC day, including a 6,000 reader ceiling. Reservations
