@@ -3,7 +3,7 @@ import { WORKSPACE_SETUP_KEY, effectiveSetup, normalizeOperatorPreferences, oper
 import { normalizeSummaryOptions } from "./summary-defaults";
 
 /**
- * Best-effort, called after End succeeds: when the church setup (or, before anyone saved
+ * Best-effort, called after End succeeds: when the shared setup (or, before anyone saved
  * one, the ending operator's own setup) opts in, asks the session's journal to generate
  * a summary from the saved summary defaults once it has ended.
  */

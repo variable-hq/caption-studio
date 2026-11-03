@@ -31,10 +31,10 @@ describe("Cloudflare Access guard", () => {
 
   it("requires a signed Access token when deployment values exist", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("CLOUDFLARE_ACCESS_AUD", "church-caption-audience");
+    vi.stubEnv("CLOUDFLARE_ACCESS_AUD", "caption-studio-audience");
     vi.stubEnv(
       "CLOUDFLARE_ACCESS_TEAM_DOMAIN",
-      "https://church-caption.cloudflareaccess.com",
+      "https://caption-studio.cloudflareaccess.com",
     );
 
     expect(isCloudAccessConfigured()).toBe(true);

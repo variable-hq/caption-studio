@@ -26,7 +26,7 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       const authorized = await authorizeOperatorIdentity(request, env);
       if (authorized.denied) return authorized.denied;
       if (!env.OPERATOR_PREFERENCES) return json({ error: "Operator preferences are not configured." }, 503);
-      // "setup" is the church-wide record every signed-in operator shares (ADR 0022).
+      // "setup" is the workspace-wide record every signed-in operator shares (ADR 0022).
       const key = operation === "setup" ? WORKSPACE_SETUP_KEY : await operatorIdentityKey(authorized.identity);
       const target = env.OPERATOR_PREFERENCES.get(env.OPERATOR_PREFERENCES.idFromName(key));
       const body = request.method === "POST" ? await readJsonObject(request, MAX_PREFERENCES_BYTES) : undefined;
@@ -66,7 +66,7 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       if (parts[2] === "archive") return json({ error: "Use GET." }, 405);
       if (request.method !== "POST") return json({ error: "Use POST." }, 405);
       const body = await readJsonObject(request, 32768) as Record<string, unknown>;
-      if (parts[2] === "delete" && body.confirm !== true) return json({ error: "Confirm sermon deletion." }, 400);
+      if (parts[2] === "delete" && body.confirm !== true) return json({ error: "Confirm transcript deletion." }, 400);
       if (parts[2] === "remove" && body.confirm !== true) return json({ error: "Confirm passage removal." }, 400);
       const result = await rpc(env.SERMON_JOURNALS, parts[1], `/${parts[2]}`, body);
       if (parts[2] === "delete" && (result.ok || result.status === 410)) {

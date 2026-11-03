@@ -111,7 +111,7 @@ export class CaptionRoom {
     const pending = await this.state.storage.get<JournalState[]>("journal-sync") ?? [];
     for (const snapshot of pending) {
       const response = await rpc(this.env.SERMON_JOURNALS, snapshot.id, "/sync", snapshot);
-      if (!response.ok && response.status !== 410) throw new Error("Sermon state synchronization failed.");
+      if (!response.ok && response.status !== 410) throw new Error("Transcript state synchronization failed.");
     }
     if (pending.length) await this.state.storage.delete("journal-sync");
   }

@@ -104,7 +104,7 @@ export function SessionExperiencePanel({ view, service, observer = null, onReade
     if (view !== "archive") return;
     const timeout = setTimeout(() => void loadList(), 0);
     return () => clearTimeout(timeout);
-    // Loads once when Sermons opens; Refresh list reloads on demand.
+    // Loads once when Transcripts opens; Refresh list reloads on demand.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
   async function load(id: string) {

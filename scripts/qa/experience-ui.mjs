@@ -44,7 +44,7 @@ const viewerHtmlEn = await viewerHtml('en');
 const viewerHtmlId = await viewerHtml('id');
 const id = '12345678-1234-1234-1234-123456789012';
 const origin = 'http://127.0.0.1:3100';
-const source = { id: 1, text: 'Synthetic sermon source about patience.', language: 'id', at: Date.now(), epoch: 0, translationRevision: 1 };
+const source = { id: 1, text: 'Synthetic transcript source about patience.', language: 'id', at: Date.now(), epoch: 0, translationRevision: 1 };
 const paragraph = { id: 1, sourceIds: [1], text: 'Synthetic readable paragraph about patience.', language: 'en', at: Date.now(), epoch: 0, translationRevision: 1, fallback: true };
 try {
  for (const width of QA_VIEWPORT_WIDTHS) {

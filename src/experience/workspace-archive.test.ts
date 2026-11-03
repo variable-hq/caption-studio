@@ -5,7 +5,7 @@ import { handleExperienceRequest } from "./api";
 import { SermonJournal } from "./sermon-journal";
 import type { JournalState, Namespace } from "./contracts";
 
-// One Access tenant is one workspace: these tests prove that a saved sermon
+// One Access tenant is one workspace: these tests prove that a saved transcript
 // belongs to the workspace, not to the operator whose session produced it.
 vi.mock("jose", () => ({
   createRemoteJWKSet: () => ({}),
@@ -83,17 +83,17 @@ beforeEach(async () => {
   };
   environment = {
     SERMON_JOURNALS: journals, CAPTION_ROOMS: rooms,
-    CLOUDFLARE_ACCESS_AUD: "church-caption-audience",
-    CLOUDFLARE_ACCESS_TEAM_DOMAIN: "https://church-caption.cloudflareaccess.com",
+    CLOUDFLARE_ACCESS_AUD: "caption-studio-audience",
+    CLOUDFLARE_ACCESS_TEAM_DOMAIN: "https://caption-studio.cloudflareaccess.com",
   } as unknown as LiveWorkerEnvironment;
 
   await journal.fetch(new Request("https://internal/sync", { method: "POST", body: JSON.stringify(snapshot()) }));
   await journal.fetch(new Request("https://internal/source", { method: "POST", body: JSON.stringify({
-    id: 1, at: Date.now(), text: "Synthetic recognized sermon source.", language: "id", epoch: 0, translationRevision: 1,
+    id: 1, at: Date.now(), text: "Synthetic recognized transcript source.", language: "id", epoch: 0, translationRevision: 1,
   }) }));
 });
 
-describe("workspace-wide sermon archives", () => {
+describe("workspace-wide transcript archives", () => {
   it("serves the same archive to an operator who did not run the service", async () => {
     const path = `/api/live/experience/sermons/${SERVICE_ID}/archive`;
     const starting = await handleExperienceRequest(as(STARTING_OPERATOR, path), environment);
@@ -104,19 +104,19 @@ describe("workspace-wide sermon archives", () => {
     const [first, other] = await Promise.all([starting!.json(), second!.json()]);
     expect(other).toEqual(first);
     expect((other as { sources: { text: string }[] }).sources[0]?.text)
-      .toBe("Synthetic recognized sermon source.");
+      .toBe("Synthetic recognized transcript source.");
   });
 
   it("lets a second operator correct a passage the first operator recorded", async () => {
     const response = await handleExperienceRequest(
-      as(SECOND_OPERATOR, `/api/live/experience/sermons/${SERVICE_ID}/correct`, { id: 1, text: "Corrected sermon source." }),
+      as(SECOND_OPERATOR, `/api/live/experience/sermons/${SERVICE_ID}/correct`, { id: 1, text: "Corrected transcript source." }),
       environment,
     );
     expect(response?.status).toBe(200);
 
     const archive = await handleExperienceRequest(as(STARTING_OPERATOR, `/api/live/experience/sermons/${SERVICE_ID}/archive`), environment);
     const body = await archive!.json() as { sources: { correction?: string }[] };
-    expect(body.sources[0]?.correction).toBe("Corrected sermon source.");
+    expect(body.sources[0]?.correction).toBe("Corrected transcript source.");
   });
 
   it("lets a second operator delete the archive once the service has ended", async () => {
@@ -131,7 +131,7 @@ describe("workspace-wide sermon archives", () => {
     expect(roomRequests.at(-1)?.url).toContain("/internal/history/delete");
   });
 
-  it("lists saved sermons for an operator with no service of their own", async () => {
+  it("lists saved transcripts for an operator with no session of their own", async () => {
     const metadataRead = vi.spyOn(journal, "fetch");
     const response = await handleExperienceRequest(as(SECOND_OPERATOR, "/api/live/experience/history"), environment);
     expect(response?.status).toBe(200);

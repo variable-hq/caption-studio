@@ -204,7 +204,7 @@ function OperatorDashboardContent() {
   );
   const [savedPromptFingerprint, setSavedPromptFingerprint] = useState("");
   const [promptStorageMessage, setPromptStorageMessage] = useState("");
-  // The operator's own record (theme) and the church setup everyone shares (ADR 0022).
+  // The operator's own record (theme) and the shared setup everyone shares (ADR 0022).
   const [personalPreferences, setPersonalPreferences] = useState<OperatorPreferences | null>(null);
   const [sharedSetup, setSharedSetup] = useState<OperatorPreferences | null>(null);
   const accountPreferences = useMemo(
@@ -822,7 +822,7 @@ function OperatorDashboardContent() {
   /**
    * Best-effort sync; callers report the browser-only fallback themselves. Theme and
    * interface language are saved to the operator's own record; other settings use the
-   * church setup. The first church-setup save carries this operator's earlier saved setup,
+   * shared setup. The first shared-setup save carries this operator's earlier saved setup,
    * so values saved before the setup was shared are not lost.
    */
   const syncAccountPreferences = async (patch: Partial<OperatorPreferences>) => {

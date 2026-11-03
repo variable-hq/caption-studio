@@ -36,7 +36,7 @@ interface OperatorTopBarProps {
   status: { label: OperatorStatusLabel; tone: StatusTone; detail?: string };
 }
 
-/** Brand, the one status pill, and the Live / Sermons / Settings tabs. Tabs are links so
+/** Brand, the one status pill, and the Live / Transcripts / Settings tabs. Tabs are links so
  * every screen has its own address and survives a refresh. */
 export function OperatorTopBar({ screen, status }: OperatorTopBarProps) {
   const { t } = useI18n();
