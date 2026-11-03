@@ -229,6 +229,15 @@ describe("transcript journals", () => {
     expect((await journal.fetch(request("/summary", { ...options, requestId: "summary-request-0002" }))).status).toBe(200);
     expect(await (await journal.fetch(request("/archive"))).json()).toMatchObject({ summary: { id: options.requestId, status: "queued", promptVersion: "source-grounded-v2" } });
   });
+  it("records the format on a summary job, and General for an unknown id", async () => {
+    const options = { model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", language: "id", length: "short", guidance: "" };
+    for (const [presetId, expected] of [["builtin:sermon", "builtin:sermon"], ["builtin:market", "builtin:general"]] as const) {
+      const { journal, initial, storage } = await fixture();
+      await journal.fetch(request("/sync", { ...initial, status: "ended", endedAt: Date.now() }));
+      expect((await journal.fetch(request("/summary", { ...options, requestId: "summary-request-0003", presetId }))).status).toBe(202);
+      expect(await storage.get("summary")).toMatchObject({ presetId: expected });
+    }
+  });
   it("does not replay an interrupted inference job", async () => {
     const { journal, initial, storage } = await fixture();
     await journal.fetch(request("/sync", { ...initial, status: "ended", endedAt: Date.now() }));

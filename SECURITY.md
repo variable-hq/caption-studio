@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 3 November 2026 against merged PR #100 (`b4c03ab`). The 13 September deployment
+Reviewed 4 November 2026 against merged PR #106 (`2f3432e`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -209,6 +209,16 @@ target languages, Chinese output script, untrusted-data handling, non-invention 
 one-caption output contract. This reduces accidental prompt-policy changes but is not a
 hard enforcement boundary, does not make model output authoritative, and does not eliminate
 prompt-injection or translation-quality risk; church-approved review remains required.
+
+A workspace format adds model-facing text only from the built-in presets in
+`src/experience/presets.ts`, selected by id on the server. A format's transcription prefix opens
+the transcription prompt, and its translation rule follows the envelope's safeguards. A
+custom preset cannot add any model text, and request text never supplies it. The text
+sits after the server envelope's safeguards and changes wording for the model only; it does
+not change the envelope, output contract or language direction.
+
+A format's summary framing is one line in the summary envelope, before the output contract;
+it is server text and is kept out of the untrusted transcript data.
 
 The same envelope pattern also structures the optional reader-join and summary prompts,
 which have no operator-editable text of their own. Independently of that input-side

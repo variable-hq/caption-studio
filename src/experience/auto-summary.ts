@@ -21,5 +21,6 @@ export async function queueAutoSummary(env: ExperienceEnvironment, sessionId: st
   if (!preferences.autoSummary) return;
   await rpc(env.TRANSCRIPT_JOURNALS, sessionId, "/auto-summary", {
     options: normalizeSummaryOptions(preferences.summaryDefaults ?? {}),
+    presetId: preferences.profile ?? undefined,
   } satisfies AutoSummaryRequest);
 }

@@ -236,6 +236,39 @@ describe("built-in presets", () => {
     );
   });
 
+  it("gives each non-General built-in a transcription prefix, and rejects one on a custom preset", () => {
+    expect(GENERAL_PRESET.transcriptionPrefix).toBeUndefined();
+    for (const id of ["builtin:sermon", "builtin:talkshow", "builtin:keynote"]) {
+      const preset = BUILT_IN_PRESETS.find((candidate) => candidate.id === id)!;
+      expect(preset.transcriptionPrefix?.en, id).toBeTruthy();
+      expect(preset.transcriptionPrefix?.id, id).toBeTruthy();
+    }
+    expectRejected(
+      customPreset({ transcriptionPrefix: { en: "Sermon. Preserve names:" } }),
+      /transcriptionPrefix is allowed only on builtin: presets/u,
+    );
+    expectRejected(
+      customPreset({ summaryFraming: "supplied transcript of a sermon" }),
+      /summaryFraming is allowed only on builtin: presets/u,
+    );
+    expectRejected(
+      { ...GENERAL_PRESET, id: "builtin:test", summaryFraming: "x".repeat(121) },
+      /summaryFraming must be 120 characters or fewer/u,
+    );
+    expectRejected(
+      customPreset({ translationRule: "Context: a sermon." }),
+      /translationRule is allowed only on builtin: presets/u,
+    );
+    expectRejected(
+      { ...GENERAL_PRESET, id: "builtin:test", translationRule: "x".repeat(301) },
+      /translationRule must be 300 characters or fewer/u,
+    );
+    expectRejected(
+      { ...GENERAL_PRESET, id: "builtin:test", transcriptionPrefix: { en: "x".repeat(121) } },
+      /transcriptionPrefix\.en must be 120 characters or fewer/u,
+    );
+  });
+
   it("resolves an absent or unknown profile to General", () => {
     expect(resolveWorkspacePreset(undefined).id).toBe("builtin:general");
     expect(resolveWorkspacePreset(null).id).toBe("builtin:general");

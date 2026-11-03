@@ -143,6 +143,7 @@ function OperatorDashboardContent() {
     setAccountUiLocale,
     setBrowserFallbackPreference,
     setWorkspaceProfile,
+    workspacePreset,
     t,
   } = useI18n();
   const tRef = useRef(t);
@@ -296,8 +297,9 @@ function OperatorDashboardContent() {
       liveNote,
       outputBufferCount,
       outputBufferDwellMs,
+      presetId: workspacePreset.id,
     }),
-    [draftTranslationSettings, style, saveHistory, liveNote, outputBufferCount, outputBufferDwellMs],
+    [draftTranslationSettings, style, saveHistory, liveNote, outputBufferCount, outputBufferDwellMs, workspacePreset.id],
   );
   const styleFingerprint = useMemo(() => JSON.stringify(style), [style]);
   const {

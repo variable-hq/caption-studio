@@ -20,6 +20,7 @@ import {
   normalizeTranslationSystemPrompt,
 } from "@/ai/translation-prompt";
 import { normalizeLiveNote } from "@/live/live-note";
+import { GENERAL_PRESET, presetLocalizedText, resolveWorkspacePreset, type Preset } from "@/experience/presets";
 import { buildEnvelopeSystemMessage, buildUntrustedDataMessage } from "@/ai/prompt-envelope";
 import { outputLooksUnsafe } from "@/ai/output-guard";
 import { shouldDropSegment, type TranscriptQualityMetrics } from "@/ai/transcript-guard";
@@ -223,17 +224,26 @@ function previousTranscriptTail(previousTranscript: string, maxBytes: number) {
   return tail;
 }
 
+// The General opening; a format's own prefix replaces it.
+function transcriptionPrefix(language: SourceLanguage, preset: Preset) {
+  if (preset.transcriptionPrefix) {
+    return presetLocalizedText(preset.transcriptionPrefix, language === "id" ? "id" : "en");
+  }
+  return language === "id" ? "Rekaman ucapan. Nama dan ejaan:" : "Spoken recording. Preserve names and spelling:";
+}
+
 function buildTranscriptionPromptWithinBudget(
   keywordHints: readonly string[],
   language: SourceLanguage,
   previousTranscript: string,
   promptBudgetBytes: number,
   previousTranscriptBudgetBytes: number,
+  preset: Preset,
 ) {
   const tail = previousTranscriptTail(previousTranscript, previousTranscriptBudgetBytes);
   // Conservative byte budget also handles multi-byte source-language spellings.
   const hintBudget = promptBudgetBytes - (tail ? utf8Bytes(tail) + 1 : 0);
-  let prompt = language === "id" ? "Rekaman ucapan. Nama dan ejaan: " : "Spoken recording. Preserve names and spelling: ";
+  let prompt = `${transcriptionPrefix(language, preset)} `;
   for (const term of keywordHints.map((value) => value.trim()).filter(Boolean).slice(0, 40)) {
     const candidate = prompt + term + ", ";
     if (utf8Bytes(candidate) > hintBudget) continue;
@@ -247,6 +257,7 @@ export function buildTranscriptionPrompt(
   keywordHints: readonly string[],
   language: SourceLanguage = "auto",
   previousTranscript = "",
+  preset: Preset = GENERAL_PRESET,
 ) {
   return buildTranscriptionPromptWithinBudget(
     keywordHints,
@@ -254,13 +265,15 @@ export function buildTranscriptionPrompt(
     previousTranscript,
     TRANSCRIPTION_PROMPT_BYTES,
     PREVIOUS_TRANSCRIPT_PROMPT_BYTES,
+    preset,
   );
 }
 
-function buildLegacyTranscriptionPrompt(
+export function buildLegacyTranscriptionPrompt(
   keywordHints: readonly string[],
   language: SourceLanguage,
   previousTranscript: string,
+  preset: Preset,
 ) {
   return buildTranscriptionPromptWithinBudget(
     keywordHints,
@@ -268,6 +281,7 @@ function buildLegacyTranscriptionPrompt(
     previousTranscript,
     LEGACY_TRANSCRIPTION_PROMPT_BYTES,
     LEGACY_PREVIOUS_TRANSCRIPT_PROMPT_BYTES,
+    preset,
   );
 }
 
@@ -301,6 +315,7 @@ export function buildTranslationMessages(request: TranslationRequest) {
           sanitizeLevel: normalizeSanitizeLevel(request.sanitizeLevel),
           filterInappropriateLanguage: request.filterInappropriateLanguage !== false,
           hasLiveNote: Boolean(liveNote),
+          presetRule: resolveWorkspacePreset(request.presetId).translationRule,
         },
       ),
       [
@@ -322,6 +337,8 @@ interface GroqTranscriptionInput {
   keywordHints: string[];
   previousTranscript?: string;
   sanitizeLevel?: SanitizeLevel;
+  /** A preset id from the request; an unknown or absent id is General. */
+  presetId?: string;
   signal?: AbortSignal;
 }
 
@@ -354,9 +371,10 @@ async function requestGroqTranscription(
 
 export async function transcribeWithGroq(input: GroqTranscriptionInput): Promise<TranscriptionResult> {
   const usingLegacyBudget = useLegacyTranscriptionPromptBudget;
+  const preset = resolveWorkspacePreset(input.presetId);
   const initialPrompt = usingLegacyBudget
-    ? buildLegacyTranscriptionPrompt(input.keywordHints, input.sourceLanguage, input.previousTranscript ?? "")
-    : buildTranscriptionPrompt(input.keywordHints, input.sourceLanguage, input.previousTranscript);
+    ? buildLegacyTranscriptionPrompt(input.keywordHints, input.sourceLanguage, input.previousTranscript ?? "", preset)
+    : buildTranscriptionPrompt(input.keywordHints, input.sourceLanguage, input.previousTranscript, preset);
   let response: Response;
   try {
     response = await requestGroqTranscription(input, initialPrompt, input.telemetry);
@@ -372,7 +390,7 @@ export async function transcribeWithGroq(input: GroqTranscriptionInput): Promise
     // The failed request already dispatched this metered attempt; reuse it for fallback.
     response = await requestGroqTranscription(
       input,
-      buildLegacyTranscriptionPrompt(input.keywordHints, input.sourceLanguage, input.previousTranscript ?? ""),
+      buildLegacyTranscriptionPrompt(input.keywordHints, input.sourceLanguage, input.previousTranscript ?? "", preset),
     );
     useLegacyTranscriptionPromptBudget = true;
   }

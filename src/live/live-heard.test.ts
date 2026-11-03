@@ -72,5 +72,6 @@ describe("Live Heard", () => {
     expect(draftReusedAsFinal(draft, snapshot({ settings: { ...settings } }))).toBe(false);
     expect(draftReusedAsFinal(draft, snapshot({ liveWords: [...liveWords] }))).toBe(false);
     expect(draftReusedAsFinal(draft, snapshot({ liveNote: "A different note." }))).toBe(false);
+    expect(draftReusedAsFinal(draft, snapshot({ presetId: "builtin:sermon" }))).toBe(false);
   });
 });

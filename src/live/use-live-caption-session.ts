@@ -91,6 +91,8 @@ import {
 interface LiveCaptionSettings extends TranslationSessionSettings {
   saveHistory?: boolean;
   liveNote?: string;
+  /** The workspace format; the server resolves it, and an unknown id is General. */
+  presetId?: string;
   style: CaptionStyle;
   outputBufferCount: OutputBufferCount;
   outputBufferDwellMs: OutputBufferDwellMs;
@@ -663,6 +665,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           settings: current,
           liveWords: liveWordsAtStart,
           liveNote: settingsRef.current.liveNote,
+          presetId: settingsRef.current.presetId,
         },
       ) ? draft : null;
       const recordTranscription = (transcription: CaptionTranscriptionResult) => {
@@ -701,6 +704,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           settings: current,
           recentContext: recentContextRef.current,
           liveNote: settingsRef.current.liveNote,
+          presetId: settingsRef.current.presetId,
           signal,
           isCurrent: isCurrentCapture,
           onTranslation,
@@ -715,6 +719,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           controllerToken: sessionAtStart.controllerToken,
           recentContext: recentContextRef.current,
           liveNote: settingsRef.current.liveNote,
+          presetId: settingsRef.current.presetId,
           signal,
           isCurrent: isCurrentCapture,
           currentRevision: sessionAtStart.translationRevision,
@@ -905,6 +910,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         settings: current,
         liveWords,
         liveNote,
+        presetId: settingsRef.current.presetId,
       },
     };
   }, [reconcileExternalTranslationRevision]);

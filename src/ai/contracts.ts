@@ -34,6 +34,7 @@ export interface TranscriptionRequest {
   keywordHints: string[];
   previousTranscript?: string;
   sanitizeLevel?: SanitizeLevel;
+  presetId?: string;
 }
 
 export interface TranslationRequest {
@@ -47,6 +48,7 @@ export interface TranslationRequest {
   sanitizeLevel?: SanitizeLevel;
   filterInappropriateLanguage?: boolean;
   liveNote?: string;
+  presetId?: string;
 }
 
 export interface LlmTokenUsage {

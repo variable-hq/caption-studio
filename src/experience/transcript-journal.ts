@@ -11,6 +11,7 @@ import {
 import { optionalInference } from "./provider";
 import { buildReaderPrompt, buildSummaryPrompt } from "./prompt";
 import { outputLooksUnsafe } from "@/ai/output-guard";
+import { resolveWorkspacePreset } from "./presets";
 
 const key = (prefix: string, id: number) => `${prefix}:${String(id).padStart(6, "0")}`;
 const byteLength = (text: string) => new TextEncoder().encode(text).length;
@@ -260,12 +261,13 @@ export class TranscriptJournal {
 
   private async handleSummary(request: Request, current: JournalState) {
     if (!current.saved || !current.endedAt) return json({ error: "End a session with saved history before generating a summary." }, 409);
-    const body = await request.json() as SummaryOptions & { requestId: string };
+    const body = await request.json() as SummaryOptions & { requestId: string; presetId?: string };
     if (!validSummaryOptions(body) || !/^[a-zA-Z0-9-]{16,64}$/u.test(body.requestId)) return json({ error: "Invalid summary settings." }, 400);
     const previous = await this.state.storage.get<SummaryJob>("summary");
     if (previous && (previous.id === body.requestId || ["queued", "running"].includes(previous.status))) return json(previous);
     const job: SummaryJob = { id: body.requestId, status: "queued", revision: current.revision,
       options: { model: body.model, language: body.language, guidance: body.guidance, length: body.length },
+      presetId: resolveWorkspacePreset(body.presetId).id,
       cursor: 0, notes: [], promptVersion: "source-grounded-v2" };
     await this.state.storage.put("summary", job);
     await this.schedule(current, 1000);
@@ -278,7 +280,8 @@ export class TranscriptJournal {
     const body = await request.json() as Partial<AutoSummaryRequest>;
     if (!body.options || !validSummaryOptions(body.options)) return json({ error: "Invalid automatic summary request." }, 400);
     const { model, language, guidance, length } = body.options;
-    await this.state.storage.put("auto-summary", { options: { model, language, guidance, length } } satisfies AutoSummaryRequest);
+    const presetId = resolveWorkspacePreset(body.presetId).id;
+    await this.state.storage.put("auto-summary", { options: { model, language, guidance, length }, presetId } satisfies AutoSummaryRequest);
     await this.schedule(current, 1000);
     return json({ queued: true }, 202);
   }
@@ -292,8 +295,8 @@ export class TranscriptJournal {
       // A summary the operator already started or finished is kept instead of a second one.
       if (await this.state.storage.get<SummaryJob>("summary")) return;
       await this.state.storage.put("summary", { id: `auto-${crypto.randomUUID()}`, status: "queued",
-        revision: current.revision, options: request.options, cursor: 0, notes: [],
-        promptVersion: "source-grounded-v2", automatic: true } satisfies SummaryJob);
+        revision: current.revision, options: request.options, presetId: resolveWorkspacePreset(request.presetId).id,
+        cursor: 0, notes: [], promptVersion: "source-grounded-v2", automatic: true } satisfies SummaryJob);
     });
   }
 
@@ -456,7 +459,11 @@ export class TranscriptJournal {
       });
       if (!work) return;
       const text = await optionalInference(this.env, snapshot.id, "summary", job.options.model,
-        buildSummaryPrompt({ ...work.data, guidance: job.options.guidance }));
+        buildSummaryPrompt({
+          ...work.data,
+          guidance: job.options.guidance,
+          framing: resolveWorkspacePreset(job.presetId).summaryFraming,
+        }));
       if (outputLooksUnsafe(text)) throw new Error("Summary output failed a safety check. Generate again to retry.");
       const points = parseSummary(text, work.allowed);
       if (work.synthesis) { job.status = "completed"; job.result = points; }

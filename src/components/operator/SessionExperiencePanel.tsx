@@ -16,7 +16,7 @@ interface SessionEntry { id: string; startedAt: number; metadata?: SessionMetada
 type PanelMessage = { key: MessageKey } | { text: string } | null;
 
 export function SessionExperiencePanel({ view, liveSession, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; liveSession: LiveSessionDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
-  const { locale, t } = useI18n();
+  const { locale, t, workspacePreset } = useI18n();
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
   const [archive, setArchive] = useState<Archive | null>(null);
   const [metadataDraft, setMetadataDraft] = useState<SessionMetadata>({ ...EMPTY_SESSION_METADATA });
@@ -190,7 +190,7 @@ export function SessionExperiencePanel({ view, liveSession, observer = null, onR
           <div className="buttonRow"><button className="primaryButton" disabled={busy || archive.details.status !== "ended" || ["queued", "running"].includes(archive.summary?.status ?? "")}
             onClick={() => void perform(async () => {
               if (summaryRequestRef.current?.sessionId !== archive.details.id) summaryRequestRef.current = { sessionId: archive.details.id, id: crypto.randomUUID() };
-              await experienceRequest(`transcripts/${archive.details.id}/summary`, { model, language, length, guidance, requestId: summaryRequestRef.current.id });
+              await experienceRequest(`transcripts/${archive.details.id}/summary`, { model, language, length, guidance, presetId: workspacePreset.id, requestId: summaryRequestRef.current.id });
               summaryRequestRef.current = null;
               await load(archive.details.id);
             })}>{t("sessionExperience.generateSummary")}</button></div>

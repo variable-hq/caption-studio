@@ -18,6 +18,9 @@ export const MAX_PRESET_NAME_CHARS = 40;
 export const MAX_PRESET_DESCRIPTION_CHARS = 200;
 export const MAX_PRESET_AUTHOR_CHARS = 80;
 export const MAX_PRESET_TERM_CHARS = 40;
+export const MAX_TRANSCRIPTION_PREFIX_CHARS = 120;
+export const MAX_PRESET_MODEL_RULE_CHARS = 300;
+export const MAX_SUMMARY_FRAMING_CHARS = 120;
 
 export const PRESET_LOCALES = ["en", "id"] as const;
 export type PresetLocale = (typeof PRESET_LOCALES)[number];
@@ -65,9 +68,15 @@ export type Preset = {
   terms: { en: PresetTermSet; id?: PresetTermSet };
   defaults?: PresetDefaults;
   messageOverrides?: PresetMessageOverrides;
+  /** Built-in only: the opening of the transcription prompt, before the Terms. */
+  transcriptionPrefix?: PresetLocalizedText;
+  /** Built-in only: one conditional translation rule, placed after the base safeguards. */
+  translationRule?: string;
+  /** Built-in only: what the summary's transcript is, stated once in the summary envelope. */
+  summaryFraming?: string;
 };
 
-const PRESET_FIELDS = ["schemaVersion", "version", "id", "name", "description", "author", "terms", "defaults", "messageOverrides"] as const;
+const PRESET_FIELDS = ["schemaVersion", "version", "id", "name", "description", "author", "terms", "defaults", "messageOverrides", "transcriptionPrefix", "translationRule", "summaryFraming"] as const;
 const PRESET_DEFAULT_FIELDS = [
   "recordingWindowMs",
   "inferenceLevel",
@@ -287,6 +296,19 @@ export function normalizePreset(input: unknown): Preset {
   };
   if (record.author !== undefined) preset.author = boundedText(record.author, "author", MAX_PRESET_AUTHOR_CHARS);
   if (record.defaults !== undefined) preset.defaults = presetDefaults(record.defaults);
+  if (record.transcriptionPrefix !== undefined) {
+    // Model-facing text is shipped with the app; a custom preset carries terms and defaults only.
+    if (!preset.id.startsWith("builtin:")) fail("transcriptionPrefix is allowed only on builtin: presets");
+    preset.transcriptionPrefix = localizedText(record.transcriptionPrefix, "transcriptionPrefix", MAX_TRANSCRIPTION_PREFIX_CHARS);
+  }
+  if (record.translationRule !== undefined) {
+    if (!preset.id.startsWith("builtin:")) fail("translationRule is allowed only on builtin: presets");
+    preset.translationRule = boundedText(record.translationRule, "translationRule", MAX_PRESET_MODEL_RULE_CHARS);
+  }
+  if (record.summaryFraming !== undefined) {
+    if (!preset.id.startsWith("builtin:")) fail("summaryFraming is allowed only on builtin: presets");
+    preset.summaryFraming = boundedText(record.summaryFraming, "summaryFraming", MAX_SUMMARY_FRAMING_CHARS);
+  }
   if (record.messageOverrides !== undefined) {
     // Only shipped presets may replace messages; a custom preset carries terms alone.
     if (!preset.id.startsWith("builtin:")) fail("messageOverrides is allowed only on builtin: presets");
@@ -362,6 +384,13 @@ const SERMON_PRESET: Preset = {
       transcripts: { singular: "khotbah" },
     },
   },
+  transcriptionPrefix: {
+    en: "Sermon. Preserve biblical names and references:",
+    id: "Khotbah. Nama tokoh dan ayat Alkitab:",
+  },
+  summaryFraming: "supplied transcript of a sermon",
+  translationRule:
+    'Context: a sermon. Speakers may read scripture or use call-and-response; follow the scripture and quotation rules. "ya?" or "amen?" said to the audience is call-and-response, never filler.',
   defaults: {
     recordingWindowMs: "dynamic",
     inferenceLevel: "balanced",
@@ -423,6 +452,13 @@ const TALKSHOW_PRESET: Preset = {
       transcripts: { singular: "episode" },
     },
   },
+  transcriptionPrefix: {
+    en: "Conversation between several speakers. Preserve names and spelling:",
+    id: "Percakapan beberapa pembicara. Nama dan ejaan:",
+  },
+  summaryFraming: "supplied transcript of a talk show episode",
+  translationRule:
+    "Context: a conversation. Speakers interrupt each other; translate each caption as spoken, keep banter and informal register, never merge speakers' words.",
   defaults: {
     recordingWindowMs: 6_000,
     inferenceLevel: "low",
@@ -480,6 +516,13 @@ const KEYNOTE_PRESET: Preset = {
       transcripts: { singular: "presentasi" },
     },
   },
+  transcriptionPrefix: {
+    en: "Presentation. Preserve product, company and technical terms:",
+    id: "Presentasi. Istilah produk, perusahaan dan teknis:",
+  },
+  summaryFraming: "supplied transcript of a keynote presentation",
+  translationRule:
+    "Context: a prepared presentation. Keep product names, technical terms and numbers exact; do not expand acronyms or add facts.",
   defaults: {
     recordingWindowMs: 14_000,
     inferenceLevel: "low",

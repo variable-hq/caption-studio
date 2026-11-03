@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 3 November 2026 against merged PR #105 (`eaec64a`). Cloudflare deployed `20597d8`
+Reviewed 4 November 2026 against merged PR #106 (`2f3432e`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -115,7 +115,8 @@ in a second JSON-fenced trusted guidance block, separate from untrusted caption 
 Session metadata uses the journal's separate `metadata` key, is exposed through a small
 `GET /metadata` response for history lists, and is also returned by `/archive`;
 summary prompt construction reads only summary options, transcript segments and evidence
-notes.
+notes, plus the format's summary framing. Each summary job records the format id it was
+generated under.
 
 ## Credentials and public surfaces
 
@@ -233,13 +234,16 @@ overrides resolve to the migrated translation default. Other explicit overrides 
 normal readiness and quality review.
 
 Transcription accepts WebM/Ogg/MP4, at most 3 MB of audio, bounded hints, the previous
-chunk's corrected transcript (at most 1,000 characters accepted), and a Sanitization level
-(Off, Low, Balanced, High; omitted or invalid values normalize to Off). The provider prompt
-uses a conservative 448 UTF-8-byte budget, with the last whole words of the previous
-transcript (at most 160 bytes) retained as Whisper's preceding-speech context and hints
-filling the rest. If Groq rejects a transcription with HTTP 400, one retry uses the former
-224-byte/96-byte budgets; a successful fallback selects those smaller budgets for later
-requests in the same Worker isolate. Start, translation refresh and Clear reset the transcript
+chunk's corrected transcript (at most 1,000 characters accepted), a Sanitization level
+(Off, Low, Balanced, High; omitted or invalid values normalize to Off), and a preset id.
+The server resolves the id from the built-in presets (unknown or custom ids are General);
+the request never supplies preset text. The provider prompt opens with the format's
+transcription prefix (General's when none) and uses a conservative 448 UTF-8-byte budget,
+with the last whole words of the previous transcript (at most 160 bytes) retained as
+Whisper's preceding-speech context and hints filling the rest. If Groq rejects a
+transcription with HTTP 400, one retry uses the former 224-byte/96-byte budgets; a
+successful fallback selects those smaller budgets for later requests in the same Worker
+isolate. Start, translation refresh and Clear reset the transcript
 context. Only canonical names enter ASR hints; approved whole-word recognition variants are
 deterministic corrections, not training.
 
@@ -256,7 +260,9 @@ glossary mappings, an immutable server envelope, and up to 4,000 characters of e
 guidance. The envelope also carries the operator's chosen inference level (Low, Balanced,
 High), Sanitization level (Off, Low, Balanced, High), and default-on inappropriate-language
 filter. Inference governs meaning and rephrasing; Sanitization owns filler cleanup and
-independently selects the guard thresholds. The language filter selects between the existing
+independently selects the guard thresholds. The format's one conditional rule (at most 300
+characters, built-in formats only) follows the base safeguards and precedes the output
+contract; General adds none. The language filter selects between the existing
 profanity omission rule and a render-as-spoken rule; the deterministic public Filter still
 moderates public text in either mode. These are fixed envelope parameters, not part of editable
 guidance. Completion is capped at 256 tokens; GPT-OSS uses low reasoning effort.
