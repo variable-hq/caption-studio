@@ -1,3 +1,4 @@
+import { resolveWorkspacePreset, snapshotPreset, snapshotPresetId } from "@/experience/presets";
 import type { LlmSessionUsage } from "@/ai/contracts";
 import { accumulateLlmSessionUsage, emptyLlmSessionUsage } from "@/ai/usage";
 import { isLanguageLocale } from "@/domain/languages";
@@ -108,6 +109,7 @@ export class CaptionRoom {
     const snapshot = {
       id: current.sessionId, startedAt: current.startedAt!, expiresAt: current.expiresAt!,
       saved: current.saveHistory === true, readerHash: current.readerHash,
+      ...(current.preset ? { preset: current.preset } : {}),
       epoch: current.captionEpoch ?? 0, status: ended ? "ended" : current.status,
       ...(ended ? { endedAt: Math.min(Date.now(), current.expiresAt!, archived?.expiresAt ?? Infinity), revoked } : {}),
     } as JournalState;
@@ -224,6 +226,7 @@ export class CaptionRoom {
         sessionId: current.sessionId,
         serviceId: current.sessionId,
         saveHistory: current.saveHistory === true,
+        presetId: snapshotPresetId(current.preset),
         controllerLabel: current.controllerLabel,
         status: current.status,
         startedAt: new Date(current.startedAt!).toISOString(),
@@ -532,6 +535,7 @@ export class CaptionRoom {
       JSON.stringify({
         type: "ready",
         status: configuration.status,
+        ...(configuration.preset ? { preset: configuration.preset } : {}),
         caption: latest ? viewerCaption(latest) : null,
       }),
     );
@@ -570,6 +574,7 @@ export class CaptionRoom {
       configuration.status = "live";
       configuration.sessionId = crypto.randomUUID();
       configuration.saveHistory = body.saveHistory === true;
+      configuration.preset = snapshotPreset(resolveWorkspacePreset(body.presetId));
       configuration.readerHash = body.readerHash;
       configuration.captionEpoch = 0;
       delete configuration.remoteHash;
@@ -626,6 +631,7 @@ export class CaptionRoom {
       sessionId: result.value.sessionId,
       serviceId: result.value.sessionId,
       saveHistory: result.value.saveHistory,
+      presetId: snapshotPresetId(result.value.preset),
       startedAt: new Date(result.value.startedAt!).toISOString(),
       expiresAt: new Date(result.value.expiresAt!).toISOString(),
       translationRevision: result.value.translationRevision,

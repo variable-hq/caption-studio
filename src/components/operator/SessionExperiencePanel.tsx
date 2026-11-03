@@ -8,15 +8,18 @@ import { LANGUAGE_OPTIONS } from "@/domain/languages";
 import { SettingGroup } from "@/components/operator/SettingsParts";
 import { SessionMetadataFields } from "@/components/operator/SessionMetadataFields";
 import type { MessageKey } from "@/i18n";
+import { presetLocalizedText, resolveWorkspacePreset } from "@/experience/presets";
 import { useI18n } from "@/i18n/provider";
 
 interface Archive { details: Omit<JournalState, "readerHash">; metadata: SessionMetadata; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
-interface SessionEntry { id: string; startedAt: number; metadata?: SessionMetadata }
+interface SessionEntry { id: string; startedAt: number; metadata?: SessionMetadata; presetId?: string }
 
 type PanelMessage = { key: MessageKey } | { text: string } | null;
 
 export function SessionExperiencePanel({ view, liveSession, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; liveSession: LiveSessionDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
-  const { locale, t, workspacePreset } = useI18n();
+  const { locale, t } = useI18n();
+  // A transcript saved before formats, or with an unknown id, is tagged General.
+  const formatName = (presetId: string | undefined) => presetLocalizedText(resolveWorkspacePreset(presetId).name, locale);
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
   const [archive, setArchive] = useState<Archive | null>(null);
   const [metadataDraft, setMetadataDraft] = useState<SessionMetadata>({ ...EMPTY_SESSION_METADATA });
@@ -156,7 +159,7 @@ export function SessionExperiencePanel({ view, liveSession, observer = null, onR
         {loadedList && !sessions.length && <p className="settingHint">{t("sessionExperience.noTranscripts")}</p>}
         <div className="archiveList">{sessions.map((entry) => <button type="button" className="transcriptListItem" key={entry.id} disabled={busy}
           aria-current={archive?.details.id === entry.id ? "page" : undefined}
-          onClick={() => void perform(() => load(entry.id))}>{entry.metadata?.topic ? `${entry.metadata.topic} · ` : ""}{dateTime(entry.metadata?.sessionAt ?? entry.startedAt, { dateStyle: "medium", timeStyle: "short" })}</button>)}</div>
+          onClick={() => void perform(() => load(entry.id))}>{entry.metadata?.topic ? `${entry.metadata.topic} · ` : ""}{dateTime(entry.metadata?.sessionAt ?? entry.startedAt, { dateStyle: "medium", timeStyle: "short" })}<span className="formatTag">{formatName(entry.presetId)}</span></button>)}</div>
       </nav>
       <section className="operatorCard settingsPanel" aria-labelledby="archive-heading">
         {!archive ? <>
@@ -167,7 +170,7 @@ export function SessionExperiencePanel({ view, liveSession, observer = null, onR
           <p className="settingHint">{archive.metadata.sessionAt !== null ? `${dateTime(archive.metadata.sessionAt, { dateStyle: "full", timeStyle: "short" })} · ` : ""}{t("sessionExperience.keptUntil", {
             status: archive.details.status === "ended" ? t("sessionExperience.ended") : t("sessionExperience.stillRunning"),
             date: dateTime((archive.details.endedAt ?? archive.details.expiresAt) + HISTORY_RETENTION, { dateStyle: "medium", timeStyle: "short" }),
-          })}</p></header>
+          })} · {t("sessionExperience.formatTag", { format: formatName(archive.details.preset?.id) })}</p></header>
         {editingMetadata ? <div className="experienceCard"><SessionMetadataFields value={metadataDraft} disabled={busy} onChange={setMetadataDraft} />
           <div className="buttonRow"><button type="button" className="secondaryButton" disabled={busy} onClick={() => { setMetadataDraft(normalizeSessionMetadata(archive.metadata)); setEditingMetadata(false); }}>{t("common.cancel")}</button>
             <button type="button" className="primaryButton" disabled={busy} onClick={() => void perform(async () => { const result = await experienceRequest<{ metadata: SessionMetadata }>(`transcripts/${archive.details.id}/metadata`, normalizeSessionMetadata(metadataDraft)); setMetadataDraft(result.metadata); setArchive({ ...archive, metadata: result.metadata }); setEditingMetadata(false); })}>{t("sessionExperience.saveDetails")}</button></div></div>
@@ -190,7 +193,7 @@ export function SessionExperiencePanel({ view, liveSession, observer = null, onR
           <div className="buttonRow"><button className="primaryButton" disabled={busy || archive.details.status !== "ended" || ["queued", "running"].includes(archive.summary?.status ?? "")}
             onClick={() => void perform(async () => {
               if (summaryRequestRef.current?.sessionId !== archive.details.id) summaryRequestRef.current = { sessionId: archive.details.id, id: crypto.randomUUID() };
-              await experienceRequest(`transcripts/${archive.details.id}/summary`, { model, language, length, guidance, presetId: workspacePreset.id, requestId: summaryRequestRef.current.id });
+              await experienceRequest(`transcripts/${archive.details.id}/summary`, { model, language, length, guidance, requestId: summaryRequestRef.current.id });
               summaryRequestRef.current = null;
               await load(archive.details.id);
             })}>{t("sessionExperience.generateSummary")}</button></div>

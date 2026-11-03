@@ -3,9 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { startSerialPolling } from "@/live/serial-polling";
 import type { ReaderNote, ReaderParagraph } from "@/experience/contracts";
 import { translate, type MessageKey, type MessageParams, type UiLocale } from "@/i18n";
+import { normalizePresetSnapshot, presetFromSnapshot, type PresetSnapshot } from "@/experience/presets";
 
 export default function ReaderPage({ locale }: { locale: UiLocale }) {
-  const t = (key: MessageKey, params?: MessageParams) => translate(locale, key, params);
+  // The session's own format wording, from the snapshot the reader receives; General until it arrives.
+  const [snapshot, setSnapshot] = useState<PresetSnapshot | undefined>();
+  const t = (key: MessageKey, params?: MessageParams) => translate(locale, key, params, presetFromSnapshot(snapshot));
   const [paragraphs, setParagraphs] = useState<ReaderParagraph[]>([]);
   const [notes, setNotes] = useState<ReaderNote[]>([]);
   const [status, setStatus] = useState<MessageKey>("reader.status.connecting");
@@ -43,8 +46,9 @@ export default function ReaderPage({ locale }: { locale: UiLocale }) {
           setNotice("reader.notice.expired"); return;
         }
         if (!response.ok) throw new Error("reader.status.connectionLost");
-        const value = await response.json() as { status: string; saved: boolean; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; removed: number[] };
+        const value = await response.json() as { status: string; saved: boolean; preset?: unknown; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; removed: number[] };
         if (cancelled) return;
+        setSnapshot(normalizePresetSnapshot(value.preset));
         setStatus(value.status === "ended" ? "reader.status.ended" : value.status === "paused" ? "reader.status.paused" : "reader.status.live");
         setNotice(value.saved ? "reader.notice.saved" : "reader.notice.unsaved");
         if (value.paragraphs.length) {

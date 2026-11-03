@@ -34,7 +34,11 @@ function viewerHtml(locale) {
  const messages = locale === 'id' ? idMessages : en;
  const loadedModule = loadTypeScriptModule(viewerSource, {
   require: () => ({
-   translate: (_locale, key) => messages[key] ?? en[key] ?? key,
+   // Fills the placeholders the way the real translate does: passed values first, then General's session term.
+   translate: (_locale, key, params = {}) => {
+    const general = locale === 'id' ? { Term_session: 'Sesi', term_session: 'sesi' } : { Term_session: 'Session', term_session: 'session' };
+    return (messages[key] ?? en[key] ?? key).replace(/\{([a-zA-Z0-9_]+)\}/gu, (match, name) => params[name] ?? general[name] ?? match);
+   },
    localeFromAcceptLanguage: () => locale,
   }),
  });
@@ -55,6 +59,9 @@ try {
   let remote = { status: 'live', connected: true, command: null };
   let summary = null; let excluded = false; const summaryIds = [];
   let workspaceProfile = null;
+  // The session's format snapshot as the reader and viewer receive it, and the viewer's first message.
+  let readerPreset;
+  let viewerReady = { status: 'live' };
   await page.route('**/*', async (route) => {
    const request = route.request(); const url = new URL(request.url());
    if (url.origin !== origin) return route.abort();
@@ -65,7 +72,7 @@ try {
    let payload;
    if (url.pathname === '/api/live/reader') {
     if (readerExpired) return route.fulfill({ status: 403, json: { error: 'Expired' } });
-    payload = { status: readerStatus, saved: true, paragraphs: Number(url.searchParams.get('after')) < 1 ? [paragraph] : [], removed: readerRemoved ? [1] : [] };
+    payload = { status: readerStatus, saved: true, ...(readerPreset ? { preset: readerPreset } : {}), paragraphs: Number(url.searchParams.get('after')) < 1 ? [paragraph] : [], removed: readerRemoved ? [1] : [] };
    } else if (url.pathname.endsWith('/experience/remote')) {
     if (body.action) { remote = { status: body.action === 'pause' ? 'paused' : body.action === 'resume' ? 'live' : remote.status, connected: true, command: { action: body.action, status: 'pending' } }; }
     else if (remote.command) remote.command.status = 'confirmed';
@@ -91,7 +98,7 @@ try {
    results.push({ width, screen, violations: axe.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })) });
    await page.screenshot({ path: `${output}/${screen}-${width}.png`, fullPage: true });
   }
-  await page.routeWebSocket('**/api/live/viewer?*', (socket) => socket.send(JSON.stringify({ type: 'ready', status: 'live', caption: { sequence: 1, publicText: 'Synthetic latest translation.', targetLanguage: 'en' } })));
+  await page.routeWebSocket('**/api/live/viewer?*', (socket) => socket.send(JSON.stringify({ type: 'ready', ...viewerReady, caption: { sequence: 1, publicText: 'Synthetic latest translation.', targetLanguage: 'en' } })));
   await page.goto(origin + '/view#main.' + 'v'.repeat(43));
   await page.getByText('Synthetic latest translation.', { exact: true }).waitFor();
   await check('viewer');
@@ -103,15 +110,47 @@ try {
   readerRemoved = true; await page.getByText('Waiting for the next readable paragraph…').waitFor();
   readerExpired = true; await page.getByText('Reader link expired or replaced', { exact: true }).waitFor();
   assert.ok(requests.every((url) => url === '/api/live/reader'));
+  // Audience pages render the session's own snapshot, whatever format the workspace uses now: a Sermon session reads "Service".
+  const sermonSnapshot = { id: 'builtin:sermon', version: 1, terms: {
+   en: { session: { singular: 'service', plural: 'services' }, speaker: { singular: 'preacher', plural: 'preachers' }, audience: { singular: 'congregation', plural: 'congregations' }, transcripts: { singular: 'sermons' } },
+   id: { session: { singular: 'ibadah', plural: 'ibadah' }, speaker: { singular: 'pengkhotbah', plural: 'pengkhotbah' }, audience: { singular: 'jemaat', plural: 'jemaat' }, transcripts: { singular: 'khotbah' } },
+  } };
+  readerExpired = false; readerRemoved = false; readerStatus = 'ended';
+  // The reader link is already open, so reload it instead of navigating to the same address.
+  await page.reload();
+  await page.getByText('Session ended', { exact: true }).waitFor();
+  await page.getByText('Earlier paragraphs are available during this session and for 30 minutes after it ends.', { exact: true }).waitFor();
+  readerPreset = sermonSnapshot;
+  await page.getByText('Service ended', { exact: true }).waitFor();
+  await page.getByText('Earlier paragraphs are available during this service and for 30 minutes after it ends.', { exact: true }).waitFor();
+  await check('reader-snapshot');
+  viewerReady = { status: 'idle' };
+  await page.goto(origin + '/view#main.' + 'v'.repeat(43));
+  await page.locator('.status', { hasText: 'Session ended' }).waitFor();
+  viewerReady = { status: 'idle', preset: sermonSnapshot };
+  await page.reload();
+  await page.locator('.status', { hasText: 'Service ended' }).waitFor();
+  await check('viewer-snapshot');
+  readerPreset = undefined; readerStatus = 'live'; viewerReady = { status: 'live' };
   await page.setExtraHTTPHeaders({ 'accept-language': 'id-ID,id;q=0.9' });
   readerStatus = 'live'; readerExpired = false; readerRemoved = false;
-  await page.goto(origin + '/view#main.' + 'v'.repeat(43));
+  // The viewer is already open at this address, so reload it to pick up the Indonesian headers.
+  await page.reload();
   await page.getByText('Terjemahan Live', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'id'); await check('viewer-id');
   await page.goto(origin + '/read#' + id + '.' + 'r'.repeat(43));
   await page.getByText('Pembaca transkrip', { exact: true }).waitFor();
   await page.getByText('Live · teks muncul setelah sekitar 30 detik', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'id'); await check('reader-id');
+  // The same snapshot reads in Indonesian on both audience pages.
+  readerPreset = sermonSnapshot; readerStatus = 'ended';
+  await page.reload();
+  await page.getByText('Ibadah berakhir', { exact: true }).waitFor();
+  viewerReady = { status: 'idle', preset: sermonSnapshot };
+  // The page is on the reader; the viewer is a different address.
+  await page.goto(origin + '/view#main.' + 'v'.repeat(43));
+  await page.locator('.status', { hasText: 'Ibadah berakhir' }).waitFor();
+  readerPreset = undefined; readerStatus = 'live'; viewerReady = { status: 'live' };
   await page.setExtraHTTPHeaders({ 'accept-language': 'en-US,en;q=0.9' });
   requests.length = 0;
   await page.evaluate(() => localStorage.setItem('caption-studio:ui-locale:v1', 'id'));

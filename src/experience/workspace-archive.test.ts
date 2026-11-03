@@ -144,7 +144,8 @@ describe("workspace-wide transcript archives", () => {
     const metadataRead = vi.spyOn(journal, "fetch");
     const response = await handleExperienceRequest(as(SECOND_OPERATOR, "/api/live/experience/history"), environment);
     expect(response?.status).toBe(200);
-    const transcript = { ...ARCHIVED[0], metadata: { topic: "", speaker: "", description: "", sessionAt: null } };
+    // A session saved before formats existed has none, so its tag reads General.
+    const transcript = { ...ARCHIVED[0], metadata: { topic: "", speaker: "", description: "", sessionAt: null }, presetId: "builtin:general" };
     expect(await response!.json()).toEqual({ sessions: [transcript], services: [transcript] });
     // The identity authorizes the read; it never scopes it, so nothing is forwarded.
     expect(roomRequests[0]?.headers.get("cf-access-jwt-assertion")).toBeNull();

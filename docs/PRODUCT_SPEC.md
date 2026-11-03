@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 4 November 2026 against merged PR #106 (`2f3432e`). The corrected 13 September
+Reviewed 4 November 2026 against merged PR #107 (`b54637a`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -197,13 +197,28 @@ these. The format's id travels with each request and the server resolves its tex
 server's safeguards are unchanged and come first. Each summary records the format it used.
 Indonesian preset wording is a draft pending native review.
 
-Until a session stores its own format, the format a request uses is the workspace format at
-the time of the request, so changing it during a session changes the context of later
-requests in that session.
+**Session format.** The Live Start bar has a **Session format** select, set to the workspace
+format until the operator picks another. The choice is fixed when the session starts; nothing
+changes it for the rest of the session, and the next session starts from the Start bar again
+(it keeps the last choice until the page reloads). A session's captions, translations and
+summaries (manual and automatic) use its format's model context, and a summary uses the
+session's format, not the one current when it is generated. A session that began before
+formats reads as General.
+
+While a session runs, the top bar, Live and Transcripts use the session's format wording, and a
+read-only tag above Session details names it; Settings and Help keep the workspace format.
+Each saved transcript shows a format tag. A second operator tab watching the session follows
+its format too.
+
+The public reader and the mobile viewer use the session's own format words, from the copy the
+session stored when it started. They keep those words if a later release changes the format,
+and a session that began before formats reads as General. Only a few audience messages use
+a term: the ended status on both pages and the reader's note about how long earlier
+paragraphs stay available. The phone remote and the stream overlay keep General wording.
 
 The top bar shows the format after the workspace name. While no session is live it links to
-Settings › Presets; while a session is live it is plain text. Saved transcripts, the audience
-pages and the public reader keep their existing wording.
+Settings › Presets and shows the workspace format; while a session is live it shows the
+session's format as plain text.
 
 ## Current functional requirements
 

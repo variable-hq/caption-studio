@@ -714,6 +714,9 @@ describe("reusable OBS channel worker API", () => {
     expect(html).toContain("/api/live/viewer?channel=");
     expect(html).toContain("textContent");
     expect(html).toContain("event.code===4002");
+    // The ended label's session term is filled from the session's snapshot.
+    expect(html).toContain('"endedTemplate":"{Term_session} ended"');
+    expect(html).toContain("payload.preset");
     expect(html).toContain("event.code===4003");
     expect(html).not.toContain("church-caption-v1");
     expect(html).not.toContain("/_next/");
@@ -729,6 +732,7 @@ describe("reusable OBS channel worker API", () => {
         sessionId: "12345678-1234-1234-1234-123456789012",
         serviceId: "12345678-1234-1234-1234-123456789012",
         saveHistory: true,
+        presetId: "builtin:sermon",
         controllerLabel: "first@example.test",
         status: "live",
         startedAt: "2026-09-20T09:00:00.000Z",
@@ -749,6 +753,7 @@ describe("reusable OBS channel worker API", () => {
       sessionId: "12345678-1234-1234-1234-123456789012",
       serviceId: "12345678-1234-1234-1234-123456789012",
       saveHistory: true,
+      presetId: "builtin:sermon",
       controllerLabel: "first@example.test",
       status: "live",
       translationRevision: 3,
@@ -761,6 +766,34 @@ describe("reusable OBS channel worker API", () => {
     expect(seen[0]!.path).toBe("/internal/experience/observer");
     expect(seen[0]!.body).toMatchObject({ identityKey: expect.stringMatching(/^operator:[a-f0-9]{64}$/u) });
     expect(seen[0]!.body).not.toHaveProperty("controllerHash");
+  });
+
+  it("forwards the chosen format to the room on start and returns the one it stored", async () => {
+    const seen: unknown[] = [];
+    const { env } = environment(async (request) => {
+      seen.push(await request.clone().json());
+      return Response.json({
+        sessionId: "12345678-1234-1234-1234-123456789012", serviceId: "12345678-1234-1234-1234-123456789012",
+        saveHistory: false, presetId: "builtin:talkshow", status: "live",
+        startedAt: "2026-09-20T09:00:00.000Z", expiresAt: "2026-09-20T10:30:00.000Z", translationRevision: 1,
+      });
+    });
+    const start = (body: unknown) => handleLiveApiRequest(
+      new Request("https://caption.example/api/live/channel/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+      env,
+    );
+    const response = await start({ takeover: false, presetId: "builtin:talkshow" });
+    expect(response?.status).toBe(200);
+    expect(await response!.json()).toMatchObject({ presetId: "builtin:talkshow" });
+    expect(seen[0]).toMatchObject({ presetId: "builtin:talkshow" });
+
+    // The room resolves the id; the Worker only bounds it, and sends nothing when none is given.
+    await start({ takeover: false });
+    expect(seen[1]).not.toHaveProperty("presetId");
+    for (const presetId of [42, "x".repeat(65)]) {
+      expect((await start({ takeover: false, presetId }))?.status).toBe(400);
+    }
+    expect(seen).toHaveLength(2);
   });
 
   it("passes an inactive service through to the watcher caller", async () => {

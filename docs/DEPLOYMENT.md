@@ -1,6 +1,6 @@
 # Deployment runbook
 
-Reviewed 3 November 2026 against merged PR #100 (`b4c03ab`). This describes the current
+Reviewed 4 November 2026 against merged PR #107 (`b54637a`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
@@ -150,6 +150,10 @@ which is not planned:
 - A WebSocket connection offers either subprotocol set and the server echoes the one offered.
 - Stored configurations and usage records written before this change are read through the
   normalizing helpers; the next normal write stores the new names.
+
+A session's format (`preset` on the stored configuration and on the journal state) is an
+optional field. Records written before it existed have none and read as General, so the
+deploy needs no migration, and rolling back leaves the field unread.
 
 A build from before this change reads only the old names, so it cannot see a session or
 usage record written under the new names. Roll back only before the first session starts

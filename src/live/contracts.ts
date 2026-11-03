@@ -117,6 +117,7 @@ export interface PublicCaptionEvent extends PublicCaptionRequest {
 export interface ObsChannelDetails {
   sessionId?: string;
   saveHistory?: boolean;
+  presetId?: string;
   /** Access email of the operator running the session; Access-protected surfaces only. */
   controllerLabel?: string;
   channelId: typeof MAIN_CHANNEL_ID;
@@ -135,6 +136,8 @@ export interface LiveSessionDetails {
   sessionId?: string;
   readerUrl?: string;
   saveHistory?: boolean;
+  /** The session's format, fixed at start; absent reads as General. */
+  presetId?: string;
   channelId: typeof MAIN_CHANNEL_ID;
   controllerToken: string;
   viewerUrl: string | null;
@@ -152,6 +155,7 @@ export interface LiveObserverDetails {
   channelId: typeof MAIN_CHANNEL_ID;
   sessionId: string;
   saveHistory: boolean;
+  presetId?: string;
   controllerLabel?: string;
   status: "live" | "paused";
   observerToken: string;

@@ -46,6 +46,7 @@ import {
   type TranslationSessionSettings,
 } from "@/live/translation-settings";
 import { prepareCaptionForms } from "@/pipeline/caption-pipeline";
+import { requestPresetId } from "@/live/request-preset";
 import { experienceRequest } from "@/experience/client";
 import { startSerialPolling } from "@/live/serial-polling";
 import { initialSpeechGateState, observeSpeechSample, shouldSendWindow } from "@/live/speech-gate";
@@ -53,6 +54,8 @@ import { isProviderLimitError } from "@/live/provider-limit";
 import { useMicrophoneInput } from "@/live/use-microphone-input";
 import { useMicTestClip } from "@/live/use-mic-test-clip";
 import { recorderOptions } from "@/live/recorder-options";
+import { translate, type MessageKey, type MessageParams } from "@/i18n";
+import { messagePresetFor } from "@/live/request-preset";
 import { useI18n } from "@/i18n/provider";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
 import { useRecentOutputs } from "@/live/use-recent-outputs";
@@ -162,7 +165,13 @@ function isControllerReplaced(error: unknown) {
 }
 
 export function useLiveCaptionSession(settings: LiveCaptionSettings) {
-  const { t } = useI18n();
+  const { t: workspaceT, locale } = useI18n();
+  // Banners are worded in the running session's format, or the Start bar's choice before one.
+  const t = useCallback(
+    (key: MessageKey, params?: MessageParams) =>
+      translate(locale, key, params, messagePresetFor(sessionRef.current, settingsRef.current.presetId)),
+    [locale],
+  );
   const tRef = useRef(t);
   useEffect(() => {
     tRef.current = t;
@@ -185,7 +194,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const discardMicTest = micTest.discard;
   const [liveState, setLiveState] = useState<LiveSessionState>(() => ({
     ...INITIAL_LIVE_STATE,
-    message: t("live.message.loadingChannel"),
+    // The first render has no session yet, so the workspace wording applies.
+    message: workspaceT("live.message.loadingChannel"),
   }));
   const remoteResultRef = useRef<{ controller: string; id: string; success: boolean } | null>(null);
   const [controlAction, setControlAction] =
@@ -665,7 +675,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           settings: current,
           liveWords: liveWordsAtStart,
           liveNote: settingsRef.current.liveNote,
-          presetId: settingsRef.current.presetId,
+          presetId: requestPresetId(sessionRef.current, settingsRef.current.presetId),
         },
       ) ? draft : null;
       const recordTranscription = (transcription: CaptionTranscriptionResult) => {
@@ -704,7 +714,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           settings: current,
           recentContext: recentContextRef.current,
           liveNote: settingsRef.current.liveNote,
-          presetId: settingsRef.current.presetId,
+          presetId: requestPresetId(sessionRef.current, settingsRef.current.presetId),
           signal,
           isCurrent: isCurrentCapture,
           onTranslation,
@@ -719,7 +729,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           controllerToken: sessionAtStart.controllerToken,
           recentContext: recentContextRef.current,
           liveNote: settingsRef.current.liveNote,
-          presetId: settingsRef.current.presetId,
+          presetId: requestPresetId(sessionRef.current, settingsRef.current.presetId),
           signal,
           isCurrent: isCurrentCapture,
           currentRevision: sessionAtStart.translationRevision,
@@ -910,7 +920,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         settings: current,
         liveWords,
         liveNote,
-        presetId: settingsRef.current.presetId,
+        presetId: requestPresetId(sessionRef.current, settingsRef.current.presetId),
       },
     };
   }, [reconcileExternalTranslationRevision]);
@@ -1266,6 +1276,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           const recovered: LiveSessionDetails = {
             sessionId: channel.sessionId,
             saveHistory: channel.saveHistory,
+            presetId: channel.presetId,
             channelId: channel.channelId,
             controllerToken: storedController,
             viewerUrl: storedViewerUrl,
@@ -1565,6 +1576,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           normalizeCaptionStyle(settingsRef.current.style),
           takeover,
           settingsRef.current.saveHistory === true,
+          settingsRef.current.presetId,
         );
         const recordingWindowMs = translationSettings.recordingWindowMs;
         sessionRef.current = liveSession;

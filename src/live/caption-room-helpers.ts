@@ -1,3 +1,4 @@
+import { normalizePresetSnapshot, snapshotPresetId, type PresetSnapshot } from "@/experience/presets";
 import type { LlmSessionUsage, TranslationResult } from "@/ai/contracts";
 import { emptyLlmSessionUsage, normalizeLlmSessionUsage } from "@/ai/usage";
 import { isLanguageLocale } from "@/domain/languages";
@@ -46,6 +47,8 @@ export interface ChannelConfiguration {
   /** Name written before sessionId; read by normalizeConfiguration and dropped on the next write. */
   serviceId?: string;
   saveHistory?: boolean;
+  /** The session's format, copied at start and never changed; absent on sessions that began before formats. */
+  preset?: PresetSnapshot;
   readerHash?: string;
   captionEpoch?: number;
   remoteHash?: string;
@@ -82,6 +85,8 @@ export interface ChannelConfiguration {
 export interface StartSessionRequest {
   readerHash?: string;
   saveHistory?: boolean;
+  /** A built-in preset id; the room resolves it and an unknown id is General. */
+  presetId?: string;
   controllerHash: string;
   controllerLabel?: string;
   viewerTokenHash: string;
@@ -169,9 +174,11 @@ export function credentialMatches(map: Record<string, string> | undefined, hash:
 }
 
 export function normalizeConfiguration(configuration: ChannelConfiguration) {
-  const { serviceId, serviceEventCount, ...current } = configuration;
+  const { serviceId, serviceEventCount, preset: storedPreset, ...current } = configuration;
+  const preset = normalizePresetSnapshot(storedPreset);
   return {
     ...current,
+    ...(preset ? { preset } : {}),
     sessionId: current.sessionId ?? serviceId,
     observers: normalizedCredentialMap(configuration.observers),
     remoteHashes: normalizedCredentialMap(configuration.remoteHashes),
@@ -293,6 +300,7 @@ export function publicConfiguration(configuration: ChannelConfiguration) {
     sessionId: current.sessionId,
     serviceId: current.sessionId,
     saveHistory: current.saveHistory,
+    presetId: snapshotPresetId(current.preset),
     controllerLabel: current.controllerLabel,
     encryptedToken: current.encryptedToken,
     status: current.status,

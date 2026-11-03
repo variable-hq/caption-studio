@@ -1,6 +1,6 @@
 # ADR 0035: Workspace presets
 
-Date: 3 November 2026. Status: accepted; the term placeholders, the preset schema with built-in whole-message overrides, starting defaults and built-in model context, the Settings chooser with its preview and Apply preset, and the top bar format are implemented. The session snapshot is pending.
+Date: 3 November 2026. Status: accepted; the term placeholders, the preset schema with built-in whole-message overrides, starting defaults and built-in model context, the Settings chooser with its preview and Apply preset, the top bar format, and the per-session format with its snapshot on the audience pages are implemented.
 
 ## Context
 
@@ -39,12 +39,12 @@ Caption Studio's wording is generic (ADR 0033), but an organization often wants 
 
 ### Model-facing text
 
-- A request carries only a preset id. The server validates it (a known built-in, else General) and resolves the text from the preset definition. Request text never supplies preset content.
+- A request carries only a preset id. The server validates it (a known built-in, else General) and resolves the text from the preset definition. Request text never supplies preset content. While a session runs, the id a request carries is the session's; before one starts, it is the Start bar's choice. A summary reads the session's format from its journal.
 - Each non-General built-in may add a transcription prefix, one conditional translation rule and a summary framing line with its guidance. The base safeguards against inventing or quoting source text come first and are unchanged. Every addition stays inside the existing instruction and transcription budgets.
 
 ### Session snapshot
 
-- A session stores the preset id, its version and a resolved copy of the terms and the few strings the audience pages show. Audience pages and saved transcripts keep their wording after the preset is edited or deleted. Sessions without a stored preset read as General.
+- A session stores the preset id, its version and a resolved copy of the terms and the few strings the audience pages show. Audience pages and saved transcripts keep their wording after the preset is edited or deleted. Sessions without a stored preset read as General. The reader returns the snapshot and the viewer socket sends it on connect, so each page renders its few term messages from the session's copy.
 
 ## Tradeoffs and verification
 

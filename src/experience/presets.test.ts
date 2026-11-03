@@ -8,10 +8,14 @@ import {
   MAX_PRESET_NAME_CHARS,
   PresetValidationError,
   normalizePreset,
+  normalizePresetSnapshot,
   normalizeProfileId,
+  presetFromSnapshot,
   presetTermParams,
   resolvePresetTerm,
   resolveWorkspacePreset,
+  snapshotPreset,
+  snapshotPresetId,
 } from "@/experience/presets";
 
 const CUSTOM_ID = "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b";
@@ -282,5 +286,39 @@ describe("built-in presets", () => {
     expect(normalizeProfileId("builtin:unknown")).toBeNull();
     expect(normalizeProfileId(CUSTOM_ID)).toBeNull();
     expect(normalizeProfileId(42)).toBeNull();
+  });
+});
+
+describe("session preset snapshot", () => {
+  it("copies the resolved terms of both languages and survives a round trip", () => {
+    const sermon = resolveWorkspacePreset("builtin:sermon");
+    const snapshot = snapshotPreset(sermon);
+    expect(snapshot).toMatchObject({ id: "builtin:sermon", version: sermon.version });
+    expect(snapshot.terms.en.audience.singular).toBe("congregation");
+    expect(snapshot.terms.id.session.singular).toBe("ibadah");
+    expect(normalizePresetSnapshot(JSON.parse(JSON.stringify(snapshot)))).toEqual(snapshot);
+    // A copy, not a reference to the built-in's own data.
+    expect(snapshot.terms.en).not.toBe(sermon.terms.en);
+  });
+
+  it("reads a missing snapshot as General", () => {
+    expect(snapshotPresetId(undefined)).toBe("builtin:general");
+    expect(presetFromSnapshot(undefined)).toBe(GENERAL_PRESET);
+    expect(presetTermParams(presetFromSnapshot(snapshotPreset(resolveWorkspacePreset("builtin:keynote"))), "en")).toMatchObject({
+      term_audience: "attendees",
+    });
+  });
+
+  it("rejects a snapshot with an unknown id, version, field or malformed terms", () => {
+    const good = snapshotPreset(resolveWorkspacePreset("builtin:talkshow"));
+    expect(normalizePresetSnapshot(good)).toEqual(good);
+    for (const bad of [
+      null, "x", {}, { ...good, id: "builtin:market" }, { ...good, id: "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b" },
+      { ...good, version: 0 }, { ...good, version: 1.5 }, { ...good, extra: true },
+      { ...good, terms: { en: good.terms.en } },
+      { ...good, terms: { ...good.terms, en: { ...good.terms.en, session: { singular: "x\u202e" , plural: "y" } } } },
+    ]) {
+      expect(normalizePresetSnapshot(bad), JSON.stringify(bad)?.slice(0, 60)).toBeUndefined();
+    }
   });
 });

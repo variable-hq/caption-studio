@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 4 November 2026 against merged PR #106 (`2f3432e`). Cloudflare deployed `20597d8`
+Reviewed 4 November 2026 against merged PR #107 (`b54637a`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -38,7 +38,18 @@ workspace's preset in `src/experience/presets.ts`; `normalizePreset()` is the on
 parser for preset data, and it rejects unknown fields and out-of-bounds values. A preset's
 `defaults` fill only settings the workspace has not saved: `planPresetApply()` in
 `src/experience/preset-apply.ts` gives the preview and the Apply preset action the same
-plan. The preset design is recorded in [ADR 0035](decisions/0035-workspace-presets.md).
+plan. A session stores its own format when it starts, as a snapshot of the built-in's id,
+version and resolved terms (`PresetSnapshot`) in the room's `ChannelConfiguration` and, from
+the first journal sync, in the journal's state. Nothing replaces it for the rest of the
+session, and a session without one reads as General. The journal takes the format for a
+session's summaries (manual and automatic) from that snapshot, not from the request, and
+records it on the summary job. The public reader (`/api/live/reader`) returns the snapshot
+with each response, and the room sends it in the viewer socket's `ready` message; both pages
+render the three messages that use a term (`reader.status.ended`, `reader.notice.saved` and
+`viewer.statusEnded`) from it, and the viewer page fills its ended label's term from the
+snapshot in the browser. The overlay has no message that uses a term. A response or message
+without a snapshot renders General. The preset design is recorded in
+[ADR 0035](decisions/0035-workspace-presets.md).
 
 GitHub handles source review. Cloudflare Workers Builds builds OpenNext and deploys
 `custom-worker.ts` plus assets after merges to main. There is no GitHub Actions workflow.
