@@ -262,8 +262,10 @@ difference here, fix it when the screen is next changed, and don't copy it into 
   transcripts. Identifiers, routes, stored field names and the AI safeguards never change.
 - Each term has a singular and plural form in English and Indonesian. Write sentences so
   they read with any term set: no "a" or "an" before a term; "the" is fine.
-- Whole-message overrides are for example placeholders (the Live note, Quick override and
-  manual caption fields) and for the Sermon congregation line. An override may use fewer
+- Whole-message overrides cover three cases: example placeholders (the Live note, Quick
+  override and manual caption fields), the Sermon congregation line, and sentences whose
+  grammar depends on the term, such as agreement and possessives (Talkshow's plural
+  "host and guests" takes plural verbs and "guests’" possessives). An override may use fewer
   placeholders than the base message, never more.
 - Indonesian preset wording is a draft until a native speaker reviews it.
 

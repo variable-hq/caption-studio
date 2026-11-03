@@ -445,6 +445,29 @@ describe("operator interface translations", () => {
     );
   });
 
+  it("gives the Talkshow plural speaker term plural verbs and possessives", () => {
+    const talkshow = resolveWorkspacePreset("builtin:talkshow");
+    const keys = [
+      "live.startHelp.ready",
+      "help.step3.after",
+      "translationSettings.speedHint",
+      "translationSettings.source",
+      "translationSettings.languagesHint",
+      "wordsEditor.addHint",
+      "wordsEditor.placeholderWord",
+      "inference.high.detail",
+    ] as const;
+    for (const key of keys) {
+      const text = translate("en", key, undefined, talkshow);
+      for (const bad of ["guests’s", "guests's", "guests begins", "guests pauses"]) {
+        expect(text, `${key} avoids “${bad}”`).not.toContain(bad);
+      }
+    }
+    expect(translate("en", "translationSettings.source", undefined, talkshow)).toBe("Host and guests’ language");
+    expect(translate("en", "help.step3.after", undefined, talkshow)).toBe("when the host and guests begin.");
+    expect(translate("id", "help.step3.after", undefined, talkshow)).toBe("saat pembawa acara dan narasumber mulai berbicara.");
+  });
+
   it("renders the General wording when no preset is given or the profile is unknown", () => {
     expect(translate("en", "liveOutputs.phoneViewerLiveHint", undefined, resolveWorkspacePreset("builtin:market"))).toBe(
       enDisplay["liveOutputs.phoneViewerLiveHint"],

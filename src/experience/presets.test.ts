@@ -188,7 +188,7 @@ describe("built-in presets", () => {
   it("rejects override keys that are not message keys and override text that is too long", () => {
     const builtIn = (messageOverrides: unknown) => ({ ...GENERAL_PRESET, id: "builtin:test", messageOverrides });
     expectRejected(builtIn({ en: { "bad key": "x" } }), /is not a message key/u);
-    expectRejected(builtIn({ en: { "live.x": "x".repeat(301) } }), /must be 300 characters or fewer/u);
+    expectRejected(builtIn({ en: { "live.x": "x".repeat(401) } }), /must be 400 characters or fewer/u);
     expectRejected(builtIn({ fr: { "live.x": "x" } }), /unknown field "fr"/u);
   });
 

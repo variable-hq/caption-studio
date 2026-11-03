@@ -46,7 +46,7 @@ const CUSTOM_ID_PATTERN = /^custom:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const BUILT_IN_ID_PATTERN = /^builtin:[a-z]+$/u;
 // C0 and C1 controls, line and paragraph separators, and bidirectional overrides and isolates.
 export const MAX_OVERRIDES_PER_LOCALE = 60;
-export const MAX_PRESET_OVERRIDE_CHARS = 300;
+export const MAX_PRESET_OVERRIDE_CHARS = 400;
 const OVERRIDE_KEY_PATTERN = /^[a-zA-Z0-9_.]+$/u;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/u;
 
@@ -316,6 +316,17 @@ const TALKSHOW_PRESET: Preset = {
       "liveWord.placeholderWord": "e.g. Guest: Dr. Rina…",
       "liveWord.placeholderFix": "e.g. Guest: Dr. Rina…",
       "manualCaption.placeholder": "e.g. Guest: Dr. Rina…",
+      // The plural term "host and guests" needs plural verbs and possessives.
+      "live.startHelp.ready": "Press Start when the host and guests begin.",
+      "help.step3.after": "when the host and guests begin.",
+      "translationSettings.speedHint":
+        "Sets the longest each caption waits. Captions appear sooner when the host and guests pause. Shorter limits keep viewers closer to the host and guests; longer limits allow fuller sentences. Dynamic adapts to how the host and guests pause, up to 14 seconds.",
+      "translationSettings.source": "Host and guests’ language",
+      "translationSettings.languagesHint": "Choosing the host and guests’ language manually helps improve reliability.",
+      "wordsEditor.addHint":
+        "Write the term in the host and guests’ language for “Help the AI recognise it”, “Fix spelling to…” and “Always translate as…”. Hide and replace actions match the finished captions, so use the caption language. The With value is the corrected spelling (host and guests’ language), the translation or the replacement (caption language).",
+      "wordsEditor.placeholderWord": "e.g. Guests’ names…",
+      "inference.high.detail": "Favors the host and guests’ intended meaning over exact wording; may reword boldly.",
     },
     id: {
       "liveWord.placeholderWord": "mis. Tamu: Dr. Rina…",
