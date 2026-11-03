@@ -1,6 +1,6 @@
 # Design system
 
-Reviewed 2 November 2026 against merged PR #93 (`3e257a8`).
+Reviewed 3 November 2026 against merged PR #96 (`f74a25f`).
 
 Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
@@ -101,7 +101,7 @@ The dashboard theme never changes the configured OBS caption colours.
   button instead.
 - `.operatorCard`: the screen's cards (border, `--radius-lg`, `--shadow`, `--space-3`
   padding). `.operatorBanner` (`data-tone` warn or bad) sits above the content it concerns.
-- `.liveControlBar`: pinned to the bottom of Live while a service runs; `.operatorShell`
+- `.liveControlBar`: pinned to the bottom of Live while a session runs; `.operatorShell`
   reserves matching `scroll-padding-bottom` so the bar never hides a focused control.
 - `.settingsNav`: the Settings section links (and the Transcripts list), current one marked
   `aria-current="page"`; below 981px it becomes one sideways-scrolling row.

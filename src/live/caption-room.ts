@@ -62,7 +62,7 @@ export class CaptionRoom {
     if (!this.env?.SERMON_JOURNALS) return this.dispatch(request);
     return this.state.blockConcurrencyWhile(async () => {
       try { await this.flushJournals(); await this.reconcileJournalState(); }
-      catch { return json({ error: "Service history is reconnecting. Retry shortly." }, 503); }
+      catch { return json({ error: "Session history is reconnecting. Retry shortly." }, 503); }
       const before = await this.state.storage.get<ChannelConfiguration>("configuration");
       const response = await this.dispatch(request);
       const after = await this.state.storage.get<ChannelConfiguration>("configuration");
@@ -83,7 +83,7 @@ export class CaptionRoom {
           this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
           this.closeViewerSockets(4002, "Live service could not start.");
         }
-        return json({ error: "Service history is reconnecting. Retry shortly." }, 503);
+        return json({ error: "Session history is reconnecting. Retry shortly." }, 503);
       }
       return response;
     });
@@ -150,7 +150,7 @@ export class CaptionRoom {
       capturing?: boolean; acknowledgement?: string; success?: boolean;
       transcriptionAttempt?: number; stage?: string; source?: unknown; sourceIds?: number[] };
     const stored = await this.expireServiceIfNeeded();
-    if (!stored || !isActive(stored) || !stored.serviceId) return json({ error: "Service ended.", code: "service_inactive" }, 410);
+    if (!stored || !isActive(stored) || !stored.serviceId) return json({ error: "Session ended.", code: "service_inactive" }, 410);
     const current = normalizeConfiguration(stored);
     if (action === "remove-current") {
       if (body.serviceId !== current.serviceId) return json({ ignored: true });
@@ -251,7 +251,7 @@ export class CaptionRoom {
       const attempt = body.transcriptionAttempt;
       if (!Number.isSafeInteger(attempt) || !["transcription", "translation"].includes(body.stage ?? "") ||
           !(body.stage === "transcription" ? current.claimedTranscriptionAttempts : current.claimedTranslationAttempts).includes(attempt!)) return json({ error: "Inference attempt was not claimed." }, 403);
-      if (current.status !== "live") return json({ error: "Service paused.", code: "service_paused" }, 409);
+      if (current.status !== "live") return json({ error: "Session paused.", code: "service_paused" }, 409);
       return json({ serviceId: current.serviceId });
     }
     if (action === "source" && this.env?.SERMON_JOURNALS) {
@@ -261,7 +261,7 @@ export class CaptionRoom {
       return rpc(this.env.SERMON_JOURNALS, current.serviceId!, "/source", source);
     }
     if (action === "gap" && this.env?.SERMON_JOURNALS) return rpc(this.env.SERMON_JOURNALS, current.serviceId!, "/gap", {});
-    return json({ error: "Unknown service action." }, 404);
+    return json({ error: "Unknown session action." }, 404);
   }
 
   private async dispatch(request: Request) {
@@ -274,7 +274,7 @@ export class CaptionRoom {
       const { id } = await request.json() as { id: string };
       if (!UUID_PATTERN.test(id)) return json({ error: "Invalid archive." }, 400);
       const current = await this.state.storage.get<ChannelConfiguration>("configuration");
-      if (current?.serviceId === id && isActive(current) && !serviceExpired(current)) return json({ error: "End the service first." }, 409);
+      if (current?.serviceId === id && isActive(current) && !serviceExpired(current)) return json({ error: "End the session first." }, 409);
       await this.state.storage.delete(`archive:${id}`);
       return json({ deleted: true });
     }
@@ -534,7 +534,7 @@ export class CaptionRoom {
       body.viewerTokenHash.length !== 64 ||
       typeof body.takeover !== "boolean"
     ) {
-      return json({ error: "Invalid live-service configuration." }, 400);
+      return json({ error: "Invalid live-session configuration." }, 400);
     }
 
     const result = await this.state.storage.transaction<
@@ -591,7 +591,7 @@ export class CaptionRoom {
 
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "channel-in-use") return channelInUse(result.expiresAt);
-    if (result.kind !== "ok") return json({ error: "Live service could not start." }, 500);
+    if (result.kind !== "ok") return json({ error: "Live session could not start." }, 500);
 
     await this.state.storage.setAlarm(result.value.expiresAt!);
     // A new service invalidates every earlier audience link and watcher credential.
@@ -662,7 +662,7 @@ export class CaptionRoom {
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
         this.closeViewerSockets(4002, "Live service ended.");
       }
-      return json({ error: "The live service is no longer active." }, 410);
+      return json({ error: "The live session is no longer active." }, 410);
     }
     if (result.kind !== "ok") {
       return json({ error: "The mobile viewer link could not be replaced." }, 500);
@@ -777,7 +777,7 @@ export class CaptionRoom {
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "controller-replaced") return controllerReplaced();
     if (result.kind === "caption-cleared") return json({ error: "Caption predates Clear. Discard it.", code: "caption_cleared" }, 409);
-    if (result.kind === "paused") return json({ error: "Service paused.", code: "service_paused" }, 409);
+    if (result.kind === "paused") return json({ error: "Session paused.", code: "service_paused" }, 409);
     if (result.kind === "translation-session-refreshed") {
       return translationSessionRefreshed(result.translationRevision);
     }
@@ -787,10 +787,10 @@ export class CaptionRoom {
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
         this.closeViewerSockets(4002, "Live service ended.");
       }
-      return json({ error: "The live service is not accepting captions." }, 410);
+      return json({ error: "The live session is not accepting captions." }, 410);
     }
     if (result.kind === "invalid") {
-      return json({ error: "Invalid public caption or service event limit reached." }, 400);
+      return json({ error: "Invalid public caption or session event limit reached." }, 400);
     }
     if (result.kind !== "ok") {
       return json({ error: "The public caption could not be published." }, 500);
@@ -869,18 +869,18 @@ export class CaptionRoom {
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
         this.closeViewerSockets(4002, "Live service ended.");
       }
-      return json({ error: "The live service is no longer active." }, 410);
+      return json({ error: "The live session is no longer active." }, 410);
     }
     if (result.kind === "transcription-limit") {
       return json(
         {
-          error: `The ${MAX_TRANSCRIPTION_REQUESTS}-request service limit has been reached.`,
+          error: `The ${MAX_TRANSCRIPTION_REQUESTS}-request session limit has been reached.`,
           code: "transcription_limit_reached",
         },
         429,
       );
     }
-    if (result.kind === "paused") return json({ error: "Service paused.", code: "service_paused" }, 409);
+    if (result.kind === "paused") return json({ error: "Session paused.", code: "service_paused" }, 409);
     if (result.kind !== "ok") {
       return json({ error: "Transcription reservation failed." }, 500);
     }
@@ -937,7 +937,7 @@ export class CaptionRoom {
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
         this.closeViewerSockets(4002, "Live service ended.");
       }
-      return json({ error: "The live service is not accepting inference.", code: "service_inactive" }, 410);
+      return json({ error: "The live session is not accepting inference.", code: "service_inactive" }, 410);
     }
     if (result.kind === "inference-attempt-used") {
       return json(
@@ -948,7 +948,7 @@ export class CaptionRoom {
         409,
       );
     }
-    if (result.kind === "paused") return json({ error: "Service paused.", code: "service_paused" }, 409);
+    if (result.kind === "paused") return json({ error: "Session paused.", code: "service_paused" }, 409);
     if (result.kind === "invalid") {
       return json({ error: "Inference does not match a current reserved attempt.", code: `invalid_${stage}_attempt` }, 400);
     }
@@ -1015,10 +1015,10 @@ export class CaptionRoom {
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
         this.closeViewerSockets(4002, "Live service ended.");
       }
-      return json({ error: "The live service is no longer active." }, 410);
+      return json({ error: "The live session is no longer active." }, 410);
     }
     if (result.kind === "invalid") {
-      return json({ error: "Translation usage does not match this service." }, 400);
+      return json({ error: "Translation usage does not match this session." }, 400);
     }
     if (result.kind !== "ok") {
       return json({ error: "Translation usage could not be recorded." }, 500);
@@ -1031,7 +1031,7 @@ export class CaptionRoom {
       controllerHash?: string;
     };
     if (!isLiveSessionControlAction(body.action)) {
-      return json({ error: "Invalid live-service control." }, 400);
+      return json({ error: "Invalid live-session control." }, 400);
     }
     const action = body.action;
 
@@ -1229,13 +1229,13 @@ export class CaptionRoom {
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
         this.closeViewerSockets(4002, "Live service ended.");
       }
-      return json({ error: "The live service is no longer active." }, 410);
+      return json({ error: "The live session is no longer active." }, 410);
     }
     if (result.kind === "invalid") {
       return json({ error: "The control is not available in the current channel state." }, 409);
     }
     if (result.kind !== "ok") {
-      return json({ error: "The live-service control failed." }, 500);
+      return json({ error: "The live-session control failed." }, 500);
     }
 
     if (result.clear) this.broadcastPublic({ type: "clear" });

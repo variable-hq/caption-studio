@@ -1,9 +1,9 @@
 # Caption Studio: gap analysis and improvement plan
 
-Reviewed 1 November 2026 against merged PR #91 (`1e9a58d`). Plan 1 (`20597d8`) deployed
+Reviewed 3 November 2026 against merged PR #96 (`f74a25f`). Plan 1 (`20597d8`) deployed
 successfully after the Access proxy fix; merges through `080e6ca`, including the rename
 to the `caption-studio` Worker, deployed via Workers Builds on 26–28 October, but none has
-a recorded service rehearsal. Only `main` builds; preview-branch
+a recorded session rehearsal. Only `main` builds; preview-branch
 builds were turned off on 28 October. Deployment identity and commands are in [Deployment](DEPLOYMENT.md).
 Local checks pass; this is not a production, semantic-quality or accessibility certificate.
 
@@ -14,7 +14,7 @@ opt-in seven-day private journals, manual and optional automatic summaries, roll
 usage, a shared church setup and Transcripts archive, watching/takeover by any workspace
 operator, and live overrides (Quick override, paused Manual caption, output buffer, Live
 note). The largest remaining gaps concern language quality, actual account configuration,
-physical devices, recovery and full-service measurement. Optional Workers AI remains
+physical devices, recovery and full-session measurement. Optional Workers AI remains
 default-off.
 
 The first Indonesian→English [30-sample review](evaluation/ID_EN_REVIEW.md) remains
@@ -109,12 +109,12 @@ identification and meaningful non-speech cues remain open accessibility decision
 
 ### G08 — P1: actual provider capacity and data controls
 
-The deployment now keeps numeric admissions/outcomes for 30 days across services.
+The deployment now keeps numeric admissions/outcomes for 30 days across sessions.
 Unknown consumption stays unknown and content deletion never resets usage. Optional AI
-has conservative daily reservations and per-service call caps. These guards cannot see
+has conservative daily reservations and per-session call caps. These guards cannot see
 other apps or establish billing/account allowance. Verify actual Free plans, Groq ZDR,
 Cloudflare content settings and provider headroom before approved audio/AI tests.
-Estimate full-service usage from observations, not a monthly multiplication alone.
+Estimate full-session usage from observations, not a monthly multiplication alone.
 
 ### G09 — P1: human usability and accessibility
 

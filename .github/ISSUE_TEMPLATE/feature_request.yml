@@ -37,7 +37,7 @@ body:
       options:
         - label: Audio or live latency
         - label: Transcription or translation
-        - label: Biblical context or Bible data licensing
+        - label: Quoted source texts or data licensing
         - label: Moderation or filtering
         - label: OBS presentation
         - label: Privacy, recording, or retention

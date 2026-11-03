@@ -87,9 +87,17 @@ try {
   assert.equal(await page.locator('.heardText').count(),1,'The Heard pane remains the in-progress source view');
   assert.equal(await page.locator('.liveDraftLine').count(),0,'No separate draft line remains');
   assert.equal(await page.locator('.heardText[data-in-progress="true"]').count(),0,'An idle pane shows no in-progress draft');
+  // Visible copy calls the live event a session and the viewers an audience. "service" may
+  // remain only for the caption, AI and translation backend.
+  const assertSessionWording=async (target,label)=>{
+   const copy=(await target.locator('body').innerText()).replace(/\b(caption|AI|translation) services?\b/giu,'');
+   const hit=copy.match(/.{0,40}(\bservices?\b|congregation).{0,40}/iu);
+   assert.equal(hit,null,`${width}/${label} uses event wording: ${hit?.[0]}`);
+  };
   const check=async screen=>{
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
+   if(/^(live|sermons|help)/.test(screen)) await assertSessionWording(page,screen);
    const axe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
    violations.push(...axe.violations.map(x=>({screen,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
   };
@@ -129,7 +137,7 @@ try {
   assert.equal(await sharedSave.count(),1,'The shared save appears when a visible choice differs from its saved default');
   const savesBefore=controls.length;
   await sharedSave.click();
-  await page.getByText('Saved for everyone. New services start with this choice.',{exact:true}).waitFor();
+  await page.getByText('Saved for everyone. New sessions start with this choice.',{exact:true}).waitFor();
   assert.equal(controls.length,savesBefore+1,'The shared save writes once');
   const sharedWrite=controls.at(-1).preferenceWrite;
   assert.equal(sharedWrite.saveHistoryDefault,true,'The shared save includes the visible transcript choice');
@@ -258,15 +266,15 @@ try {
   // then start and end without another save, and it must neither follow nor return.
   const preStartSave=page.getByRole('button',{name:'Save selected settings as default',exact:true});
   await preStartSave.click();
-  await page.getByText('Saved for everyone. New services start with this choice.',{exact:true}).waitFor();
+  await page.getByText('Saved for everyone. New sessions start with this choice.',{exact:true}).waitFor();
   await preStartSave.waitFor({state:'hidden'});
   await page.getByRole('button',{name:'Start captions',exact:true}).click();
   await page.getByRole('region',{name:'Live controls'}).getByRole('button',{name:'Pause',exact:true}).waitFor();
   assert.equal((await page.locator('.liveCaptions .outputBufferControls [role="status"]').textContent())?.trim(),'','A before-Start default-save status does not follow the service');
-  await page.getByRole('region',{name:'Live controls'}).getByRole('button',{name:'End service',exact:true}).click();
-  const statusEndDialog=page.getByRole('alertdialog',{name:'End this service?',exact:true});
+  await page.getByRole('region',{name:'Live controls'}).getByRole('button',{name:'End session',exact:true}).click();
+  const statusEndDialog=page.getByRole('alertdialog',{name:'End this session?',exact:true});
   await statusEndDialog.waitFor();
-  await statusEndDialog.getByRole('button',{name:'End service',exact:true}).click();
+  await statusEndDialog.getByRole('button',{name:'End session',exact:true}).click();
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(await page.locator('.liveActions [role="status"]').textContent(),'','A default-save status does not return to the Start card after End');
 
@@ -298,17 +306,16 @@ try {
   await openScreen(page,'Live');
   assert.equal(controls.length,controlsBefore);
 
-  if(width===1920){
-   // A second tab watches the running service: it names the operator and offers Take over, not Start.
-   const other=await context.newPage();
-   await other.goto('http://127.0.0.1:3100/#live');
-   await other.getByText('operator@example.test is running captions on another system.',{exact:true}).waitFor();
-   assert.equal(await other.getByRole('button',{name:'Take over',exact:true}).count(),1);
-   assert.equal(await other.getByRole('button',{name:'Start captions',exact:true}).isDisabled(),true);
-   assert.equal(await other.getByText('Heard',{exact:true}).count(),1,'Observers still see the controller Heard pane');
-   assert.equal(controls.length,controlsBefore);
-   await other.close();
-  }
+  // A second tab watches the running session: it names the operator and offers Take over, not Start.
+  const other=await context.newPage();
+  await other.goto('http://127.0.0.1:3100/#live');
+  await other.getByText('operator@example.test is running captions on another system.',{exact:true}).waitFor();
+  assert.equal(await other.getByRole('button',{name:'Take over',exact:true}).count(),1);
+  assert.equal(await other.getByRole('button',{name:'Start captions',exact:true}).isDisabled(),true);
+  assert.equal(await other.getByText('Heard',{exact:true}).count(),1,'Observers still see the controller Heard pane');
+  await assertSessionWording(other,'observer');
+  assert.equal(controls.length,controlsBefore);
+  await other.close();
 
   await liveControls.getByRole('button',{name:'Pause',exact:true}).click();
   await liveControls.getByRole('button',{name:'Resume',exact:true}).waitFor();
@@ -371,16 +378,16 @@ try {
   await liveControls.getByRole('button',{name:'Clear screen',exact:true}).click();
   await page.waitForFunction(()=>true);
   assert.ok(controls.includes('clear'));
-  const end=liveControls.getByRole('button',{name:'End service',exact:true});
+  const end=liveControls.getByRole('button',{name:'End session',exact:true});
   await end.click();
-  const endDialog=page.getByRole('alertdialog',{name:'End this service?',exact:true});
+  const endDialog=page.getByRole('alertdialog',{name:'End this session?',exact:true});
   await endDialog.waitFor();
   await check('end-dialog');
   await page.keyboard.press('Escape');
   await endDialog.waitFor({state:'hidden'});
-  assert.equal(await page.locator(':focus').innerText(),'End service');
+  assert.equal(await page.locator(':focus').innerText(),'End session');
   await end.click();
-  await endDialog.getByRole('button',{name:'End service',exact:true}).click();
+  await endDialog.getByRole('button',{name:'End session',exact:true}).click();
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(status,'idle');
   // Live capture may or may not finish a window in this mocked run; only dashboard

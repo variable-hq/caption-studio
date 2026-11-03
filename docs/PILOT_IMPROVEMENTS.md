@@ -1,6 +1,6 @@
 # Evidence-gated pilot improvements
 
-Reviewed 2 November 2026 against merged PR #94 (`233b532`).
+Reviewed 3 November 2026 against merged PR #96 (`f74a25f`).
 
 Prepared 12 September; scope reconciled 13 September 2026. QR joining, reusable saved
 terminology packs and live public-caption correction remain proposals. Plan 1 has since
@@ -135,7 +135,7 @@ measured improvement over current private link sharing justifies the encoder foo
 
 **Status (28 October 2026):** not built as proposed. Repeated setup is now handled by the
 shared church setup: **Save for everyone** stores words, languages and other settings for
-all signed-in operators, and new services start from it
+all signed-in operators, and new sessions start from it
 ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). That answered the
 cross-operator sharing question below with a server-side record rather than `localStorage`;
 it keeps a single setup, not packs per language pair. T1/T2 now measure the Terms list.

@@ -22,7 +22,7 @@ Explain the user, operator, or contributor need.
 - [ ] Mobile-viewer access remains read-only, separately tokenized, service-scoped, and replaceable
 - [ ] Reader access stays separate from private source/summary data; the paired remote grants no inference capability
 - [ ] Seven-day opted-in content retention and independent rolling 30-day usage remain explicit
-- [ ] Biblical-context and AI-output risks, testing, and required human oversight are documented
+- [ ] Source-text context and AI-output risks, testing, and required human oversight are documented
 - [ ] Failure and recovery behavior were considered
 
 ## Documentation

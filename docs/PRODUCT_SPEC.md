@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 2 November 2026 against merged PR #95 (`aaff5b6`). The corrected 13 September
+Reviewed 3 November 2026 against merged PR #96 (`f74a25f`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -16,9 +16,9 @@ reviewer and must never invent speech, scripture, or doctrine.
 ## Current prototype users
 
 - **Operator:** selects audio and languages, supplies terms and filter words, styles the
-  caption, manages the reusable Main OBS channel, and controls a live service.
+  caption, manages the reusable Main OBS channel, and controls a live session.
 - **Stream viewer:** reads the current moderated caption through the OBS output.
-- **Mobile viewer:** opens a service-scoped read-only link and sees the latest moderated
+- **Mobile viewer:** opens a session-scoped read-only link and sees the latest moderated
   translation without operator access or transcript history.
 - **Audience reader:** opens `/read` for appending translated paragraphs, separate from
   the latest-caption viewer.
@@ -38,14 +38,14 @@ role or approval queue.
 The browser is the sole client. The deferred iPhone/iPad shell was removed
 ([ADR 0020](decisions/0020-remove-ios-shell.md)).
 
-## Implemented service journey
+## Implemented session journey
 
-### Before the service
+### Before the session
 
 The dashboard opens on **Live** ([ADR 0021](decisions/0021-live-sermons-settings-operator-layout.md)).
 Its readiness checklist (caption service, microphone, OBS, languages, Terms) shows a tick
 or a red item with a **Fix** or **Set up** button that opens the matching Settings
-section. A **Help** page, one click from every screen, lists the steps of a service in
+section. A **Help** page, one click from every screen, lists the steps of a session in
 plain words. Nothing opens automatically.
 
 1. The operator signs in through Cloudflare Access.
@@ -64,13 +64,13 @@ plain words. Nothing opens automatically.
    be saved.
 6. On first use, an approved operator creates the reusable Main OBS channel, copies its
    URL into a 1920 × 1080 Browser Source, and shows/clears a synthetic test while idle.
-7. The operator starts a 90-minute service; the app verifies Access, Groq credentials,
+7. The operator starts a 90-minute session; the app verifies Access, Groq credentials,
    model availability, microphone access, and exclusive controller ownership.
-   During the service, **Service details** in Quick fixes show the configured transcription
+   During the session, **Session details** in Quick fixes show the configured transcription
    and translation model identifiers;
    the readiness check confirms their availability when Start is selected.
 
-### During the service
+### During the session
 
 1. The browser records a window of 6, 10 or 14 seconds, or Dynamic for up to 14 seconds;
    every option cuts at a qualifying pause after its floor or at its cap. The pause decision
@@ -83,8 +83,8 @@ plain words. Nothing opens automatically.
 4. Deterministic processing applies preferred translations and script-aware whole-term
    masking in the public form. Incomplete provider output is skipped before publication.
 5. The operator sees source and public previews, status, post-recording processing
-   latency, dropped chunks, elapsed service time, and the server-owned reserved
-   transcription-attempt count for the active service. Overlay sequence protection is
+   latency, dropped chunks, elapsed session time, and the server-owned reserved
+   transcription-attempt count for the active session. Overlay sequence protection is
    applied internally and is not displayed.
 6. If the output buffer is enabled, the moderated caption enters the buffer queue instead
    of publishing immediately; otherwise it publishes now. The latest public caption and
@@ -97,7 +97,7 @@ plain words. Nothing opens automatically.
 9. A second operator is blocked unless they explicitly confirm takeover. Takeover clears
    OBS, replaces controller ownership, and causes stale operations to stop the old mic.
 10. The operator can copy a separate mobile link. A viewer receives only current
-    moderated target text and service status. A long caption shrinks on the phone
+    moderated target text and session status. A long caption shrinks on the phone
     from the chosen text size down to 18 px so it fits one screen. Confirmed replacement revokes that link
     without changing OBS.
 11. Source/target language, terminology, public filters, recording window, and operator
@@ -105,25 +105,25 @@ plain words. Nothing opens automatically.
     sections offers **Apply now**, which applies them together, and **Undo changes**,
     which discards them. Applying clears unfinished audio, recent
     translation context, current output, and any queued buffer content, but does not end or
-    extend the service, change
+    extend the session, change
     live/paused state, replace controller ownership, or rotate the mobile/OBS links. Output
     buffer count and delay are not part of this draft/refresh cycle: they apply immediately,
     like caption style.
 
-### After the service
+### After the session
 
 1. The operator selects End and confirms it.
-2. The Worker stops the service, revokes the mobile link, and clears public/controller
+2. The Worker stops the session, revokes the mobile link, and clears public/controller
    state. If deactivation
    cannot be confirmed, the dashboard retains controller state and offers Retry End.
-3. The OBS URL and shared style remain ready for the next service. Only a separately
+3. The OBS URL and shared style remain ready for the next session. Only a separately
    confirmed Rotate action revokes the bearer URL and requires updating OBS.
 4. If saving was explicitly enabled before Start, private source, corrections, exclusions,
    paragraphs and summaries remain for seven days after End/expiry. No audio is stored.
 5. The separate reader has 30 minutes of post-End reading grace. An operator may manually
    generate a summary when optional AI is enabled; End itself makes no summary call
    unless the church setup opts in to automatic summaries (see Summary below).
-6. Numeric usage survives service/content actions for a rolling 30 days.
+6. Numeric usage survives session/content actions for a rolling 30 days.
 
 ## Supported languages
 
@@ -175,11 +175,11 @@ copy or browser language, then English.
   lengths 500, 700, 900 and 700ms, and Dynamic's required pause shrinks to 200ms at its cap.
   In Dynamic mode a transcription-only draft at a pause confirms the cut when it ends in
   terminal punctuation; an unfinished clause keeps recording until another pause or the
-  cap. The numbered options run no drafts. Once a service has heard
+  cap. The numbered options run no drafts. Once a session has heard
   speech, a window with less than 300ms of speech is not sent unless its peak is not well
   below earlier speech or a level sample failed; a skipped window uses no transcription,
   translation or attempt. After a provider rate-limit or usage-limit response, no option
-  cuts before six seconds for the rest of the service and one status line says so. The
+  cuts before six seconds for the rest of the session and one status line says so. The
   microphone-level decision adds no model call or quota. Every option stays inside
   Whisper's 30-second window and, at the 64 kbps recorder setting, far below the 3 MB
   audio limit.
@@ -197,7 +197,7 @@ implemented.
 
 ### Translation and biblical context
 
-- One target language is active per translation revision within a service.
+- One target language is active per translation revision within a session.
 - Up to four recent source captions provide bounded context.
 - Approved mappings are requested from the model and enforced deterministically after
   translation.
@@ -208,7 +208,7 @@ implemented.
   overlength, or unsupported-control-character values fail validation without truncation.
 - An optional, appendable guidance block corrects a specific Indonesian congregational
   address-term ambiguity (for example "Saudara-saudara") for Indonesian-to-English
-  services. It is prompt guidance, not a glossary substitution, since correct rendering
+  sessions. It is prompt guidance, not a glossary substitution, since correct rendering
   depends on how the term is used in context, not on the word alone.
 - A separate immutable server envelope fixes language direction, Chinese script,
   untrusted-data handling, non-invention, unclear-word bracketing, profanity omission,
@@ -258,7 +258,7 @@ implemented.
   limit never goes below 2.4 because a lower value risks dropping deliberate human
   repetition. High has the greatest false-drop risk, especially for very soft or whispered
   speech such as prayer.
-- While Sanitization is on, the service details show a numeric filtered-segment count. It
+- While Sanitization is on, the session details show a numeric filtered-segment count. It
   contains no dropped text and is not logged or archived. The archive keeps only transcript
   text that survived the guard; surviving source text remains otherwise raw, and the model
   rule shapes translation only. If detected source language already equals the target, the
@@ -295,7 +295,7 @@ church for important names, references, and theological terms.
 
 Translation drafts stay in React/page memory. A custom prompt enters unencrypted browser
 `localStorage` only when the operator explicitly saves it. Caption style is also a local
-preference. During a service, the full active language, terminology, filter, recording window,
+preference. During a session, the full active language, terminology, filter, recording window,
 and prompt snapshot is held in that tab's unencrypted `sessionStorage` solely for same-tab
 recovery and removed on End, takeover, or idle cleanup. The active prompt is sent through
 the protected inference path to Groq, but the live translation prompt is not sent to OBS/viewer clients or stored in the room.
@@ -339,7 +339,7 @@ saved as a setting or logged. If transcript saving is enabled, compiled rules ac
 the caption through the existing private reader flow. Live entries are separate from the
 translation settings fingerprint and are never parsed as raw filter syntax.
 
-Terminology and filter edits made during an active service are drafts until the same
+Terminology and filter edits made during an active session are drafts until the same
 explicit translation refresh used for language, Inference, Sanitization, recording window,
 and prompt changes.
 
@@ -350,7 +350,7 @@ current passage (names, terms, sound words, speaker, or quoted voices). It appli
 translations that start after the edit without **Apply now** or a context reset. It cannot
 correct a misheard word; use **Quick override** to fix spelling, set a translation, help
 recognition, or hide a whole caption. The note is limited to 500 characters, kept only in this tab's
-`sessionStorage` for the matching service, and cleared at Start, End and takeover. It is
+`sessionStorage` for the matching session, and cleared at Start, End and takeover. It is
 sent in a fenced trusted guidance block beside translator instructions, never as speech
 data, and the server envelope always takes priority.
 
@@ -384,11 +384,11 @@ takeover, and no aborted draft or rejected provider request. Otherwise the final
 normally. A draft never delays a final.
 
 A rate-limit or usage-limit response, or a provider rejecting partial audio, stops drafts
-for the rest of the service silently; the service continues with pause-only cuts. There is
+for the rest of the session silently; the session continues with pause-only cuts. There is
 no operator switch, saved default or separate preview line, and old stored
 `liveDraftsEnabled` values are ignored.
 
-Relative to the same service without drafts, translation calls do not change. A confirming
+Relative to the same session without drafts, translation calls do not change. A confirming
 draft adds no transcription call and no audio-seconds; a mid-clause draft costs at most one
 extra transcription call and one extra pass over that window's audio, so the worst case per
 caption is about 2x transcription and Dynamic's usual case is about 1x. See
@@ -398,8 +398,8 @@ caption is about 2x transcription and Dynamic's usual case is about 1x. See
 | --- | --- | --- |
 | Terms (Settings › Terms) | Exact word rules and spelling fixes | After Apply now |
 | Quick override (Live › Quick fixes) | Fix, translate, recognise, or hide a whole caption | From the next caption; controller tab until removed |
-| Translator instructions (Settings) | Standing guidance for the whole service | After Apply now |
-| Live note | Situational guidance for the passage being spoken now | From the next translation; current service only |
+| Translator instructions (Settings) | Standing guidance for the whole session | After Apply now |
+| Live note | Situational guidance for the passage being spoken now | From the next translation; current session only |
 | Recent outputs | Observe the last 3 published captions | Display only; changes nothing |
 
 ### Output buffer
@@ -411,7 +411,7 @@ immediately without a translation refresh, and is unrelated to the recording win
 duration. See [ADR 0016](decisions/0016-client-side-output-buffer.md) and
 [ADR 0017](decisions/0017-configurable-output-buffer-dwell.md). The wait setting sits in
 the Captions card, below the **Heard** and **Audience view** panes, both before Start and
-during a service. While the wait is above zero, the next-up caption and its controls follow
+during a session. While the wait is above zero, the next-up caption and its controls follow
 it there. The public caption filter lives in Settings › Terms.
 
 - One choice, **Wait before showing each caption**: Off (the default, matching behavior
@@ -434,10 +434,10 @@ it there. The public caption filter lives in Settings › Terms.
   (operator override, put back through the same glossary and confirmed-filter moderation
   as every other caption before it can reach Live; auto-resumes on Submit), **cleared**
   (removed from the queue), or **fast-forwarded** (shown on Live immediately). These are
-  separate from Quick override: pausing the service, clearing the current Live
+  separate from Quick override: pausing the session, clearing the current Live
   caption, a translation refresh, takeover, and End all discard the whole buffer.
 - On Live, the shared **Save selected settings as default** control stores the choice in
-  the church setup; new services start from it.
+  the church setup; new sessions start from it.
 
 ### Church setup and Terms
 
@@ -448,9 +448,9 @@ summary defaults and automatic summaries; the output buffer; and the transcript-
 default. Theme and interface language remain personal preferences. From Settings,
 **Save for everyone** writes the shared setup. On Live, **Save selected settings as
 default** appears only after a visible choice differs from its saved default, or from the
-built-in value when nothing has been saved, and writes only the per-service choices that
-are visible: before a service, the transcript-saving choice and the output buffer wait;
-during a service, the wait alone.
+built-in value when nothing has been saved, and writes only the per-session choices that
+are visible: before a session, the transcript-saving choice and the output buffer wait;
+during a session, the wait alone.
 Until anyone saves it, each operator keeps the
 setup they saved earlier; afterwards a value the church setup has never set still falls
 back to the operator's own, and the first save carries the saving operator's earlier
@@ -485,7 +485,7 @@ Terms list and leaves the live entry active.
   translation drafts and the before-Start transcript choice; reload preserves the screen,
   not unsaved drafts. Links never include credentials. The status pill announces state
   changes to screen readers; the running clock beside it is not announced.
-- **Live** opens before a service with a full-width Start bar: **Start captions**, **Show
+- **Live** opens before a session with a full-width Start bar: **Start captions**, **Show
   a test caption**, and a line saying what to do next or what blocks Start. Below it are
   two rows of paired cards, each pair the same height: captions beside the readiness
   checklist, then the Start settings card (or **Quick fixes**) beside **Share**; on narrow
@@ -500,24 +500,23 @@ Terms list and leaves the live entry active.
   Help button when not).
   **Share** holds the phone viewer link, transcript reader link, **Phone remote** pairing, and
   replacing a reader link shared by mistake.
-- During a service a bar pinned to the bottom of Live holds **Pause**/**Resume**, **Clear
-  screen**, the minutes left and whether the transcript is being saved, and **End service**
+- During a session a bar pinned to the bottom of Live holds **Pause**/**Resume**, **Clear
+  screen**, the minutes left and whether the transcript is being saved, and **End session**
   (or **Try End again** when End could not be confirmed); the
   page reserves scroll space so the bar never covers a focused control. **Quick fixes**
   replaces the Start settings card: **Caption controls** (Quick override and Manual caption
   while paused),
   **Live note**, a test caption while paused, **Session details** (with **Save session
-  details**), and under **Service
-  details** the delay after speech, segments filtered (when filtering is on), dropped audio
+  details**), and under **Technical details** the delay after speech, segments filtered (when filtering is on), dropped audio
   chunks, transcription and translation counts, tokens, and model names. The output buffer
   stays in the Captions card, where its wait and next-up queue are joined by the shared
   **Save selected settings as default** control when the wait differs from the saved or
   built-in default.
   End and Take over open native confirmation dialogs
-  (**End this service?**: Keep going / End service; **Take over captions?**: Keep watching
+  (**End this session?**: Keep going / End session; **Take over captions?**: Keep watching
   / Take over). **Clear screen** blanks OBS and the latest viewer while preserving
   committed reader paragraphs.
-- When another operator's service is running, Live names them, mirrors their output
+- When another operator's session is running, Live names them, mirrors their output
   read-only and offers **Take over**; Start stays disabled.
 - **Settings** lists its sections beside the selected one: System (microphone, level
   test and playback, and Theme), Language (interface language, spoken and caption languages),
@@ -529,7 +528,7 @@ Terms list and leaves the live entry active.
 - **Transcripts** loads the workspace's saved transcripts on opening, states that every signed-in
   operator sees them and the audience does not, and shows each transcript's reader passages,
   operator messages and AI summary. OBS link replacement stays disabled
-  during a service.
+  during a session.
 - A skip link leads to the main content. Moving between screens with the keyboard moves
   focus to the new screen's heading.
 - The output monitor carries each displayed caption's own `lang` attribute, including
@@ -553,7 +552,7 @@ Terms list and leaves the live entry active.
 - Transparent overlay canvas with per-line background highlight.
 - One read-only reusable Main-channel URL with automatic reconnect, server-assigned
   sequence protection, and explicit rotation.
-- One read-only mobile link per active service with a separate token, automatic reconnect,
+- One read-only mobile link per active session with a separate token, automatic reconnect,
   late-join recovery of at most the latest caption, and controller-gated replacement.
 - The mobile page offers Standard, Large, and Extra large local text sizes without saving
   content or changing OBS styling. English controls retain their language while translated
@@ -584,7 +583,7 @@ test before capture restarts. Clear does not pause capture, so the next valid li
 caption may replace the blank display.
 
 Only a full navigation away or close (`pagehide`) pauses the operator tab automatically.
-Backgrounding or losing focus does not stop capture: recorder boundaries, service expiry,
+Backgrounding or losing focus does not stop capture: recorder boundaries, session expiry,
 and output-buffer dwell ticks use a dedicated Web Worker clock to avoid main-thread timer
 throttling. If the worker is unavailable or fails, active timers continue on browser timers
 from their next due time. Returning from a bfcache-restored page reloads channel status but
@@ -595,9 +594,9 @@ characters, no AI translation involved) in the session's current target language
 and the latest viewer, in place of the hidden translation. Resume or Clear removes
 it the same way a synthetic test is cleared. Unlike a synthetic test, a manual caption is
 also recorded as a separate operator note in the appending reader and archive, since it
-is real service content rather than a connectivity check.
+is real session content rather than a connectivity check.
 
-Translation refresh is distinct from Pause, reload, and End. It keeps the original service
+Translation refresh is distinct from Pause, reload, and End. It keeps the original session
 identity, timer, controller, mobile viewer, OBS link, usage count, and live/paused state;
 clears current output and translation context; adopts all reviewed drafts atomically from
 the operator's perspective; and rejects captions carrying an earlier server translation
@@ -608,11 +607,11 @@ named display profiles.
 
 ### Usage and cost controls
 
-- Active services stop after at most 90 minutes; paused time still counts.
+- Active sessions stop after at most 90 minutes; paused time still counts.
 - Audio windows cap at 6, 10 or 14 seconds, or Dynamic (up to 14 seconds), with floors of
   3, 5, 7 and 4 seconds. The server ceiling is 1,800 reserved transcription attempts in a
-  90-minute service, derived from the 3-second floor, so a faster option does not end the
-  service early. Non-silent captions whose source differs from the target can make one
+  90-minute session, derived from the 3-second floor, so a faster option does not end the
+  session early. Non-silent captions whose source differs from the target can make one
   additional translation call, so there are no more than 1,800 translation calls. Access is
   verified
   before a separate one-time claim for each inference stage; direct/replayed calls and
@@ -621,11 +620,11 @@ named display profiles.
   state invalidates existing reservations whose dispatch history is unknown. Fresh
   reservations preserve the original ceiling and expiry. Local checks pass; deployed
   verification remains pending under [G01](GAP_ANALYSIS.md).
-- A service supports one translation target at a time and no automatic paid fallback.
-- A quota response stops the affected service without revoking its OBS URL.
-- The UI shows separate active-service meters for elapsed time and reserved
+- A session supports one translation target at a time and no automatic paid fallback.
+- A quota response stops the affected session without revoking its OBS URL.
+- The UI shows separate active-session meters for elapsed time and reserved
   transcription attempts, plus acknowledged translation-call and prompt/completion/total
-  token counts persisted for the service, including skipped incomplete output.
+  token counts persisted for the session, including skipped incomplete output.
 - After an acknowledged translation result, the operator can see the latest Groq daily-request and
   per-minute-token limit/remaining/reset headers. Missing headroom is shown as unknown,
   never zero.
@@ -633,12 +632,12 @@ named display profiles.
   reasoning effort, and only glossary mappings relevant to the current caption and up to
   the four most recent retained source captions enter its prompt.
 
-The consumption dashboard is not an account billing meter. Its service totals survive
-an operator-page refresh. The separate rolling ledger spans this deployment's services,
+The consumption dashboard is not an account billing meter. Its session totals survive
+an operator-page refresh. The separate rolling ledger spans this deployment's sessions,
 but cannot see usage by other applications in the same Groq organization or Cloudflare account. Owners
 must keep provider accounts on the intended Free plans and verify their dashboards. The
 provider response headers do not expose remaining daily tokens, so a content-heavy
-service may stop before the visible ceiling of 1,800 reserved transcription attempts or
+session may stop before the visible ceiling of 1,800 reserved transcription attempts or
 the 90-minute limit.
 
 ## Prototype acceptance criteria
@@ -648,12 +647,12 @@ Code-level acceptance:
 - An operator can select an input, source, target, and a caption wait time of 6, 10 or 14 seconds, or Dynamic. During
   live or paused operation, language, terminology, filter, recording window, and custom-prompt edits
   stay draft until the operator presses **Apply now**.
-- Live separates service time (the control bar), reserved transcription
-  attempts, and acknowledged translation calls/tokens for the live service; Settings ›
+- Live separates session time (the control bar), reserved transcription
+  attempts, and acknowledged translation calls/tokens for the live session; Settings ›
   Usage separates that from Groq's provider headroom, which remains truthful when provider
   headers are unavailable and never claims account-wide consumption.
 - A refresh applies all drafts, clears unfinished audio/context/current output, rejects a
-  stale-revision publish, and preserves service identity/timer, usage, controller, viewer,
+  stale-revision publish, and preserves session identity/timer, usage, controller, viewer,
   OBS URL, and live/paused state.
 - The operator can restore the reviewed prompt default; invalid or overlength prompts are
   rejected rather than silently changed, and the immutable server envelope remains active.
@@ -665,7 +664,7 @@ Code-level acceptance:
   before the structured skip response, and unavailable usage fails closed.
 - A preferred term can affect transcription guidance and translated output.
 - A configured mask changes public output without changing the protected source preview.
-- Style changes reach a connected overlay without restarting the service.
+- Style changes reach a connected overlay without restarting the session.
 - An output buffer, when On, holds the next moderated caption before Live, with up to 3
   more queued out of sight behind it; Off publishes immediately as before. A full,
   unpaused backlog force-advances to admit a new caption; a full, paused backlog drops the
@@ -680,7 +679,7 @@ Code-level acceptance:
 - Every screen reflows without horizontal scrolling from 320px through desktop
   widths, including the 680px and 980px layout boundaries.
 - On phones the Live screen stacks into one column; the pinned control bar keeps Pause,
-  Clear screen and End service reachable and drops its hint text to save space.
+  Clear screen and End session reachable and drops its hint text to save space.
 - The dashboard theme does not override the independently configured OBS caption colour
   or highlight.
 - Pause stops AI requests, clears OBS, and Resume retains the reusable URL and expiry.
@@ -688,20 +687,20 @@ Code-level acceptance:
 - Safe margins are bounded, saved, restored, and propagated live.
 - An overlay can reconnect and recover the latest public caption.
 - End and expiry clear OBS while preserving the reusable URL; Rotate invalidates it.
-- A per-service mobile link supports late join, Pause/Resume, and current-caption updates
+- A per-session mobile link supports late join, Pause/Resume, and current-caption updates
   without source/history leakage; replacement, End, expiry, and takeover revoke it while
   leaving the OBS credential unchanged.
 - Second starts fail with `channel_in_use`; confirmed takeover rejects stale controllers.
 - Reload with the same tab controller recovers in a safe paused state.
 - Production operator mutations fail closed without valid Access configuration.
-- Audio is never persisted. Source/history is saved only with immutable pre-service opt-in;
+- Audio is never persisted. Source/history is saved only with immutable pre-session opt-in;
   content expires seven days after End/expiry and numeric usage separately after 30 days.
 
 Pilot acceptance still requires evidence from synthetic or explicitly approved tests:
 
 - acceptable accuracy for every supported language and agreed accents;
 - correct handling of representative biblical names and references;
-- acceptable end-to-end latency and dropped-chunk rate for a full service;
+- acceptable end-to-end latency and dropped-chunk rate for a full session;
 - verified microphone/audio-interface and OBS compatibility;
 - safe behavior for network loss, provider timeout, quota exhaustion, device loss,
   Access expiry, token revocation, and Worker-limit exhaustion; and
@@ -747,7 +746,7 @@ Confirmed Delete requires End, removes content and the archive index, and reject
 
 Optional **Session details** (Topic and Speaker up to 120 characters each, Description up
 to 1,000 characters, and an optional session date/time) sit under a **Session details**
-disclosure on Live's Start settings card and, during a service, in **Quick fixes** with
+disclosure on Live's Start settings card and, during a session, in **Quick fixes** with
 **Save session details**. They are saved only with opted-in history. They remain editable by any signed-in workspace operator while the seven-day
 archive exists. They are record-keeping only: they are not sent to translation or summary
 models, do not extend retention, and are deleted with the archive.
@@ -758,7 +757,7 @@ and each action reads as pending until the capture system acknowledges it. The r
 stays scoped to those live commands: saved transcripts are reviewed on the
 dashboard's Transcripts screen, which any signed-in operator may open on any device.
 
-Up to 32 Access identities may hold a watcher credential for one service, and up to 32 may
+Up to 32 Access identities may hold a watcher credential for one session, and up to 32 may
 hold a paired-phone credential, matching the 32 watcher sockets the room accepts. Past
 that ceiling the oldest identity is dropped and must register again.
 
@@ -774,8 +773,8 @@ context, call or daily budgets are visible. Source membership validation is not 
 proof. Operators must review the private draft before JSON export. Transcript JSON export
 is also available; generating or regenerating never extends retention.
 
-The same settings page has **Make a summary draft automatically after each service** (off
-by default, part of the church setup). When on, ending a service with saving on queues the
+The same settings page has **Make a summary draft automatically after each session** (off
+by default, part of the church setup). When on, ending a session with saving on queues the
 same summary job from the saved summary defaults; it appears in Transcripts marked as
 generated automatically, still needs review before export, and is skipped if a summary
 already exists. See [ADR 0019](decisions/0019-automatic-post-service-summary.md).
@@ -786,15 +785,15 @@ Summaries must not manufacture scripture or claim a generated paraphrase is an e
 
 ## Usage history and optional AI
 
-A separate numeric ledger spans services for a rolling 30 days. It records admissions
+A separate numeric ledger spans sessions for a rolling 30 days. It records admissions
 before provider dispatch, deduplicates outcomes and preserves unknown consumption.
 End, Clear, refresh, takeover, source removal and archive deletion never reset it.
-Settings › Usage shows the service count and today's remaining requests, with breakdowns under
-**Usage by day (UTC)**, **Usage by service** and **Usage by AI service**. It is not an
+Settings › Usage shows the session count and today's remaining requests, with breakdowns under
+**Usage by day (UTC)**, **Usage by session** and **Usage by AI service**. It is not an
 account billing meter or a calendar-month allowance, and it offers no capacity estimate.
 
 Optional Workers AI requires `CAPTION_OPTIONAL_AI_ENABLED=true`; it defaults off.
-Per-service ceilings are 200 reader and 60 summary calls. Conservative reservations permit
+Per-session ceilings are 200 reader and 60 summary calls. Conservative reservations permit
 at most 9,000 estimated neurons per UTC day, including a 6,000 reader ceiling; uncertain
 calls remain charged. No paid fallback is implemented. Verify actual plans, content
 settings, availability and approved semantic quality before enabling it for transcripts.
@@ -809,9 +808,9 @@ settings, availability and approved semantic quality before enabling it for tran
 6. What is the device-disconnect and internet-loss operating procedure?
 7. Approve the participant notice and rehearse the implemented opt-in, seven-day retention,
    corrections/exclusions, JSON export and deletion behavior.
-8. How many simultaneous services, operators, and overlay viewers are expected?
+8. How many simultaneous sessions, operators, and overlay viewers are expected?
 9. What provider-account monitoring or external hard cap is required beyond the
-   service counters, 30-day deployment ledger and optional-AI reservation guards?
+   session counters, 30-day deployment ledger and optional-AI reservation guards?
 
 A native app is out of scope. Building one would require a new owner decision covering
 cost, publisher, signing, privacy, export compliance, testing, and distribution scope.

@@ -35,7 +35,7 @@ body:
         - Audio input
         - Transcription
         - Translation
-        - Biblical context or glossary
+        - Source-text context or glossary
         - Moderation
         - OBS overlay
         - Archive or summary

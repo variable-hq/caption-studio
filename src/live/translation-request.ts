@@ -64,7 +64,7 @@ export async function handleTranslationRequest(
     if (!usageResponse.ok) throw new Error("Usage record rejected.");
     if (result.incomplete || !result.text?.trim()) {
       return Response.json({
-        error: "The translation was incomplete and was skipped. Pause and review the recording window or end the service if this repeats.",
+        error: "The translation was incomplete and was skipped. Pause and review the recording window or end the session if this repeats.",
         code: "translation_incomplete",
         usage,
         rateLimit: normalizeProviderRateLimitSnapshot(result.rateLimit),
@@ -72,7 +72,7 @@ export async function handleTranslationRequest(
     }
   } catch {
     return translationControlError(
-      "Translation completed, but its usage could not be recorded. Captions stopped to keep the service limit reliable.",
+      "Translation completed, but its usage could not be recorded. Captions stopped to keep the session limit reliable.",
       "translation_usage_unavailable",
     );
   }
