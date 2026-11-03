@@ -1,8 +1,15 @@
 /**
  * Workspace presets are declarative data. A preset supplies the wording terms that
- * the operator interface fills into its messages; it never carries code or changes
- * identifiers, routes, stored fields or the AI safeguards.
+ * the operator interface fills into its messages, and starting defaults for the
+ * settings a workspace has not saved; it never carries code or changes identifiers,
+ * routes, stored fields or the AI safeguards.
  */
+import { INFERENCE_LEVEL_OPTIONS, SANITIZE_LEVEL_OPTIONS, type InferenceLevel, type SanitizeLevel } from "@/ai/contracts";
+import { MAX_SUMMARY_GUIDANCE_CHARS } from "@/experience/summary-defaults";
+import { RECORDING_WINDOW_OPTIONS, type RecordingWindowMs } from "@/live/contracts";
+import { OUTPUT_BUFFER_COUNT_OPTIONS, OUTPUT_BUFFER_DWELL_OPTIONS_MS, type OutputBufferCount, type OutputBufferDwellMs } from "@/live/output-buffer";
+import { cleanWordValue } from "@/live/words";
+
 export const PRESET_SCHEMA_VERSION = 1;
 export const GENERAL_PRESET_ID = "builtin:general";
 
@@ -28,6 +35,25 @@ export type PresetLocalizedText = { en: string; id?: string };
 /** Whole-message replacements keyed by catalog message key; built-in presets only. */
 export type PresetMessageOverrides = Partial<Record<PresetLocale, Record<string, string>>>;
 
+/** A term the Words list starts with: `word => translation`, always translated. */
+export type PresetStarterTerm = { word: string; translation: string };
+export type PresetSummaryLength = "short" | "detailed";
+
+/**
+ * Starting values for settings the workspace has not saved. Each value is a valid option
+ * of the setting it fills; a field left out is not filled.
+ */
+export type PresetDefaults = Partial<{
+  recordingWindowMs: RecordingWindowMs;
+  inferenceLevel: InferenceLevel;
+  sanitizeLevel: SanitizeLevel;
+  outputBufferCount: OutputBufferCount;
+  outputBufferDwellMs: OutputBufferDwellMs;
+  summaryLength: PresetSummaryLength;
+  summaryGuidance: string;
+  starterTerms: PresetStarterTerm[];
+}>;
+
 export type Preset = {
   schemaVersion: typeof PRESET_SCHEMA_VERSION;
   version: number;
@@ -37,10 +63,24 @@ export type Preset = {
   author?: string;
   /** Indonesian terms fall back through the lookup order in `resolvePresetTerm`. */
   terms: { en: PresetTermSet; id?: PresetTermSet };
+  defaults?: PresetDefaults;
   messageOverrides?: PresetMessageOverrides;
 };
 
-const PRESET_FIELDS = ["schemaVersion", "version", "id", "name", "description", "author", "terms", "messageOverrides"] as const;
+const PRESET_FIELDS = ["schemaVersion", "version", "id", "name", "description", "author", "terms", "defaults", "messageOverrides"] as const;
+const PRESET_DEFAULT_FIELDS = [
+  "recordingWindowMs",
+  "inferenceLevel",
+  "sanitizeLevel",
+  "outputBufferCount",
+  "outputBufferDwellMs",
+  "summaryLength",
+  "summaryGuidance",
+  "starterTerms",
+] as const;
+const STARTER_TERM_FIELDS = ["word", "translation"] as const;
+const SUMMARY_LENGTHS = ["short", "detailed"] as const;
+export const MAX_STARTER_TERMS = 40;
 const TERM_SET_LOCALES = ["en", "id"] as const;
 const CUSTOM_ID_PATTERN = /^custom:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 const BUILT_IN_ID_PATTERN = /^builtin:[a-z]+$/u;
@@ -166,6 +206,57 @@ function messageOverrides(value: unknown): PresetMessageOverrides {
   return overrides;
 }
 
+function oneOf<T>(value: unknown, options: readonly T[], label: string): T {
+  if (!(options as readonly unknown[]).includes(value)) fail(`${label} must be one of ${options.join(", ")}`);
+  return value as T;
+}
+
+function starterTerms(value: unknown): PresetStarterTerm[] {
+  if (!Array.isArray(value)) fail("defaults.starterTerms must be a list");
+  if (value.length > MAX_STARTER_TERMS) fail(`defaults.starterTerms may have ${MAX_STARTER_TERMS} entries at most`);
+  return value.map((entry, index) => {
+    const label = `defaults.starterTerms[${index}]`;
+    const record = plainRecord(entry, label);
+    rejectUnknownFields(record, STARTER_TERM_FIELDS, label);
+    const word = boundedText(record.word, `${label}.word`, MAX_PRESET_TERM_CHARS);
+    const translation = boundedText(record.translation, `${label}.translation`, MAX_PRESET_TERM_CHARS);
+    // The Words list reads `,`, `|` and `=>` as syntax, so a starter term must survive it unchanged.
+    if (cleanWordValue(word) !== word || cleanWordValue(translation) !== translation) {
+      fail(`${label} must not contain commas, pipes or =>`);
+    }
+    return { word, translation };
+  });
+}
+
+function presetDefaults(value: unknown): PresetDefaults {
+  const record = plainRecord(value, "defaults");
+  rejectUnknownFields(record, PRESET_DEFAULT_FIELDS, "defaults");
+  const defaults: PresetDefaults = {};
+  if (record.recordingWindowMs !== undefined) {
+    defaults.recordingWindowMs = oneOf(record.recordingWindowMs, RECORDING_WINDOW_OPTIONS, "defaults.recordingWindowMs");
+  }
+  if (record.inferenceLevel !== undefined) {
+    defaults.inferenceLevel = oneOf(record.inferenceLevel, INFERENCE_LEVEL_OPTIONS, "defaults.inferenceLevel");
+  }
+  if (record.sanitizeLevel !== undefined) {
+    defaults.sanitizeLevel = oneOf(record.sanitizeLevel, SANITIZE_LEVEL_OPTIONS, "defaults.sanitizeLevel");
+  }
+  if (record.outputBufferCount !== undefined) {
+    defaults.outputBufferCount = oneOf(record.outputBufferCount, OUTPUT_BUFFER_COUNT_OPTIONS, "defaults.outputBufferCount");
+  }
+  if (record.outputBufferDwellMs !== undefined) {
+    defaults.outputBufferDwellMs = oneOf(record.outputBufferDwellMs, OUTPUT_BUFFER_DWELL_OPTIONS_MS, "defaults.outputBufferDwellMs");
+  }
+  if (record.summaryLength !== undefined) {
+    defaults.summaryLength = oneOf(record.summaryLength, SUMMARY_LENGTHS, "defaults.summaryLength");
+  }
+  if (record.summaryGuidance !== undefined) {
+    defaults.summaryGuidance = boundedText(record.summaryGuidance, "defaults.summaryGuidance", MAX_SUMMARY_GUIDANCE_CHARS);
+  }
+  if (record.starterTerms !== undefined) defaults.starterTerms = starterTerms(record.starterTerms);
+  return defaults;
+}
+
 function presetId(value: unknown): string {
   if (typeof value !== "string") fail("id must be text");
   if (BUILT_IN_ID_PATTERN.test(value) || CUSTOM_ID_PATTERN.test(value)) return value;
@@ -195,6 +286,7 @@ export function normalizePreset(input: unknown): Preset {
     terms: presetTerms(record.terms),
   };
   if (record.author !== undefined) preset.author = boundedText(record.author, "author", MAX_PRESET_AUTHOR_CHARS);
+  if (record.defaults !== undefined) preset.defaults = presetDefaults(record.defaults);
   if (record.messageOverrides !== undefined) {
     // Only shipped presets may replace messages; a custom preset carries terms alone.
     if (!preset.id.startsWith("builtin:")) fail("messageOverrides is allowed only on builtin: presets");
@@ -270,6 +362,26 @@ const SERMON_PRESET: Preset = {
       transcripts: { singular: "khotbah" },
     },
   },
+  defaults: {
+    recordingWindowMs: "dynamic",
+    inferenceLevel: "balanced",
+    sanitizeLevel: "balanced",
+    outputBufferCount: 1,
+    outputBufferDwellMs: 3_000,
+    summaryLength: "detailed",
+    summaryGuidance: "theme, main passage if named, key points, application; quote Scripture only as spoken",
+    starterTerms: [
+      { word: "Yesus Kristus", translation: "Jesus Christ" },
+      { word: "Roh Kudus", translation: "Holy Spirit" },
+      { word: "Betlehem", translation: "Bethlehem" },
+      { word: "Saul", translation: "Saul" },
+      { word: "Daud", translation: "David" },
+      { word: "Musa", translation: "Moses" },
+      { word: "Petrus", translation: "Peter" },
+      { word: "Paulus", translation: "Paul" },
+      { word: "Yohanes", translation: "John" },
+    ],
+  },
   messageOverrides: {
     en: {
       "live.saveTranscriptHint":
@@ -310,6 +422,15 @@ const TALKSHOW_PRESET: Preset = {
       audience: { singular: "penonton", plural: "penonton" },
       transcripts: { singular: "episode" },
     },
+  },
+  defaults: {
+    recordingWindowMs: 6_000,
+    inferenceLevel: "low",
+    sanitizeLevel: "balanced",
+    outputBufferCount: 1,
+    outputBufferDwellMs: 3_000,
+    summaryLength: "short",
+    summaryGuidance: "topics, notable moments; attribute statements only where speakers are labelled",
   },
   messageOverrides: {
     en: {
@@ -358,6 +479,15 @@ const KEYNOTE_PRESET: Preset = {
       audience: { singular: "peserta", plural: "peserta" },
       transcripts: { singular: "presentasi" },
     },
+  },
+  defaults: {
+    recordingWindowMs: 14_000,
+    inferenceLevel: "low",
+    sanitizeLevel: "low",
+    outputBufferCount: 1,
+    outputBufferDwellMs: 3_000,
+    summaryLength: "detailed",
+    summaryGuidance: "key takeaways, announcements, names; figures exactly as stated, none added",
   },
   messageOverrides: {
     en: {

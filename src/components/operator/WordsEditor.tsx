@@ -12,6 +12,7 @@ import {
   parseWordsImport,
 } from "@/live/words-import";
 import {
+  MAX_WORD_ENTRIES,
   WORD_ACTIONS,
   cleanWordValue,
   wordsFromSettings,
@@ -111,11 +112,10 @@ export function WordsEditor({ keywordText, filterText, disabled, onChange }: Wor
     }
   };
 
-  // The pipeline reads at most 40 glossary entries and 40 filter entries.
   const { keywordText: compiledKeywords, filterText: compiledFilters } = wordsToSettings(rows);
   const overLimit =
-    compiledKeywords.split(", ").filter(Boolean).length > 40 ||
-    compiledFilters.split(", ").filter(Boolean).length > 40;
+    compiledKeywords.split(", ").filter(Boolean).length > MAX_WORD_ENTRIES ||
+    compiledFilters.split(", ").filter(Boolean).length > MAX_WORD_ENTRIES;
 
   return (
     <>
