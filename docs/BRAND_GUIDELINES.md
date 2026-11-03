@@ -1,6 +1,6 @@
 # Brand guidelines
 
-Reviewed 3 November 2026 against merged PR #96 (`f74a25f`).
+Reviewed 3 November 2026 against merged PR #104 (`d7d344e`).
 
 The baseline every Caption Studio screen follows: how the product sounds, which token
 to use for which job, and how text, space and components are laid out. Agents and
@@ -255,6 +255,17 @@ None are open. The phone remote now says "Pause" and "Clear screen", and the one
 list and shared church setup shipped with
 [ADR 0022](decisions/0022-shared-church-setup-and-words-list.md). Record any new
 difference here, fix it when the screen is next changed, and don't copy it into new work.
+
+## Workspace format wording
+
+- A format (preset) changes only the words for four terms: session, speaker, audience and
+  transcripts. Identifiers, routes, stored field names and the AI safeguards never change.
+- Each term has a singular and plural form in English and Indonesian. Write sentences so
+  they read with any term set: no "a" or "an" before a term; "the" is fine.
+- Whole-message overrides are for example placeholders (the Live note, Quick override and
+  manual caption fields) and for the Sermon congregation line. An override may use fewer
+  placeholders than the base message, never more.
+- Indonesian preset wording is a draft until a native speaker reviews it.
 
 ## Checklist for every UI change
 

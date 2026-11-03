@@ -1,6 +1,6 @@
 # ADR 0035: Workspace presets
 
-Date: 3 November 2026. Status: accepted; the term placeholders and the preset schema are implemented, the chooser, defaults and model context are pending.
+Date: 3 November 2026. Status: accepted; the term placeholders, the preset schema with built-in whole-message overrides, the Settings chooser and the top bar format are implemented. Defaults and model context are pending.
 
 ## Context
 
@@ -20,6 +20,7 @@ Caption Studio's wording is generic (ADR 0033), but an organization often wants 
 - Base catalog sentences use term placeholders. The placeholders are `{term_session}`, `{term_speaker}`, `{term_audience}` and `{term_transcripts}`, with plural forms `{term_sessions}`, `{term_speakers}` and `{term_audiences}`. The capitalized forms (`{Term_session}` and so on) are derived by uppercasing the first letter.
 - A preset supplies each term's singular and plural per language. `translate` and the provider's `t()` merge the active preset's term values into the message parameters, so callers do not pass them.
 - Base sentences do not put "a" or "an" before a term, so any term set reads correctly. A built-in may supply a whole-string override for a sentence that cannot read well.
+- `messageOverrides` (built-in presets only; a `custom:` id is rejected) replace a whole message per language. An override may use fewer placeholders than the base message, never a placeholder the base lacks, because a preset with no term for an example placeholder replaces it wholesale. `transcriptionPrefix` and `summaryFraming` are not in the schema yet.
 - Term lookup in language L is: the preset's L set, then General's L set, then the preset's English set, then General's English set.
 - Display names are per language. The format words appear only in preset ids and display text.
 
