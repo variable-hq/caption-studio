@@ -134,7 +134,8 @@ try {
   readerPreset = undefined; readerStatus = 'live'; viewerReady = { status: 'live' };
   await page.setExtraHTTPHeaders({ 'accept-language': 'id-ID,id;q=0.9' });
   readerStatus = 'live'; readerExpired = false; readerRemoved = false;
-  await page.goto(origin + '/view#main.' + 'v'.repeat(43));
+  // The viewer is already open at this address, so reload it to pick up the Indonesian headers.
+  await page.reload();
   await page.getByText('Terjemahan Live', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'id'); await check('viewer-id');
   await page.goto(origin + '/read#' + id + '.' + 'r'.repeat(43));

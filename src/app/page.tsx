@@ -42,6 +42,7 @@ import {
 import { SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPreferences } from "@/experience/preferences";
 import { planPresetApply } from "@/experience/preset-apply";
 import { runningSessionFormat, screenFollowsSessionFormat } from "@/experience/session-format";
+import { messagePresetFor } from "@/live/request-preset";
 import {
   BUILT_IN_PRESETS,
   GENERAL_PRESET_ID,
@@ -360,6 +361,12 @@ function OperatorDashboardContent() {
     cancelOutputBufferEdit,
     submitOutputBufferEdit,
   } = useLiveCaptionSession(liveSettings);
+  // Session details are worded in the running session's format, or the Start bar's choice before one.
+  const sessionMessage = useCallback(
+    (key: MessageKey, params?: MessageParams) =>
+      translate(locale, key, params, messagePresetFor(liveState.liveSession, startFormat)),
+    [locale, liveState.liveSession, startFormat],
+  );
   useEffect(() => {
     const startedAt = liveState.liveSession?.startedAt ?? null;
     if (!startedAt) {
@@ -415,9 +422,9 @@ function OperatorDashboardContent() {
     metadataPostedFor.current = liveSession.sessionId;
     const metadata = normalizeSessionMetadata({ ...sessionMetadata, sessionAt: sessionDateEdited ? sessionMetadata.sessionAt : Date.parse(liveSession.startedAt) });
     metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`transcripts/${liveSession.sessionId}/metadata`, metadata)
-      .then((result) => { setSessionMetadata(result.metadata); setSessionMetadataMessage(workspaceT("live.sessionDetailsSaved")); shouldAutoSaveMetadata.current = false; })
-      .catch(() => { setSessionMetadataMessage(workspaceT("live.sessionDetailsAutoSaveFailed")); shouldAutoSaveMetadata.current = false; });
-  }, [liveState.liveSession, liveState.status, sessionMetadata, sessionDateEdited, workspaceT]);
+      .then((result) => { setSessionMetadata(result.metadata); setSessionMetadataMessage(sessionMessage("live.sessionDetailsSaved")); shouldAutoSaveMetadata.current = false; })
+      .catch(() => { setSessionMetadataMessage(sessionMessage("live.sessionDetailsAutoSaveFailed")); shouldAutoSaveMetadata.current = false; });
+  }, [liveState.liveSession, liveState.status, sessionMetadata, sessionDateEdited, sessionMessage]);
   async function saveLiveSessionMetadata() {
     const sessionId = liveState.liveSession?.sessionId;
     if (!sessionId || !liveState.liveSession?.saveHistory) return;

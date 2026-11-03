@@ -54,6 +54,8 @@ import { isProviderLimitError } from "@/live/provider-limit";
 import { useMicrophoneInput } from "@/live/use-microphone-input";
 import { useMicTestClip } from "@/live/use-mic-test-clip";
 import { recorderOptions } from "@/live/recorder-options";
+import { translate, type MessageKey, type MessageParams } from "@/i18n";
+import { messagePresetFor } from "@/live/request-preset";
 import { useI18n } from "@/i18n/provider";
 import { useOutputBufferQueue } from "@/live/use-output-buffer-queue";
 import { useRecentOutputs } from "@/live/use-recent-outputs";
@@ -163,7 +165,13 @@ function isControllerReplaced(error: unknown) {
 }
 
 export function useLiveCaptionSession(settings: LiveCaptionSettings) {
-  const { t } = useI18n();
+  const { t: workspaceT, locale } = useI18n();
+  // Banners are worded in the running session's format, or the Start bar's choice before one.
+  const t = useCallback(
+    (key: MessageKey, params?: MessageParams) =>
+      translate(locale, key, params, messagePresetFor(sessionRef.current, settingsRef.current.presetId)),
+    [locale],
+  );
   const tRef = useRef(t);
   useEffect(() => {
     tRef.current = t;
@@ -186,7 +194,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const discardMicTest = micTest.discard;
   const [liveState, setLiveState] = useState<LiveSessionState>(() => ({
     ...INITIAL_LIVE_STATE,
-    message: t("live.message.loadingChannel"),
+    // The first render has no session yet, so the workspace wording applies.
+    message: workspaceT("live.message.loadingChannel"),
   }));
   const remoteResultRef = useRef<{ controller: string; id: string; success: boolean } | null>(null);
   const [controlAction, setControlAction] =

@@ -101,7 +101,7 @@ function viewerDocument(locale: UiLocale) {
       let snapshot=null;
       const endedLabel=()=>{
         const term=snapshot&&snapshot.terms&&snapshot.terms[copy.locale]&&snapshot.terms[copy.locale].session&&snapshot.terms[copy.locale].session.singular;
-        return typeof term==="string"&&term?copy.endedTemplate.replace("{Term_session}",term.charAt(0).toUpperCase()+term.slice(1)):copy.ended;
+        return typeof term==="string"&&term?copy.endedTemplate.replace("{Term_session}",()=>term.charAt(0).toUpperCase()+term.slice(1)):copy.ended;
       };
       const card=document.querySelector(".captionCard");
       let empty=true;
