@@ -37,4 +37,5 @@ The product began for one church and its sermons, so "sermon", "church" and the 
 
 ## Phases
 
+- Phase 2, model-facing wording: the transcription prefix, the address-term guidance and both sanitization rules use audience and spoken-recording wording; the summary envelope is source-neutral and new summary jobs write `promptVersion` `source-grounded-v2`; the summary and synthesis task text says transcript.
 - Phase 1, user-visible wording: this ADR, the English and Indonesian catalogs, the layout description, the transcript and summary export names, the ADR 0030 glossary row, the feature-request issue template, and the audience wording.

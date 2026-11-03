@@ -767,7 +767,7 @@ summary holds the saved defaults for output language, short/detailed length and 
 default Workers AI model; there is no model choice. **Generate summary** on a transcript sends those defaults and names
 them with a **Change defaults** link; it has no per-request overrides. The Usage history
 disclosures explain that nothing is listed until usage is
-loaded. Server-owned TB2 grounding rules cannot be edited. Bounded
+loaded. Server-owned grounding rules cannot be edited. Bounded
 source sections and final synthesis produce points linked to source IDs; failures at
 context, call or daily budgets are visible. Source membership validation is not semantic
 proof. Operators must review the private draft before JSON export. Transcript JSON export
@@ -779,7 +779,7 @@ same summary job from the saved summary defaults; it appears in Transcripts mark
 generated automatically, still needs review before export, and is skipped if a summary
 already exists. See [ADR 0019](decisions/0019-automatic-post-service-summary.md).
 
-Exact TB2 text, licensed retrieval, an editable structured summary, section-selection UI,
+Exact quoted source text, licensed retrieval, an editable structured summary, section-selection UI,
 workspace roles, multiple providers and autonomous agent tools are not implemented.
 Summaries must not manufacture scripture or claim a generated paraphrase is an exact quote.
 
@@ -800,8 +800,8 @@ settings, availability and approved semantic quality before enabling it for tran
 
 ## Remaining decisions before a live pilot
 
-1. TB2 is selected; which authorized text source/licence permits exact passage retrieval?
-2. Who approves church-specific theological terminology?
+1. Which authorized source texts and licences permit exact passage retrieval?
+2. Who approves domain terminology?
 3. What caption latency and error rate are acceptable for each language?
 4. Is live manual correction required before captions reach OBS?
 5. Should translation failure skip the caption or deliberately fall back to source text?

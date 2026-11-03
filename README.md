@@ -168,7 +168,7 @@ provider headroom and rolling usage history.
 ## Not yet implemented
 
 Application audio storage, a paid AI fallback, simultaneous target languages, a live
-correction of captions already shown, multiple or named church profiles, tenant roles, an authorized TB2
+correction of captions already shown, multiple or named church profiles, tenant roles, an authorized source-text
 passage corpus, and a native app (the deferred iOS shell was removed in
 [ADR 0020](docs/decisions/0020-remove-ios-shell.md)). See
 [Roadmap](docs/ROADMAP.md) and [remaining gaps](docs/GAP_ANALYSIS.md) for planned work.

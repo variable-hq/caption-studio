@@ -227,7 +227,7 @@ describe("sermon journals", () => {
     await journal.fetch(request("/sync", { ...initial, status: "ended", endedAt: Date.now() }));
     expect((await journal.fetch(request("/summary", options))).status).toBe(202);
     expect((await journal.fetch(request("/summary", { ...options, requestId: "summary-request-0002" }))).status).toBe(200);
-    expect(await (await journal.fetch(request("/archive"))).json()).toMatchObject({ summary: { id: options.requestId, status: "queued" } });
+    expect(await (await journal.fetch(request("/archive"))).json()).toMatchObject({ summary: { id: options.requestId, status: "queued", promptVersion: "source-grounded-v2" } });
   });
   it("does not replay an interrupted inference job", async () => {
     const { journal, initial, storage } = await fixture();

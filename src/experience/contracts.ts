@@ -120,7 +120,7 @@ export interface SummaryJob {
   notes: SummaryPoint[];
   result?: SummaryPoint[];
   error?: string;
-  promptVersion: "tb2-grounded-v1";
+  promptVersion: "tb2-grounded-v1" | "source-grounded-v2";
   /** Queued by End for an operator who opted in, rather than by Generate summary. */
   automatic?: boolean;
 }
