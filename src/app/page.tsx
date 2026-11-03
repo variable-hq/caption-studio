@@ -757,12 +757,12 @@ function OperatorDashboardContent() {
         if (loaded.translationSystemPrompt !== null) {
           setTranslationSystemPrompt(loaded.translationSystemPrompt);
           setSavedPromptFingerprint(loaded.translationSystemPrompt);
-          setPromptStorageMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setPromptStorageMessage(tRef.current("settings.message.loadedSharedSetup"));
         }
         if (loaded.summaryDefaults) {
           setSummaryDefaults(loaded.summaryDefaults);
           setSavedSummaryDefaults(loaded.summaryDefaults);
-          setSummaryStorageMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setSummaryStorageMessage(tRef.current("settings.message.loadedSharedSetup"));
         }
         if (loaded.captionStyle) {
           const saved = loaded.captionStyle;
@@ -794,18 +794,18 @@ function OperatorDashboardContent() {
           setInferenceLevel(defaults.inferenceLevel);
           setSanitizeLevel(defaults.sanitizeLevel);
           setFilterInappropriateLanguage(defaults.filterInappropriateLanguage);
-          setTranslationDefaultsMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setTranslationDefaultsMessage(tRef.current("settings.message.loadedSharedSetup"));
         }
         if (loaded.saveHistoryDefault !== null && !hasServiceRef.current) {
           setSaveHistory(loaded.saveHistoryDefault);
         }
         if (loaded.outputBufferCount !== null && !hasServiceRef.current) {
           setOutputBufferCount(loaded.outputBufferCount);
-          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedChurchSetup") });
+          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedSharedSetup") });
         }
         if (loaded.outputBufferDwellMs !== null && !hasServiceRef.current) {
           setOutputBufferDwellMs(loaded.outputBufferDwellMs);
-          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedChurchSetup") });
+          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedSharedSetup") });
         }
       })
       .catch(() => {
@@ -855,7 +855,7 @@ function OperatorDashboardContent() {
       setTranslationDefaultsMessage(
         ok
           ? t("settings.message.savedTranslationDefaults")
-          : t("settings.error.churchSetup"),
+          : t("settings.error.sharedSetup"),
       ),
     );
   };
@@ -868,7 +868,7 @@ function OperatorDashboardContent() {
       messages: {
         saving: t("common.savingForEveryone"),
         saved: t("settings.message.savedDefaultChoice"),
-        failed: t("settings.error.churchSetup"),
+        failed: t("settings.error.sharedSetup"),
       },
     });
   };
@@ -912,7 +912,7 @@ function OperatorDashboardContent() {
           ? enabled
             ? t("settings.message.autoSummaryOn")
             : t("settings.message.autoSummaryOff")
-          : t("settings.error.churchSetup"),
+          : t("settings.error.sharedSetup"),
       ),
     );
   };
@@ -1421,7 +1421,7 @@ function OperatorDashboardContent() {
               <p className="settingHint" role="status" aria-live="polite">{sessionMetadataMessage}</p>
             </details>
             <details className="advancedActions">
-              <summary>{t("live.serviceDetails")}</summary>
+              <summary>{t("live.technicalDetails")}</summary>
               <div className="statRow"><span>{t("live.delay")}</span><span>{liveState.lastLatencyMs === null ? "—" : t("live.seconds", { value: formatDecimal(liveState.lastLatencyMs / 1000, locale) })}</span></div>
               {activeTranslationSettings?.sanitizeLevel && activeTranslationSettings.sanitizeLevel !== "off" ? (
                 <div className="statRow"><span>{t("live.filteredSegments")}</span><span>{formatCount(liveState.filteredSegments, locale)}</span></div>
@@ -1458,8 +1458,8 @@ function OperatorDashboardContent() {
   const sermonsScreen = (
     <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
       <header className="settingsHeader">
-        <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>{t("sermons.title")}</h1>
-        <p className="settingHint">{t("sermons.hint", { workspace: WORKSPACE_NAME })}</p>
+        <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>{t("transcripts.title")}</h1>
+        <p className="settingHint">{t("transcripts.hint", { workspace: WORKSPACE_NAME })}</p>
       </header>
       <ServiceExperiencePanel view="archive" service={liveState.service} onReaderLink={rememberReaderLink} summaryDefaults={summaryDefaults} />
     </main>
@@ -1682,7 +1682,7 @@ function OperatorDashboardContent() {
         <li>{t("help.step3.before")}{" "}<strong>{t("live.start")}</strong>{" "}{t("help.step3.after")}</li>
         <li>{t("help.step4.before")}{" "}<strong>{t("live.phoneViewer")}</strong>{" "}{t("help.step4.after")}</li>
         <li>{t("help.step5.before")}{" "}<strong>{t("shell.controls.pause")}</strong>{" "}{t("help.step5.middle")}{" "}<strong>{t("shell.controls.clearScreen")}</strong>{" "}{t("help.step5.after")}</li>
-        <li>{t("help.step6.before")}{" "}<strong>{t("dialog.endAction")}</strong>{" "}{t("help.step6.middle")}{" "}<strong>{t("sermons.title")}</strong>{t("help.step6.after")}</li>
+        <li>{t("help.step6.before")}{" "}<strong>{t("dialog.endAction")}</strong>{" "}{t("help.step6.middle")}{" "}<strong>{t("transcripts.title")}</strong>{t("help.step6.after")}</li>
       </ol>
       <p className="settingHint">
         {t("help.firstTime.before")}{" "}<a href="#settings=obs">{t("help.settingsObsLinks")}</a>{" "}{t("help.firstTime.after")}

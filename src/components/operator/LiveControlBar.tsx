@@ -74,7 +74,7 @@ export function LiveControlBar({
           </button>
         ) : (
           <button type="button" className="dangerOutlineButton" disabled={endDisabled} onClick={onEnd}>
-            {t("shell.controls.endService")}
+            {t("shell.controls.endSession")}
           </button>
         )}
       </div>

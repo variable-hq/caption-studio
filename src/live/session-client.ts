@@ -93,7 +93,7 @@ export class LiveSessionClient {
       body: JSON.stringify({ style, takeover, saveHistory }),
       signal: AbortSignal.timeout(10_000),
     });
-    await requireSuccess(response, this.message("request.serviceStart"));
+    await requireSuccess(response, this.message("request.sessionStart"));
     return (await response.json()) as LiveServiceDetails;
   }
 
@@ -103,7 +103,7 @@ export class LiveSessionClient {
       headers: controllerHeaders(controllerToken),
       signal: AbortSignal.timeout(5_000),
     });
-    await requireSuccess(response, this.message("request.serviceEnd"));
+    await requireSuccess(response, this.message("request.sessionEnd"));
   }
 
   /** Read-only watcher credential for the service another operator controls. */
@@ -112,7 +112,7 @@ export class LiveSessionClient {
       method: "POST",
       signal: AbortSignal.timeout(8_000),
     });
-    await requireSuccess(response, this.message("request.watchService"));
+    await requireSuccess(response, this.message("request.watchSession"));
     return (await response.json()) as LiveObserverDetails;
   }
 

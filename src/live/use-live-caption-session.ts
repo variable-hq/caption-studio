@@ -1177,7 +1177,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       clearServiceTimer();
       sessionTimerRef.current = setBackgroundTimeout(() => {
         void endService(
-          tRef.current("live.message.serviceLimit"),
+          tRef.current("live.message.sessionLimit"),
           true,
         );
       }, Math.min(MAX_LIVE_SESSION_MS, new Date(service.expiresAt).getTime() - Date.now()));

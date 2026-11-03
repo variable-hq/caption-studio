@@ -39,7 +39,7 @@ export function StyleEditor({
   defaultStyle = null,
 }: StyleEditorProps) {
   const t = useT();
-  const badge = (matches: boolean) => matches ? t("common.churchDefaultBadge") : "";
+  const badge = (matches: boolean) => matches ? t("common.savedDefaultBadge") : "";
   return (
     <>
       <SettingGroup title={t("styleEditor.textTitle")}>

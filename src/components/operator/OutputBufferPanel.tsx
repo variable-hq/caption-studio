@@ -38,7 +38,7 @@ export function OutputBufferPanel({
   const helpId = useId();
   const value = count > 0 ? String(dwellMs) : "off";
   const defaultValue = defaultCount === null ? null : defaultCount > 0 ? String(defaultDwellMs ?? DEFAULT_OUTPUT_BUFFER_DWELL_MS) : "off";
-  const badge = (option: string) => (defaultValue === option ? t("common.churchDefaultBadge") : "");
+  const badge = (option: string) => (defaultValue === option ? t("common.savedDefaultBadge") : "");
 
   return (
     <div className="outputBufferPanel">

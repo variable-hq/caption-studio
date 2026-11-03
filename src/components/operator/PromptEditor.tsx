@@ -105,7 +105,7 @@ export function PromptEditor({
           >
             {INFERENCE_LEVEL_OPTIONS.map((level) => (
               <option value={level} key={level}>
-                {t(INFERENCE_LEVEL_LABELS[level])}{defaultInferenceLevel === level ? t("common.churchDefaultBadge") : ""}
+                {t(INFERENCE_LEVEL_LABELS[level])}{defaultInferenceLevel === level ? t("common.savedDefaultBadge") : ""}
               </option>
             ))}
           </select>
@@ -126,7 +126,7 @@ export function PromptEditor({
           >
             {SANITIZE_LEVEL_OPTIONS.map((level) => (
               <option value={level} key={level}>
-                {t(SANITIZE_LEVEL_LABELS[level])}{defaultSanitizeLevel === level ? t("common.churchDefaultBadge") : ""}
+                {t(SANITIZE_LEVEL_LABELS[level])}{defaultSanitizeLevel === level ? t("common.savedDefaultBadge") : ""}
               </option>
             ))}
           </select>

@@ -74,7 +74,7 @@ export function UsageHistory() {
   return (
     <SettingGroup title={t("usage.title")} hint={t("usage.hint")}>
       <div className="statTiles">
-        <div className="statTile"><span>{t("usage.services")}</span><strong>{count(services.size)}</strong></div>
+        <div className="statTile"><span>{t("usage.sessions")}</span><strong>{count(services.size)}</strong></div>
         <div className="statTile"><span>{t("usage.transcriptions")}</span><strong>{count(transcriptions)}</strong></div>
         <div className="statTile"><span>{t("usage.translations")}</span><strong>{count(translations)}</strong></div>
       </div>
@@ -90,7 +90,7 @@ export function UsageHistory() {
         ))}
       </details>
       <details className="advancedActions">
-        <summary>{t("usage.byService")}</summary>
+        <summary>{t("usage.bySession")}</summary>
         {services.size === 0 ? <p className="settingHint">{t("usage.nothing")}</p> : null}
         {[...services].sort(([, first], [, second]) => second.at - first.at).map(([id, service]) => (
           <div className="statRow" key={id}>

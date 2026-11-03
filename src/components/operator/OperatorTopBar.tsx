@@ -25,7 +25,7 @@ const TABS: readonly { id: Exclude<OperatorScreenId, "help">; href: string }[] =
 
 const TAB_MESSAGE_KEYS = {
   live: "shell.navigation.live",
-  sermons: "shell.navigation.sermons",
+  sermons: "shell.navigation.transcripts",
   settings: "shell.navigation.settings",
 } as const;
 
