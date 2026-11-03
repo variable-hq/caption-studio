@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 3 November 2026 against merged PR #104 (`d7d344e`). Cloudflare deployed `20597d8`
+Reviewed 3 November 2026 against merged PR #105 (`eaec64a`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -34,9 +34,11 @@ the request's `Accept-Language`, never from operator preferences.
 
 Wording terms (session, speaker, audience and transcripts) are placeholders such as
 `{term_session}` and `{Term_session}` in the catalogs. `translate` fills them from the
-General preset's term set in `src/experience/presets.ts`; `normalizePreset()` is the only
-parser for preset data, and it rejects unknown fields and out-of-bounds values. The
-preset design is recorded in [ADR 0035](decisions/0035-workspace-presets.md).
+workspace's preset in `src/experience/presets.ts`; `normalizePreset()` is the only
+parser for preset data, and it rejects unknown fields and out-of-bounds values. A preset's
+`defaults` fill only settings the workspace has not saved: `planPresetApply()` in
+`src/experience/preset-apply.ts` gives the preview and the Apply preset action the same
+plan. The preset design is recorded in [ADR 0035](decisions/0035-workspace-presets.md).
 
 GitHub handles source review. Cloudflare Workers Builds builds OpenNext and deploys
 `custom-worker.ts` plus assets after merges to main. There is no GitHub Actions workflow.

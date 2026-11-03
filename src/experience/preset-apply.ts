@@ -1,0 +1,105 @@
+import type { OperatorPreferences } from "@/experience/preferences";
+import type { Preset, PresetDefaults, PresetStarterTerm } from "@/experience/presets";
+import { MAX_WORD_ENTRIES, wordsFromSettings, wordsToSettings } from "@/live/words";
+
+/** The preview rows, in display order. */
+export type PresetRowField = "captionWait" | "inference" | "sanitize" | "outputBuffer" | "summaryLength" | "summaryGuidance";
+
+/**
+ * `fill`: the preset's value is set as a draft. `kept`: the workspace already saved this
+ * setting, so the preset leaves it alone. `afterSession`: a running session keeps its
+ * output buffer until it ends.
+ */
+export type PresetRowStatus = "fill" | "kept" | "afterSession";
+
+/** Values a preset sets as drafts. Terms, languages, caption style and automatic summaries are never filled. */
+export type PresetFill = Omit<PresetDefaults, "starterTerms">;
+
+export type PresetApplyPlan = {
+  preset: Preset;
+  rows: { field: PresetRowField; status: PresetRowStatus }[];
+  fill: PresetFill;
+  /** The Terms text with the starter terms added, and how many were added or did not fit. */
+  starterTerms: { keywordText: string; filterText: string; added: number; skipped: number };
+};
+
+/** The saved setup a plan checks: a null entry is a setting the workspace has not saved. */
+export type PresetSavedSetup = Pick<OperatorPreferences, "translationDefaults" | "outputBufferCount" | "outputBufferDwellMs" | "summaryDefaults">;
+
+export type PresetDrafts = { keywordText: string; filterText: string };
+
+function entryCount(text: string) {
+  return text.split(", ").filter(Boolean).length;
+}
+
+/** Adds each starter term that is not already listed as a translation and still fits the Terms limit. */
+function planStarterTerms(starters: readonly PresetStarterTerm[], drafts: PresetDrafts) {
+  let rows = wordsFromSettings(drafts.keywordText, drafts.filterText);
+  let added = 0;
+  let skipped = 0;
+  for (const { word, translation } of starters) {
+    const listed = rows.some((row) => row.action === "translate" && row.word.toLowerCase() === word.toLowerCase());
+    if (listed) continue;
+    const next = [...rows, { word, action: "translate" as const, with: translation }];
+    const compiled = wordsToSettings(next);
+    if (entryCount(compiled.keywordText) > MAX_WORD_ENTRIES || entryCount(compiled.filterText) > MAX_WORD_ENTRIES) {
+      skipped += 1;
+      continue;
+    }
+    rows = next;
+    added += 1;
+  }
+  return { ...wordsToSettings(rows), added, skipped };
+}
+
+/**
+ * What applying a preset does now: the fills for unsaved settings, the preview rows and the
+ * Terms text. The preview and "Apply preset" both read this plan, so they cannot disagree.
+ */
+export function planPresetApply(
+  preset: Preset,
+  saved: PresetSavedSetup,
+  drafts: PresetDrafts,
+  sessionLive: boolean,
+): PresetApplyPlan {
+  const defaults = preset.defaults ?? {};
+  const rows: PresetApplyPlan["rows"] = [];
+  const fill: PresetFill = {};
+
+  const translationKept = saved.translationDefaults !== null;
+  if (defaults.recordingWindowMs !== undefined) {
+    rows.push({ field: "captionWait", status: translationKept ? "kept" : "fill" });
+    if (!translationKept) fill.recordingWindowMs = defaults.recordingWindowMs;
+  }
+  if (defaults.inferenceLevel !== undefined) {
+    rows.push({ field: "inference", status: translationKept ? "kept" : "fill" });
+    if (!translationKept) fill.inferenceLevel = defaults.inferenceLevel;
+  }
+  if (defaults.sanitizeLevel !== undefined) {
+    rows.push({ field: "sanitize", status: translationKept ? "kept" : "fill" });
+    if (!translationKept) fill.sanitizeLevel = defaults.sanitizeLevel;
+  }
+
+  if (defaults.outputBufferCount !== undefined || defaults.outputBufferDwellMs !== undefined) {
+    const countKept = saved.outputBufferCount !== null;
+    const dwellKept = saved.outputBufferDwellMs !== null;
+    const status: PresetRowStatus = countKept && dwellKept ? "kept" : sessionLive ? "afterSession" : "fill";
+    rows.push({ field: "outputBuffer", status });
+    if (status === "fill") {
+      if (!countKept && defaults.outputBufferCount !== undefined) fill.outputBufferCount = defaults.outputBufferCount;
+      if (!dwellKept && defaults.outputBufferDwellMs !== undefined) fill.outputBufferDwellMs = defaults.outputBufferDwellMs;
+    }
+  }
+
+  const summaryKept = saved.summaryDefaults !== null;
+  if (defaults.summaryLength !== undefined) {
+    rows.push({ field: "summaryLength", status: summaryKept ? "kept" : "fill" });
+    if (!summaryKept) fill.summaryLength = defaults.summaryLength;
+  }
+  if (defaults.summaryGuidance !== undefined) {
+    rows.push({ field: "summaryGuidance", status: summaryKept ? "kept" : "fill" });
+    if (!summaryKept) fill.summaryGuidance = defaults.summaryGuidance;
+  }
+
+  return { preset, rows, fill, starterTerms: planStarterTerms(defaults.starterTerms ?? [], drafts) };
+}

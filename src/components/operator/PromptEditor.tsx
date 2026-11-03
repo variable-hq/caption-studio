@@ -13,7 +13,7 @@ import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { useI18n } from "@/i18n/provider";
 import type { MessageKey } from "@/i18n";
 
-const SANITIZE_LEVEL_LABELS: Record<SanitizeLevel, MessageKey> = {
+export const SANITIZE_LEVEL_LABELS: Record<SanitizeLevel, MessageKey> = {
   off: "sanitize.off",
   low: "sanitize.low",
   balanced: "sanitize.balanced",
@@ -42,7 +42,7 @@ function LevelDescription({ messageKey, id }: { messageKey: MessageKey; id?: str
   );
 }
 
-const INFERENCE_LEVEL_LABELS: Record<InferenceLevel, MessageKey> = {
+export const INFERENCE_LEVEL_LABELS: Record<InferenceLevel, MessageKey> = {
   low: "inference.low",
   balanced: "inference.balanced",
   high: "inference.high",

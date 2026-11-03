@@ -1,6 +1,6 @@
 # ADR 0035: Workspace presets
 
-Date: 3 November 2026. Status: accepted; the term placeholders, the preset schema with built-in whole-message overrides, the Settings chooser and the top bar format are implemented. Defaults and model context are pending.
+Date: 3 November 2026. Status: accepted; the term placeholders, the preset schema with built-in whole-message overrides and starting defaults, the Settings chooser with its preview and Apply preset, and the top bar format are implemented. Model context is pending.
 
 ## Context
 
@@ -18,6 +18,7 @@ Caption Studio's wording is generic (ADR 0033), but an organization often wants 
 ### Wording mechanism
 
 - Base catalog sentences use term placeholders. The placeholders are `{term_session}`, `{term_speaker}`, `{term_audience}` and `{term_transcripts}`, with plural forms `{term_sessions}`, `{term_speakers}` and `{term_audiences}`. The capitalized forms (`{Term_session}` and so on) are derived by uppercasing the first letter.
+- A preset's `defaults` (caption wait, inference, sanitization, output buffer, summary length and focus, and starter Terms) fill only settings the workspace has not saved, and only as drafts; the schema checks each value against its setting's options.
 - A preset supplies each term's singular and plural per language. `translate` and the provider's `t()` merge the active preset's term values into the message parameters, so callers do not pass them.
 - Base sentences do not put "a" or "an" before a term, so any term set reads correctly. A built-in may supply a whole-string override for a sentence that cannot read well.
 - `messageOverrides` (built-in presets only; a `custom:` id is rejected) replace a whole message per language. An override may use fewer placeholders than the base message, never a placeholder the base lacks, because a preset with no term for an example placeholder replaces it wholesale. `transcriptionPrefix` and `summaryFraming` are not in the schema yet.

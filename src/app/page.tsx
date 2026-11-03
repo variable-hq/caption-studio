@@ -40,6 +40,8 @@ import {
   saveSharedSetup,
 } from "@/experience/preferences-client";
 import { SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPreferences } from "@/experience/preferences";
+import { planPresetApply } from "@/experience/preset-apply";
+import { resolveWorkspacePreset, type BuiltInPresetId } from "@/experience/presets";
 import {
   DEFAULT_SUMMARY_OPTIONS,
   SUMMARY_DEFAULTS_PREFERENCE_KEY,
@@ -856,6 +858,37 @@ function OperatorDashboardContent() {
     void syncAccountPreferences({ uiLocale: preference });
   }
 
+  // The same plan drives the Presets preview and Apply preset, so the preview is what applies.
+  const presetPlanFor = (profile: BuiltInPresetId) =>
+    accountPreferences
+      ? planPresetApply(resolveWorkspacePreset(profile), accountPreferences, { keywordText, filterText }, hasSession)
+      : null;
+
+  // Fills the unsaved settings as drafts for the operator to review; nothing is saved as a default here.
+  const applyPreset = (profile: BuiltInPresetId): Promise<boolean> => {
+    const plan = presetPlanFor(profile);
+    if (!plan) return Promise.resolve(false);
+    const { fill, starterTerms } = plan;
+    if (fill.recordingWindowMs !== undefined) setRecordingWindowMs(fill.recordingWindowMs);
+    if (fill.inferenceLevel !== undefined) setInferenceLevel(fill.inferenceLevel);
+    if (fill.sanitizeLevel !== undefined) setSanitizeLevel(fill.sanitizeLevel);
+    if (fill.outputBufferCount !== undefined) setOutputBufferCount(fill.outputBufferCount);
+    if (fill.outputBufferDwellMs !== undefined) setOutputBufferDwellMs(fill.outputBufferDwellMs);
+    if (fill.summaryLength !== undefined || fill.summaryGuidance !== undefined) {
+      setSummaryDefaults({
+        ...summaryDefaults,
+        length: fill.summaryLength ?? summaryDefaults.length,
+        guidance: fill.summaryGuidance ?? summaryDefaults.guidance,
+      });
+      setSummaryStorageMessage("");
+    }
+    if (starterTerms.added > 0) {
+      setKeywordText(starterTerms.keywordText);
+      setFilterText(starterTerms.filterText);
+    }
+    return syncAccountPreferences({ profile });
+  };
+
   const saveTranslationDefaults = () => {
     setTranslationDefaultsMessage(t("common.savingForEveryone"));
     void syncAccountPreferences({
@@ -1550,7 +1583,9 @@ function OperatorDashboardContent() {
           {settingsSection === "presets" ? (
             <PresetChooser
               savedProfile={accountPreferences?.profile ?? null}
-              onSave={(profile) => syncAccountPreferences({ profile })}
+              loaded={accountPreferences !== null}
+              planFor={presetPlanFor}
+              onApply={applyPreset}
             />
           ) : null}
 

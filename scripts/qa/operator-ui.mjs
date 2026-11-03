@@ -448,10 +448,15 @@ try {
   const chooseFormat=async (profileId,name)=>{
    await openPresets();
    await page.getByRole('combobox',{name:'Format',exact:true}).selectOption(profileId);
+   await page.getByRole('heading',{name:'What this format sets',exact:true}).waitFor();
+   if(profileId==='builtin:sermon'){
+    await page.getByText('9 starter terms added',{exact:true}).waitFor();
+    await page.getByText('Caption wait time',{exact:true}).first().waitFor();
+   }
    const savesBefore=controls.length;
-   await page.getByRole('button',{name:'Save for everyone',exact:true}).click();
-   await page.getByText(`Saved for everyone. Operator screens now use ${name}.`,{exact:true}).waitFor();
-   assert.equal(controls.length,savesBefore+1,`Saving ${name} writes once`);
+   await page.getByRole('button',{name:'Apply preset',exact:true}).click();
+   await page.getByText(`${name} applied. Review the filled-in settings, then save each one for everyone.`,{exact:true}).waitFor();
+   assert.equal(controls.length,savesBefore+1,`Applying ${name} writes once`);
    assert.equal(controls.at(-1).preferenceWrite.profile,profileId,`Saving ${name} sends ${profileId}`);
    await formatLink(name).waitFor();
    assert.equal(await topBarText(),`BEST Church workspace · ${name} · Main channel`,`The top bar names ${name}`);

@@ -15,7 +15,7 @@ import {
   type RecordingWindowMs,
 } from "@/live/contracts";
 
-const RECORDING_WINDOW_LABELS: Record<RecordingWindowMs, MessageKey> = {
+export const RECORDING_WINDOW_LABELS: Record<RecordingWindowMs, MessageKey> = {
   6000: "translationSettings.windowFastest",
   10000: "translationSettings.windowBalanced",
   14000: "translationSettings.windowSmooth",

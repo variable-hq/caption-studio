@@ -1,6 +1,6 @@
 # Design system
 
-Reviewed 3 November 2026 against merged PR #104 (`d7d344e`).
+Reviewed 3 November 2026 against merged PR #105 (`eaec64a`).
 
 Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
@@ -89,6 +89,7 @@ The dashboard theme never changes the configured OBS caption colours.
   per the colour roles in the brand guidelines) and the `.operatorTab` links, the current
   one marked `aria-current="page"`.
 - Top bar format: `.operatorBrandName a` links the format while no session is live, styled
+- Presets preview (Settings › Presets): rows use the `statRow` pattern; kept and not-changed rows show their status text in place of a value.
   `color: inherit` with an underline; while a session runs the same text is a `role="note"`
   span with no link. Both carry `aria-label` "Session format: <name>".
 - `.operatorScreen`: one screen, capped at `--content-max`, with `--space-3` gutters
