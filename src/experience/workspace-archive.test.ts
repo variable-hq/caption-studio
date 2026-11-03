@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { LiveWorkerEnvironment } from "@/live/api";
 import { handleExperienceRequest } from "./api";
-import { SermonJournal } from "./sermon-journal";
+import { TranscriptJournal } from "./transcript-journal";
 import type { JournalState, Namespace } from "./contracts";
 
 // One Access tenant is one workspace: these tests prove that a saved transcript
@@ -55,7 +55,7 @@ function snapshot(overrides: Partial<JournalState> = {}): JournalState {
   };
 }
 
-let journal: SermonJournal;
+let journal: TranscriptJournal;
 let roomRequests: Request[];
 let environment: LiveWorkerEnvironment;
 
@@ -69,7 +69,7 @@ function as(operator: string, path: string, body?: unknown) {
 }
 
 beforeEach(async () => {
-  journal = new SermonJournal(state(new Storage()), {});
+  journal = new TranscriptJournal(state(new Storage()), {});
   const journals: Namespace = { idFromName: (name) => name, get: () => journal };
   roomRequests = [];
   const rooms: Namespace = {
@@ -82,7 +82,7 @@ beforeEach(async () => {
     }),
   };
   environment = {
-    SERMON_JOURNALS: journals, CAPTION_ROOMS: rooms,
+    TRANSCRIPT_JOURNALS: journals, CAPTION_ROOMS: rooms,
     CLOUDFLARE_ACCESS_AUD: "caption-studio-audience",
     CLOUDFLARE_ACCESS_TEAM_DOMAIN: "https://caption-studio.cloudflareaccess.com",
   } as unknown as LiveWorkerEnvironment;

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SermonJournal, parseSummary } from "./sermon-journal";
+import { TranscriptJournal, parseSummary } from "./transcript-journal";
 import { AiUsageLedger } from "./usage-ledger";
 import { DAY, HISTORY_RETENTION, MAX_JOURNAL_NOTES, READER_GRACE, SUMMARY_MODELS, normalizeSessionMetadata, type ExperienceEnvironment, type JournalState, type Namespace, type UsageRecord } from "./contracts";
 import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
@@ -55,7 +55,7 @@ const input = (id: number, text = "Synthetic translated transcript.", epoch = 0)
 });
 const note = (id: number, text = "Synthetic operator note.") => ({ id, text, targetLanguage: "en" });
 async function fixture(saved = true, env: ExperienceEnvironment = {}) {
-  const storage = new Storage(); const journal = new SermonJournal(state(storage), env);
+  const storage = new Storage(); const journal = new TranscriptJournal(state(storage), env);
   const initial = snapshot(saved); await journal.fetch(request("/sync", initial));
   return { storage, journal, initial };
 }
@@ -114,7 +114,7 @@ describe("transcript journals", () => {
     expect(JSON.stringify([...storage.values])).not.toContain("Synthetic");
     const result = await journal.fetch(request("/read", undefined, { "x-reader-hash": readerHash }));
     expect(await result.json()).toMatchObject({ saved: false, paragraphs: [{ text: "Synthetic public text", fallback: true }] });
-    const evicted = new SermonJournal(state(storage), {});
+    const evicted = new TranscriptJournal(state(storage), {});
     expect(await (await evicted.fetch(request("/read", undefined, { "x-reader-hash": readerHash }))).json()).toMatchObject({ paragraphs: [] });
   });
   it("Clear preserves committed paragraphs and rejects old pending material", async () => {
@@ -277,12 +277,12 @@ describe("usage history", () => {
 describe("remote control and clear boundaries", () => {
   async function fixture() {
     const storage = new Storage();
-    const journals = new Map<string, SermonJournal>();
+    const journals = new Map<string, TranscriptJournal>();
     const namespace: Namespace = { idFromName: (name) => name, get: (key) => {
-      const name = String(key); if (!journals.has(name)) journals.set(name, new SermonJournal(state(new Storage()), {}));
+      const name = String(key); if (!journals.has(name)) journals.set(name, new TranscriptJournal(state(new Storage()), {}));
       return journals.get(name)!;
     } };
-    const room = new CaptionRoom(state(storage), { SERMON_JOURNALS: namespace });
+    const room = new CaptionRoom(state(storage), { TRANSCRIPT_JOURNALS: namespace });
     const controllerHash = "b".repeat(64);
     await room.fetch(request("/internal/channel", { tokenHash: "c".repeat(64), encryptedToken: "synthetic" }));
     const started = await room.fetch(request("/internal/service", { controllerHash, viewerTokenHash: "d".repeat(64), readerHash, saveHistory: true, takeover: false }));
@@ -522,8 +522,8 @@ describe("experience recovery", () => {
   });
   it("releases a failed Start and retries persisted lifecycle synchronization", async () => {
     const storage = new Storage(); let unavailable = true;
-    const journal = new SermonJournal(state(new Storage()), {});
-    const room = new CaptionRoom(state(storage), { SERMON_JOURNALS: {
+    const journal = new TranscriptJournal(state(new Storage()), {});
+    const room = new CaptionRoom(state(storage), { TRANSCRIPT_JOURNALS: {
       idFromName: (name) => name, get: () => ({ fetch: async (req) => unavailable ? Response.json({}, { status: 503 }) : journal.fetch(req) }),
     } });
     await room.fetch(request("/internal/channel", { tokenHash: "c".repeat(64), encryptedToken: "synthetic" }));
@@ -590,7 +590,7 @@ describe("automatic summary", () => {
       CAPTION_OPTIONAL_AI_ENABLED: enabled,
       OPERATOR_PREFERENCES: { idFromName: (name: string) => name, get: () => ({ fetch: async () =>
         Response.json({ autoSummary, summaryDefaults: { model: SUMMARY_MODELS[0], language: "en", length: "detailed", guidance: "" } }) }) },
-      SERMON_JOURNALS: { idFromName: (name: string) => name, get: () => ({ fetch: journalFetch }) },
+      TRANSCRIPT_JOURNALS: { idFromName: (name: string) => name, get: () => ({ fetch: journalFetch }) },
     });
     await queueAutoSummary(env(false), id, "operator@example.org");
     await queueAutoSummary(env(true, "false"), id, "operator@example.org");

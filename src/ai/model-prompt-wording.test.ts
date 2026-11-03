@@ -8,7 +8,7 @@ import {
 } from "@/ai/translation-prompt";
 import { buildTranscriptionPrompt, buildTranslationMessages } from "@/ai/server/groq";
 import { buildReaderPrompt, buildSummaryPrompt } from "@/experience/prompt";
-import { SUMMARY_SECTION_TASK, SUMMARY_SYNTHESIS_TASK } from "@/experience/sermon-journal";
+import { SUMMARY_SECTION_TASK, SUMMARY_SYNTHESIS_TASK } from "@/experience/transcript-journal";
 
 const CHURCH_OR_SERMON_WORDING = /congregation|sermon|khotbah|gereja|TB2/iu;
 const SANITIZE_LEVELS: SanitizeLevel[] = ["low", "balanced", "high"];

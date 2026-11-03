@@ -14,8 +14,8 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       if (request.method !== "GET") return json({ error: "Use GET." }, 405);
       const [id, reader] = (request.headers.get("x-caption-reader") ?? "").split(".");
       if (!UUID_PATTERN.test(id ?? "") || !CAPABILITY_TOKEN_PATTERN.test(reader ?? "")) return json({ error: "Invalid reader link." }, 403);
-      if (!env.SERMON_JOURNALS) return json({ error: "Reader is not configured." }, 503);
-      const journal = env.SERMON_JOURNALS.get(env.SERMON_JOURNALS.idFromName(id));
+      if (!env.TRANSCRIPT_JOURNALS) return json({ error: "Reader is not configured." }, 503);
+      const journal = env.TRANSCRIPT_JOURNALS.get(env.TRANSCRIPT_JOURNALS.idFromName(id));
       return journal.fetch(new Request(`https://internal/read?after=${Math.max(0, Number(url.searchParams.get("after")) || 0)}`, {
         headers: { "x-reader-hash": await captionTokenHash(reader) },
       }));
@@ -44,11 +44,11 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
     }
     if (operation === "history" && request.method === "GET") {
       const history = await rpc(env.CAPTION_ROOMS, "channel:main", "/internal/history");
-      if (!history.ok || !env.SERMON_JOURNALS) return history;
+      if (!history.ok || !env.TRANSCRIPT_JOURNALS) return history;
       const body = await history.json() as { sessions: { id: string; startedAt: number }[] };
       const sessions = await Promise.all(body.sessions.slice(0, 50).map(async (entry) => {
         try {
-          const metadata = await rpc(env.SERMON_JOURNALS!, entry.id, "/metadata");
+          const metadata = await rpc(env.TRANSCRIPT_JOURNALS!, entry.id, "/metadata");
           if (!metadata.ok) return entry;
           const details = await metadata.json() as { metadata?: unknown };
           return { ...entry, metadata: details.metadata };
@@ -59,16 +59,16 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
     const parts = operation.split("/");
     if (parts.length === 3 && (parts[0] === "transcripts" || parts[0] === "sermons") && UUID_PATTERN.test(parts[1] ?? "") &&
         ["archive", "summary", "remove", "correct", "delete", "metadata"].includes(parts[2])) {
-      if (!env.SERMON_JOURNALS) return json({ error: "Transcript archive is not configured." }, 503);
-      if (parts[2] === "archive" && request.method === "GET") return rpc(env.SERMON_JOURNALS, parts[1],
+      if (!env.TRANSCRIPT_JOURNALS) return json({ error: "Transcript archive is not configured." }, 503);
+      if (parts[2] === "archive" && request.method === "GET") return rpc(env.TRANSCRIPT_JOURNALS, parts[1],
         `/archive?after=${Math.max(0, Number(url.searchParams.get("after")) || 0)}&paragraphAfter=${Math.max(0, Number(url.searchParams.get("paragraphAfter")) || 0)}`);
-      if (parts[2] === "metadata" && request.method === "GET") return rpc(env.SERMON_JOURNALS, parts[1], "/metadata");
+      if (parts[2] === "metadata" && request.method === "GET") return rpc(env.TRANSCRIPT_JOURNALS, parts[1], "/metadata");
       if (parts[2] === "archive") return json({ error: "Use GET." }, 405);
       if (request.method !== "POST") return json({ error: "Use POST." }, 405);
       const body = await readJsonObject(request, 32768) as Record<string, unknown>;
       if (parts[2] === "delete" && body.confirm !== true) return json({ error: "Confirm transcript deletion." }, 400);
       if (parts[2] === "remove" && body.confirm !== true) return json({ error: "Confirm passage removal." }, 400);
-      const result = await rpc(env.SERMON_JOURNALS, parts[1], `/${parts[2]}`, body);
+      const result = await rpc(env.TRANSCRIPT_JOURNALS, parts[1], `/${parts[2]}`, body);
       if (parts[2] === "delete" && (result.ok || result.status === 410)) {
         return await rpc(env.CAPTION_ROOMS, "channel:main", "/internal/history/delete", { id: parts[1] });
       }

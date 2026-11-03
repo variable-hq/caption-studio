@@ -8,7 +8,7 @@ import { normalizeSummaryOptions } from "./summary-defaults";
  * a summary from the saved summary defaults once it has ended.
  */
 export async function queueAutoSummary(env: ExperienceEnvironment, sessionId: string, identity: string) {
-  if (!env.OPERATOR_PREFERENCES || !env.SERMON_JOURNALS || env.CAPTION_OPTIONAL_AI_ENABLED !== "true") return;
+  if (!env.OPERATOR_PREFERENCES || !env.TRANSCRIPT_JOURNALS || env.CAPTION_OPTIONAL_AI_ENABLED !== "true") return;
   const [shared, personal] = await Promise.all([
     rpc(env.OPERATOR_PREFERENCES, WORKSPACE_SETUP_KEY, "/preferences"),
     rpc(env.OPERATOR_PREFERENCES, await operatorIdentityKey(identity), "/preferences"),
@@ -19,7 +19,7 @@ export async function queueAutoSummary(env: ExperienceEnvironment, sessionId: st
     normalizeOperatorPreferences(await personal.json()),
   );
   if (!preferences.autoSummary) return;
-  await rpc(env.SERMON_JOURNALS, sessionId, "/auto-summary", {
+  await rpc(env.TRANSCRIPT_JOURNALS, sessionId, "/auto-summary", {
     options: normalizeSummaryOptions(preferences.summaryDefaults ?? {}),
   } satisfies AutoSummaryRequest);
 }

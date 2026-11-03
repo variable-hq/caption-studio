@@ -36,7 +36,7 @@ export function parseSummary(text: string, allowedIds: Set<number>): SummaryPoin
 export const SUMMARY_SYNTHESIS_TASK = "Combine these grounded notes into a transcript summary. Include theme, outline, main points, mentioned references, speaker applications and uncertainty when supported.";
 export const SUMMARY_SECTION_TASK = "Summarize this transcript section, preserving evidence IDs.";
 
-export class SermonJournal {
+export class TranscriptJournal {
   private pending: ReaderInput[] = [];
   private latest: ReaderParagraph | null = null;
   private latestNote: ReaderNote | null = null;

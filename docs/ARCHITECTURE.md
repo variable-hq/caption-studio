@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 3 November 2026 against merged PR #99 (`a5add46`). Cloudflare deployed `20597d8`
+Reviewed 3 November 2026 against merged PR #100 (`b4c03ab`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -13,7 +13,7 @@ physical-device, provider-output or semantic acceptance.
 | Next.js / OpenNext | Operator, remote and reader UI; health, readiness, transcription and translation handlers |
 | `custom-worker.ts` | Experience and live dispatch before OpenNext; Access-before-inference claims; exports all Durable Object classes |
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
-| `SermonJournal` | One service's source/corrections/exclusions, record-only session metadata, reader paragraphs, operator notes, lifecycle checkpoints and manual or automatic summary jobs |
+| `TranscriptJournal` | One session's source/corrections/exclusions, record-only session metadata, reader paragraphs, operator notes, lifecycle checkpoints and manual or automatic summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
 | `OperatorPreferences` | One object per hashed Access email (theme, interface language, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and words, output buffer, transcript-saving default and automatic summaries |
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
