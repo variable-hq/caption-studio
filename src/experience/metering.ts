@@ -25,7 +25,7 @@ export async function meteredGroq<T>(request: Request, stage: "transcription" | 
     transcriptionAttempt: attempt, stage,
   });
   if (!context.ok) throw new Error("AI service authorization is no longer valid.");
-  const { serviceId: sessionId } = await context.json() as { serviceId: string };
+  const { sessionId } = await context.json() as { sessionId: string };
   const id = `${sessionId}:${stage}:${attempt}`;
   let dispatched = false;
   const telemetry: ProviderTelemetry = {

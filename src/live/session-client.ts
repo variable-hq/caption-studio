@@ -1,6 +1,7 @@
-import type {
-  CaptionStyle,
-  LiveApiErrorCode,
+import {
+  sessionErrorCode,
+  type CaptionStyle,
+  type LiveApiErrorCode,
   LiveObserverDetails,
   LiveSessionDetails,
   LiveSessionControlAction,
@@ -16,7 +17,8 @@ const defaultTranslate: TranslateMessage = (key) => translate("en", key);
 
 interface ErrorPayload {
   error?: string;
-  code?: LiveApiErrorCode;
+  code?: string;
+  sessionCode?: LiveApiErrorCode;
   expiresAt?: string | null;
   translationRevision?: number;
 }
@@ -39,7 +41,7 @@ async function requireSuccess(response: Response, fallback: string) {
   throw new LiveApiError(
     payload?.error ?? fallback,
     response.status,
-    payload?.code,
+    sessionErrorCode(payload) as LiveApiErrorCode | undefined,
     payload?.expiresAt,
     payload?.translationRevision,
   );

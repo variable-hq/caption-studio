@@ -70,14 +70,14 @@ try {
     payload={action:body.action,status,translationRevision:0,sequence:1};
    } else if(path==='/api/live/channel/observer'&&method==='POST'){
     // A second tab of the same workspace watches the running service read-only.
-    payload={channelId:'main',serviceId:'11111111-1111-1111-1111-111111111111',saveHistory:false,
+    payload={channelId:'main',sessionId:'11111111-1111-1111-1111-111111111111',saveHistory:false,
      controllerLabel:'operator@example.test',status:status==='paused'?'paused':'live',
      observerToken:'w'.repeat(43),viewerUrl:'http://127.0.0.1:3100/view#main.'+'w'.repeat(43),
      startedAt,expiresAt,translationRevision:0};
    } else if(path==='/api/live/channel/lease')payload={valid:true,status:'live',expiresAt,transcriptionRequests:++transcriptionRequests,translationRevision:0};
    else if(path==='/api/ai/transcribe'){inferenceCalls++;payload={segments:[]};}
    else if(path==='/api/live/experience/usage')payload={records:[],next:null};
-   else if(path==='/api/live/experience/history')payload={services:[]};
+   else if(path==='/api/live/experience/history')payload={sessions:[],services:[]};
    else {errors.push('Unexpected mocked request: '+method+' '+path);return route.fulfill({status:400,json:{error:'Unexpected test request'}})}
    await route.fulfill({status:200,json:payload});
   });

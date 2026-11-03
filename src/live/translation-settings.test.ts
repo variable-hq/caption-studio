@@ -19,7 +19,7 @@ const BASE_SETTINGS = normalizeTranslationSessionSettings({
   recordingWindowMs: 6_000,
   translationSystemPrompt: DEFAULT_TRANSLATION_SYSTEM_PROMPT,
 });
-const SERVICE_IDENTITY = {
+const SESSION_IDENTITY = {
   startedAt: "2026-08-23T00:00:00.000Z",
   expiresAt: "2026-08-23T01:30:00.000Z",
   translationRevision: 7,
@@ -120,7 +120,7 @@ describe("translation-session settings", () => {
     const stored = JSON.stringify({
       version: 4,
       settings: { ...BASE_SETTINGS, sanitizeLevel: undefined, filterInappropriateLanguage: undefined },
-      ...SERVICE_IDENTITY,
+      ...SESSION_IDENTITY,
     });
     expect(parseStoredTranslationSessionSettings(stored)?.settings.sanitizeLevel).toBe("off");
     expect(parseStoredTranslationSessionSettings(stored)?.settings.filterInappropriateLanguage).toBe(true);
@@ -142,19 +142,19 @@ describe("translation-session settings", () => {
   it("round-trips a versioned same-tab recovery snapshot", () => {
     const stored = serializeTranslationSessionSettings(
       BASE_SETTINGS,
-      SERVICE_IDENTITY,
+      SESSION_IDENTITY,
     );
     const snapshot = parseStoredTranslationSessionSettings(stored);
     expect(snapshot).toEqual({
-      ...SERVICE_IDENTITY,
+      ...SESSION_IDENTITY,
       settings: BASE_SETTINGS,
     });
     expect(
-      translationSessionSnapshotMatches(snapshot!, SERVICE_IDENTITY),
+      translationSessionSnapshotMatches(snapshot!, SESSION_IDENTITY),
     ).toBe(true);
     expect(
       translationSessionSnapshotMatches(snapshot!, {
-        ...SERVICE_IDENTITY,
+        ...SESSION_IDENTITY,
         translationRevision: 8,
       }),
     ).toBe(false);
@@ -162,7 +162,7 @@ describe("translation-session settings", () => {
 
   it("maps a legacy recording window in an in-flight service snapshot", () => {
     const snapshot = JSON.parse(
-      serializeTranslationSessionSettings(BASE_SETTINGS, SERVICE_IDENTITY),
+      serializeTranslationSessionSettings(BASE_SETTINGS, SESSION_IDENTITY),
     ) as { settings: Record<string, unknown> };
     snapshot.settings.recordingWindowMs = 12_000;
     const stored = JSON.stringify(snapshot);
@@ -175,7 +175,7 @@ describe("translation-session settings", () => {
         JSON.stringify({
           version: 1,
           settings: BASE_SETTINGS,
-          ...SERVICE_IDENTITY,
+          ...SESSION_IDENTITY,
         }),
       ),
     ).toBeNull();
@@ -184,7 +184,7 @@ describe("translation-session settings", () => {
         JSON.stringify({
           version: 4,
           settings: { targetLanguage: "id" },
-          ...SERVICE_IDENTITY,
+          ...SESSION_IDENTITY,
         }),
       ),
     ).toBeNull();
@@ -193,7 +193,7 @@ describe("translation-session settings", () => {
         JSON.stringify({
           version: 4,
           settings: { ...BASE_SETTINGS, inferenceLevel: "extreme" },
-          ...SERVICE_IDENTITY,
+          ...SESSION_IDENTITY,
         }),
       ),
     ).toBeNull();
@@ -202,7 +202,7 @@ describe("translation-session settings", () => {
         JSON.stringify({
           version: 4,
           settings: BASE_SETTINGS,
-          ...SERVICE_IDENTITY,
+          ...SESSION_IDENTITY,
           translationRevision: "7",
         }),
       ),

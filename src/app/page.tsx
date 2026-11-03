@@ -387,20 +387,20 @@ function OperatorDashboardContent() {
       return;
     }
     if (!liveSession.saveHistory) { shouldAutoSaveMetadata.current = false; return; }
-    if (!shouldAutoSaveMetadata.current || !liveSession?.saveHistory || !liveSession.serviceId || metadataPostedFor.current === liveSession.serviceId) return;
-    metadataPostedFor.current = liveSession.serviceId;
+    if (!shouldAutoSaveMetadata.current || !liveSession?.saveHistory || !liveSession.sessionId || metadataPostedFor.current === liveSession.sessionId) return;
+    metadataPostedFor.current = liveSession.sessionId;
     const metadata = normalizeSessionMetadata({ ...sessionMetadata, sessionAt: sessionDateEdited ? sessionMetadata.sessionAt : Date.parse(liveSession.startedAt) });
-    metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`transcripts/${liveSession.serviceId}/metadata`, metadata)
+    metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`transcripts/${liveSession.sessionId}/metadata`, metadata)
       .then((result) => { setSessionMetadata(result.metadata); setSessionMetadataMessage(t("live.sessionDetailsSaved")); shouldAutoSaveMetadata.current = false; })
       .catch(() => { setSessionMetadataMessage(t("live.sessionDetailsAutoSaveFailed")); shouldAutoSaveMetadata.current = false; });
   }, [liveState.liveSession, liveState.status, sessionMetadata, sessionDateEdited, t]);
   async function saveLiveSessionMetadata() {
-    const serviceId = liveState.liveSession?.serviceId;
-    if (!serviceId || !liveState.liveSession?.saveHistory) return;
+    const sessionId = liveState.liveSession?.sessionId;
+    if (!sessionId || !liveState.liveSession?.saveHistory) return;
     setSessionMetadataMessage(t("common.saving"));
     try {
       await metadataWrite.current;
-      const result = await experienceRequest<{ metadata: SessionMetadata }>(`transcripts/${serviceId}/metadata`, normalizeSessionMetadata(sessionMetadata));
+      const result = await experienceRequest<{ metadata: SessionMetadata }>(`transcripts/${sessionId}/metadata`, normalizeSessionMetadata(sessionMetadata));
       setSessionMetadata(result.metadata);
       setSessionMetadataMessage(t("live.sessionDetailsSaved"));
     } catch { setSessionMetadataMessage(t("live.sessionDetailsSaveFailed")); }
@@ -1417,7 +1417,7 @@ function OperatorDashboardContent() {
               <summary>{t("live.sessionDetails")}</summary>
               {!liveState.liveSession?.saveHistory ? <p className="settingHint">{t("live.sessionDetailsBeforeStart")}</p> : null}
               <SessionMetadataFields value={sessionMetadata} disabled={!liveState.liveSession?.saveHistory || isBusy} onChange={setSessionMetadata} />
-              <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.liveSession?.saveHistory || !liveState.liveSession.serviceId || isBusy} onClick={() => void saveLiveSessionMetadata()}>{t("live.saveSessionDetails")}</button></div>
+              <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.liveSession?.saveHistory || !liveState.liveSession.sessionId || isBusy} onClick={() => void saveLiveSessionMetadata()}>{t("live.saveSessionDetails")}</button></div>
               <p className="settingHint" role="status" aria-live="polite">{sessionMetadataMessage}</p>
             </details>
             <details className="advancedActions">

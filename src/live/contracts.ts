@@ -114,7 +114,7 @@ export interface PublicCaptionEvent extends PublicCaptionRequest {
 }
 
 export interface ObsChannelDetails {
-  serviceId?: string;
+  sessionId?: string;
   saveHistory?: boolean;
   /** Access email of the operator running the session; Access-protected surfaces only. */
   controllerLabel?: string;
@@ -131,7 +131,7 @@ export interface ObsChannelDetails {
 }
 
 export interface LiveSessionDetails {
-  serviceId?: string;
+  sessionId?: string;
   readerUrl?: string;
   saveHistory?: boolean;
   channelId: typeof MAIN_CHANNEL_ID;
@@ -149,7 +149,7 @@ export interface LiveSessionDetails {
  */
 export interface LiveObserverDetails {
   channelId: typeof MAIN_CHANNEL_ID;
-  serviceId: string;
+  sessionId: string;
   saveHistory: boolean;
   controllerLabel?: string;
   status: "live" | "paused";
@@ -201,8 +201,23 @@ export interface LiveSessionState {
   liveSession: LiveSessionDetails | null;
 }
 
+/** Pre-session error codes. Responses carry the session name in `sessionCode` and the earlier value in `code`. */
+const SESSION_CODE_FALLBACK: Readonly<Record<string, string>> = {
+  service_paused: "session_paused",
+  service_inactive: "session_inactive",
+};
+
+/** The session error code of a response: `sessionCode` when present, otherwise `code` mapped to its session name. */
+export function sessionErrorCode(payload: { code?: unknown; sessionCode?: unknown } | null | undefined) {
+  if (typeof payload?.sessionCode === "string") return payload.sessionCode;
+  if (typeof payload?.code !== "string") return undefined;
+  return SESSION_CODE_FALLBACK[payload.code] ?? payload.code;
+}
+
 export type LiveApiErrorCode =
   | "caption_cleared"
+  | "session_paused"
+  | "session_inactive"
   | "service_paused"
   | "channel_in_use"
   | "channel_not_configured"

@@ -288,6 +288,7 @@ export function publicConfiguration(configuration: ChannelConfiguration) {
   const current = normalizeConfiguration(configuration);
   return {
     configured: true,
+    sessionId: current.sessionId,
     serviceId: current.sessionId,
     saveHistory: current.saveHistory,
     controllerLabel: current.controllerLabel,

@@ -71,14 +71,14 @@ try {
     payload = remote;
    } else if (url.pathname.startsWith('/api/ai/health')) payload = { status: 'ready', hosting: 'cloudflare', access: { ready: true, provider: 'Cloudflare Access' }, transcription: { ready: true, model: 'whisper-large-v3-turbo' }, translation: { ready: true, model: 'openai/gpt-oss-20b' } };
    else if (url.pathname === '/api/live/channel') payload = { channelId: 'main', configured: true, status: 'idle', overlayUrl: origin + '/overlay#main.' + 'o'.repeat(43), style: {}, startedAt: null, expiresAt: null, transcriptionRequests: 0, llmUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, translationRequests: 0, providerRateLimit: null }, translationRevision: 1 };
-   else if (url.pathname.endsWith('/experience/history')) payload = { services: [{ id, startedAt: Date.now() }] };
+   else if (url.pathname.endsWith('/experience/history')) payload = { sessions: [{ id, startedAt: Date.now() }], services: [{ id, startedAt: Date.now() }] };
    else if (url.pathname.endsWith('/archive')) payload = { details: { id, status: 'ended', saved: true, startedAt: Date.now(), expiresAt: Date.now() + 5400000, endedAt: Date.now(), incomplete: false }, sources: [{ ...source, excluded }], paragraphs: excluded ? [] : [paragraph], notes: [], summary, more: false, moreParagraphs: false };
    else if (url.pathname.endsWith('/summary')) { summaryIds.push(body.requestId); summary = { status: 'completed', result: [{ text: 'Synthetic supported summary.', sourceIds: [1] }] }; if (summaryIds.length === 1) return route.abort('failed'); assert.equal(summaryIds[1], summaryIds[0], 'Retry must reuse the acknowledged-lost summary request ID'); payload = summary; }
    else if (url.pathname.endsWith('/remove')) { assert.equal(body.confirm, true); excluded = true; summary = null; payload = { removed: true }; }
    else if (url.pathname.endsWith('/correct')) { assert.ok(body.text); summary = null; payload = { corrected: true }; }
    else if (url.pathname.endsWith('/delete')) { assert.equal(body.confirm, true); payload = { deleted: true }; }
    else if (url.pathname.endsWith('/experience/preferences') || url.pathname.endsWith('/experience/setup')) payload = { version: 1, theme: 'system', translationSystemPrompt: null, summaryDefaults: null, captionStyle: null, translationDefaults: null, updatedAt: null };
-   else if (url.pathname.endsWith('/experience/usage')) payload = { records: [{ id: 'synthetic-attempt', serviceId: id, at: Date.now(), stage: 'translation', provider: 'groq', model: 'openai/gpt-oss-20b', status: 'completed', tokens: { promptTokens: 150, completionTokens: 50, totalTokens: 200 }, audioSeconds: null, estimatedNeurons: 0 }], next: null };
+   else if (url.pathname.endsWith('/experience/usage')) payload = { records: [{ id: 'synthetic-attempt', sessionId: id, at: Date.now(), stage: 'translation', provider: 'groq', model: 'openai/gpt-oss-20b', status: 'completed', tokens: { promptTokens: 150, completionTokens: 50, totalTokens: 200 }, audioSeconds: null, estimatedNeurons: 0 }], next: null };
    else { errors.push('Unexpected API: ' + url.pathname); return route.fulfill({ status: 400, json: { error: 'Unexpected request' } }); }
    return route.fulfill({ status: 200, json: payload });
   });

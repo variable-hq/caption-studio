@@ -18,12 +18,12 @@ function OperatorMobileContent() {
   const [state, setState] = useState<RemoteState | null>(null);
   const [message, setMessage] = useState<RemoteMessage>({ key: "mobile.message.connecting" });
   const [busy, setBusy] = useState(false);
-  const credential = useRef({ serviceId: "", token: "" });
+  const credential = useRef({ sessionId: "", token: "" });
   const requestId = useRef<{ action: string; id: string } | null>(null);
   async function request(body: object = {}) {
     const response = await fetch("/api/live/experience/remote", { method: "POST", cache: "no-store",
       headers: { "content-type": "application/json", "x-caption-remote": credential.current.token },
-      body: JSON.stringify({ ...body, serviceId: credential.current.serviceId }), signal: AbortSignal.timeout(8000) });
+      body: JSON.stringify({ ...body, sessionId: credential.current.sessionId }), signal: AbortSignal.timeout(8000) });
     const result = await response.json() as RemoteState & { error?: string };
     if (!response.ok) throw new Error(result.error || tRef.current("mobile.error.unavailable"));
     return result;
@@ -38,10 +38,10 @@ function OperatorMobileContent() {
     applyTheme(readStoredTheme());
   }, []);
   useEffect(() => {
-    const [serviceId, token] = location.hash.slice(1).split(".");
-    credential.current = { serviceId, token };
+    const [sessionId, token] = location.hash.slice(1).split(".");
+    credential.current = { sessionId, token };
     let cancelled = false;
-    if (!serviceId || !token) {
+    if (!sessionId || !token) {
       const explain = window.setTimeout(() => setMessage({ key: "mobile.message.notPaired" }), 0);
       return () => { cancelled = true; window.clearTimeout(explain); };
     }

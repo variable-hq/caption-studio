@@ -280,10 +280,10 @@ IDs each.
 | --- | --- | --- |
 | `channel_not_configured` | 404 | Main channel not created |
 | `channel_in_use` | 409 | Another controller is active; takeover requires confirmation |
-| `controller_replaced`, `service_paused`, `caption_cleared`, `translation_session_refreshed`, `{stage}_attempt_used` | 409 | Stale controller, paused service, superseded caption, stale settings revision, or reused claim |
+| `controller_replaced`, `service_paused` (`sessionCode` `session_paused`), `caption_cleared`, `translation_session_refreshed`, `{stage}_attempt_used` | 409 | Stale controller, paused session, superseded caption, stale settings revision, or reused claim. Error bodies keep `code` and add `sessionCode`; the current client reads `sessionCode` and falls back to `code` |
 | `invalid_{stage}_attempt` | 400 | Malformed or unreserved attempt |
 | `transcription_limit_reached` | 429 | 1,800 reserved attempts exhausted; usage admission may also return 409/429 |
-| `service_inactive` | 410 | Ended or expired service; reader links return 403/410 |
+| `service_inactive` (`sessionCode` `session_inactive`) | 410 | Ended or expired session; reader links return 403/410 |
 | `invalid_overlay_key`, `invalid_viewer_key` | 401 (503 when the OBS credential cannot be decrypted) | Wrong-purpose or revoked token |
 | `translation_incomplete` | 422 | Provider output skipped; usage retained |
 | `*_authorization_unavailable`, `translation_usage_unavailable`, viewer capacity | 503 | Room or ledger unavailable, or 250 viewer sockets reached |

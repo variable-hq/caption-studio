@@ -1727,6 +1727,23 @@ describe("stored session names", () => {
     expect(written).not.toHaveProperty("serviceEventCount");
   });
 
+  it("returns both session and earlier id names, both error code fields and both ended headers", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    const started = await (await room.fetch(request("/internal/session", { controllerHash: CONTROLLER_A, controllerLabel: "first@example.test", viewerTokenHash: VIEWER_A, takeover: false, style: { fontSize: 60 } }))).json() as Record<string, unknown>;
+    const sessionId = (storage.values.get("configuration") as Record<string, unknown>).sessionId;
+    expect(started).toMatchObject({ sessionId, serviceId: sessionId });
+
+    const paused = await room.fetch(request("/internal/control", { action: "pause", controllerHash: CONTROLLER_A }));
+    expect(paused.status).toBe(200);
+    const history = await (await room.fetch(request("/internal/history"))).json() as { sessions: unknown[]; services: unknown[] };
+    expect(history.sessions).toEqual(history.services);
+
+    const ended = await room.fetch(request("/internal/session", { controllerHash: CONTROLLER_A }, "DELETE"));
+    expect(ended.headers.get("x-ended-session")).toBe(sessionId);
+    expect(ended.headers.get("x-ended-service")).toBe(sessionId);
+  });
+
   it("starts and ends a session under the internal session route and the older service route", async () => {
     const { room } = roomFixture();
     await createChannel(room);

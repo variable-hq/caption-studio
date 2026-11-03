@@ -12,7 +12,7 @@ import type {
   TranslationResult,
 } from "@/ai/contracts";
 import { normalizeLlmTokenUsage, normalizeProviderRateLimitSnapshot } from "@/ai/usage";
-import { MAX_TRANSCRIPTION_REQUESTS } from "@/live/contracts";
+import { MAX_TRANSCRIPTION_REQUESTS, sessionErrorCode } from "@/live/contracts";
 
 interface CloudProviderHealth {
   status: "ready" | "not-configured" | "unavailable";
@@ -37,7 +37,7 @@ const TERMINAL_INFERENCE_CONTROL_CODES = new Set([
   "transcription_attempt_used",
   "invalid_transcription_attempt",
   "invalid_translation_attempt",
-  "service_inactive",
+  "session_inactive",
 ]);
 
 function normalizeCloudErrorCode(value: unknown) {
@@ -163,7 +163,7 @@ export class CloudProviderClient
       const payload = await readErrorPayload(response);
       throw new CloudProviderClientError(
         payload?.error ?? "Cloud transcription failed.",
-        normalizeCloudErrorCode(payload?.code),
+        normalizeCloudErrorCode(sessionErrorCode(payload)),
         undefined,
         undefined,
         response.status,
@@ -206,7 +206,7 @@ export class CloudProviderClient
       const payload = await readErrorPayload(response);
       throw new CloudProviderClientError(
         payload?.error ?? "Cloud translation failed.",
-        normalizeCloudErrorCode(payload?.code),
+        normalizeCloudErrorCode(sessionErrorCode(payload)),
         normalizeProviderRateLimitSnapshot(payload?.rateLimit) ?? undefined,
         payload?.code === "translation_incomplete"
           ? normalizeLlmTokenUsage(payload.usage) ?? undefined

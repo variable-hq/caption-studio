@@ -345,7 +345,7 @@ describe("remote control and clear boundaries", () => {
     await room.fetch(request("/internal/experience/pair", { controllerHash, identityKey, remoteHash }));
     const command = { serviceId, remoteHash, id: "remote-command-0001", action: "pause" };
     expect((await room.fetch(request("/internal/experience/remote", command))).status).toBe(200);
-    expect(await (await room.fetch(request("/internal/lease", { controllerHash }))).json()).toMatchObject({ code: "service_paused" });
+    expect(await (await room.fetch(request("/internal/lease", { controllerHash }))).json()).toMatchObject({ code: "service_paused", sessionCode: "session_paused" });
     const first = await (await room.fetch(request("/internal/experience/remote", command))).json();
     expect(first).toMatchObject({ command: { status: "pending" }, connected: false });
     await room.fetch(request("/internal/experience/host", { controllerHash, acknowledgement: command.id, capturing: true, success: true }));

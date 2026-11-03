@@ -48,6 +48,12 @@ import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { HASH_HEX_PATTERN, UUID_PATTERN, sha256Hex } from "@/http/tokens";
 import { json, rpc, type ExperienceEnvironment, type JournalState } from "@/experience/contracts";
 
+/** Error bodies keep the earlier `code` value and add the session name in `sessionCode`. */
+const SESSION_CODES = { service_paused: "session_paused", service_inactive: "session_inactive" } as const;
+function sessionError(error: string, code: keyof typeof SESSION_CODES, status: number) {
+  return json({ error, code, sessionCode: SESSION_CODES[code] }, status);
+}
+
 /** The start and end routes; `/internal/service` is the name earlier builds used. */
 function isSessionRoute(pathname: string) {
   return pathname === "/internal/session" || pathname === "/internal/service";
@@ -156,7 +162,7 @@ export class CaptionRoom {
       capturing?: boolean; acknowledgement?: string; success?: boolean;
       transcriptionAttempt?: number; stage?: string; source?: unknown; sourceIds?: number[] };
     const stored = await this.expireSessionIfNeeded();
-    if (!stored || !isActive(stored) || !stored.sessionId) return json({ error: "Session ended.", code: "service_inactive" }, 410);
+    if (!stored || !isActive(stored) || !stored.sessionId) return sessionError("Session ended.", "service_inactive", 410);
     const current = normalizeConfiguration(stored);
     const requestedSessionId = body.sessionId ?? body.serviceId;
     if (action === "remove-current") {
@@ -214,6 +220,7 @@ export class CaptionRoom {
       current.observers = withCredential(current.observers, body.identityKey!, body.observerHash!);
       await this.state.storage.put("configuration", current);
       return json({
+        sessionId: current.sessionId,
         serviceId: current.sessionId,
         saveHistory: current.saveHistory === true,
         controllerLabel: current.controllerLabel,
@@ -232,14 +239,14 @@ export class CaptionRoom {
       // The single-remote credential from before per-identity pairing is retired here.
       delete current.remoteHash;
       await this.state.storage.put("configuration", current);
-      return json({ serviceId: current.sessionId });
+      return json({ sessionId: current.sessionId, serviceId: current.sessionId });
     }
     if (!controllerMatches(current, body.controllerHash)) return controllerReplaced();
     if (action === "reader-rotate") {
       if (!HASH_HEX_PATTERN.test(body.readerHash ?? "")) return json({ error: "Invalid reader token." }, 400);
       current.readerHash = body.readerHash;
       await this.state.storage.put("configuration", current);
-      return json({ serviceId: current.sessionId });
+      return json({ sessionId: current.sessionId, serviceId: current.sessionId });
     }
     if (action === "host") {
       current.heartbeatAt = Date.now();
@@ -258,8 +265,8 @@ export class CaptionRoom {
       const attempt = body.transcriptionAttempt;
       if (!Number.isSafeInteger(attempt) || !["transcription", "translation"].includes(body.stage ?? "") ||
           !(body.stage === "transcription" ? current.claimedTranscriptionAttempts : current.claimedTranslationAttempts).includes(attempt!)) return json({ error: "Inference attempt was not claimed." }, 403);
-      if (current.status !== "live") return json({ error: "Session paused.", code: "service_paused" }, 409);
-      return json({ serviceId: current.sessionId });
+      if (current.status !== "live") return sessionError("Session paused.", "service_paused", 409);
+      return json({ sessionId: current.sessionId, serviceId: current.sessionId });
     }
     if (action === "source" && this.env?.SERMON_JOURNALS) {
       const source = body.source as { id?: number; translationRevision?: number } | undefined;
@@ -275,7 +282,8 @@ export class CaptionRoom {
     const url = new URL(request.url);
 
     if (url.pathname === "/internal/history" && request.method === "GET") {
-      return json({ services: (await this.pruneArchives()).services });
+      const { services } = await this.pruneArchives();
+      return json({ sessions: services, services });
     }
     if (url.pathname === "/internal/history/delete" && request.method === "POST") {
       const { id } = await request.json() as { id: string };
@@ -612,6 +620,7 @@ export class CaptionRoom {
     this.broadcastOverlay({ type: "style", style: result.value.style });
     return json({
       status: result.value.status,
+      sessionId: result.value.sessionId,
       serviceId: result.value.sessionId,
       saveHistory: result.value.saveHistory,
       startedAt: new Date(result.value.startedAt!).toISOString(),
@@ -681,7 +690,7 @@ export class CaptionRoom {
 
   private async endLiveSession(request: Request) {
     const body = (await request.json()) as { controllerHash?: string };
-    const result = await this.state.storage.transaction<MutationResult<{ serviceId?: string; saved: boolean } | null>>(
+    const result = await this.state.storage.transaction<MutationResult<{ sessionId?: string; saved: boolean } | null>>(
       async (transaction) => {
         const stored = await transaction.get<ChannelConfiguration>("configuration");
         if (!stored) return { kind: "channel-not-configured" };
@@ -697,7 +706,7 @@ export class CaptionRoom {
         if (!controllerMatches(configuration, body.controllerHash)) {
           return { kind: "controller-replaced" };
         }
-        const ended = { serviceId: configuration.sessionId, saved: configuration.saveHistory === true };
+        const ended = { sessionId: configuration.sessionId, saved: configuration.saveHistory === true };
         configuration = deactivate(configuration);
         await Promise.all([
           transaction.put("configuration", configuration),
@@ -717,8 +726,8 @@ export class CaptionRoom {
     // Internal only: the Worker strips these before answering the operator.
     return new Response(null, {
       status: 204,
-      headers: ended?.serviceId
-        ? { "x-ended-service": ended.serviceId, "x-ended-saved": ended.saved ? "1" : "0" }
+      headers: ended?.sessionId
+        ? { "x-ended-session": ended.sessionId, "x-ended-service": ended.sessionId, "x-ended-saved": ended.saved ? "1" : "0" }
         : undefined,
     });
   }
@@ -784,7 +793,7 @@ export class CaptionRoom {
     if (result.kind === "channel-not-configured") return channelNotConfigured();
     if (result.kind === "controller-replaced") return controllerReplaced();
     if (result.kind === "caption-cleared") return json({ error: "Caption predates Clear. Discard it.", code: "caption_cleared" }, 409);
-    if (result.kind === "paused") return json({ error: "Session paused.", code: "service_paused" }, 409);
+    if (result.kind === "paused") return sessionError("Session paused.", "service_paused", 409);
     if (result.kind === "translation-session-refreshed") {
       return translationSessionRefreshed(result.translationRevision);
     }
@@ -887,7 +896,7 @@ export class CaptionRoom {
         429,
       );
     }
-    if (result.kind === "paused") return json({ error: "Session paused.", code: "service_paused" }, 409);
+    if (result.kind === "paused") return sessionError("Session paused.", "service_paused", 409);
     if (result.kind !== "ok") {
       return json({ error: "Transcription reservation failed." }, 500);
     }
@@ -944,7 +953,7 @@ export class CaptionRoom {
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
         this.closeViewerSockets(4002, "Live session ended.");
       }
-      return json({ error: "The live session is not accepting inference.", code: "service_inactive" }, 410);
+      return sessionError("The live session is not accepting inference.", "service_inactive", 410);
     }
     if (result.kind === "inference-attempt-used") {
       return json(
@@ -955,7 +964,7 @@ export class CaptionRoom {
         409,
       );
     }
-    if (result.kind === "paused") return json({ error: "Session paused.", code: "service_paused" }, 409);
+    if (result.kind === "paused") return sessionError("Session paused.", "service_paused", 409);
     if (result.kind === "invalid") {
       return json({ error: "Inference does not match a current reserved attempt.", code: `invalid_${stage}_attempt` }, 400);
     }

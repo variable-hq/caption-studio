@@ -45,8 +45,8 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
     if (operation === "history" && request.method === "GET") {
       const history = await rpc(env.CAPTION_ROOMS, "channel:main", "/internal/history");
       if (!history.ok || !env.SERMON_JOURNALS) return history;
-      const body = await history.json() as { services: { id: string; startedAt: number }[] };
-      const services = await Promise.all(body.services.slice(0, 50).map(async (entry) => {
+      const body = await history.json() as { sessions: { id: string; startedAt: number }[] };
+      const sessions = await Promise.all(body.sessions.slice(0, 50).map(async (entry) => {
         try {
           const metadata = await rpc(env.SERMON_JOURNALS!, entry.id, "/metadata");
           if (!metadata.ok) return entry;
@@ -54,7 +54,7 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
           return { ...entry, metadata: details.metadata };
         } catch { return entry; }
       }));
-      return json({ ...body, services });
+      return json({ sessions, services: sessions });
     }
     const parts = operation.split("/");
     if (parts.length === 3 && (parts[0] === "transcripts" || parts[0] === "sermons") && UUID_PATTERN.test(parts[1] ?? "") &&
@@ -90,9 +90,9 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       readerHash: operation === "reader-rotate" ? await captionTokenHash(issued!) : undefined };
     const response = await rpc(env.CAPTION_ROOMS, "channel:main", `/internal/experience/${operation}`, payload);
     if (!response.ok || !issued) return response;
-    const result = await response.json() as { serviceId: string };
+    const result = await response.json() as { sessionId: string };
     const link = new URL(operation === "pair" ? "/operator/mobile" : "/read", request.url);
-    link.hash = `${result.serviceId}.${issued}`;
+    link.hash = `${result.sessionId}.${issued}`;
     return json({ url: link.toString() });
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) return json({ error: "Request body is too large." }, 413);
