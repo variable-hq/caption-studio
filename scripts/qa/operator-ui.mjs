@@ -290,6 +290,7 @@ try {
    assert.equal(await row.evaluate((node)=>node.scrollWidth<=node.clientWidth&&node.getBoundingClientRect().right<=innerWidth),true,`${width}: "${label}" row overflows`);
   }
   assert.equal((await page.locator('.statRow',{hasText:'Caption wait, typical'}).locator('span').last().textContent())?.trim(),'—','Caption wait is empty before the first window');
+  await page.locator('details.advancedActions',{hasText:'Technical details'}).screenshot({path:output+`/live-technical-details-${colorScheme}-${width}.png`});
   await check('live-running');
   await barClear('live-running');
   // The Start bar is gone; the buffer and its shared save stay in the Captions card.
