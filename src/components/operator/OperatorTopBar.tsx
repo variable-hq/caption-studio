@@ -3,7 +3,7 @@
 import { WORKSPACE_NAME } from "@/domain/workspace";
 import { useI18n } from "@/i18n/provider";
 
-export type OperatorScreenId = "live" | "sermons" | "settings" | "help";
+export type OperatorScreenId = "live" | "transcripts" | "settings" | "help";
 
 export type StatusTone = "ok" | "live" | "warn" | "bad" | "muted";
 export type OperatorStatusLabel =
@@ -19,13 +19,13 @@ export type OperatorStatusLabel =
 
 const TABS: readonly { id: Exclude<OperatorScreenId, "help">; href: string }[] = [
   { id: "live", href: "#live" },
-  { id: "sermons", href: "#sermons" },
+  { id: "transcripts", href: "#transcripts" },
   { id: "settings", href: "#settings" },
 ];
 
 const TAB_MESSAGE_KEYS = {
   live: "shell.navigation.live",
-  sermons: "shell.navigation.sermons",
+  transcripts: "shell.navigation.transcripts",
   settings: "shell.navigation.settings",
 } as const;
 
@@ -36,7 +36,7 @@ interface OperatorTopBarProps {
   status: { label: OperatorStatusLabel; tone: StatusTone; detail?: string };
 }
 
-/** Brand, the one status pill, and the Live / Sermons / Settings tabs. Tabs are links so
+/** Brand, the one status pill, and the Live / Transcripts / Settings tabs. Tabs are links so
  * every screen has its own address and survives a refresh. */
 export function OperatorTopBar({ screen, status }: OperatorTopBarProps) {
   const { t } = useI18n();

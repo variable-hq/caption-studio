@@ -6,7 +6,7 @@ export interface LiveDraftToggleEffects {
   setSessionDisabled(disabled: boolean): void;
 }
 
-/** Drafts start on with every service; a provider rejection stops them for the session. */
+/** Drafts start on with every session; a provider rejection stops them for the session. */
 export function createLiveDraftToggle(effects: LiveDraftToggleEffects) {
   let sessionDisabled = false;
 

@@ -5,7 +5,7 @@ const MAX_DAILY_NEURONS = 9_000;
 const MAX_READER_NEURONS = 6_000;
 const SAFE_ID = /^[a-zA-Z0-9:_-]{1,180}$/u;
 
-/** Numeric accounting only. This object never receives sermon text or credentials. */
+/** Numeric accounting only. This object never receives transcript text or credentials. */
 export class AiUsageLedger {
   constructor(private readonly state: DurableObjectState) {}
 

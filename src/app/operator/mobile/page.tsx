@@ -85,7 +85,7 @@ function OperatorMobileContent() {
       : t("mobile.commandStatus.failed", { action });
   })() : null;
   return <main className="experiencePage">
-    <header className="experienceHeader"><p className="eyebrow">Caption Studio</p><h1>{t("serviceExperience.remoteTitle")}</h1>
+    <header className="experienceHeader"><p className="eyebrow">Caption Studio</p><h1>{t("sessionExperience.remoteTitle")}</h1>
       <p>{t("mobile.description")}</p></header>
     <section className="experienceCard" aria-label={t("mobile.controlsLabel")}>
       <p role="status" aria-live="polite">{messageText || connectionStatus}</p>

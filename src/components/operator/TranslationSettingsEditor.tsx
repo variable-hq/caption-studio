@@ -64,7 +64,7 @@ export function CaptionWaitTimeEditor({
         >
           {RECORDING_WINDOW_OPTIONS.map((value) => (
             <option value={value} key={value}>
-              {t(RECORDING_WINDOW_LABELS[value])}{defaultRecordingWindowMs === value ? t("common.churchDefaultBadge") : ""}
+              {t(RECORDING_WINDOW_LABELS[value])}{defaultRecordingWindowMs === value ? t("common.savedDefaultBadge") : ""}
             </option>
           ))}
         </select>
@@ -102,10 +102,10 @@ export function TranslationSettingsEditor({
                   onSourceLanguageChange(event.target.value as SourceLanguage)
                 }
               >
-                <option value="auto">{t("translationSettings.autoDetect")}{defaultSourceLanguage === "auto" ? t("common.churchDefaultBadge") : ""}</option>
+                <option value="auto">{t("translationSettings.autoDetect")}{defaultSourceLanguage === "auto" ? t("common.savedDefaultBadge") : ""}</option>
                 {LANGUAGE_OPTIONS.map((language) => (
                   <option value={language.locale} key={language.locale}>
-                    {language.label}{defaultSourceLanguage === language.locale ? t("common.churchDefaultBadge") : ""}
+                    {language.label}{defaultSourceLanguage === language.locale ? t("common.savedDefaultBadge") : ""}
                   </option>
                 ))}
               </select>
@@ -127,7 +127,7 @@ export function TranslationSettingsEditor({
               >
                 {LANGUAGE_OPTIONS.map((language) => (
                   <option value={language.locale} key={language.locale}>
-                    {language.label}{defaultTargetLanguage === language.locale ? t("common.churchDefaultBadge") : ""}
+                    {language.label}{defaultTargetLanguage === language.locale ? t("common.savedDefaultBadge") : ""}
                   </option>
                 ))}
               </select>

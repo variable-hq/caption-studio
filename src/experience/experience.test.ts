@@ -5,7 +5,7 @@ import { DAY, HISTORY_RETENTION, MAX_JOURNAL_NOTES, READER_GRACE, SUMMARY_MODELS
 import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
 import { normalizeCaptionStyle } from "@/live/contracts";
 import { handleExperienceRequest } from "./api";
-import { correctApprovedRecognitionVariants } from "@/pipeline/bible-terms";
+import { correctApprovedRecognitionVariants } from "@/pipeline/recognition-variants";
 import { parseGlossaryInput } from "@/live/config";
 import { buildTranscriptionPrompt } from "@/ai/server/groq";
 import { queueAutoSummary } from "./auto-summary";
@@ -50,7 +50,7 @@ function snapshot(saved = true): JournalState {
     saved, readerHash, status: "live", epoch: 0, revision: 0, incomplete: false,
     readerCalls: 0, summaryCalls: 0 };
 }
-const input = (id: number, text = "Synthetic translated sermon.", epoch = 0) => ({
+const input = (id: number, text = "Synthetic translated transcript.", epoch = 0) => ({
   id, publicText: text, targetLanguage: "en", epoch, translationRevision: 1, filterText: "", keywordText: "",
 });
 const note = (id: number, text = "Synthetic operator note.") => ({ id, text, targetLanguage: "en" });
@@ -74,7 +74,7 @@ describe("TB2 terminology", () => {
   });
 });
 
-describe("sermon journals", () => {
+describe("transcript journals", () => {
   it("normalizes and bounds record-only session metadata", () => {
     expect(normalizeSessionMetadata({ topic: "  Topic ", speaker: "x".repeat(130), description: "bad\u0000text", sessionAt: -1 })).toEqual({ topic: "Topic", speaker: "x".repeat(120), description: "", sessionAt: null });
     expect(normalizeSessionMetadata({ topic: "y".repeat(150), description: "d".repeat(1200), sessionAt: 42 })).toMatchObject({ topic: "y".repeat(120), description: "d".repeat(1000), sessionAt: 42 });

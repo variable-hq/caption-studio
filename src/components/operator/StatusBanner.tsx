@@ -6,7 +6,7 @@ import { useI18n } from "@/i18n/provider";
 interface StatusBannerProps {
   status: LiveSessionState["status"];
   message: string;
-  hasService: boolean;
+  hasSession: boolean;
   liveNeedsAttention: boolean;
   isRefreshing: boolean;
   isPaused: boolean;
@@ -22,7 +22,7 @@ interface StatusBannerProps {
 export function StatusBanner({
   status,
   message,
-  hasService,
+  hasSession,
   liveNeedsAttention,
   isRefreshing,
   isPaused,
@@ -44,7 +44,7 @@ export function StatusBanner({
     >
       <span>
         <strong>
-          {hasService
+          {hasSession
             ? liveNeedsAttention
               ? t("shell.banner.needsAttention")
               : isRefreshing
@@ -57,7 +57,7 @@ export function StatusBanner({
         <br />
         {message}
       </span>
-      {status === "error" && !hasService && rotationRecoveryRequired ? (
+      {status === "error" && !hasSession && rotationRecoveryRequired ? (
         confirmRotate ? (
           <span className="buttonRow">
             <button className="secondaryButton" onClick={() => onConfirmRotateChange(false)}>
@@ -79,7 +79,7 @@ export function StatusBanner({
             {t("shell.banner.replaceObsLinkEllipsis")}
           </button>
         )
-      ) : status === "error" && !hasService ? (
+      ) : status === "error" && !hasSession ? (
         <button className="secondaryButton" onClick={onReloadChannel}>
           {t("shell.banner.tryAgain")}
         </button>

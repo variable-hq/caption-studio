@@ -34,7 +34,7 @@ export interface OperatorPreferences {
   outputBufferDwellMs: OutputBufferDwellMs | null;
   /** Pre-ticks "Save transcript history" at Start; the choice stays visible and changeable. */
   saveHistoryDefault: boolean | null;
-  /** Generates an AI summary draft after each saved service this operator ends. */
+  /** Generates an AI summary draft after each saved session this operator ends. */
   autoSummary: boolean;
   updatedAt: number | null;
 }
@@ -134,12 +134,12 @@ export function normalizeOperatorPreferences(value: unknown): OperatorPreference
 }
 
 /**
- * The church-wide setup every operator shares (ADR 0022): the same record shape, stored
+ * The workspace-wide setup every operator shares (ADR 0022): the same record shape, stored
  * once for the workspace. `theme` and `uiLocale` stay per operator.
  */
 export const WORKSPACE_SETUP_KEY = "workspace:setup";
 
-/** Fields the church setup owns; theme and interface language stay personal. */
+/** Fields the shared setup owns; theme and interface language stay personal. */
 export const SHARED_SETUP_FIELDS = [
   "translationSystemPrompt",
   "summaryDefaults",
@@ -152,9 +152,9 @@ export const SHARED_SETUP_FIELDS = [
 ] as const satisfies readonly (keyof OperatorPreferences)[];
 
 /**
- * The setup in effect for one operator. Until anyone has saved the church setup, an
+ * The setup in effect for one operator. Until anyone has saved the shared setup, an
  * operator keeps their own earlier saved values; afterwards a field still unset in the
- * church setup falls back to the operator's own, so nothing saved before ADR 0022 is lost.
+ * shared setup falls back to the operator's own, so nothing saved before ADR 0022 is lost.
  */
 export function effectiveSetup(shared: OperatorPreferences, personal: OperatorPreferences): OperatorPreferences {
   if (shared.updatedAt === null) return personal;

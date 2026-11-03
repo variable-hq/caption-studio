@@ -24,6 +24,7 @@ import { LiveNoteControl } from "@/components/operator/LiveNoteControl";
 import { RecentOutputsStrip } from "@/components/operator/RecentOutputsStrip";
 import { SessionMetadataFields } from "@/components/operator/SessionMetadataFields";
 import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
+import { routeFromHash, type SettingsSectionId } from "@/app/operator-route";
 import { OperatorTopBar, type OperatorScreenId, type OperatorStatusLabel, type StatusTone } from "@/components/operator/OperatorTopBar";
 import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
 import { OutputBufferQueueControl } from "@/components/operator/OutputBufferQueueControl";
@@ -87,7 +88,7 @@ import { liveScreenDefaultsChanged, saveLiveScreenDefaults } from "@/live/live-s
 import { normalizeLiveNote } from "@/live/live-note";
 import { EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata } from "@/experience/contracts";
 import { experienceRequest } from "@/experience/client";
-import { ServiceExperiencePanel } from "@/components/operator/ServiceExperiencePanel";
+import { SessionExperiencePanel } from "@/components/operator/SessionExperiencePanel";
 import { UsageHistory } from "@/components/operator/UsageHistory";
 import { formatCount, formatDecimal } from "@/components/operator/format-count";
 import { formatClock } from "@/components/operator/format-clock";
@@ -106,15 +107,7 @@ const CAPTION_PREFERENCE_KEY = "caption-studio:caption-style:v1";
 const TRANSLATION_PROMPT_PREFERENCE_KEY =
   "caption-studio:translation-system-prompt:v1";
 
-type SettingsSectionId =
-  | "computer"
-  | "languages"
-  | "words"
-  | "look"
-  | "obs"
-  | "translator"
-  | "summary"
-  | "usage";
+
 
 const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey; descriptionKey?: MessageKey }[] = [
   { id: "computer", titleKey: "settings.section.computer.title" },
@@ -127,31 +120,7 @@ const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey;
   { id: "usage", titleKey: "settings.section.usage.title", descriptionKey: "settings.section.usage.description" },
 ];
 
-// Bookmarks from the old sidebar layout still land on the matching screen.
-const LEGACY_WORKSPACE_ROUTES: Record<string, string> = {
-  overview: "live",
-  manualOverride: "settings=words",
-  history: "sermons",
-  audio: "settings=computer",
-  translation: "settings=languages",
-  appearance: "settings=look",
-  outputs: "settings=obs",
-  prompt: "settings=translator",
-  summary: "settings=summary",
-  usage: "settings=usage",
-};
 
-function routeFromHash(hash: string): { screen: OperatorScreenId; section: SettingsSectionId } {
-  let route = hash.replace(/^#/u, "");
-  if (route.startsWith("workspace=")) route = LEGACY_WORKSPACE_ROUTES[route.slice(10)] ?? "live";
-  const [screen, section] = route.split("=");
-  const settingsSection = SETTINGS_SECTIONS.some(({ id }) => id === section)
-    ? (section as SettingsSectionId)
-    : "computer";
-  if (screen === "sermons" || screen === "help") return { screen, section: settingsSection };
-  if (screen === "settings") return { screen, section: settingsSection };
-  return { screen: "live", section: settingsSection };
-}
 
 export default function OperatorDashboard() {
   return (
@@ -204,12 +173,12 @@ function OperatorDashboardContent() {
   const [sessionMetadataMessage, setSessionMetadataMessage] = useState("");
   const [liveNote, setLiveNote] = useState("");
   const liveNoteRestoredFor = useRef<string | null>(null);
-  const priorServiceStartedAt = useRef<string | null>(null);
+  const priorSessionStartedAt = useRef<string | null>(null);
   const metadataPostedFor = useRef<string | null>(null);
   const metadataWrite = useRef<Promise<void> | null>(null);
   const shouldAutoSaveMetadata = useRef(false);
-  const [liveDefaultsReport, setLiveDefaultsReport] = useState<{ hasService: boolean; message: string }>({
-    hasService: false,
+  const [liveDefaultsReport, setLiveDefaultsReport] = useState<{ hasSession: boolean; message: string }>({
+    hasSession: false,
     message: "",
   });
   const [autoSummaryMessage, setAutoSummaryMessage] = useState("");
@@ -235,7 +204,7 @@ function OperatorDashboardContent() {
   );
   const [savedPromptFingerprint, setSavedPromptFingerprint] = useState("");
   const [promptStorageMessage, setPromptStorageMessage] = useState("");
-  // The operator's own record (theme) and the church setup everyone shares (ADR 0022).
+  // The operator's own record (theme) and the shared setup everyone shares (ADR 0022).
   const [personalPreferences, setPersonalPreferences] = useState<OperatorPreferences | null>(null);
   const [sharedSetup, setSharedSetup] = useState<OperatorPreferences | null>(null);
   const accountPreferences = useMemo(
@@ -368,12 +337,12 @@ function OperatorDashboardContent() {
     submitOutputBufferEdit,
   } = useLiveCaptionSession(liveSettings);
   useEffect(() => {
-    const startedAt = liveState.service?.startedAt ?? null;
+    const startedAt = liveState.liveSession?.startedAt ?? null;
     if (!startedAt) {
-      if (priorServiceStartedAt.current) {
+      if (priorSessionStartedAt.current) {
         liveNoteRestoredFor.current = null;
         window.sessionStorage.removeItem(LIVE_NOTE_STORAGE_KEY);
-        priorServiceStartedAt.current = null;
+        priorSessionStartedAt.current = null;
         const frame = window.requestAnimationFrame(() => {
           setLiveNote("");
           setSessionMetadata({ ...EMPTY_SESSION_METADATA, sessionAt: Date.now() });
@@ -391,43 +360,43 @@ function OperatorDashboardContent() {
     } catch { restored = ""; }
     const frame = window.requestAnimationFrame(() => {
       liveNoteRestoredFor.current = startedAt;
-      priorServiceStartedAt.current = startedAt;
+      priorSessionStartedAt.current = startedAt;
       setLiveNote(restored);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [liveState.service?.startedAt]);
+  }, [liveState.liveSession?.startedAt]);
   useEffect(() => {
-    const startedAt = liveState.service?.startedAt;
+    const startedAt = liveState.liveSession?.startedAt;
     if (!startedAt || liveNoteRestoredFor.current !== startedAt) return;
     window.sessionStorage.setItem(LIVE_NOTE_STORAGE_KEY, JSON.stringify({ startedAt, value: normalizeLiveNote(liveNote) }));
-  }, [liveNote, liveState.service?.startedAt]);
+  }, [liveNote, liveState.liveSession?.startedAt]);
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setSessionMetadata((value) => value.sessionAt === null ? { ...value, sessionAt: Date.now() } : value));
     return () => window.cancelAnimationFrame(frame);
   }, []);
   useEffect(() => {
-    const startedAt = liveState.service?.startedAt;
+    const startedAt = liveState.liveSession?.startedAt;
     if (!startedAt || sessionDateEdited) return;
     const frame = window.requestAnimationFrame(() => setSessionMetadata((value) => ({ ...value, sessionAt: Date.parse(startedAt) })));
     return () => window.cancelAnimationFrame(frame);
-  }, [liveState.service?.startedAt, sessionDateEdited]);
+  }, [liveState.liveSession?.startedAt, sessionDateEdited]);
   useEffect(() => {
-    const service = liveState.service;
-    if (!service) {
+    const liveSession = liveState.liveSession;
+    if (!liveSession) {
       if (["error", "idle", "taken-over"].includes(liveState.status)) shouldAutoSaveMetadata.current = false;
       return;
     }
-    if (!service.saveHistory) { shouldAutoSaveMetadata.current = false; return; }
-    if (!shouldAutoSaveMetadata.current || !service?.saveHistory || !service.serviceId || metadataPostedFor.current === service.serviceId) return;
-    metadataPostedFor.current = service.serviceId;
-    const metadata = normalizeSessionMetadata({ ...sessionMetadata, sessionAt: sessionDateEdited ? sessionMetadata.sessionAt : Date.parse(service.startedAt) });
-    metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`sermons/${service.serviceId}/metadata`, metadata)
+    if (!liveSession.saveHistory) { shouldAutoSaveMetadata.current = false; return; }
+    if (!shouldAutoSaveMetadata.current || !liveSession?.saveHistory || !liveSession.serviceId || metadataPostedFor.current === liveSession.serviceId) return;
+    metadataPostedFor.current = liveSession.serviceId;
+    const metadata = normalizeSessionMetadata({ ...sessionMetadata, sessionAt: sessionDateEdited ? sessionMetadata.sessionAt : Date.parse(liveSession.startedAt) });
+    metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`sermons/${liveSession.serviceId}/metadata`, metadata)
       .then((result) => { setSessionMetadata(result.metadata); setSessionMetadataMessage(t("live.sessionDetailsSaved")); shouldAutoSaveMetadata.current = false; })
       .catch(() => { setSessionMetadataMessage(t("live.sessionDetailsAutoSaveFailed")); shouldAutoSaveMetadata.current = false; });
-  }, [liveState.service, liveState.status, sessionMetadata, sessionDateEdited, t]);
+  }, [liveState.liveSession, liveState.status, sessionMetadata, sessionDateEdited, t]);
   async function saveLiveSessionMetadata() {
-    const serviceId = liveState.service?.serviceId;
-    if (!serviceId || !liveState.service?.saveHistory) return;
+    const serviceId = liveState.liveSession?.serviceId;
+    if (!serviceId || !liveState.liveSession?.saveHistory) return;
     setSessionMetadataMessage(t("common.saving"));
     try {
       await metadataWrite.current;
@@ -592,16 +561,16 @@ function OperatorDashboardContent() {
     setKeywordText(next.keywordText);
     setFilterText(next.filterText);
   };
-  const hasService = Boolean(liveState.service);
+  const hasSession = Boolean(liveState.liveSession);
   // A default-save status belongs to the screen state that produced it: the Start settings
-  // card before a service, and the Captions card while one runs. A transition clears it
+  // card before a session, and the Captions card while one runs. A transition clears it
   // during render, so it can neither follow the change nor return when that state does.
-  if (liveDefaultsReport.hasService !== hasService) {
-    setLiveDefaultsReport({ hasService, message: "" });
+  if (liveDefaultsReport.hasSession !== hasSession) {
+    setLiveDefaultsReport({ hasSession, message: "" });
   }
   const liveDefaultsMessage = liveDefaultsReport.message;
   const liveDefaultsChanged = liveScreenDefaultsChanged(
-    { hasService, saveHistory, outputBufferCount, outputBufferDwellMs },
+    { hasSession, saveHistory, outputBufferCount, outputBufferDwellMs },
     {
       saveHistoryDefault: accountPreferences?.saveHistoryDefault ?? null,
       outputBufferCount: accountPreferences?.outputBufferCount ?? null,
@@ -611,7 +580,7 @@ function OperatorDashboardContent() {
   const isLive = liveState.status === "live";
   const isPaused = liveState.status === "paused";
   const isRefreshing = liveState.status === "refreshing";
-  const liveNeedsAttention = hasService && liveState.status === "error";
+  const liveNeedsAttention = hasSession && liveState.status === "error";
   const isBusy = [
     "loading-channel",
     "starting",
@@ -626,22 +595,22 @@ function OperatorDashboardContent() {
     channelAction !== null ||
     viewerAction !== null;
   const anotherOperatorActive =
-    !hasService &&
+    !hasSession &&
     (liveState.channel?.status === "live" || liveState.channel?.status === "paused");
-  // Read-only mirror of the service a different workspace operator controls.
+  // Read-only mirror of the session a different workspace operator controls.
   const observed = useObservedSession(anotherOperatorActive);
   const watchingOther = anotherOperatorActive && observed.status === "watching";
   // Who holds the microphone right now, for the other operators of this workspace.
   const runningOperator = anotherOperatorActive
     ? observed.observer?.controllerLabel ?? liveState.channel?.controllerLabel ?? null
     : null;
-  const usageServiceStartedAt = liveState.service?.startedAt ??
+  const usageSessionStartedAt = liveState.liveSession?.startedAt ??
     (anotherOperatorActive ? liveState.channel?.startedAt : null);
-  const serviceStartedMs = usageServiceStartedAt
-    ? new Date(usageServiceStartedAt).getTime()
+  const sessionStartedMs = usageSessionStartedAt
+    ? new Date(usageSessionStartedAt).getTime()
     : null;
-  const elapsedServiceMs = serviceStartedMs
-    ? Math.min(MAX_LIVE_SESSION_MS, Math.max(0, usageClock - serviceStartedMs))
+  const elapsedSessionMs = sessionStartedMs
+    ? Math.min(MAX_LIVE_SESSION_MS, Math.max(0, usageClock - sessionStartedMs))
     : 0;
   const channelStatus = liveState.channel?.status ?? "loading";
   const channelConfigured = Boolean(liveState.channel?.configured);
@@ -665,7 +634,7 @@ function OperatorDashboardContent() {
               ? t("live.startHelp.setUpObs")
               : t("live.startHelp.ready");
   const startBlocked = startDisabled || anotherOperatorActive;
-  const viewerUrl = liveState.service?.viewerUrl ?? null;
+  const viewerUrl = liveState.liveSession?.viewerUrl ?? null;
   const translationChanges = activeTranslationSettings
     ? translationSettingsChanges(
         activeTranslationSettings,
@@ -673,13 +642,13 @@ function OperatorDashboardContent() {
       )
     : [];
   const hasPendingTranslationChanges =
-    hasService &&
+    hasSession &&
     (translationRefreshRequired || translationChanges.length > 0);
   const translationActionBusy = controlAction === "refresh-translation";
-  const translationEditorDisabled = hasService
+  const translationEditorDisabled = hasSession
     ? translationActionBusy || liveState.status === "ending"
     : isBusy;
-  const displayedTranslationSettings = hasService
+  const displayedTranslationSettings = hasSession
     ? activeTranslationSettings
     : draftTranslationSettings;
   const displayedSourceLabel = displayedTranslationSettings?.sourceLanguage === "auto"
@@ -715,14 +684,14 @@ function OperatorDashboardContent() {
   }, []);
 
   useEffect(() => {
-    if (!hasService && !anotherOperatorActive) return;
+    if (!hasSession && !anotherOperatorActive) return;
     const interval = window.setInterval(() => setUsageClock(Date.now()), 1_000);
     return () => window.clearInterval(interval);
-  }, [anotherOperatorActive, hasService]);
+  }, [anotherOperatorActive, hasSession]);
 
   useEffect(() => {
-    if (!hasService) endDialogRef.current?.close();
-  }, [hasService]);
+    if (!hasSession) endDialogRef.current?.close();
+  }, [hasSession]);
 
   useEffect(() => {
     // Start found another system running captions; ask before taking over.
@@ -764,10 +733,10 @@ function OperatorDashboardContent() {
     window.open(viewerUrl, "_blank", "noopener,noreferrer");
   };
 
-  const hasServiceRef = useRef(false);
+  const hasSessionRef = useRef(false);
   useEffect(() => {
-    hasServiceRef.current = Boolean(liveState.service);
-  }, [liveState.service]);
+    hasSessionRef.current = Boolean(liveState.liveSession);
+  }, [liveState.liveSession]);
 
   useEffect(() => {
     let cancelled = false;
@@ -788,12 +757,12 @@ function OperatorDashboardContent() {
         if (loaded.translationSystemPrompt !== null) {
           setTranslationSystemPrompt(loaded.translationSystemPrompt);
           setSavedPromptFingerprint(loaded.translationSystemPrompt);
-          setPromptStorageMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setPromptStorageMessage(tRef.current("settings.message.loadedSharedSetup"));
         }
         if (loaded.summaryDefaults) {
           setSummaryDefaults(loaded.summaryDefaults);
           setSavedSummaryDefaults(loaded.summaryDefaults);
-          setSummaryStorageMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setSummaryStorageMessage(tRef.current("settings.message.loadedSharedSetup"));
         }
         if (loaded.captionStyle) {
           const saved = loaded.captionStyle;
@@ -815,7 +784,7 @@ function OperatorDashboardContent() {
         } catch {
           // Storage may be blocked; the account value still applies for this visit.
         }
-        if (loaded.translationDefaults && !hasServiceRef.current) {
+        if (loaded.translationDefaults && !hasSessionRef.current) {
           const defaults = loaded.translationDefaults;
           setSourceLanguage(defaults.sourceLanguage);
           setTargetLanguage(defaults.targetLanguage);
@@ -825,18 +794,18 @@ function OperatorDashboardContent() {
           setInferenceLevel(defaults.inferenceLevel);
           setSanitizeLevel(defaults.sanitizeLevel);
           setFilterInappropriateLanguage(defaults.filterInappropriateLanguage);
-          setTranslationDefaultsMessage(tRef.current("settings.message.loadedChurchSetup"));
+          setTranslationDefaultsMessage(tRef.current("settings.message.loadedSharedSetup"));
         }
-        if (loaded.saveHistoryDefault !== null && !hasServiceRef.current) {
+        if (loaded.saveHistoryDefault !== null && !hasSessionRef.current) {
           setSaveHistory(loaded.saveHistoryDefault);
         }
-        if (loaded.outputBufferCount !== null && !hasServiceRef.current) {
+        if (loaded.outputBufferCount !== null && !hasSessionRef.current) {
           setOutputBufferCount(loaded.outputBufferCount);
-          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedChurchSetup") });
+          setLiveDefaultsReport({ hasSession: false, message: tRef.current("settings.message.loadedSharedSetup") });
         }
-        if (loaded.outputBufferDwellMs !== null && !hasServiceRef.current) {
+        if (loaded.outputBufferDwellMs !== null && !hasSessionRef.current) {
           setOutputBufferDwellMs(loaded.outputBufferDwellMs);
-          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedChurchSetup") });
+          setLiveDefaultsReport({ hasSession: false, message: tRef.current("settings.message.loadedSharedSetup") });
         }
       })
       .catch(() => {
@@ -847,13 +816,13 @@ function OperatorDashboardContent() {
     return () => {
       cancelled = true;
     };
-    // Runs once; the setters are stable and the live-service guard uses a ref.
+    // Runs once; the setters are stable and the live-session guard uses a ref.
   }, [setAccountUiLocale, setBrowserFallbackPreference]);
 
   /**
    * Best-effort sync; callers report the browser-only fallback themselves. Theme and
    * interface language are saved to the operator's own record; other settings use the
-   * church setup. The first church-setup save carries this operator's earlier saved setup,
+   * shared setup. The first shared-setup save carries this operator's earlier saved setup,
    * so values saved before the setup was shared are not lost.
    */
   const syncAccountPreferences = async (patch: Partial<OperatorPreferences>) => {
@@ -886,20 +855,20 @@ function OperatorDashboardContent() {
       setTranslationDefaultsMessage(
         ok
           ? t("settings.message.savedTranslationDefaults")
-          : t("settings.error.churchSetup"),
+          : t("settings.error.sharedSetup"),
       ),
     );
   };
 
   const saveLiveDefaults = () => {
     void saveLiveScreenDefaults({
-      choices: { hasService, saveHistory, outputBufferCount, outputBufferDwellMs },
+      choices: { hasSession, saveHistory, outputBufferCount, outputBufferDwellMs },
       save: syncAccountPreferences,
-      report: (message) => setLiveDefaultsReport({ hasService, message }),
+      report: (message) => setLiveDefaultsReport({ hasSession, message }),
       messages: {
         saving: t("common.savingForEveryone"),
         saved: t("settings.message.savedDefaultChoice"),
-        failed: t("settings.error.churchSetup"),
+        failed: t("settings.error.sharedSetup"),
       },
     });
   };
@@ -943,7 +912,7 @@ function OperatorDashboardContent() {
           ? enabled
             ? t("settings.message.autoSummaryOn")
             : t("settings.message.autoSummaryOff")
-          : t("settings.error.churchSetup"),
+          : t("settings.error.sharedSetup"),
       ),
     );
   };
@@ -1116,20 +1085,20 @@ function OperatorDashboardContent() {
     : liveState.latestPublicText;
   // Only the controlling tab sees the in-progress Dynamic draft in Heard.
   const heard = heardSourceText(
-    hasService
+    hasSession
       ? liveState.latestSourceText
       : anotherOperatorActive
         ? observed.latestSourceText
         : "",
-    hasService ? liveDraft : null,
+    hasSession ? liveDraft : null,
   );
   const monitorSourceText = heard.text;
   const monitorLanguage =
     (anotherOperatorActive ? observed.latestPublicLanguage : liveState.latestPublicLanguage) ??
     targetLanguage;
   const monitorLive =
-    (hasService && isLive) || (watchingOther && liveState.channel?.status === "live");
-  const outputBadge = hasService
+    (hasSession && isLive) || (watchingOther && liveState.channel?.status === "live");
+  const outputBadge = hasSession
     ? liveNeedsAttention
       ? t("live.badge.needsAttention")
       : isRefreshing
@@ -1177,7 +1146,7 @@ function OperatorDashboardContent() {
       value: t("readiness.languagesValue", {
         source: displayedSourceLabel ?? sourceLanguage,
         target: displayedTargetName,
-        speed: recordingWindowShort(hasService ? activeRecordingWindowMs : recordingWindowMs),
+        speed: recordingWindowShort(hasSession ? activeRecordingWindowMs : recordingWindowMs),
       }),
       href: "#settings=languages",
       fixLabel: t("readiness.fix"),
@@ -1192,7 +1161,7 @@ function OperatorDashboardContent() {
   ];
   const setupBlocked = readinessChecks.some((check) => !check.ok);
 
-  const status: { label: OperatorStatusLabel; tone: StatusTone; detail?: string } = hasService
+  const status: { label: OperatorStatusLabel; tone: StatusTone; detail?: string } = hasSession
     ? liveState.status === "ending"
       ? { label: "ending", tone: "muted" }
       : liveNeedsAttention
@@ -1200,8 +1169,8 @@ function OperatorDashboardContent() {
         : isRefreshing
           ? { label: "applyingChanges", tone: "warn" }
           : isPaused
-            ? { label: "paused", tone: "warn", detail: formatClock(elapsedServiceMs, locale) }
-            : { label: "live", tone: "live", detail: formatClock(elapsedServiceMs, locale) }
+            ? { label: "paused", tone: "warn", detail: formatClock(elapsedSessionMs, locale) }
+            : { label: "live", tone: "live", detail: formatClock(elapsedSessionMs, locale) }
     : anotherOperatorActive
       ? { label: "liveAnotherComputer", tone: "warn" }
       : setupBlocked || liveState.status === "error"
@@ -1210,7 +1179,7 @@ function OperatorDashboardContent() {
           ? { label: "checking", tone: "muted" }
           : { label: "ready", tone: "ok" };
 
-  const minutesLeft = Math.max(0, Math.ceil((MAX_LIVE_SESSION_MS - elapsedServiceMs) / 60_000));
+  const minutesLeft = Math.max(0, Math.ceil((MAX_LIVE_SESSION_MS - elapsedSessionMs) / 60_000));
   const translationChangeLabels = translationChanges.map((change) => {
     switch (change) {
       case "Spoken language": return t("translationChange.spokenLanguage");
@@ -1269,7 +1238,7 @@ function OperatorDashboardContent() {
       <StatusBanner
         status={liveState.status}
         message={liveState.message}
-        hasService={hasService}
+        hasSession={hasSession}
         liveNeedsAttention={liveNeedsAttention}
         isRefreshing={isRefreshing}
         isPaused={isPaused}
@@ -1296,7 +1265,7 @@ function OperatorDashboardContent() {
         </p>
       ) : null}
 
-      {!hasService ? (
+      {!hasSession ? (
         <section className="liveStartBar" aria-label={t("live.startCard")}>
           <div className="startActions">
             <button
@@ -1335,7 +1304,7 @@ function OperatorDashboardContent() {
                 data-in-progress={heard.inProgress ? "true" : undefined}
                 lang={displayedTranslationSettings?.sourceLanguage === "auto" ? undefined : displayedTranslationSettings?.sourceLanguage}
               >
-                {monitorSourceText || (hasService ? (isPaused ? t("live.notListening") : t("live.listening")) : t("live.nothingYet"))}
+                {monitorSourceText || (hasSession ? (isPaused ? t("live.notListening") : t("live.listening")) : t("live.nothingYet"))}
               </p>
             </div>
             <div className="monitorPane">
@@ -1356,7 +1325,7 @@ function OperatorDashboardContent() {
           {!observed.observer ? (
             <div className="outputBufferControls" role="group" aria-label={t("live.checkBeforeShow")}>
               {outputBufferPanel}
-              {hasService && outputBufferCount > 0 ? (
+              {hasSession && outputBufferCount > 0 ? (
                 <OutputBufferQueueControl
                   queue={outputBufferQueue}
                   disabled={isBusy}
@@ -1369,7 +1338,7 @@ function OperatorDashboardContent() {
                   onSubmitEdit={submitOutputBufferEdit}
                 />
               ) : null}
-              {hasService ? (
+              {hasSession ? (
                 <div className="buttonRow">
                   {liveDefaultsChanged ? (
                     <button className="textButton" type="button" disabled={isBusy} onClick={saveLiveDefaults}>
@@ -1389,9 +1358,9 @@ function OperatorDashboardContent() {
           ) : null}
         </section>
 
-        <ReadinessChecks title={hasService ? t("readiness.titleSetup") : setupBlocked ? t("readiness.titleBeforeStart") : t("readiness.titleReady")} checks={readinessChecks} />
+        <ReadinessChecks title={hasSession ? t("readiness.titleSetup") : setupBlocked ? t("readiness.titleBeforeStart") : t("readiness.titleReady")} checks={readinessChecks} />
 
-        {!hasService ? (
+        {!hasSession ? (
           <section className="operatorCard liveActions" aria-label={t("live.saveTranscript")}>
             <label className="checkLabel">
               <input
@@ -1438,7 +1407,7 @@ function OperatorDashboardContent() {
               manualCaptionBusy={controlAction === "manual"}
               onShowManualCaption={(text) => void showManualCaption(text)}
             />
-            <LiveNoteControl value={liveNote} disabled={!liveState.service || observed.observer !== null} onChange={setLiveNote} />
+            <LiveNoteControl value={liveNote} disabled={!liveState.liveSession || observed.observer !== null} onChange={setLiveNote} />
             {isPaused ? (
               <button type="button" className="secondaryButton" disabled={isBusy || controlAction !== null} onClick={() => void showTestCaption()}>
                 {controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
@@ -1446,13 +1415,13 @@ function OperatorDashboardContent() {
             ) : null}
             <details className="advancedActions">
               <summary>{t("live.sessionDetails")}</summary>
-              {!liveState.service?.saveHistory ? <p className="settingHint">{t("live.sessionDetailsBeforeStart")}</p> : null}
-              <SessionMetadataFields value={sessionMetadata} disabled={!liveState.service?.saveHistory || isBusy} onChange={setSessionMetadata} />
-              <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.service?.saveHistory || !liveState.service.serviceId || isBusy} onClick={() => void saveLiveSessionMetadata()}>{t("live.saveSessionDetails")}</button></div>
+              {!liveState.liveSession?.saveHistory ? <p className="settingHint">{t("live.sessionDetailsBeforeStart")}</p> : null}
+              <SessionMetadataFields value={sessionMetadata} disabled={!liveState.liveSession?.saveHistory || isBusy} onChange={setSessionMetadata} />
+              <div className="buttonRow"><button type="button" className="secondaryButton" disabled={!liveState.liveSession?.saveHistory || !liveState.liveSession.serviceId || isBusy} onClick={() => void saveLiveSessionMetadata()}>{t("live.saveSessionDetails")}</button></div>
               <p className="settingHint" role="status" aria-live="polite">{sessionMetadataMessage}</p>
             </details>
             <details className="advancedActions">
-              <summary>{t("live.serviceDetails")}</summary>
+              <summary>{t("live.technicalDetails")}</summary>
               <div className="statRow"><span>{t("live.delay")}</span><span>{liveState.lastLatencyMs === null ? "—" : t("live.seconds", { value: formatDecimal(liveState.lastLatencyMs / 1000, locale) })}</span></div>
               {activeTranslationSettings?.sanitizeLevel && activeTranslationSettings.sanitizeLevel !== "off" ? (
                 <div className="statRow"><span>{t("live.filteredSegments")}</span><span>{formatCount(liveState.filteredSegments, locale)}</span></div>
@@ -1479,20 +1448,20 @@ function OperatorDashboardContent() {
               {viewerCopied ? t("common.copied") : t("common.copyLink")}
             </button>
           </div>
-          <ServiceExperiencePanel view="sharing" service={liveState.service} observer={observed.observer} onReaderLink={rememberReaderLink} />
+          <SessionExperiencePanel view="sharing" liveSession={liveState.liveSession} observer={observed.observer} onReaderLink={rememberReaderLink} />
           <p className="operatorHint" role="status" aria-live="polite">{clipboardMessage}</p>
         </section>
       </div>
     </main>
   );
 
-  const sermonsScreen = (
+  const transcriptsScreen = (
     <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
       <header className="settingsHeader">
-        <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>{t("sermons.title")}</h1>
-        <p className="settingHint">{t("sermons.hint", { workspace: WORKSPACE_NAME })}</p>
+        <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>{t("transcripts.title")}</h1>
+        <p className="settingHint">{t("transcripts.hint", { workspace: WORKSPACE_NAME })}</p>
       </header>
-      <ServiceExperiencePanel view="archive" service={liveState.service} onReaderLink={rememberReaderLink} summaryDefaults={summaryDefaults} />
+      <SessionExperiencePanel view="archive" liveSession={liveState.liveSession} onReaderLink={rememberReaderLink} summaryDefaults={summaryDefaults} />
     </main>
   );
 
@@ -1540,7 +1509,7 @@ function OperatorDashboardContent() {
                 level={level}
                 micTest={micTest}
               />
-              {hasService && isLive ? (
+              {hasSession && isLive ? (
                 <p className="settingHint">{t("settings.pauseBeforeMicrophone")}</p>
               ) : null}
               <SettingGroup title={t("settings.appearance.title")} hint={t("settings.appearance.hint")}>
@@ -1597,7 +1566,7 @@ function OperatorDashboardContent() {
             <>
               <SettingGroup
                 title={t("settings.previewTitle")}
-                hint={hasService
+                hint={hasSession
                   ? t("settings.previewLiveHint")
                   : t("settings.previewIdleHint")}
               >
@@ -1615,7 +1584,7 @@ function OperatorDashboardContent() {
 
           {settingsSection === "obs" ? (
             <LiveOutputsSection
-              hasService={hasService}
+              hasSession={hasSession}
               isBusy={isBusy}
               anotherOperatorActive={anotherOperatorActive}
               obs={{
@@ -1713,7 +1682,7 @@ function OperatorDashboardContent() {
         <li>{t("help.step3.before")}{" "}<strong>{t("live.start")}</strong>{" "}{t("help.step3.after")}</li>
         <li>{t("help.step4.before")}{" "}<strong>{t("live.phoneViewer")}</strong>{" "}{t("help.step4.after")}</li>
         <li>{t("help.step5.before")}{" "}<strong>{t("shell.controls.pause")}</strong>{" "}{t("help.step5.middle")}{" "}<strong>{t("shell.controls.clearScreen")}</strong>{" "}{t("help.step5.after")}</li>
-        <li>{t("help.step6.before")}{" "}<strong>{t("dialog.endAction")}</strong>{" "}{t("help.step6.middle")}{" "}<strong>{t("sermons.title")}</strong>{t("help.step6.after")}</li>
+        <li>{t("help.step6.before")}{" "}<strong>{t("dialog.endAction")}</strong>{" "}{t("help.step6.middle")}{" "}<strong>{t("transcripts.title")}</strong>{t("help.step6.after")}</li>
       </ol>
       <p className="settingHint">
         {t("help.firstTime.before")}{" "}<a href="#settings=obs">{t("help.settingsObsLinks")}</a>{" "}{t("help.firstTime.after")}
@@ -1727,15 +1696,15 @@ function OperatorDashboardContent() {
     <div className="operatorShell">
       <a className="skipLink" href="#main">{t("page.skipLink")}</a>
       <OperatorTopBar screen={screen} status={status} />
-      {screen === "live" ? liveScreen : screen === "sermons" ? sermonsScreen : screen === "settings" ? settingsScreen : helpScreen}
-      {hasService && screen === "live" ? (
+      {screen === "live" ? liveScreen : screen === "transcripts" ? transcriptsScreen : screen === "settings" ? settingsScreen : helpScreen}
+      {hasSession && screen === "live" ? (
         <LiveControlBar
           isPaused={isPaused}
           isPausing={liveState.status === "pausing"}
           isResuming={liveState.status === "resuming"}
           clearing={controlAction === "clear"}
           minutesLeft={minutesLeft}
-          transcriptSaved={liveState.service?.saveHistory ?? false}
+          transcriptSaved={liveState.liveSession?.saveHistory ?? false}
           controlsDisabled={isBusy || controlAction !== null}
           endRetryRequired={endRetryRequired}
           endDisabled={endActionDisabled}

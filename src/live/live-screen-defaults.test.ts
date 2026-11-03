@@ -8,7 +8,7 @@ import {
 } from "./live-screen-defaults";
 
 const choices = (overrides: Partial<LiveScreenChoices> = {}): LiveScreenChoices => ({
-  hasService: false,
+  hasSession: false,
   saveHistory: false,
   outputBufferCount: 0,
   outputBufferDwellMs: 3_000,
@@ -34,7 +34,7 @@ describe("Live screen saved defaults", () => {
   it("ignores the transcript choice during a service because it is not visible", () => {
     expect(
       liveScreenDefaultsChanged(
-        choices({ hasService: true, saveHistory: true }),
+        choices({ hasSession: true, saveHistory: true }),
         saved({ saveHistoryDefault: false }),
       ),
     ).toBe(false);
@@ -57,7 +57,7 @@ describe("Live screen saved defaults", () => {
     ).toBe(true);
     expect(liveScreenDefaultsChanged(choices({ outputBufferDwellMs: 5_000 }), unsaved)).toBe(false);
     expect(
-      liveScreenDefaultsChanged(choices({ hasService: true, saveHistory: true }), unsaved),
+      liveScreenDefaultsChanged(choices({ hasSession: true, saveHistory: true }), unsaved),
     ).toBe(false);
   });
 
@@ -98,7 +98,7 @@ describe("Live screen saved defaults", () => {
   it("saves only the output buffer wait during a service", () => {
     expect(
       liveScreenDefaultsPatch(
-        choices({ hasService: true, saveHistory: true, outputBufferCount: 1, outputBufferDwellMs: 5_000 }),
+        choices({ hasSession: true, saveHistory: true, outputBufferCount: 1, outputBufferDwellMs: 5_000 }),
       ),
     ).toEqual({ outputBufferCount: 1, outputBufferDwellMs: 5_000 });
   });

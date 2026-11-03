@@ -48,8 +48,8 @@ describe("operator interface translations", () => {
   });
 
   it("names saved defaults without church wording", () => {
-    expect(en["common.churchDefaultBadge"]).toBe(" · Saved default");
-    expect(id["common.churchDefaultBadge"]).toBe(" · Default tersimpan");
+    expect(en["common.savedDefaultBadge"]).toBe(" · Saved default");
+    expect(id["common.savedDefaultBadge"]).toBe(" · Default tersimpan");
     expect(en["live.makeDefault"]).toBe("Save selected settings as default");
     expect(id["live.makeDefault"]).toBe("Simpan pengaturan terpilih sebagai default");
     for (const [locale, catalog] of [["en", en], ["id", id]] as const) {
@@ -238,14 +238,14 @@ describe("operator interface translations", () => {
   });
 
   it("names the saved archive Transcripts in both catalogs", () => {
-    expect(en["shell.navigation.sermons"]).toBe("Transcripts");
-    expect(id["shell.navigation.sermons"]).toBe("Transkrip");
-    expect(en["sermons.title"]).toBe("Transcripts");
-    expect(id["sermons.title"]).toBe("Transkrip");
-    expect(en["serviceExperience.readerTitle"]).toBe("Transcript reader");
-    expect(id["serviceExperience.readerTitle"]).toBe("Pembaca transkrip");
-    expect(en["serviceExperience.savedSermons"]).toBe("Saved transcripts");
-    expect(id["serviceExperience.savedSermons"]).toBe("Transkrip tersimpan");
+    expect(en["shell.navigation.transcripts"]).toBe("Transcripts");
+    expect(id["shell.navigation.transcripts"]).toBe("Transkrip");
+    expect(en["transcripts.title"]).toBe("Transcripts");
+    expect(id["transcripts.title"]).toBe("Transkrip");
+    expect(en["sessionExperience.readerTitle"]).toBe("Transcript reader");
+    expect(id["sessionExperience.readerTitle"]).toBe("Pembaca transkrip");
+    expect(en["sessionExperience.savedTranscripts"]).toBe("Saved transcripts");
+    expect(id["sessionExperience.savedTranscripts"]).toBe("Transkrip tersimpan");
   });
 
   it("calls the captioned event a session and keeps service for the backend", () => {
@@ -267,14 +267,14 @@ describe("operator interface translations", () => {
         expect(message, `${key} avoids layanan`).not.toMatch(/layanan/iu);
       }
     }
-    expect(en["shell.controls.endService"]).toBe("End session");
-    expect(id["shell.controls.endService"]).toBe("Akhiri sesi");
+    expect(en["shell.controls.endSession"]).toBe("End session");
+    expect(id["shell.controls.endSession"]).toBe("Akhiri sesi");
     expect(en["dialog.endAction"]).toBe("End session");
     expect(en["live.message.ended"]).toBe("Live session ended. The reusable OBS URL is ready for next time.");
-    expect(en["usage.services"]).toBe("Sessions");
-    expect(id["usage.services"]).toBe("Sesi");
-    expect(en["usage.byService"]).toBe("Usage by session");
-    expect(id["usage.byService"]).toBe("Penggunaan per sesi");
+    expect(en["usage.sessions"]).toBe("Sessions");
+    expect(id["usage.sessions"]).toBe("Sesi");
+    expect(en["usage.bySession"]).toBe("Usage by session");
+    expect(id["usage.bySession"]).toBe("Penggunaan per sesi");
     expect(en["reader.status.ended"]).toBe("Session ended");
     expect(id["reader.status.ended"]).toBe("Sesi berakhir");
   });

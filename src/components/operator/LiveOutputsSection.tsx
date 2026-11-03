@@ -33,7 +33,7 @@ interface MobileViewerProps {
 }
 
 interface LiveOutputsSectionProps {
-  hasService: boolean;
+  hasSession: boolean;
   isBusy: boolean;
   anotherOperatorActive: boolean;
   obs: ObsOverlayProps;
@@ -41,7 +41,7 @@ interface LiveOutputsSectionProps {
 }
 
 /** Settings › OBS & links: the reusable OBS link, the phone viewer link, and replacing either. */
-export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, obs, viewer }: LiveOutputsSectionProps) {
+export function LiveOutputsSection({ hasSession, isBusy, anotherOperatorActive, obs, viewer }: LiveOutputsSectionProps) {
   const t = useT();
   const testDisabled = obs.controlAction !== null || anotherOperatorActive || isBusy;
   return (
@@ -69,7 +69,7 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
               <button type="button" className="primaryButton" onClick={() => obs.onCopyUrl()}>
                 {obs.copied ? t("common.copied") : t("liveOutputs.copyObs")}
               </button>
-              {!hasService ? (
+              {!hasSession ? (
                 <>
                   <button type="button" className="secondaryButton" disabled={testDisabled} onClick={() => obs.onShowTest()}>
                     {obs.controlAction === "show-test" ? t("common.showing") : t("liveOutputs.showTest")}
@@ -90,11 +90,11 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
 
       <SettingGroup
         title={t("liveOutputs.phoneViewerTitle")}
-        hint={hasService
+        hint={hasSession
           ? t("liveOutputs.phoneViewerLiveHint")
           : t("liveOutputs.phoneViewerIdleHint")}
       >
-        {hasService && viewer.url ? (
+        {hasSession && viewer.url ? (
           <>
             <div className="buttonRow">
               <button className="primaryButton" type="button" onClick={() => viewer.onCopy()}>
@@ -112,7 +112,7 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
               </label>
             </details>
           </>
-        ) : hasService ? (
+        ) : hasSession ? (
           <div className="buttonRow">
             <button
               className="primaryButton"
@@ -128,7 +128,7 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
 
       {obs.configured ? (
         <SettingGroup title={t("liveOutputs.sharedByMistakeTitle")} hint={t("liveOutputs.sharedByMistakeHint")}>
-          {hasService && viewer.url ? (
+          {hasSession && viewer.url ? (
             <div className="replaceRow">
               <span>
                 <strong>{t("liveOutputs.phoneViewerLink")}</strong>
@@ -162,7 +162,7 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
               <strong>{t("liveOutputs.obsLink")}</strong>
               <br />
               <span className="settingHint">
-                {hasService || anotherOperatorActive
+                {hasSession || anotherOperatorActive
                   ? t("liveOutputs.obsReplaceUnavailable")
                   : t("liveOutputs.obsReplaceHint")}
               </span>
@@ -173,7 +173,7 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
                 <button
                   className="dangerButton"
                   type="button"
-                  disabled={obs.channelAction !== null || anotherOperatorActive || hasService}
+                  disabled={obs.channelAction !== null || anotherOperatorActive || hasSession}
                   onClick={() => {
                     obs.onConfirmRotateChange(false);
                     obs.onRotateChannel();
@@ -183,7 +183,7 @@ export function LiveOutputsSection({ hasService, isBusy, anotherOperatorActive, 
                 </button>
               </span>
             ) : (
-              <button className="dangerOutlineButton" type="button" disabled={anotherOperatorActive || hasService} onClick={() => obs.onConfirmRotateChange(true)}>
+              <button className="dangerOutlineButton" type="button" disabled={anotherOperatorActive || hasSession} onClick={() => obs.onConfirmRotateChange(true)}>
                 {t("common.replaceEllipsis")}
               </button>
             )}

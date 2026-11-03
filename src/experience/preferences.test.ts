@@ -180,7 +180,7 @@ describe("operator preferences", () => {
   });
 });
 
-describe("church setup", () => {
+describe("shared setup", () => {
   const personal = mergeOperatorPreferences(EMPTY_PREFERENCES, {
     theme: "dark",
     uiLocale: "id",
@@ -189,12 +189,12 @@ describe("church setup", () => {
     autoSummary: true,
   }, 1_000);
 
-  it("keeps an operator's own setup until anyone saves the church setup", () => {
+  it("keeps an operator's own setup until anyone saves the shared setup", () => {
     expect(effectiveSetup(EMPTY_PREFERENCES, personal)).toEqual(personal);
     expect(SHARED_SETUP_FIELDS).not.toContain("uiLocale");
   });
 
-  it("prefers the church setup, falls back per field, and keeps the theme personal", () => {
+  it("prefers the shared setup, falls back per field, and keeps the theme personal", () => {
     const shared = mergeOperatorPreferences(EMPTY_PREFERENCES, { captionStyle: { fontSize: 64 }, autoSummary: false }, 2_000);
     const setup = effectiveSetup(shared, personal);
     expect(setup.captionStyle?.fontSize).toBe(64);

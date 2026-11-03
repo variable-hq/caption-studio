@@ -36,7 +36,7 @@ interface UseOutputBufferQueueParams {
   count: OutputBufferCount;
   /** Whether the tick loop should run at all right now (mirrors `liveState.status === "live"`). */
   tickEnabled: boolean;
-  /** Read live at call time, so a settings change mid-service applies without re-subscribing. */
+  /** Read live at call time, so a settings change mid-session applies without re-subscribing. */
   settingsRef: RefObject<SessionSettingsForBuffer>;
   /** Publishes one buffered entry to Live; shares fate-handling with the direct publish path.
    * A ref, not a plain callback: `publishBufferedEntry` itself needs this hook's `generationRef`

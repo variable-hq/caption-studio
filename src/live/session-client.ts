@@ -2,7 +2,7 @@ import type {
   CaptionStyle,
   LiveApiErrorCode,
   LiveObserverDetails,
-  LiveServiceDetails,
+  LiveSessionDetails,
   LiveSessionControlAction,
   LiveSessionControlResponse,
   ObsChannelDetails,
@@ -82,37 +82,37 @@ export class LiveSessionClient {
     return (await response.json()) as ObsChannelDetails;
   }
 
-  async startService(
+  async startLiveSession(
     style: CaptionStyle,
     takeover = false,
     saveHistory = false,
-  ): Promise<LiveServiceDetails> {
+  ): Promise<LiveSessionDetails> {
     const response = await fetch("/api/live/channel/service", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ style, takeover, saveHistory }),
       signal: AbortSignal.timeout(10_000),
     });
-    await requireSuccess(response, this.message("request.serviceStart"));
-    return (await response.json()) as LiveServiceDetails;
+    await requireSuccess(response, this.message("request.sessionStart"));
+    return (await response.json()) as LiveSessionDetails;
   }
 
-  async endService(controllerToken: string) {
+  async endLiveSession(controllerToken: string) {
     const response = await fetch("/api/live/channel/service", {
       method: "DELETE",
       headers: controllerHeaders(controllerToken),
       signal: AbortSignal.timeout(5_000),
     });
-    await requireSuccess(response, this.message("request.serviceEnd"));
+    await requireSuccess(response, this.message("request.sessionEnd"));
   }
 
-  /** Read-only watcher credential for the service another operator controls. */
-  async observeService(): Promise<LiveObserverDetails> {
+  /** Read-only watcher credential for the session another operator controls. */
+  async observeSession(): Promise<LiveObserverDetails> {
     const response = await fetch("/api/live/channel/observer", {
       method: "POST",
       signal: AbortSignal.timeout(8_000),
     });
-    await requireSuccess(response, this.message("request.watchService"));
+    await requireSuccess(response, this.message("request.watchSession"));
     return (await response.json()) as LiveObserverDetails;
   }
 

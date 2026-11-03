@@ -37,12 +37,12 @@ export function clearOperatorPreferences() {
   return call(PERSONAL, "DELETE");
 }
 
-/** Reads the church setup every operator shares. */
+/** Reads the shared setup every operator shares. */
 export function loadSharedSetup() {
   return call(SHARED, "GET");
 }
 
-/** Merges a partial update into the church setup; `null` clears a field. */
+/** Merges a partial update into the shared setup; `null` clears a field. */
 export function saveSharedSetup(patch: Partial<OperatorPreferences>) {
   return call(SHARED, "POST", patch);
 }

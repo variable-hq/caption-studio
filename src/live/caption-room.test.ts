@@ -4,7 +4,7 @@ import { CloudProviderClient } from "@/ai/cloud-provider-client";
 import { CaptionRoom, captionTokenHash } from "@/live/caption-room";
 import {
   MAX_MANUAL_CAPTION_CHARS,
-  MAX_SERVICE_OBSERVERS,
+  MAX_SESSION_OBSERVERS,
   MAX_TRANSCRIPTION_REQUESTS,
   normalizeCaptionStyle,
 } from "@/live/contracts";
@@ -137,7 +137,7 @@ async function createChannel(room: CaptionRoom) {
   );
 }
 
-async function startService(
+async function startLiveSession(
   room: CaptionRoom,
   controllerHash = CONTROLLER_A,
   takeover = false,
@@ -212,7 +212,7 @@ describe("reusable caption channel", () => {
       translationRevision: 0,
     });
 
-    const started = await startService(room);
+    const started = await startLiveSession(room);
     await expect(started.json()).resolves.toMatchObject({
       translationRevision: 1,
     });
@@ -224,7 +224,7 @@ describe("reusable caption channel", () => {
   it("blocks a second start and atomically replaces the controller on takeover", async () => {
     const { room, socket, storage, viewerSocket } = roomFixture();
     await createChannel(room);
-    const firstStart = await startService(room);
+    const firstStart = await startLiveSession(room);
     expect(firstStart.status).toBe(200);
     await expect(firstStart.json()).resolves.toMatchObject({
       translationRevision: 1,
@@ -237,11 +237,11 @@ describe("reusable caption channel", () => {
       lastTranslationRefreshRequestId: REFRESH_REQUEST_A,
     });
 
-    const conflict = await startService(room, CONTROLLER_B);
+    const conflict = await startLiveSession(room, CONTROLLER_B);
     expect(conflict.status).toBe(409);
     await expect(conflict.json()).resolves.toMatchObject({ code: "channel_in_use" });
 
-    const takeover = await startService(room, CONTROLLER_B, true);
+    const takeover = await startLiveSession(room, CONTROLLER_B, true);
     expect(takeover.status).toBe(200);
     await expect(takeover.json()).resolves.toMatchObject({
       translationRevision: 2,
@@ -288,7 +288,7 @@ describe("reusable caption channel", () => {
     );
     expect(missing.status).toBe(400);
 
-    expect((await startService(room)).status).toBe(200);
+    expect((await startLiveSession(room)).status).toBe(200);
     await expect(storage.get("configuration")).resolves.toMatchObject({
       tokenHash: TOKEN_A,
       controllerHash: CONTROLLER_A,
@@ -301,7 +301,7 @@ describe("reusable caption channel", () => {
   it("broadcasts captions but never style events or caption style to viewers", async () => {
     const { room, socket, viewerSocket } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     socket.messages.length = 0;
     viewerSocket.messages.length = 0;
 
@@ -350,7 +350,7 @@ describe("reusable caption channel", () => {
     );
     expect(viewerSocket.messages).toEqual([]);
 
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(
       request("/internal/control", {
         action: "pause",
@@ -374,7 +374,7 @@ describe("reusable caption channel", () => {
   it("replaces the viewer link only for the current controller", async () => {
     const { room, storage, socket, viewerSocket } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     socket.closes.length = 0;
     viewerSocket.closes.length = 0;
 
@@ -414,7 +414,7 @@ describe("reusable caption channel", () => {
       ...configuration,
       tokenHash: await captionTokenHash(overlayToken),
     });
-    await startService(
+    await startLiveSession(
       room,
       CONTROLLER_A,
       false,
@@ -446,7 +446,7 @@ describe("reusable caption channel", () => {
     const viewerToken = "v".repeat(43);
     const { room } = roomFixture(250);
     await createChannel(room);
-    await startService(
+    await startLiveSession(
       room,
       CONTROLLER_A,
       false,
@@ -482,7 +482,7 @@ describe("reusable caption channel", () => {
     await expect(idleTest.json()).resolves.toMatchObject({ sequence: 1 });
     await room.fetch(request("/internal/control", { action: "clear" }));
 
-    await startService(room);
+    await startLiveSession(room);
     await expect(
       (await room.fetch(request("/internal/caption", caption()))).json(),
     ).resolves.toMatchObject({ sequence: 2 });
@@ -521,7 +521,7 @@ describe("reusable caption channel", () => {
         "DELETE",
       ),
     );
-    await startService(room, CONTROLLER_B);
+    await startLiveSession(room, CONTROLLER_B);
     await expect(
       (
         await room.fetch(
@@ -549,7 +549,7 @@ describe("reusable caption channel", () => {
       ).status,
     ).toBe(200);
 
-    await startService(room);
+    await startLiveSession(room);
     expect(
       (
         await room.fetch(
@@ -580,7 +580,7 @@ describe("reusable caption channel", () => {
       ).status,
     ).toBe(409);
 
-    await startService(room);
+    await startLiveSession(room);
     expect(
       (
         await room.fetch(
@@ -621,7 +621,7 @@ describe("reusable caption channel", () => {
   it("rejects a blank or over-length manual caption", async () => {
     const { room } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(
       request("/internal/control", { action: "pause", controllerHash: CONTROLLER_A }),
     );
@@ -642,7 +642,7 @@ describe("reusable caption channel", () => {
   it("accepts a manual caption at exactly the character limit", async () => {
     const { room } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(
       request("/internal/control", { action: "pause", controllerHash: CONTROLLER_A }),
     );
@@ -660,7 +660,7 @@ describe("reusable caption channel", () => {
   it("requires the current controller for active captions, controls, and styles", async () => {
     const { room } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
 
     for (const [path, body] of [
       ["/internal/caption", caption(CONTROLLER_B)],
@@ -687,7 +687,7 @@ describe("reusable caption channel", () => {
   it("reserves one transcription attempt and rejects the stale controller after takeover", async () => {
     const { room } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
 
     const valid = await room.fetch(
       request("/internal/lease", { controllerHash: CONTROLLER_A }),
@@ -700,7 +700,7 @@ describe("reusable caption channel", () => {
       translationRevision: 1,
     });
 
-    await startService(room, CONTROLLER_B, true);
+    await startLiveSession(room, CONTROLLER_B, true);
     const stale = await room.fetch(
       request("/internal/lease", { controllerHash: CONTROLLER_A }),
     );
@@ -713,7 +713,7 @@ describe("reusable caption channel", () => {
   it("authorizes provider work once and persists its usage idempotently", async () => {
     const { room, storage } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(
       request("/internal/lease", { controllerHash: CONTROLLER_A }),
     );
@@ -788,7 +788,7 @@ describe("reusable caption channel", () => {
   it("preserves usage through translation refresh and resets it on takeover", async () => {
     const { room } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(
       request("/internal/lease", { controllerHash: CONTROLLER_A }),
     );
@@ -822,7 +822,7 @@ describe("reusable caption channel", () => {
       llmUsage: { translationRequests: 1, totalTokens: 48 },
     });
 
-    await startService(room, CONTROLLER_B, true);
+    await startLiveSession(room, CONTROLLER_B, true);
     const takenOver = await room.fetch(
       request("/internal/channel", undefined, "GET"),
     );
@@ -852,7 +852,7 @@ describe("reusable caption channel", () => {
   it("rejects translation usage without a matching reserved attempt", async () => {
     const { room } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
 
     const response = await room.fetch(
       request("/internal/usage", {
@@ -871,7 +871,7 @@ describe("reusable caption channel", () => {
   it("enforces the transcription ceiling atomically across controller leases", async () => {
     const { room, storage } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     const configuration = await storage.get<Record<string, unknown>>("configuration");
     await storage.put("configuration", {
       ...configuration,
@@ -898,7 +898,7 @@ describe("reusable caption channel", () => {
   it("does not reserve a transcription request while paused", async () => {
     const { room, storage } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(
       request("/internal/control", {
         action: "pause",
@@ -919,7 +919,7 @@ describe("reusable caption channel", () => {
   it("refreshes a live translation atomically and rejects stale publishes", async () => {
     const { room, storage, socket, viewerSocket } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(
       request("/internal/lease", { controllerHash: CONTROLLER_A }),
     );
@@ -1041,7 +1041,7 @@ describe("reusable caption channel", () => {
   it("refreshes translation while paused without changing the paused service", async () => {
     const { room, storage, socket, viewerSocket } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(
       request("/internal/lease", { controllerHash: CONTROLLER_A }),
     );
@@ -1102,7 +1102,7 @@ describe("reusable caption channel", () => {
   it("ends a service without deleting or changing the reusable OBS credential", async () => {
     const { room, storage, socket, viewerSocket } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(request("/internal/caption", caption()));
     await room.fetch(
       request("/internal/lease", { controllerHash: CONTROLLER_A }),
@@ -1158,14 +1158,14 @@ describe("reusable caption channel", () => {
     });
     expect(viewerSocket.closes.at(-1)).toEqual({
       code: 4002,
-      reason: "Live service ended.",
+      reason: "Live session ended.",
     });
   });
 
   it("rotates only while idle and closes sockets using the revocation code", async () => {
     const { room, socket, storage } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     expect(
       (
         await room.fetch(
@@ -1208,7 +1208,7 @@ describe("reusable caption channel", () => {
   it("expires only the active service and leaves the channel ready", async () => {
     const { room, storage, socket, viewerSocket } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(request("/internal/caption", caption()));
 
     const active = await storage.get<{ expiresAt: number }>("configuration");
@@ -1228,14 +1228,14 @@ describe("reusable caption channel", () => {
     });
     expect(viewerSocket.closes.at(-1)).toEqual({
       code: 4002,
-      reason: "Live service ended.",
+      reason: "Live session ended.",
     });
   });
 
   it("clears stale public output when a style update observes service expiry", async () => {
     const { room, storage, socket } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(request("/internal/caption", caption()));
     const configuration = await storage.get<Record<string, unknown>>("configuration");
     await storage.put("configuration", {
@@ -1267,7 +1267,7 @@ describe("reusable caption channel", () => {
   it("clears public sockets when a usage record observes service expiry", async () => {
     const { room, storage, socket, viewerSocket } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(request("/internal/caption", caption()));
     await room.fetch(
       request("/internal/lease", { controllerHash: CONTROLLER_A }),
@@ -1303,7 +1303,7 @@ describe("reusable caption channel", () => {
     );
     expect(viewerSocket.closes.at(-1)).toEqual({
       code: 4002,
-      reason: "Live service ended.",
+      reason: "Live session ended.",
     });
   });
 
@@ -1326,10 +1326,10 @@ describe("reusable caption channel", () => {
   it("serializes a caption immediately before takeover and leaves OBS clear", async () => {
     const { room, socket, storage } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
 
     const pendingCaption = room.fetch(request("/internal/caption", caption()));
-    const pendingTakeover = startService(room, CONTROLLER_B, true);
+    const pendingTakeover = startLiveSession(room, CONTROLLER_B, true);
     const [captionResponse, takeoverResponse] = await Promise.all([
       pendingCaption,
       pendingTakeover,
@@ -1356,7 +1356,7 @@ describe("transcription dispatch enforcement", () => {
     const fixture = roomFixture();
     const hash = await captionTokenHash(controller);
     await createChannel(fixture.room);
-    await startService(fixture.room, hash);
+    await startLiveSession(fixture.room, hash);
     await fixture.room.fetch(request("/internal/lease", { controllerHash: hash }));
     const roomFetch = vi.fn((req: Request) => fixture.room.fetch(req));
     const env: LiveWorkerEnvironment = {
@@ -1397,10 +1397,10 @@ describe("transcription dispatch enforcement", () => {
       const cloud = new CloudProviderClient();
       const style = normalizeCaptionStyle({});
       await live.createChannel(style);
-      const service = await live.startService(style);
-      const lease = await live.reserveTranscriptionAttempt(service.controllerToken);
+      const liveSession = await live.startLiveSession(style);
+      const lease = await live.reserveTranscriptionAttempt(liveSession.controllerToken);
       const context = {
-        controllerToken: service.controllerToken,
+        controllerToken: liveSession.controllerToken,
         transcriptionAttempt: lease.transcriptionRequests,
       };
       const transcription = await cloud.transcribe({
@@ -1415,7 +1415,7 @@ describe("transcription dispatch enforcement", () => {
         recentContext: [],
         preferredTerms: {},
       }, context);
-      await live.publish(service.controllerToken, {
+      await live.publish(liveSession.controllerToken, {
         publicText: translation.text,
         targetLanguage: "id",
         style,
@@ -1573,7 +1573,7 @@ describe("workspace watchers", () => {
   it("registers one read-only credential per operator identity without touching the controller", async () => {
     const { room, storage } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
 
     const response = await room.fetch(observe(identity("1"), "a".repeat(64)));
     expect(response.status).toBe(200);
@@ -1595,22 +1595,22 @@ describe("workspace watchers", () => {
     expect(Object.values(configuration!.observers)).toEqual(["a".repeat(64), "b".repeat(64)]);
   });
 
-  it("keeps the newest MAX_SERVICE_OBSERVERS identities and refuses malformed registrations", async () => {
+  it("keeps the newest MAX_SESSION_OBSERVERS identities and refuses malformed registrations", async () => {
     const { room, storage } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
 
     // One more than the cap, so the first registration is the one evicted.
     const numbered = (index: number) => index.toString(16).padStart(64, "0");
-    for (let index = 0; index <= MAX_SERVICE_OBSERVERS; index += 1) {
+    for (let index = 0; index <= MAX_SESSION_OBSERVERS; index += 1) {
       const key = `operator:${numbered(index)}`;
       expect((await room.fetch(observe(key, numbered(index)))).status).toBe(200);
     }
     const configuration = await storage.get<{ observers: Record<string, string> }>("configuration");
-    expect(Object.keys(configuration!.observers)).toHaveLength(MAX_SERVICE_OBSERVERS);
+    expect(Object.keys(configuration!.observers)).toHaveLength(MAX_SESSION_OBSERVERS);
     expect(configuration!.observers[`operator:${numbered(0)}`]).toBeUndefined();
-    expect(configuration!.observers[`operator:${numbered(MAX_SERVICE_OBSERVERS)}`])
-      .toBe(numbered(MAX_SERVICE_OBSERVERS));
+    expect(configuration!.observers[`operator:${numbered(MAX_SESSION_OBSERVERS)}`])
+      .toBe(numbered(MAX_SESSION_OBSERVERS));
 
     expect((await room.fetch(observe("operator:short", "c".repeat(64)))).status).toBe(400);
     expect((await room.fetch(observe(identity("1"), "not-a-hash"))).status).toBe(400);
@@ -1619,11 +1619,11 @@ describe("workspace watchers", () => {
   it("names the operator who started the service and forgets the name when it ends", async () => {
     const { room } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await expect((await room.fetch(request("/internal/channel", undefined, "GET"))).json())
       .resolves.toMatchObject({ controllerLabel: "first@example.test", status: "live" });
 
-    await startService(room, CONTROLLER_B, true);
+    await startLiveSession(room, CONTROLLER_B, true);
     await expect((await room.fetch(request("/internal/channel", undefined, "GET"))).json())
       .resolves.toMatchObject({ controllerLabel: "second@example.test" });
 
@@ -1647,7 +1647,7 @@ describe("workspace watchers", () => {
   it("accepts a registered watcher on the public caption socket and rejects an unregistered one", async () => {
     const { room, accepted } = roomFixture();
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(observe(identity("1"), await captionTokenHash(observerToken)));
 
     expect((await room.fetch(viewerConnect("z".repeat(43)))).status).toBe(401);
@@ -1671,7 +1671,7 @@ describe("workspace watchers", () => {
   it("broadcasts public captions to watchers and keeps them through a viewer-link replacement", async () => {
     const { room, observerSockets } = roomFixture(1, 1);
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(request("/internal/caption", caption()));
 
     expect(observerSockets[0]!.messages.map((message) => JSON.parse(message)).at(-1)).toEqual({
@@ -1679,7 +1679,7 @@ describe("workspace watchers", () => {
       caption: expect.objectContaining({ publicText: "Grace and peace" }),
     });
 
-    // Start already invalidated pre-service sockets; a later link swap must not.
+    // Start already invalidated pre-session sockets; a later link swap must not.
     const closesBeforeRotation = observerSockets[0]!.closes.length;
     await room.fetch(
       request("/internal/viewer/rotate", {
@@ -1693,14 +1693,14 @@ describe("workspace watchers", () => {
   it("disconnects watchers and clears their credentials when the service ends", async () => {
     const { room, observerSockets, storage } = roomFixture(1, 1);
     await createChannel(room);
-    await startService(room);
+    await startLiveSession(room);
     await room.fetch(observe(identity("1"), "a".repeat(64)));
 
     await room.fetch(request("/internal/service", { controllerHash: CONTROLLER_A }, "DELETE"));
 
     expect(observerSockets[0]!.closes.at(-1)).toEqual({
       code: 4002,
-      reason: "Live service ended.",
+      reason: "Live session ended.",
     });
     const configuration = await storage.get<{ observers?: unknown }>("configuration");
     expect(configuration?.observers).toBeUndefined();

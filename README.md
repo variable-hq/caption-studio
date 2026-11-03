@@ -45,7 +45,7 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
   checklist, then the Start settings card (**Quick fixes** during a
   session) beside **Share**. During a session a bar pinned to the bottom holds Pause,
   Clear screen, the minutes left and End session. Each screen has its own bookmarkable
-  address (`#live`, `#sermons`, `#settings=<section>`, `#help`).
+  address (`#live`, `#transcripts`, `#settings=<section>`, `#help`).
   Full behavior and visuals: [Product specification](docs/PRODUCT_SPEC.md),
   [Brand guidelines](docs/BRAND_GUIDELINES.md) and [Design system](docs/DESIGN_SYSTEM.md).
 - **One church setup**: languages and timing, words, translator settings and
@@ -299,7 +299,7 @@ One successful Cloudflare deployment is on record (13 September 2026); merges si
 have no recorded build ID yet. See the [deployment runbook](docs/DEPLOYMENT.md) for
 build/Worker IDs, the fix that unblocked the first deploy, and remaining rehearsal gates.
 
-<sub>This document reviewed 3 November 2026 against merged [PR #97](https://github.com/variable-hq/caption-studio/pull/97) (`a21da4f`).</sub>
+<sub>This document reviewed 3 November 2026 against merged [PR #98](https://github.com/variable-hq/caption-studio/pull/98) (`00c6164`).</sub>
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).

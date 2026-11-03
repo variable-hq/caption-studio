@@ -348,7 +348,7 @@ async function rotateChannel(request: Request, env: LiveWorkerEnvironment) {
   );
 }
 
-async function startService(request: Request, env: LiveWorkerEnvironment) {
+async function startLiveSession(request: Request, env: LiveWorkerEnvironment) {
   const { email } = await requireOperator(request, env);
   const body = (await readJsonObject(request, 4_096)) as {
     style?: unknown;
@@ -406,12 +406,12 @@ async function startService(request: Request, env: LiveWorkerEnvironment) {
 
 /**
  * Registers the signed-in workspace operator as a read-only watcher of the
- * running service and returns its own public-caption credential. It never
+ * running session and returns its own public-caption credential. It never
  * touches the controller or the audience links, so up to
- * `MAX_SERVICE_OBSERVERS` operators of one Access workspace can follow the same
- * service without a takeover.
+ * `MAX_SESSION_OBSERVERS` operators of one Access workspace can follow the same
+ * session without a takeover.
  */
-async function observeService(request: Request, env: LiveWorkerEnvironment) {
+async function observeSession(request: Request, env: LiveWorkerEnvironment) {
   const { email } = await requireOperator(request, env);
   const observerToken = randomToken();
   const response = await channelRoom(env).fetch(
@@ -468,7 +468,7 @@ async function replaceViewerLink(
   return json({ viewerUrl: viewerUrl(request, token) });
 }
 
-async function endService(request: Request, env: LiveWorkerEnvironment) {
+async function endLiveSession(request: Request, env: LiveWorkerEnvironment) {
   const { email } = await requireOperator(request, env);
   const response = await channelRoom(env).fetch(
     new Request("https://caption-room/internal/service", {
@@ -656,13 +656,13 @@ export async function handleLiveApiRequest(
         : json({ error: "Unsupported OBS channel rotation operation." }, 405);
     }
     if (url.pathname === "/api/live/channel/service") {
-      if (request.method === "POST") return await startService(request, env);
-      if (request.method === "DELETE") return await endService(request, env);
+      if (request.method === "POST") return await startLiveSession(request, env);
+      if (request.method === "DELETE") return await endLiveSession(request, env);
       return json({ error: "Unsupported live-session operation." }, 405);
     }
     if (url.pathname === "/api/live/channel/observer") {
       return request.method === "POST"
-        ? await observeService(request, env)
+        ? await observeSession(request, env)
         : json({ error: "Unsupported live-watcher operation." }, 405);
     }
     if (url.pathname === "/api/live/channel/viewer/rotate") {
