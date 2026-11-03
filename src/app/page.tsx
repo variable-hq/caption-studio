@@ -24,6 +24,7 @@ import { LiveNoteControl } from "@/components/operator/LiveNoteControl";
 import { RecentOutputsStrip } from "@/components/operator/RecentOutputsStrip";
 import { SessionMetadataFields } from "@/components/operator/SessionMetadataFields";
 import { ManualOverridesGroup } from "@/components/operator/ManualOverridesGroup";
+import { routeFromHash, type SettingsSectionId } from "@/app/operator-route";
 import { OperatorTopBar, type OperatorScreenId, type OperatorStatusLabel, type StatusTone } from "@/components/operator/OperatorTopBar";
 import { OutputBufferPanel } from "@/components/operator/OutputBufferPanel";
 import { OutputBufferQueueControl } from "@/components/operator/OutputBufferQueueControl";
@@ -106,15 +107,7 @@ const CAPTION_PREFERENCE_KEY = "caption-studio:caption-style:v1";
 const TRANSLATION_PROMPT_PREFERENCE_KEY =
   "caption-studio:translation-system-prompt:v1";
 
-type SettingsSectionId =
-  | "computer"
-  | "languages"
-  | "words"
-  | "look"
-  | "obs"
-  | "translator"
-  | "summary"
-  | "usage";
+
 
 const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey; descriptionKey?: MessageKey }[] = [
   { id: "computer", titleKey: "settings.section.computer.title" },
@@ -127,31 +120,7 @@ const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey;
   { id: "usage", titleKey: "settings.section.usage.title", descriptionKey: "settings.section.usage.description" },
 ];
 
-// Bookmarks from the old sidebar layout still land on the matching screen.
-const LEGACY_WORKSPACE_ROUTES: Record<string, string> = {
-  overview: "live",
-  manualOverride: "settings=words",
-  history: "sermons",
-  audio: "settings=computer",
-  translation: "settings=languages",
-  appearance: "settings=look",
-  outputs: "settings=obs",
-  prompt: "settings=translator",
-  summary: "settings=summary",
-  usage: "settings=usage",
-};
 
-function routeFromHash(hash: string): { screen: OperatorScreenId; section: SettingsSectionId } {
-  let route = hash.replace(/^#/u, "");
-  if (route.startsWith("workspace=")) route = LEGACY_WORKSPACE_ROUTES[route.slice(10)] ?? "live";
-  const [screen, section] = route.split("=");
-  const settingsSection = SETTINGS_SECTIONS.some(({ id }) => id === section)
-    ? (section as SettingsSectionId)
-    : "computer";
-  if (screen === "sermons" || screen === "help") return { screen, section: settingsSection };
-  if (screen === "settings") return { screen, section: settingsSection };
-  return { screen: "live", section: settingsSection };
-}
 
 export default function OperatorDashboard() {
   return (
