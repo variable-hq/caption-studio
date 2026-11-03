@@ -2,6 +2,7 @@ import type { OperatorScreenId } from "@/components/operator/OperatorTopBar";
 
 export type SettingsSectionId =
   | "computer"
+  | "presets"
   | "languages"
   | "words"
   | "look"
@@ -12,6 +13,7 @@ export type SettingsSectionId =
 
 export const SETTINGS_SECTION_IDS: readonly SettingsSectionId[] = [
   "computer",
+  "presets",
   "languages",
   "words",
   "look",

@@ -3,6 +3,8 @@
 import { WORKSPACE_NAME } from "@/domain/workspace";
 import { useI18n } from "@/i18n/provider";
 
+import { workspaceFormatView } from "./workspace-format";
+
 export type OperatorScreenId = "live" | "transcripts" | "settings" | "help";
 
 export type StatusTone = "ok" | "live" | "warn" | "bad" | "muted";
@@ -34,12 +36,16 @@ interface OperatorTopBarProps {
   /** `detail` (the running clock) is shown but not announced, so screen readers hear
    * each state change once instead of every second. */
   status: { label: OperatorStatusLabel; tone: StatusTone; detail?: string };
+  /** While a session runs the format is plain text; otherwise it links to the Presets section. */
+  sessionLive: boolean;
 }
 
 /** Brand, the one status pill, and the Live / Transcripts / Settings tabs. Tabs are links so
  * every screen has its own address and survives a refresh. */
-export function OperatorTopBar({ screen, status }: OperatorTopBarProps) {
-  const { t } = useI18n();
+export function OperatorTopBar({ screen, status, sessionLive }: OperatorTopBarProps) {
+  const { t, locale, workspacePreset } = useI18n();
+  const format = workspaceFormatView(workspacePreset, locale, sessionLive);
+  const formatLabel = t("shell.format.ariaLabel", { format: format.name });
   const statusLabels: Record<OperatorStatusLabel, Parameters<typeof t>[0]> = {
     ending: "shell.status.ending",
     needsAttention: "shell.status.needsAttention",
@@ -57,7 +63,15 @@ export function OperatorTopBar({ screen, status }: OperatorTopBarProps) {
         <span className="brandMark" aria-hidden="true" translate="no">{"CS"}</span>
         <span className="operatorBrandName">
           <strong translate="no">Caption Studio</strong>
-          <span><span translate="no">{WORKSPACE_NAME}</span> · {t("shell.brand.mainChannel")}</span>
+          <span>
+            <span translate="no">{WORKSPACE_NAME}</span> ·{" "}
+            {format.href ? (
+              <a href={format.href} aria-label={formatLabel} translate="no">{format.name}</a>
+            ) : (
+              <span role="note" aria-label={formatLabel} translate="no">{format.name}</span>
+            )}{" "}
+            · {t("shell.brand.mainChannel")}
+          </span>
         </span>
         <span className="topStatus" data-tone={status.tone}>
           <span role="status" aria-live="polite">{t(statusLabels[status.label])}</span>

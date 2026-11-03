@@ -93,6 +93,7 @@ import { UsageHistory } from "@/components/operator/UsageHistory";
 import { formatCount, formatDecimal } from "@/components/operator/format-count";
 import { cutLengthPercentileMs } from "@/live/cut-metrics";
 import { formatClock } from "@/components/operator/format-clock";
+import { PresetChooser } from "@/components/operator/PresetChooser";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
 import { I18nProvider, useI18n } from "@/i18n/provider";
@@ -112,6 +113,7 @@ const TRANSLATION_PROMPT_PREFERENCE_KEY =
 
 const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey; descriptionKey?: MessageKey }[] = [
   { id: "computer", titleKey: "settings.section.computer.title" },
+  { id: "presets", titleKey: "settings.section.presets.title", descriptionKey: "settings.section.presets.description" },
   { id: "languages", titleKey: "settings.section.languages.title" },
   { id: "words", titleKey: "settings.section.words.title", descriptionKey: "settings.section.words.description" },
   { id: "look", titleKey: "settings.section.look.title", descriptionKey: "settings.section.look.description" },
@@ -138,6 +140,7 @@ function OperatorDashboardContent() {
     setUiLocalePreference,
     setAccountUiLocale,
     setBrowserFallbackPreference,
+    setWorkspaceProfile,
     t,
   } = useI18n();
   const tRef = useRef(t);
@@ -212,6 +215,11 @@ function OperatorDashboardContent() {
     () => (personalPreferences && sharedSetup ? effectiveSetup(sharedSetup, personalPreferences) : null),
     [personalPreferences, sharedSetup],
   );
+  // Applies the saved format once the shared setup has loaded; the browser cache covers the wait.
+  const savedProfile = accountPreferences ? accountPreferences.profile : undefined;
+  useEffect(() => {
+    if (savedProfile !== undefined) setWorkspaceProfile(savedProfile);
+  }, [savedProfile, setWorkspaceProfile]);
   const [translationDefaultsMessage, setTranslationDefaultsMessage] = useState("");
   const [summaryDefaults, setSummaryDefaults] = useState<SummaryOptions>(DEFAULT_SUMMARY_OPTIONS);
   const [savedSummaryDefaults, setSavedSummaryDefaults] = useState<SummaryOptions | null>(null);
@@ -1539,6 +1547,13 @@ function OperatorDashboardContent() {
             </>
           ) : null}
 
+          {settingsSection === "presets" ? (
+            <PresetChooser
+              savedProfile={accountPreferences?.profile ?? null}
+              onSave={(profile) => syncAccountPreferences({ profile })}
+            />
+          ) : null}
+
           {settingsSection === "languages" ? (
             <>
               <SettingGroup title={t("settings.interfaceLanguage.title")} hint={t("settings.interfaceLanguage.hint")}>
@@ -1709,7 +1724,7 @@ function OperatorDashboardContent() {
   return (
     <div className="operatorShell">
       <a className="skipLink" href="#main">{t("page.skipLink")}</a>
-      <OperatorTopBar screen={screen} status={status} />
+      <OperatorTopBar screen={screen} status={status} sessionLive={hasSession} />
       {screen === "live" ? liveScreen : screen === "transcripts" ? transcriptsScreen : screen === "settings" ? settingsScreen : helpScreen}
       {hasSession && screen === "live" ? (
         <LiveControlBar

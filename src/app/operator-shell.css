@@ -58,6 +58,12 @@
   font-size: var(--text-sm);
 }
 
+.operatorBrandName a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .topStatus {
   display: inline-flex;
   align-items: center;
