@@ -88,11 +88,12 @@ export class LiveSessionClient {
     style: CaptionStyle,
     takeover = false,
     saveHistory = false,
+    presetId?: string,
   ): Promise<LiveSessionDetails> {
     const response = await fetch("/api/live/channel/session", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ style, takeover, saveHistory }),
+      body: JSON.stringify({ style, takeover, saveHistory, ...(presetId ? { presetId } : {}) }),
       signal: AbortSignal.timeout(10_000),
     });
     await requireSuccess(response, this.message("request.sessionStart"));

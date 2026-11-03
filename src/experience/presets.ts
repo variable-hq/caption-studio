@@ -57,6 +57,9 @@ export type PresetDefaults = Partial<{
   starterTerms: PresetStarterTerm[];
 }>;
 
+/** What term lookup and message overrides read; a preset or a session's snapshot of one. */
+export type PresetWording = Pick<Preset, "terms" | "messageOverrides">;
+
 export type Preset = {
   schemaVersion: typeof PRESET_SCHEMA_VERSION;
   version: number;
@@ -322,10 +325,10 @@ export function normalizePreset(input: unknown): Preset {
  * two sets in English.
  */
 export function resolvePresetTerm(
-  preset: Preset,
+  preset: PresetWording,
   term: PresetTermName,
   locale: PresetLocale,
-  general: Preset = GENERAL_PRESET,
+  general: PresetWording = GENERAL_PRESET,
 ): PresetTermForms {
   return (
     preset.terms[locale]?.[term] ??
@@ -343,7 +346,7 @@ function capitalize(text: string): string {
  * Message parameters for a preset in one language: `term_<name>` holds the singular,
  * `term_<name>s` the plural, and the `Term_` forms the same with the first letter capitalized.
  */
-export function presetTermParams(preset: Preset, locale: PresetLocale, general: Preset = GENERAL_PRESET) {
+export function presetTermParams(preset: PresetWording, locale: PresetLocale, general: PresetWording = GENERAL_PRESET) {
   const params: Record<string, string> = {};
   for (const term of PRESET_TERM_NAMES) {
     const forms = resolvePresetTerm(preset, term, locale, general);
@@ -567,4 +570,54 @@ export function resolveWorkspacePreset(profileId: unknown): Preset {
 /** Display text for a locale; Indonesian falls back to English when a value is missing. */
 export function presetLocalizedText(text: PresetLocalizedText, locale: PresetLocale): string {
   return (locale === "id" ? text.id : undefined) ?? text.en;
+}
+
+/**
+ * What a session keeps of its format: the built-in id, its version and the terms resolved for
+ * both languages. Audience pages and saved transcripts read this copy, so they keep their wording
+ * when a later release changes the built-in.
+ */
+export type PresetSnapshot = {
+  id: BuiltInPresetId;
+  version: number;
+  terms: { en: PresetTermSet; id: PresetTermSet };
+};
+
+/** Copies a preset's terms for both languages, applying the same lookup order as live wording. */
+export function snapshotPreset(preset: Preset): PresetSnapshot {
+  const resolved = (locale: PresetLocale) => {
+    const set = {} as PresetTermSet;
+    for (const term of PRESET_TERM_NAMES) {
+      const forms = resolvePresetTerm(preset, term, locale);
+      set[term] = forms.plural === undefined ? { singular: forms.singular } : { singular: forms.singular, plural: forms.plural };
+    }
+    return set;
+  };
+  return { id: normalizeProfileId(preset.id) ?? GENERAL_PRESET_ID, version: preset.version, terms: { en: resolved("en"), id: resolved("id") } };
+}
+
+/** Validates a snapshot read from storage or the wire; anything invalid reads as no snapshot. */
+export function normalizePresetSnapshot(value: unknown): PresetSnapshot | undefined {
+  try {
+    const record = plainRecord(value, "snapshot");
+    rejectUnknownFields(record, ["id", "version", "terms"], "snapshot");
+    const id = normalizeProfileId(record.id);
+    if (id === null) return undefined;
+    if (!Number.isInteger(record.version) || (record.version as number) < 1 || (record.version as number) > MAX_PRESET_VERSION) return undefined;
+    const terms = plainRecord(record.terms, "snapshot.terms");
+    rejectUnknownFields(terms, ["en", "id"], "snapshot.terms");
+    return { id, version: record.version as number, terms: { en: termSet(terms.en, "snapshot.terms.en"), id: termSet(terms.id, "snapshot.terms.id") } };
+  } catch {
+    return undefined;
+  }
+}
+
+/** The format a session ran under; a session without a snapshot is General. */
+export function snapshotPresetId(snapshot: PresetSnapshot | undefined): BuiltInPresetId {
+  return snapshot?.id ?? GENERAL_PRESET_ID;
+}
+
+/** The wording a session's audience pages use; a session without a snapshot is General. */
+export function presetFromSnapshot(snapshot: PresetSnapshot | undefined): PresetWording {
+  return snapshot ? { terms: snapshot.terms } : GENERAL_PRESET;
 }

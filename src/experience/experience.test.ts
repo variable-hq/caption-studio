@@ -1,3 +1,4 @@
+import { resolveWorkspacePreset, snapshotPreset } from "./presets";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TranscriptJournal, parseSummary } from "./transcript-journal";
 import { AiUsageLedger } from "./usage-ledger";
@@ -229,13 +230,20 @@ describe("transcript journals", () => {
     expect((await journal.fetch(request("/summary", { ...options, requestId: "summary-request-0002" }))).status).toBe(200);
     expect(await (await journal.fetch(request("/archive"))).json()).toMatchObject({ summary: { id: options.requestId, status: "queued", promptVersion: "source-grounded-v2" } });
   });
-  it("records the format on a summary job, and General for an unknown id", async () => {
+  it("summarizes under the session's format, kept after the first sync, and General without one", async () => {
     const options = { model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", language: "id", length: "short", guidance: "" };
-    for (const [presetId, expected] of [["builtin:sermon", "builtin:sermon"], ["builtin:market", "builtin:general"]] as const) {
-      const { journal, initial, storage } = await fixture();
-      await journal.fetch(request("/sync", { ...initial, status: "ended", endedAt: Date.now() }));
-      expect((await journal.fetch(request("/summary", { ...options, requestId: "summary-request-0003", presetId }))).status).toBe(202);
+    const sermon = snapshotPreset(resolveWorkspacePreset("builtin:sermon"));
+    const talkshow = snapshotPreset(resolveWorkspacePreset("builtin:talkshow"));
+    for (const [sync, expected] of [[{ preset: sermon }, "builtin:sermon"], [{}, "builtin:general"]] as const) {
+      const storage = new Storage(); const journal = new TranscriptJournal(state(storage), {});
+      await journal.fetch(request("/sync", { ...snapshot(true), ...sync }));
+      await journal.fetch(request("/sync", { ...snapshot(true), ...sync, status: "ended", endedAt: Date.now() }));
+      // A later sync cannot change the stored format.
+      await journal.fetch(request("/sync", { ...snapshot(true), preset: talkshow, status: "ended", endedAt: Date.now() }));
+      // A request cannot choose it either.
+      expect((await journal.fetch(request("/summary", { ...options, requestId: "summary-request-0003", presetId: "builtin:keynote" }))).status).toBe(202);
       expect(await storage.get("summary")).toMatchObject({ presetId: expected });
+      expect(await (await journal.fetch(request("/metadata"))).json()).toMatchObject({ presetId: expected });
     }
   });
   it("does not replay an interrupted inference job", async () => {
@@ -570,6 +578,18 @@ describe("automatic summary", () => {
     expect(run).toHaveBeenCalledTimes(2);
     expect(await storage.get("summary")).toMatchObject({ status: "completed", automatic: true, result: [{ sourceIds: [1] }] });
     expect(await storage.get("auto-summary")).toBeUndefined();
+  });
+
+  it("records the session's format on the automatic summary", async () => {
+    const run = summaryRun();
+    const storage = new Storage(); const journal = new TranscriptJournal(state(storage), optionalEnvironment(run));
+    const sermon = { ...snapshot(true), preset: snapshotPreset(resolveWorkspacePreset("builtin:sermon")) };
+    await journal.fetch(request("/sync", sermon));
+    await journal.fetch(request("/source", { id: 1, text: "Synthetic source", language: "id", translationRevision: 1 }));
+    expect((await journal.fetch(request("/auto-summary", autoRequest))).status).toBe(202);
+    await journal.fetch(request("/sync", { ...sermon, endedAt: Date.now(), status: "ended" }));
+    await journal.alarm(); await journal.alarm(); await journal.alarm();
+    expect(await storage.get("summary")).toMatchObject({ status: "completed", automatic: true, presetId: "builtin:sermon" });
   });
 
   it("keeps a summary the operator already started instead of generating a second", async () => {

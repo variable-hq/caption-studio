@@ -1266,6 +1266,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           const recovered: LiveSessionDetails = {
             sessionId: channel.sessionId,
             saveHistory: channel.saveHistory,
+            presetId: channel.presetId,
             channelId: channel.channelId,
             controllerToken: storedController,
             viewerUrl: storedViewerUrl,
@@ -1565,6 +1566,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           normalizeCaptionStyle(settingsRef.current.style),
           takeover,
           settingsRef.current.saveHistory === true,
+          settingsRef.current.presetId,
         );
         const recordingWindowMs = translationSettings.recordingWindowMs;
         sessionRef.current = liveSession;

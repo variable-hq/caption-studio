@@ -1749,6 +1749,39 @@ describe("stored session names", () => {
     expect(written).not.toHaveProperty("serviceEventCount");
   });
 
+  it("stores the chosen format with the session and keeps it until the session ends", async () => {
+    const { room, storage } = roomFixture();
+    await createChannel(room);
+    const start = (presetId?: string, takeover = false) => room.fetch(request("/internal/session", {
+      controllerHash: CONTROLLER_A, viewerTokenHash: VIEWER_A, takeover, style: { fontSize: 60 }, ...(presetId ? { presetId } : {}),
+    }));
+    const started = await (await start("builtin:sermon")).json() as Record<string, unknown>;
+    expect(started.presetId).toBe("builtin:sermon");
+    expect(storage.values.get("configuration")).toMatchObject({ preset: { id: "builtin:sermon", terms: { en: { session: { singular: "service" } }, id: { session: { singular: "ibadah" } } } } });
+
+    // Nothing in a running session replaces it: another start is refused, and control actions leave it.
+    expect((await start("builtin:talkshow")).status).toBe(409);
+    expect((await room.fetch(request("/internal/control", { action: "pause", controllerHash: CONTROLLER_A }))).status).toBe(200);
+    expect(storage.values.get("configuration")).toMatchObject({ preset: { id: "builtin:sermon" } });
+    expect(await (await room.fetch(request("/internal/channel", undefined, "GET"))).json()).toMatchObject({ presetId: "builtin:sermon" });
+
+    // The next session takes its own format.
+    await room.fetch(request("/internal/session", { controllerHash: CONTROLLER_A }, "DELETE"));
+    expect((await (await start("builtin:keynote")).json() as Record<string, unknown>).presetId).toBe("builtin:keynote");
+  });
+
+  it("starts General without a format, and for an unknown or custom id", async () => {
+    for (const presetId of [undefined, "builtin:market", "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b"]) {
+      const { room, storage } = roomFixture();
+      await createChannel(room);
+      const started = await (await room.fetch(request("/internal/session", {
+        controllerHash: CONTROLLER_A, viewerTokenHash: VIEWER_A, takeover: false, style: { fontSize: 60 }, ...(presetId ? { presetId } : {}),
+      }))).json() as Record<string, unknown>;
+      expect(started.presetId, String(presetId)).toBe("builtin:general");
+      expect(storage.values.get("configuration")).toMatchObject({ preset: { id: "builtin:general" } });
+    }
+  });
+
   it("returns both session and earlier id names, both error code fields and both ended headers", async () => {
     const { room, storage } = roomFixture();
     await createChannel(room);

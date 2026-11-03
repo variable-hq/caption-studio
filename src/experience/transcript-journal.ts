@@ -11,7 +11,7 @@ import {
 import { optionalInference } from "./provider";
 import { buildReaderPrompt, buildSummaryPrompt } from "./prompt";
 import { outputLooksUnsafe } from "@/ai/output-guard";
-import { resolveWorkspacePreset } from "./presets";
+import { normalizePresetSnapshot, resolveWorkspacePreset, snapshotPresetId } from "./presets";
 
 const key = (prefix: string, id: number) => `${prefix}:${String(id).padStart(6, "0")}`;
 const byteLength = (text: string) => new TextEncoder().encode(text).length;
@@ -108,8 +108,9 @@ export class TranscriptJournal {
     if (old && (old.id !== incoming.id || incoming.epoch < old.epoch || (old.endedAt && !incoming.endedAt))) return json({ ignored: true });
     const current: JournalState = old ? { ...old, status: incoming.status, epoch: incoming.epoch,
       readerHash: incoming.readerHash, endedAt: old.endedAt ?? incoming.endedAt,
-      revoked: old.revoked || incoming.revoked } : { ...incoming, revision: 0,
+      revoked: old.revoked || incoming.revoked } : { ...incoming, preset: normalizePresetSnapshot(incoming.preset), revision: 0,
       readerCalls: 0, summaryCalls: 0, incomplete: false };
+    if (!current.preset) delete current.preset;
     if (old && old.epoch !== current.epoch) {
       this.pending = [];
       await this.state.storage.delete(["pending", "reader-flight"]);
@@ -133,7 +134,7 @@ export class TranscriptJournal {
   }
 
   private async handleMetadataRead(current: JournalState) {
-    return json({ metadata: current.saved
+    return json({ presetId: snapshotPresetId(current.preset), metadata: current.saved
       ? await this.state.storage.get<SessionMetadata>("metadata") ?? normalizeSessionMetadata(null)
       : normalizeSessionMetadata(null) });
   }
@@ -261,13 +262,13 @@ export class TranscriptJournal {
 
   private async handleSummary(request: Request, current: JournalState) {
     if (!current.saved || !current.endedAt) return json({ error: "End a session with saved history before generating a summary." }, 409);
-    const body = await request.json() as SummaryOptions & { requestId: string; presetId?: string };
+    const body = await request.json() as SummaryOptions & { requestId: string };
     if (!validSummaryOptions(body) || !/^[a-zA-Z0-9-]{16,64}$/u.test(body.requestId)) return json({ error: "Invalid summary settings." }, 400);
     const previous = await this.state.storage.get<SummaryJob>("summary");
     if (previous && (previous.id === body.requestId || ["queued", "running"].includes(previous.status))) return json(previous);
     const job: SummaryJob = { id: body.requestId, status: "queued", revision: current.revision,
       options: { model: body.model, language: body.language, guidance: body.guidance, length: body.length },
-      presetId: resolveWorkspacePreset(body.presetId).id,
+      presetId: snapshotPresetId(current.preset),
       cursor: 0, notes: [], promptVersion: "source-grounded-v2" };
     await this.state.storage.put("summary", job);
     await this.schedule(current, 1000);
@@ -280,8 +281,7 @@ export class TranscriptJournal {
     const body = await request.json() as Partial<AutoSummaryRequest>;
     if (!body.options || !validSummaryOptions(body.options)) return json({ error: "Invalid automatic summary request." }, 400);
     const { model, language, guidance, length } = body.options;
-    const presetId = resolveWorkspacePreset(body.presetId).id;
-    await this.state.storage.put("auto-summary", { options: { model, language, guidance, length }, presetId } satisfies AutoSummaryRequest);
+    await this.state.storage.put("auto-summary", { options: { model, language, guidance, length } } satisfies AutoSummaryRequest);
     await this.schedule(current, 1000);
     return json({ queued: true }, 202);
   }
@@ -295,7 +295,7 @@ export class TranscriptJournal {
       // A summary the operator already started or finished is kept instead of a second one.
       if (await this.state.storage.get<SummaryJob>("summary")) return;
       await this.state.storage.put("summary", { id: `auto-${crypto.randomUUID()}`, status: "queued",
-        revision: current.revision, options: request.options, presetId: resolveWorkspacePreset(request.presetId).id,
+        revision: current.revision, options: request.options, presetId: snapshotPresetId(current.preset),
         cursor: 0, notes: [], promptVersion: "source-grounded-v2", automatic: true } satisfies SummaryJob);
     });
   }

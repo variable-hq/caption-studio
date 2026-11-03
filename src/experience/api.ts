@@ -50,8 +50,8 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
         try {
           const metadata = await rpc(env.TRANSCRIPT_JOURNALS!, entry.id, "/metadata");
           if (!metadata.ok) return entry;
-          const details = await metadata.json() as { metadata?: unknown };
-          return { ...entry, metadata: details.metadata };
+          const details = await metadata.json() as { metadata?: unknown; presetId?: unknown };
+          return { ...entry, metadata: details.metadata, presetId: details.presetId };
         } catch { return entry; }
       }));
       return json({ sessions, services: sessions });

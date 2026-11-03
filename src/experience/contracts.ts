@@ -1,3 +1,4 @@
+import type { PresetSnapshot } from "@/experience/presets";
 import type { LlmTokenUsage } from "@/ai/contracts";
 
 export const DAY = 86_400_000;
@@ -61,6 +62,8 @@ export interface JournalState {
   saved: boolean;
   status: "live" | "paused" | "ended";
   readerHash: string;
+  /** The session's format, copied when the journal is created and never replaced; absent reads as General. */
+  preset?: PresetSnapshot;
   epoch: number;
   revision: number;
   incomplete: boolean;
@@ -131,7 +134,6 @@ export interface SummaryJob {
 /** Queued at End for the ending operator; promoted to a summary job once the journal has ended. */
 export interface AutoSummaryRequest {
   options: SummaryOptions;
-  presetId?: string;
 }
 export function rpc(namespace: Namespace, id: string, path: string, body?: unknown) {
   return namespace.get(namespace.idFromName(id)).fetch(new Request(`https://internal${path}`, {

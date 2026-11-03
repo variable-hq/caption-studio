@@ -63,6 +63,7 @@ interface InternalChannelDetails {
   sessionId?: string;
   serviceId?: string;
   saveHistory?: boolean;
+  presetId?: string;
   controllerLabel?: string;
   configured: boolean;
   encryptedToken?: string;
@@ -187,6 +188,7 @@ async function publicChannelDetails(
     sessionId: internal.sessionId,
     ...previousSessionName(internal.sessionId),
     saveHistory: internal.saveHistory,
+    presetId: internal.presetId,
     controllerLabel: internal.controllerLabel,
     status: internal.status,
     overlayUrl: overlayUrl(request, token),
@@ -361,8 +363,12 @@ async function startLiveSession(request: Request, env: LiveWorkerEnvironment) {
     style?: unknown;
     takeover?: unknown;
     saveHistory?: unknown;
+    presetId?: unknown;
   };
   if (body.takeover !== undefined && typeof body.takeover !== "boolean") {
+    throw new InvalidRequestBodyError();
+  }
+  if (body.presetId !== undefined && (typeof body.presetId !== "string" || body.presetId.length > 64)) {
     throw new InvalidRequestBodyError();
   }
   const style = optionalStyle(body.style);
@@ -382,6 +388,7 @@ async function startLiveSession(request: Request, env: LiveWorkerEnvironment) {
         viewerTokenHash: await captionTokenHash(viewerToken),
         readerHash: await captionTokenHash(readerToken),
         saveHistory: body.saveHistory === true,
+        ...(typeof body.presetId === "string" ? { presetId: body.presetId } : {}),
         ...(style ? { style } : {}),
         takeover: body.takeover === true,
       }),
@@ -392,6 +399,7 @@ async function startLiveSession(request: Request, env: LiveWorkerEnvironment) {
     sessionId: string;
     serviceId: string;
     saveHistory: boolean;
+    presetId: string;
     status: "live";
     startedAt: string;
     expiresAt: string;
@@ -403,6 +411,7 @@ async function startLiveSession(request: Request, env: LiveWorkerEnvironment) {
     sessionId: details.sessionId,
     serviceId: details.sessionId,
     saveHistory: details.saveHistory,
+    presetId: details.presetId,
     readerUrl: `${new URL("/read", request.url)}#${details.sessionId}.${readerToken}`,
     viewerUrl: viewerUrl(request, viewerToken),
     startedAt: details.startedAt,
@@ -438,6 +447,7 @@ async function observeSession(request: Request, env: LiveWorkerEnvironment) {
     sessionId: string;
     serviceId: string;
     saveHistory: boolean;
+    presetId: string;
     controllerLabel?: string;
     status: "live" | "paused";
     startedAt: string;
@@ -449,6 +459,7 @@ async function observeSession(request: Request, env: LiveWorkerEnvironment) {
     sessionId: details.sessionId,
     ...previousSessionName(details.sessionId),
     saveHistory: details.saveHistory,
+    presetId: details.presetId,
     controllerLabel: details.controllerLabel,
     status: details.status,
     observerToken,

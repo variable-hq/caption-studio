@@ -1,4 +1,4 @@
-import { GENERAL_PRESET, presetTermParams, type Preset } from "../experience/presets";
+import { GENERAL_PRESET, presetTermParams, type PresetWording } from "../experience/presets";
 import { en, type MessageKey } from "./messages/en";
 import { id } from "./messages/id";
 
@@ -59,10 +59,10 @@ export function localeFromAcceptLanguage(header: string | null | undefined): UiL
   return normalizeUiLocale(null, languages);
 }
 
-const termParamsByPreset = new WeakMap<Preset, Record<UiLocale, MessageParams>>();
+const termParamsByPreset = new WeakMap<PresetWording, Record<UiLocale, MessageParams>>();
 
 /** Term values a preset fills into placeholders the caller does not pass. */
-function presetTermParamsFor(preset: Preset, locale: UiLocale): MessageParams {
+function presetTermParamsFor(preset: PresetWording, locale: UiLocale): MessageParams {
   let byLocale = termParamsByPreset.get(preset);
   if (!byLocale) {
     byLocale = { en: presetTermParams(preset, "en"), id: presetTermParams(preset, "id") };
@@ -72,7 +72,7 @@ function presetTermParamsFor(preset: Preset, locale: UiLocale): MessageParams {
 }
 
 /** Message for a key in a locale: the preset's whole-message override, else the catalog text. */
-function messageFor(locale: UiLocale, key: MessageKey, preset: Preset): string {
+function messageFor(locale: UiLocale, key: MessageKey, preset: PresetWording): string {
   return preset.messageOverrides?.[locale]?.[key] ?? ((locale === "id" ? id[key] : undefined) ?? en[key]);
 }
 
@@ -80,7 +80,7 @@ export function translate(
   locale: UiLocale,
   key: MessageKey,
   params?: MessageParams,
-  preset: Preset = GENERAL_PRESET,
+  preset: PresetWording = GENERAL_PRESET,
 ): string {
   const message = messageFor(locale, key, preset);
   const termParams = presetTermParamsFor(preset, locale);
@@ -95,7 +95,7 @@ export function translatePlural(
   key: PluralMessageKey,
   count: number,
   params: MessageParams = {},
-  preset: Preset = GENERAL_PRESET,
+  preset: PresetWording = GENERAL_PRESET,
 ): string {
   const category = new Intl.PluralRules(locale).select(count);
   const pluralKey = `${key}.${category === "one" ? "one" : "other"}` as MessageKey;

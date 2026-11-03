@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { deactivate, storedConfiguration, websocketCredential, type ChannelConfiguration } from "@/live/caption-room-helpers";
+import { deactivate, publicConfiguration, storedConfiguration, websocketCredential, type ChannelConfiguration } from "@/live/caption-room-helpers";
+import { resolveWorkspacePreset, snapshotPreset } from "@/experience/presets";
 
 const base = {
   tokenHash: "a".repeat(64),
@@ -28,6 +29,23 @@ describe("stored configuration names", () => {
   it("prefers the current names when both are present", () => {
     expect(storedConfiguration({ ...base, sessionId: "new", serviceId: "old", sessionEventCount: 2, serviceEventCount: 9 }))
       .toMatchObject({ sessionId: "new", sessionEventCount: 2 });
+  });
+
+  it("reads a session stored before formats as General, and keeps a valid snapshot", () => {
+    expect(storedConfiguration(base)).not.toHaveProperty("preset");
+    expect(publicConfiguration(base).presetId).toBe("builtin:general");
+    const preset = snapshotPreset(resolveWorkspacePreset("builtin:sermon"));
+    expect(storedConfiguration({ ...base, preset })?.preset).toEqual(preset);
+    expect(publicConfiguration({ ...base, preset }).presetId).toBe("builtin:sermon");
+  });
+
+  it("drops a stored snapshot that is not valid instead of trusting it", () => {
+    const preset = snapshotPreset(resolveWorkspacePreset("builtin:sermon"));
+    for (const bad of [{ ...preset, id: "custom:x" }, { ...preset, version: 0 }, { ...preset, extra: 1 }, { id: "builtin:sermon" }, "builtin:sermon"]) {
+      const current = storedConfiguration({ ...base, preset: bad as never });
+      expect(current).not.toHaveProperty("preset");
+      expect(publicConfiguration({ ...base, preset: bad as never }).presetId).toBe("builtin:general");
+    }
   });
 
   it("returns undefined for a missing configuration", () => {
