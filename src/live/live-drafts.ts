@@ -1,5 +1,10 @@
+import { RECORDING_WINDOW_POLICIES } from "@/live/contracts";
+
 /** One transcription-only draft per caption; only Dynamic uses it. */
 export const MAX_DRAFTS_PER_CAPTION = 1;
+
+/** Dynamic's shortest window; draft admission reserves one final attempt per window of this length. */
+export const DRAFT_ADMISSION_WINDOW_MS = RECORDING_WINDOW_POLICIES.dynamic.minMs;
 
 export interface LiveDraftToggleEffects {
   invalidatePendingWork(): void;

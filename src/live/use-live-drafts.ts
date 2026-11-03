@@ -5,10 +5,9 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import type { CaptionTranscriptionResult } from "@/live/caption-inference";
 import {
   MAX_TRANSCRIPTION_REQUESTS,
-  recordingWindowBoundsMs,
   type RecordingWindowMs,
 } from "@/live/contracts";
-import { canDraft, createLiveDraftToggle } from "@/live/live-drafts";
+import { canDraft, createLiveDraftToggle, DRAFT_ADMISSION_WINDOW_MS } from "@/live/live-drafts";
 import { clearHeardDraft, type DraftReuseSnapshot, type HeardDraft } from "@/live/live-heard";
 
 export type LiveDraftPreview = HeardDraft;
@@ -33,7 +32,7 @@ export type LiveDraftRunner = (context: LiveDraftRunContext) => Promise<LiveDraf
 interface DraftWindow {
   id: number;
   generation: number;
-  maxWindowMs: number;
+  admissionWindowMs: number;
   snapshotAudio: () => Blob;
   draftsUsed: number;
   disabled: boolean;
@@ -113,7 +112,7 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
       attemptsUsed: optionsRef.current.attemptsUsed(),
       maxAttempts: MAX_TRANSCRIPTION_REQUESTS,
       remainingMs: optionsRef.current.remainingSessionMs(),
-      windowMs: window.maxWindowMs,
+      windowMs: window.admissionWindowMs,
       draftsUsed: window.draftsUsed,
       finalBusy: optionsRef.current.finalBusy(),
       draftInFlight: controllerRef.current !== null,
@@ -172,7 +171,7 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
     activeWindowRef.current = {
       id: ++nextWindowIdRef.current,
       generation: input.generation,
-      maxWindowMs: recordingWindowBoundsMs("dynamic").maxMs,
+      admissionWindowMs: DRAFT_ADMISSION_WINDOW_MS,
       snapshotAudio: input.snapshotAudio,
       draftsUsed: 0,
       disabled: false,

@@ -1,10 +1,35 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { MAX_TRANSCRIPTION_REQUESTS, RECORDING_WINDOW_POLICIES } from "@/live/contracts";
 import {
   canDraft,
   createLiveDraftToggle,
+  DRAFT_ADMISSION_WINDOW_MS,
   MAX_DRAFTS_PER_CAPTION,
 } from "@/live/live-drafts";
+
+const SESSION_MS = 90 * 60_000;
+
+/** Every window holds its draft whenever admitted (one extra attempt); returns finals refused for lack of attempts. */
+function simulateHeldDrafts(finalWindowMs: number, admissionWindowMs: number) {
+  let attemptsUsed = 0;
+  let finalsWithoutAttempt = 0;
+  for (let elapsedMs = 0; elapsedMs < SESSION_MS; elapsedMs += finalWindowMs) {
+    const admitted = canDraft({
+      attemptsUsed,
+      maxAttempts: MAX_TRANSCRIPTION_REQUESTS,
+      remainingMs: SESSION_MS - elapsedMs,
+      windowMs: admissionWindowMs,
+      draftsUsed: 0,
+      finalBusy: false,
+      draftInFlight: false,
+    });
+    if (admitted) attemptsUsed += 1;
+    if (attemptsUsed < MAX_TRANSCRIPTION_REQUESTS) attemptsUsed += 1;
+    else finalsWithoutAttempt += 1;
+  }
+  return { attemptsUsed, finalsWithoutAttempt };
+}
 
 describe("live draft scheduling", () => {
   it("allows one draft per caption and no more", () => {
@@ -56,5 +81,35 @@ describe("live draft scheduling", () => {
     toggle.startSession();
     expect(toggle.canRun()).toBe(true);
     expect(setSessionDisabled).toHaveBeenLastCalledWith(false);
+  });
+
+  it("reserves one final per Dynamic floor-length window", () => {
+    expect(DRAFT_ADMISSION_WINDOW_MS).toBe(RECORDING_WINDOW_POLICIES.dynamic.minMs);
+    const base = {
+      attemptsUsed: 1_130,
+      maxAttempts: MAX_TRANSCRIPTION_REQUESTS,
+      remainingMs: 2_700_000,
+      draftsUsed: 0,
+      finalBusy: false,
+      draftInFlight: false,
+    };
+    expect(canDraft({ ...base, windowMs: DRAFT_ADMISSION_WINDOW_MS })).toBe(false);
+    expect(canDraft({ ...base, windowMs: 14_000 })).toBe(true);
+  });
+
+  it("gives every final an attempt across a 90-minute session of floor-length windows", () => {
+    const result = simulateHeldDrafts(DRAFT_ADMISSION_WINDOW_MS, DRAFT_ADMISSION_WINDOW_MS);
+    expect(result.finalsWithoutAttempt).toBe(0);
+    expect(result.attemptsUsed).toBeLessThanOrEqual(MAX_TRANSCRIPTION_REQUESTS);
+  });
+
+  it("gives every final an attempt after a provider limit raises the floor to 6 s", () => {
+    const result = simulateHeldDrafts(6_000, DRAFT_ADMISSION_WINDOW_MS);
+    expect(result.finalsWithoutAttempt).toBe(0);
+    expect(result.attemptsUsed).toBeLessThanOrEqual(MAX_TRANSCRIPTION_REQUESTS);
+  });
+
+  it("leaves finals without attempts when the reserve uses Dynamic's cap", () => {
+    expect(simulateHeldDrafts(DRAFT_ADMISSION_WINDOW_MS, 14_000).finalsWithoutAttempt).toBeGreaterThan(0);
   });
 });
