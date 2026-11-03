@@ -73,7 +73,8 @@ import {
 } from "@/live/background-timer";
 import {
   createCutMetrics,
-  recordCutWindow,
+  classifyCut,
+  recordQueuedCutWindow,
   type CutReason,
 } from "@/live/cut-metrics";
 import {
@@ -993,7 +994,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   ]);
 
   const enqueueChunk = useCallback(
-    (audio: Blob, generation: number, draftWindowId?: number) => {
+    (audio: Blob, generation: number, draftWindowId?: number): boolean => {
       if (
         !sessionRef.current ||
         !capturingRef.current ||
@@ -1002,7 +1003,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       ) {
         if (draftWindowId !== undefined) clearLiveDraft(draftWindowId);
         pendingDraftRef.current = null;
-        return;
+        return false;
       }
       if (queueRef.current.length >= 2) {
         if (draftWindowId !== undefined) clearLiveDraft(draftWindowId);
@@ -1016,7 +1017,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           droppedChunks: state.droppedChunks + 1,
           message: tRef.current("live.message.cloudBehind"),
         }));
-        return;
+        return false;
       }
       const pending = pendingDraftRef.current;
       pendingDraftRef.current = null;
@@ -1027,6 +1028,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         ...(pending?.generation === generation ? { draft: pending } : {}),
       });
       void drainQueue();
+      return true;
     },
     [clearLiveDraft, drainQueue],
   );
@@ -1082,16 +1084,19 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             startRecorderChunk();
             return;
           }
+          const mimeType = recorder.mimeType || chunks[0]?.type || "audio/webm";
+          const queued = enqueueChunk(new Blob(chunks, { type: mimeType }), generation, draftWindowId ?? undefined);
           if (endReason !== null) {
             const cutWindow = {
               reason: endReason,
               lengthMs: (stoppedAtMs ?? performance.now()) - startedAtMs,
               heldDrafts,
             };
-            setLiveState((state) => ({ ...state, cutMetrics: recordCutWindow(state.cutMetrics, cutWindow) }));
+            setLiveState((state) => ({
+              ...state,
+              cutMetrics: recordQueuedCutWindow(state.cutMetrics, cutWindow, queued),
+            }));
           }
-          const mimeType = recorder.mimeType || chunks[0]?.type || "audio/webm";
-          enqueueChunk(new Blob(chunks, { type: mimeType }), generation, draftWindowId ?? undefined);
           startRecorderChunk();
         };
         const windowPolicy = recordingWindowBoundsMs(recordingWindowMs);
@@ -1146,7 +1151,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           policyState = result.state;
           if (recordingWindowMs !== "dynamic") {
             if (result.decision === "cut") {
-              stopWindow(result.state.elapsedMs >= bounds.maxMs ? "limit" : "pause");
+              stopWindow(classifyCut({ elapsedMs: result.state.elapsedMs, capMs: bounds.maxMs, confirmedByDraft: false }));
             }
             return;
           }
@@ -1181,15 +1186,19 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
                   snapshot: attempt.draft.snapshot,
                 };
               }
-              stopWindow(attempt.available && attempt.preview !== null ? "sentence" : "pause");
+              stopWindow(classifyCut({
+                elapsedMs: result.state.elapsedMs,
+                capMs: bounds.maxMs,
+                confirmedByDraft: attempt.available && attempt.preview !== null,
+              }));
             });
             return;
           }
-          stopWindow(result.state.elapsedMs >= bounds.maxMs ? "limit" : "pause");
+          stopWindow(classifyCut({ elapsedMs: result.state.elapsedMs, capMs: bounds.maxMs, confirmedByDraft: false }));
         }, DYNAMIC_SAMPLE_MS);
         recorderTimerRef.current = setBackgroundTimeout(() => {
           recorderTimerRef.current = null;
-          stopWindow("limit");
+          stopWindow(classifyCut({ elapsedMs: bounds.maxMs, capMs: bounds.maxMs, confirmedByDraft: false }));
         }, bounds.maxMs);
       };
       startRecorderChunk();

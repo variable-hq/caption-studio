@@ -19,8 +19,8 @@ Phase 1 changes Dynamic's pause timing in three steps. Each step is a separate c
 ### Measurement
 
 - `src/live/cut-metrics.ts` counts, for each window sent for transcription, how it ended: `sentence` (a draft confirmed the pause), `pause` (a pause cut without a confirming draft) or `limit` (the cap). It also counts held drafts and keeps a histogram of window lengths in 100 ms bins from 0 to 14 seconds, 141 integers in total. The median and 90th percentile are read from the histogram, so they are exact to 100 ms with constant memory.
-- Windows skipped by the speech gate are not counted. Numbered options report only `pause` and `limit`.
-- The counters live in the controlling tab's live state, like `transcriptionRequests`. They are kept through Pause, Resume, Clear and Apply now, reset at session start and end, and are zero after a reload. They are never stored, sent or logged.
+- Only windows queued for transcription are counted: windows skipped by the speech gate, and windows dropped because the transcription queue is full, are not. Numbered options report only `pause` and `limit`.
+- The counters live in the controlling tab's live state, like `transcriptionRequests`. They are reset at session start, kept through Pause, Resume, Clear and Apply now, and are zero after a reload. They are never stored, sent or logged.
 - Technical details shows five rows after "Audio chunks dropped": cuts at a sentence end, cuts at a pause, cuts at the wait limit, unfinished sentences held, and caption wait (typical and longest 10%).
 
 ### Replay harness

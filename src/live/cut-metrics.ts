@@ -57,6 +57,25 @@ export function recordCutWindow(metrics: CutMetrics, window: CutWindow): CutMetr
   };
 }
 
+/** Classify how a window ended: a confirming draft, the cap, or otherwise a pause before the cap. */
+export function classifyCut(input: {
+  elapsedMs: number;
+  capMs: number;
+  confirmedByDraft: boolean;
+}): CutReason {
+  if (input.confirmedByDraft) return "sentence";
+  return input.elapsedMs >= input.capMs ? "limit" : "pause";
+}
+
+/** Count a window only when it was queued for transcription; a dropped window changes nothing. */
+export function recordQueuedCutWindow(
+  metrics: CutMetrics,
+  window: CutWindow,
+  queued: boolean,
+): CutMetrics {
+  return queued ? recordCutWindow(metrics, window) : metrics;
+}
+
 export function countCutWindows(metrics: CutMetrics): number {
   return metrics.lengthBins.reduce((total, count) => total + count, 0);
 }

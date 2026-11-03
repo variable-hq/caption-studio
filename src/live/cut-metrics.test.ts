@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   CUT_LENGTH_BINS,
+  classifyCut,
   countCutWindows,
   createCutMetrics,
   cutLengthPercentileMs,
   recordCutWindow,
+  recordQueuedCutWindow,
   type CutMetrics,
   type CutReason,
 } from "@/live/cut-metrics";
@@ -90,5 +92,43 @@ describe("cut metrics", () => {
   it("ignores negative or fractional held-draft counts safely", () => {
     const metrics = recordCutWindow(createCutMetrics(), { reason: "pause", lengthMs: 5_000, heldDrafts: -3 });
     expect(metrics.heldDrafts).toBe(0);
+  });
+});
+
+describe("cut classification", () => {
+  it("calls a window that reached the cap a limit, even past it", () => {
+    expect(classifyCut({ elapsedMs: 14_000, capMs: 14_000, confirmedByDraft: false })).toBe("limit");
+    expect(classifyCut({ elapsedMs: 14_100, capMs: 14_000, confirmedByDraft: false })).toBe("limit");
+  });
+
+  it("calls a cut before the cap a pause", () => {
+    expect(classifyCut({ elapsedMs: 13_900, capMs: 14_000, confirmedByDraft: false })).toBe("pause");
+    expect(classifyCut({ elapsedMs: 6_000, capMs: 10_000, confirmedByDraft: false })).toBe("pause");
+  });
+
+  it("calls a cut confirmed by an available draft a sentence", () => {
+    expect(classifyCut({ elapsedMs: 5_200, capMs: 14_000, confirmedByDraft: true })).toBe("sentence");
+  });
+
+  it("calls a qualifying pause without an available draft a pause", () => {
+    expect(classifyCut({ elapsedMs: 5_200, capMs: 14_000, confirmedByDraft: false })).toBe("pause");
+  });
+});
+
+describe("queued windows only", () => {
+  const window = { reason: "pause", lengthMs: 5_000, heldDrafts: 1 } as const;
+
+  it("counts a window that was queued", () => {
+    const metrics = recordQueuedCutWindow(createCutMetrics(), window, true);
+    expect(metrics).toMatchObject({ pause: 1, heldDrafts: 1 });
+    expect(countCutWindows(metrics)).toBe(1);
+  });
+
+  it("leaves every counter and the histogram unchanged for a dropped window", () => {
+    const before = record(createCutMetrics(), "sentence", 5_000);
+    const after = recordQueuedCutWindow(before, window, false);
+    expect(after).toBe(before);
+    expect(countCutWindows(after)).toBe(1);
+    expect(after.heldDrafts).toBe(0);
   });
 });

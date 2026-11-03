@@ -308,7 +308,7 @@ recent translation context, output buffer, or public room state.
 `src/live/cut-metrics.ts` counts how each window sent for transcription ended (sentence,
 pause or limit), the unfinished drafts held, and window lengths in a fixed histogram of 100 ms
 bins up to 14 s, so the typical and longest-10% waits shown under **Technical details** need
-constant memory. Windows skipped by the speech gate are not counted. The counters sit in the
+constant memory. Windows skipped by the speech gate or dropped because the transcription queue is full are not counted. The counters sit in the
 controlling tab's live state and are never stored, sent or logged. `src/live/dynamic-replay.ts`
 is a test-only harness that replays labelled synthetic levels through the real window policy
 with a mock draft, to compare cut latency, mid-sentence finals and call rates.
