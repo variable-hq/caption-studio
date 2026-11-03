@@ -244,7 +244,7 @@ describe("operator interface translations", () => {
   });
 
   it("gives the empty Terms list generic examples", () => {
-    expect(enDisplay["wordsEditor.empty"]).toBe("No terms yet. Add names or terms the AI should know, such as a speaker, place or product name, or terms never to show.");
+    expect(enDisplay["wordsEditor.empty"]).toBe("No terms yet. Add names or terms the AI should know, such as speaker names, place or product names, or terms never to show.");
     expect(idDisplay["wordsEditor.empty"]).toBe("Belum ada istilah. Tambahkan nama atau istilah yang perlu dikenali AI, misalnya nama pembicara, tempat, atau produk, atau istilah yang tidak boleh ditampilkan.");
   });
 
