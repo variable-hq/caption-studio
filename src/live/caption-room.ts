@@ -48,6 +48,11 @@ import { SAMPLE_CAPTIONS } from "@/live/test-captions";
 import { HASH_HEX_PATTERN, UUID_PATTERN, sha256Hex } from "@/http/tokens";
 import { json, rpc, type ExperienceEnvironment, type JournalState } from "@/experience/contracts";
 
+/** The start and end routes; `/internal/service` is the name earlier builds used. */
+function isSessionRoute(pathname: string) {
+  return pathname === "/internal/session" || pathname === "/internal/service";
+}
+
 const OVERLAY_PROTOCOL = "church-caption-v1";
 const VIEWER_PROTOCOL = "church-caption-viewer-v1";
 const OVERLAY_SOCKET_TAG = "overlay";
@@ -307,10 +312,10 @@ export class CaptionRoom {
     ) {
       return this.replaceViewerLink(request);
     }
-    if (url.pathname === "/internal/service" && request.method === "POST") {
+    if (isSessionRoute(url.pathname) && request.method === "POST") {
       return this.startLiveSession(request);
     }
-    if (url.pathname === "/internal/service" && request.method === "DELETE") {
+    if (isSessionRoute(url.pathname) && request.method === "DELETE") {
       return this.endLiveSession(request);
     }
     if (url.pathname === "/internal/lease" && request.method === "POST") {

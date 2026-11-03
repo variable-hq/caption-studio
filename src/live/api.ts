@@ -365,7 +365,7 @@ async function startLiveSession(request: Request, env: LiveWorkerEnvironment) {
   if (body.saveHistory !== undefined && typeof body.saveHistory !== "boolean") throw new InvalidRequestBodyError();
   if (body.saveHistory === true && !env.SERMON_JOURNALS) return json({ error: "Saved history is not configured." }, 503);
   const response = await channelRoom(env).fetch(
-    new Request("https://caption-room/internal/service", {
+    new Request("https://caption-room/internal/session", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -471,7 +471,7 @@ async function replaceViewerLink(
 async function endLiveSession(request: Request, env: LiveWorkerEnvironment) {
   const { email } = await requireOperator(request, env);
   const response = await channelRoom(env).fetch(
-    new Request("https://caption-room/internal/service", {
+    new Request("https://caption-room/internal/session", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ controllerHash: await controllerHash(request) }),
@@ -655,7 +655,7 @@ export async function handleLiveApiRequest(
         ? await rotateChannel(request, env)
         : json({ error: "Unsupported OBS channel rotation operation." }, 405);
     }
-    if (url.pathname === "/api/live/channel/service") {
+    if (url.pathname === "/api/live/channel/session" || url.pathname === "/api/live/channel/service") {
       if (request.method === "POST") return await startLiveSession(request, env);
       if (request.method === "DELETE") return await endLiveSession(request, env);
       return json({ error: "Unsupported live-session operation." }, 405);

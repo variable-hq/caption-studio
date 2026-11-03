@@ -94,6 +94,15 @@ beforeEach(async () => {
 });
 
 describe("workspace-wide transcript archives", () => {
+  it("serves the archive under the transcripts path and the older sermons alias", async () => {
+    const current = await handleExperienceRequest(as(STARTING_OPERATOR, `/api/live/experience/transcripts/${SERVICE_ID}/archive`), environment);
+    const alias = await handleExperienceRequest(as(STARTING_OPERATOR, `/api/live/experience/sermons/${SERVICE_ID}/archive`), environment);
+
+    expect(current?.status).toBe(200);
+    expect(alias?.status).toBe(200);
+    expect(await alias?.json()).toEqual(await current?.json());
+  });
+
   it("serves the same archive to an operator who did not run the service", async () => {
     const path = `/api/live/experience/sermons/${SERVICE_ID}/archive`;
     const starting = await handleExperienceRequest(as(STARTING_OPERATOR, path), environment);

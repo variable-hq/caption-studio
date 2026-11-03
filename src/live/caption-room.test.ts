@@ -1727,6 +1727,16 @@ describe("stored session names", () => {
     expect(written).not.toHaveProperty("serviceEventCount");
   });
 
+  it("starts and ends a session under the internal session route and the older service route", async () => {
+    const { room } = roomFixture();
+    await createChannel(room);
+    const started = await room.fetch(request("/internal/session", { controllerHash: CONTROLLER_A, controllerLabel: "first@example.test", viewerTokenHash: VIEWER_A, takeover: false, style: { fontSize: 60 } }));
+    expect(started.status).toBe(200);
+    expect((await room.fetch(request("/internal/session", { controllerHash: CONTROLLER_A }, "DELETE"))).status).toBe(204);
+    expect((await room.fetch(request("/internal/service", { controllerHash: CONTROLLER_A, controllerLabel: "first@example.test", viewerTokenHash: VIEWER_A, takeover: false, style: { fontSize: 60 } }))).status).toBe(200);
+    expect((await room.fetch(request("/internal/service", { controllerHash: CONTROLLER_A }, "DELETE"))).status).toBe(204);
+  });
+
   it("accepts sessionId and the pre-session serviceId in the experience request body", async () => {
     const { room, storage } = roomFixture();
     await createChannel(room);

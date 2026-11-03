@@ -161,7 +161,7 @@ export function useObservedSession(active: boolean) {
         // until it reaches the newest recognized passage.
         for (let page = 0; page < MAX_SOURCE_PAGES; page += 1) {
           const result = await experienceRequest<{ sources: SourceRecord[]; more: boolean }>(
-            `sermons/${serviceId}/archive?after=${after}&paragraphAfter=0`,
+            `transcripts/${serviceId}/archive?after=${after}&paragraphAfter=0`,
           );
           if (!result.sources.length) return;
           after = result.sources.at(-1)!.id;

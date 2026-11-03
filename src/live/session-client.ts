@@ -87,7 +87,7 @@ export class LiveSessionClient {
     takeover = false,
     saveHistory = false,
   ): Promise<LiveSessionDetails> {
-    const response = await fetch("/api/live/channel/service", {
+    const response = await fetch("/api/live/channel/session", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ style, takeover, saveHistory }),
@@ -98,7 +98,7 @@ export class LiveSessionClient {
   }
 
   async endLiveSession(controllerToken: string) {
-    const response = await fetch("/api/live/channel/service", {
+    const response = await fetch("/api/live/channel/session", {
       method: "DELETE",
       headers: controllerHeaders(controllerToken),
       signal: AbortSignal.timeout(5_000),

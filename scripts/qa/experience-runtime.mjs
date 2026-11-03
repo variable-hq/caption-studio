@@ -19,7 +19,7 @@ for (const path of ['/read', '/operator/mobile', '/view']) {
  results.push(path + ' document headers');
 }
 assert.ok([200, 201].includes((await call('/api/live/channel', {})).status));
-const start = await call('/api/live/channel/service', { saveHistory: true, takeover: true });
+const start = await call('/api/live/channel/session', { saveHistory: true, takeover: true });
 assert.equal(start.status, 200);
 const { controllerToken, serviceId, translationRevision, readerUrl } = start.value;
 const controller = { 'x-caption-controller': controllerToken };
@@ -56,11 +56,15 @@ assert.equal(reading.value.paragraphs[0].fallback, true);
 results.push('real Durable Object alarm commits fallback; Clear rejects stale output');
 assert.equal((await call('/api/live/channel/control', { action: 'clear' }, controller)).status, 200);
 assert.equal((await call('/api/live/reader', undefined, reader)).value.paragraphs.length, 1);
-assert.ok([200, 204].includes((await call('/api/live/channel/service', undefined, controller, 'DELETE')).status));
+assert.ok([200, 204].includes((await call('/api/live/channel/session', undefined, controller, 'DELETE')).status));
 assert.equal((await call('/api/live/reader', undefined, reader)).value.status, 'ended');
 assert.equal((await call('/api/live/experience/remote', { serviceId }, remote)).status, 410);
-const archivePath = '/api/live/experience/sermons/' + serviceId;
+const archivePath = '/api/live/experience/transcripts/' + serviceId;
 assert.equal((await call(archivePath + '/archive')).value.details.saved, true);
+// The old paths reach the same handlers while the aliases are kept.
+assert.equal((await call('/api/live/experience/sermons/' + serviceId + '/archive')).value.details.saved, true);
+assert.deepEqual((await call('/api/live/channel/service', undefined, controller, 'GET')), (await call('/api/live/channel/session', undefined, controller, 'GET')));
+results.push('old and new channel and transcript paths reach the same handlers');
 assert.equal((await call(archivePath + '/remove', { id: reading.value.paragraphs[0].id, confirm: true })).status, 200);
 assert.equal((await call('/api/live/reader', undefined, reader)).value.removed.length, 1);
 assert.equal((await call(archivePath + '/delete', { confirm: true })).status, 200);

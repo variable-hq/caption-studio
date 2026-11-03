@@ -57,9 +57,9 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       return json({ ...body, services });
     }
     const parts = operation.split("/");
-    if (parts.length === 3 && parts[0] === "sermons" && UUID_PATTERN.test(parts[1] ?? "") &&
+    if (parts.length === 3 && (parts[0] === "transcripts" || parts[0] === "sermons") && UUID_PATTERN.test(parts[1] ?? "") &&
         ["archive", "summary", "remove", "correct", "delete", "metadata"].includes(parts[2])) {
-      if (!env.SERMON_JOURNALS) return json({ error: "Sermon archive is not configured." }, 503);
+      if (!env.SERMON_JOURNALS) return json({ error: "Transcript archive is not configured." }, 503);
       if (parts[2] === "archive" && request.method === "GET") return rpc(env.SERMON_JOURNALS, parts[1],
         `/archive?after=${Math.max(0, Number(url.searchParams.get("after")) || 0)}&paragraphAfter=${Math.max(0, Number(url.searchParams.get("paragraphAfter")) || 0)}`);
       if (parts[2] === "metadata" && request.method === "GET") return rpc(env.SERMON_JOURNALS, parts[1], "/metadata");

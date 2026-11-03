@@ -390,7 +390,7 @@ function OperatorDashboardContent() {
     if (!shouldAutoSaveMetadata.current || !liveSession?.saveHistory || !liveSession.serviceId || metadataPostedFor.current === liveSession.serviceId) return;
     metadataPostedFor.current = liveSession.serviceId;
     const metadata = normalizeSessionMetadata({ ...sessionMetadata, sessionAt: sessionDateEdited ? sessionMetadata.sessionAt : Date.parse(liveSession.startedAt) });
-    metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`sermons/${liveSession.serviceId}/metadata`, metadata)
+    metadataWrite.current = experienceRequest<{ metadata: SessionMetadata }>(`transcripts/${liveSession.serviceId}/metadata`, metadata)
       .then((result) => { setSessionMetadata(result.metadata); setSessionMetadataMessage(t("live.sessionDetailsSaved")); shouldAutoSaveMetadata.current = false; })
       .catch(() => { setSessionMetadataMessage(t("live.sessionDetailsAutoSaveFailed")); shouldAutoSaveMetadata.current = false; });
   }, [liveState.liveSession, liveState.status, sessionMetadata, sessionDateEdited, t]);
@@ -400,7 +400,7 @@ function OperatorDashboardContent() {
     setSessionMetadataMessage(t("common.saving"));
     try {
       await metadataWrite.current;
-      const result = await experienceRequest<{ metadata: SessionMetadata }>(`sermons/${serviceId}/metadata`, normalizeSessionMetadata(sessionMetadata));
+      const result = await experienceRequest<{ metadata: SessionMetadata }>(`transcripts/${serviceId}/metadata`, normalizeSessionMetadata(sessionMetadata));
       setSessionMetadata(result.metadata);
       setSessionMetadataMessage(t("live.sessionDetailsSaved"));
     } catch { setSessionMetadataMessage(t("live.sessionDetailsSaveFailed")); }
