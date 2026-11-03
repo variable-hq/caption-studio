@@ -95,8 +95,9 @@ Keep all four SQLite migrations: v1 creates CaptionRoom; v2 adds SermonJournal a
 AiUsageLedger; v3 adds OperatorPreferences; v4 renames SermonJournal to TranscriptJournal
 (`renamed_classes`). Do not rename/delete established migration tags to repair a build.
 
-The v4 rename is one-way. Deploy it alone, after the build with session names (PR #100) is
-deployed and with no live session running. Once v4 is applied, a build from before it cannot
+The v4 rename is one-way. Workers Builds deploys `main` on merge, so the merge is the deploy:
+merge it only after the build with session names (PR #100) has finished deploying and with no
+live session running. Once v4 is applied, a build from before it cannot
 bind `TRANSCRIPT_JOURNALS` / `TranscriptJournal`, so rolling back to an earlier build is not
 supported. After the deploy, check that the Worker's Durable Object bindings include
 `TRANSCRIPT_JOURNALS` / `TranscriptJournal` and that the v4 migration is applied, then open a
