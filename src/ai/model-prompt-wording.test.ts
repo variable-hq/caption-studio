@@ -252,3 +252,39 @@ describe("per-format translation rule", () => {
     expect(translationText("balanced")).not.toContain("Context: a sermon");
   });
 });
+
+describe("per-format summary framing", () => {
+  const framingOf = (presetId: string) => resolveWorkspacePreset(presetId).summaryFraming;
+
+  it("states each format's framing once, before the output contract", () => {
+    const rules = buildSummaryPrompt({
+      task: "Summarize.", guidance: "", framing: framingOf("builtin:sermon"), language: "id", length: "short", incomplete: false,
+      segments: [{ id: 1, at: 0, text: "Synthetic." }],
+    })[0].content;
+    expect(rules).toContain("Context: the supplied transcript of a sermon.");
+    expect(rules.split("Context: the supplied transcript of a sermon.").length - 1).toBe(1);
+    expect(rules.indexOf("Context: the supplied transcript of a sermon.")).toBeLessThan(rules.indexOf("Output contract: return JSON"));
+  });
+
+  it("adds no framing line for General, so its summary prompt is unchanged", () => {
+    const general = textOf(buildSummaryPrompt({ task: "Summarize.", guidance: "", language: "id", length: "short", incomplete: false, segments: [] }));
+    expect(general).not.toContain("Context: the supplied transcript");
+    expect(general).not.toContain("Context: the ");
+  });
+
+  it("keeps the framing out of the untrusted transcript data", () => {
+    const messages = buildSummaryPrompt({
+      task: "Summarize.", guidance: "", framing: framingOf("builtin:talkshow"), language: "id", length: "short", incomplete: false,
+      segments: [{ id: 1, at: 0, text: "Synthetic." }],
+    });
+    expect(messages[1].content).not.toContain("framing");
+    expect(messages[1].content).not.toContain("talk show episode");
+  });
+
+  it("gives each non-General format its own framing", () => {
+    expect(framingOf("builtin:sermon")).toBe("supplied transcript of a sermon");
+    expect(framingOf("builtin:talkshow")).toBe("supplied transcript of a talk show episode");
+    expect(framingOf("builtin:keynote")).toBe("supplied transcript of a keynote presentation");
+    expect(framingOf("builtin:general")).toBeUndefined();
+  });
+});

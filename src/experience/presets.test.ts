@@ -248,6 +248,14 @@ describe("built-in presets", () => {
       /transcriptionPrefix is allowed only on builtin: presets/u,
     );
     expectRejected(
+      customPreset({ summaryFraming: "supplied transcript of a sermon" }),
+      /summaryFraming is allowed only on builtin: presets/u,
+    );
+    expectRejected(
+      { ...GENERAL_PRESET, id: "builtin:test", summaryFraming: "x".repeat(121) },
+      /summaryFraming must be 120 characters or fewer/u,
+    );
+    expectRejected(
       customPreset({ translationRule: "Context: a sermon." }),
       /translationRule is allowed only on builtin: presets/u,
     );

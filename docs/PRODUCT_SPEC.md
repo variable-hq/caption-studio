@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 3 November 2026 against merged PR #105 (`eaec64a`). The corrected 13 September
+Reviewed 4 November 2026 against merged PR #106 (`2f3432e`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -189,8 +189,17 @@ added. Languages, caption style, translator instructions, summary language, auto
 summaries and transcript saving are never filled. While a session is live the output buffer
 is not changed; it applies after the session ends. General fills nothing.
 
-In this release a format changes wording and these starting values. AI model context is not
-changed by the format yet. Indonesian preset wording is a draft pending native review.
+A format also changes the model's context for the operator's requests. Sermon, Talkshow and
+Keynote each add a transcription prefix (what the recording is, which names and terms to
+keep), one translation rule for the speech's context (for example call-and-response in a
+sermon, interruptions in a talk show), and a summary framing line. General adds none of
+these. The format's id travels with each request and the server resolves its text; the
+server's safeguards are unchanged and come first. Each summary records the format it used.
+Indonesian preset wording is a draft pending native review.
+
+Until a session stores its own format, the format a request uses is the workspace format at
+the time of the request, so changing it during a session changes the context of later
+requests in that session.
 
 The top bar shows the format after the workspace name. While no session is live it links to
 Settings › Presets; while a session is live it is plain text. Saved transcripts, the audience

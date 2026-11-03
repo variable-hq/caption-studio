@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 3 November 2026 against merged PR #105 (`eaec64a`). Cloudflare deployed `20597d8`
+Reviewed 4 November 2026 against merged PR #106 (`2f3432e`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -115,7 +115,8 @@ in a second JSON-fenced trusted guidance block, separate from untrusted caption 
 Session metadata uses the journal's separate `metadata` key, is exposed through a small
 `GET /metadata` response for history lists, and is also returned by `/archive`;
 summary prompt construction reads only summary options, transcript segments and evidence
-notes.
+notes, plus the format's summary framing. Each summary job records the format id it was
+generated under.
 
 ## Credentials and public surfaces
 

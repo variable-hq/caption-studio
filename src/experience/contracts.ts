@@ -118,6 +118,8 @@ export interface SummaryJob {
   status: "queued" | "running" | "completed" | "failed";
   revision: number;
   options: SummaryOptions;
+  /** The built-in format the summary was generated under; absent on jobs made before formats. */
+  presetId?: string;
   cursor: number;
   notes: SummaryPoint[];
   result?: SummaryPoint[];
@@ -129,6 +131,7 @@ export interface SummaryJob {
 /** Queued at End for the ending operator; promoted to a summary job once the journal has ended. */
 export interface AutoSummaryRequest {
   options: SummaryOptions;
+  presetId?: string;
 }
 export function rpc(namespace: Namespace, id: string, path: string, body?: unknown) {
   return namespace.get(namespace.idFromName(id)).fetch(new Request(`https://internal${path}`, {
