@@ -3,7 +3,7 @@ import type { RecordingWindowPolicy } from "@/live/contracts";
 export const DYNAMIC_SAMPLE_MS = 100;
 export const DYNAMIC_ABS_SILENCE_RMS = 0.03;
 export const DYNAMIC_SILENCE_RATIO = 0.2;
-/** When the provider is busy, no option cuts before this floor for the rest of the service. */
+/** When the provider is busy, no option cuts before this floor for the rest of the session. */
 export const BACKOFF_FLOOR_MS = 6_000;
 export const SPEECH_PEAK_DECAY = 0.97;
 
@@ -46,7 +46,7 @@ export function requiredPauseMs(bounds: WindowBounds, elapsedMs: number): number
   );
 }
 
-/** Raise one wait-time option's floor for the rest of a service after a provider limit. */
+/** Raise one wait-time option's floor for the rest of a session after a provider limit. */
 export function withRaisedFloor(bounds: WindowBounds): WindowBounds {
   return {
     ...bounds,

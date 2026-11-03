@@ -46,15 +46,15 @@ function captionUpdate(caption: ViewerCaption | null | undefined) {
 }
 
 /**
- * Follows the service another operator of the same Access workspace controls.
+ * Follows the session another operator of the same Access workspace controls.
  * Watching is read-only: it registers a watcher credential, mirrors the public
- * caption stream, and — only when that service saves history — tails the
+ * caption stream, and — only when that session saves history — tails the
  * Access-protected source transcript. It never reserves attempts, never sends
  * audio and never displaces the controller.
  */
 export function useObservedSession(active: boolean) {
   const [state, setState] = useState<ObservedSessionState>(IDLE);
-  // Watching stops the moment this browser controls the service or the channel
+  // Watching stops the moment this browser controls the session or the channel
   // goes idle, so the mirrored output is derived rather than reset in an effect.
   const observed = active ? state : IDLE;
 
@@ -110,8 +110,8 @@ export function useObservedSession(active: boolean) {
         socket = null;
         if (stopped) return;
         if (event.code === 4002 || event.code === 4003) {
-          // The service ended or restarted. Drop the stale mirror and re-register:
-          // a replacement service issues a new credential, and a channel that is
+          // The session ended or restarted. Drop the stale mirror and re-register:
+          // a replacement session issues a new credential, and a channel that is
           // really idle stops this effect through the operator page's poll.
           setState(IDLE);
           retry = setTimeout(() => void start(), 3_000);
@@ -130,7 +130,7 @@ export function useObservedSession(active: boolean) {
     const start = async () => {
       if (stopped) return;
       try {
-        const observer = await client.observeService();
+        const observer = await client.observeSession();
         connect(observer);
       } catch {
         if (stopped) return;

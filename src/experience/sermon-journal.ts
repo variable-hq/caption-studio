@@ -31,7 +31,7 @@ export function parseSummary(text: string, allowedIds: Set<number>): SummaryPoin
   });
 }
 
-/** One service per object. Unsaved source and reader buffers never enter durable storage. */
+/** One session per object. Unsaved source and reader buffers never enter durable storage. */
 /** Task text for the summary prompt; the prompt builder adds the envelope and the untrusted-data rules. */
 export const SUMMARY_SYNTHESIS_TASK = "Combine these grounded notes into a transcript summary. Include theme, outline, main points, mentioned references, speaker applications and uncertainty when supported.";
 export const SUMMARY_SECTION_TASK = "Summarize this transcript section, preserving evidence IDs.";

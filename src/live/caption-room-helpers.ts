@@ -4,7 +4,7 @@ import { isLanguageLocale } from "@/domain/languages";
 import { json } from "@/experience/contracts";
 import { CAPABILITY_TOKEN_PATTERN, HASH_HEX_PATTERN } from "@/http/tokens";
 import {
-  MAX_SERVICE_OBSERVERS,
+  MAX_SESSION_OBSERVERS,
   MAX_TRANSCRIPTION_REQUESTS,
   normalizeCaptionStyle,
   normalizeTranslationRevision,
@@ -47,9 +47,9 @@ export interface ChannelConfiguration {
   readerHash?: string;
   captionEpoch?: number;
   remoteHash?: string;
-  /** Paired operator phones for this service, keyed by hashed Access identity. */
+  /** Paired operator phones for this session, keyed by hashed Access identity. */
   remoteHashes?: Record<string, string>;
-  /** Read-only workspace watchers for this service, keyed by hashed Access identity. */
+  /** Read-only workspace watchers for this session, keyed by hashed Access identity. */
   observers?: Record<string, string>;
   heartbeatAt?: number;
   remoteCommand?: RemoteCommand;
@@ -68,14 +68,14 @@ export interface ChannelConfiguration {
   translationRevision: number;
   lastTranslationRefreshRequestId?: string;
   controllerHash?: string;
-  /** Access email of the operator who started the service, for the workspace rail. */
+  /** Access email of the operator who started the session, for the workspace rail. */
   controllerLabel?: string;
   viewerTokenHash?: string;
   startedAt?: number;
   expiresAt?: number;
 }
 
-export interface StartServiceRequest {
+export interface StartSessionRequest {
   readerHash?: string;
   saveHistory?: boolean;
   controllerHash: string;
@@ -127,7 +127,7 @@ export function normalizedAttempts(value: unknown): number[] {
 }
 
 /**
- * Keeps at most `MAX_SERVICE_OBSERVERS` credentials, one per hashed Access
+ * Keeps at most `MAX_SESSION_OBSERVERS` credentials, one per hashed Access
  * identity. Insertion order is preserved, so the oldest identity is dropped
  * first once the cap is full.
  */
@@ -136,7 +136,7 @@ export function normalizedCredentialMap(value: unknown): Record<string, string> 
   const entries = Object.entries(value as Record<string, unknown>)
     .filter(([key, hash]) =>
       IDENTITY_KEY.test(key) && typeof hash === "string" && HASH_HEX_PATTERN.test(hash))
-    .slice(-MAX_SERVICE_OBSERVERS) as [string, string][];
+    .slice(-MAX_SESSION_OBSERVERS) as [string, string][];
   return entries.length ? Object.fromEntries(entries) : undefined;
 }
 
@@ -150,7 +150,7 @@ export function withCredential(
   delete next[identityKey];
   next[identityKey] = hash;
   const keys = Object.keys(next);
-  for (const stale of keys.slice(0, Math.max(0, keys.length - MAX_SERVICE_OBSERVERS))) {
+  for (const stale of keys.slice(0, Math.max(0, keys.length - MAX_SESSION_OBSERVERS))) {
     delete next[stale];
   }
   return next;
@@ -224,7 +224,7 @@ export function deactivate(configuration: ChannelConfiguration) {
   return current;
 }
 
-export function serviceExpired(configuration: ChannelConfiguration) {
+export function sessionExpired(configuration: ChannelConfiguration) {
   return (
     isActive(configuration) &&
     typeof configuration.expiresAt === "number" &&

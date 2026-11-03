@@ -39,7 +39,7 @@ export function UsageHistory() {
     finally { setBusy(false); }
   }
   useEffect(() => {
-    // Previous services are already in the 30-day ledger; show them without a click.
+    // Previous sessions are already in the 30-day ledger; show them without a click.
     const initial = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(initial);
   }, []);

@@ -18,7 +18,7 @@ export interface LiveDraftRunContext {
   signal: AbortSignal;
   captureGeneration: number;
   isCurrent: () => boolean;
-  /** Stop drafts for the rest of the service after a provider limit or rejection. */
+  /** Stop drafts for the rest of the session after a provider limit or rejection. */
   onDisableForSession: () => void;
 }
 
@@ -51,7 +51,7 @@ interface UseLiveDraftsOptions {
   runnerRef: MutableRefObject<LiveDraftRunner>;
   attemptsUsed: () => number;
   finalBusy: () => boolean;
-  remainingServiceMs: () => number;
+  remainingSessionMs: () => number;
 }
 
 export function useLiveDrafts(options: UseLiveDraftsOptions) {
@@ -112,7 +112,7 @@ export function useLiveDrafts(options: UseLiveDraftsOptions) {
     if (!canDraft({
       attemptsUsed: optionsRef.current.attemptsUsed(),
       maxAttempts: MAX_TRANSCRIPTION_REQUESTS,
-      remainingMs: optionsRef.current.remainingServiceMs(),
+      remainingMs: optionsRef.current.remainingSessionMs(),
       windowMs: window.maxWindowMs,
       draftsUsed: window.draftsUsed,
       finalBusy: optionsRef.current.finalBusy(),

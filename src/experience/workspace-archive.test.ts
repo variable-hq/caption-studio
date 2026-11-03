@@ -6,7 +6,7 @@ import { SermonJournal } from "./sermon-journal";
 import type { JournalState, Namespace } from "./contracts";
 
 // One Access tenant is one workspace: these tests prove that a saved sermon
-// belongs to the workspace, not to the operator whose service produced it.
+// belongs to the workspace, not to the operator whose session produced it.
 vi.mock("jose", () => ({
   createRemoteJWKSet: () => ({}),
   jwtVerify: async (token: string) => {

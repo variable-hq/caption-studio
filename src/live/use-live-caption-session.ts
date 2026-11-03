@@ -22,7 +22,7 @@ import {
   normalizeCaptionStyle,
   recordingWindowBoundsMs,
   type CaptionStyle,
-  type LiveServiceDetails,
+  type LiveSessionDetails,
   type LiveSessionControlAction,
   type LiveSessionState,
   type PublicCaptionRequest,
@@ -232,7 +232,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const capturingRef = useRef(false);
   const captureGenerationRef = useRef(0);
   const endingRef = useRef(false);
-  const serviceRef = useRef<LiveServiceDetails | null>(null);
+  const sessionRef = useRef<LiveSessionDetails | null>(null);
   const loadGenerationRef = useRef(0);
   const recentContextRef = useRef<string[]>([]);
   const sessionTimerRef = useRef<number | null>(null);
@@ -251,8 +251,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     runnerRef: draftRunnerRef,
     attemptsUsed: () => attemptsUsedRef.current,
     finalBusy: () => processingRef.current || queueRef.current.length > 0,
-    remainingServiceMs: () => {
-      const expiresAt = serviceRef.current?.expiresAt;
+    remainingSessionMs: () => {
+      const expiresAt = sessionRef.current?.expiresAt;
       return expiresAt ? Math.max(0, new Date(expiresAt).getTime() - Date.now()) : 0;
     },
   });
@@ -301,7 +301,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
   useEffect(() => {
     window.dispatchEvent(
-      new CustomEvent("church-caption-state", {
+      new CustomEvent("caption-studio-state", {
         detail: {
           status: liveState.status,
           message: liveState.message,
@@ -346,7 +346,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     stopMicrophone();
   }, [stopMicrophone, stopTranslationCapture]);
 
-  const clearServiceTimer = useCallback(() => {
+  const clearSessionTimer = useCallback(() => {
     if (sessionTimerRef.current !== null) {
       clearBackgroundTimeout(sessionTimerRef.current);
       sessionTimerRef.current = null;
@@ -359,12 +359,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       stopCapture();
       resetOutputBuffer();
       resetRecentOutputs();
-      clearServiceTimer();
+      clearSessionTimer();
       window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
       window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
       window.sessionStorage.removeItem(TRANSLATION_SETTINGS_STORAGE_KEY);
       window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
-      serviceRef.current = null;
+      sessionRef.current = null;
       activeTranslationSettingsRef.current = null;
       setActiveTranslationSettings(null);
       requireTranslationRefresh(false);
@@ -397,10 +397,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           : current.channel,
       }));
     },
-    [clearServiceTimer, requireTranslationRefresh, resetOutputBuffer, resetRecentOutputs, stopCapture],
+    [clearSessionTimer, requireTranslationRefresh, resetOutputBuffer, resetRecentOutputs, stopCapture],
   );
 
-  const endService = useCallback(
+  const endLiveSession = useCallback(
     async (message = tRef.current("live.message.ended"), failed = false) => {
       if (endingRef.current) return;
       endingRef.current = true;
@@ -409,8 +409,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       stopCapture();
       resetOutputBuffer();
       resetRecentOutputs();
-      clearServiceTimer();
-      const service = serviceRef.current;
+      clearSessionTimer();
+      const service = sessionRef.current;
       if (!service) {
         window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
         window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
@@ -441,13 +441,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         message: tRef.current("live.message.ending"),
       }));
       try {
-        await liveClientRef.current.endService(service.controllerToken);
+        await liveClientRef.current.endLiveSession(service.controllerToken);
         stopCapture();
         window.sessionStorage.removeItem(CONTROLLER_STORAGE_KEY);
         window.sessionStorage.removeItem(VIEWER_STORAGE_KEY);
         window.sessionStorage.removeItem(TRANSLATION_SETTINGS_STORAGE_KEY);
         window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
-        serviceRef.current = null;
+        sessionRef.current = null;
         activeTranslationSettingsRef.current = null;
         setActiveTranslationSettings(null);
         requireTranslationRefresh(false);
@@ -496,12 +496,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         endingRef.current = false;
       }
     },
-    [clearServiceTimer, handleTakenOver, requireTranslationRefresh, resetOutputBuffer, resetRecentOutputs, stopCapture],
+    [clearSessionTimer, handleTakenOver, requireTranslationRefresh, resetOutputBuffer, resetRecentOutputs, stopCapture],
   );
 
   const reconcileExternalTranslationRevision = useCallback(
     (translationRevision: unknown, transcriptionRequests?: number) => {
-      const service = serviceRef.current;
+      const service = sessionRef.current;
       if (!service) return;
       const currentRevision = service.translationRevision;
       const nextRevision =
@@ -509,7 +509,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         Number(translationRevision) >= 0
           ? Number(translationRevision)
           : currentRevision;
-      const updatedService = {
+      const updatedSession = {
         ...service,
         translationRevision: nextRevision,
       };
@@ -518,7 +518,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         capturingRef.current || refreshShouldResumeRef.current;
       stopCapture();
       resetOutputBuffer();
-      serviceRef.current = updatedService;
+      sessionRef.current = updatedSession;
       activeTranslationSettingsRef.current = null;
       setActiveTranslationSettings(null);
       window.sessionStorage.removeItem(TRANSLATION_SETTINGS_STORAGE_KEY);
@@ -536,7 +536,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         lastLatencyMs: null,
         transcriptionRequests:
           transcriptionRequests ?? current.transcriptionRequests,
-        service: updatedService,
+        service: updatedSession,
         channel: current.channel
           ? {
               ...current.channel,
@@ -550,20 +550,20 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
   const publishBufferedEntry = useCallback(
     async (entry: OutputBufferEntry) => {
-      const service = serviceRef.current;
+      const service = sessionRef.current;
       if (!service) return;
       // Also requires the buffer generation to be unchanged, since Pause/Clear/refresh/
       // takeover/End all discard it via resetOutputBuffer without changing controllerToken.
       const bufferGeneration = outputBufferGenerationRef.current;
-      const isStillCurrentService = () =>
-        serviceRef.current?.controllerToken === service.controllerToken &&
+      const isStillCurrentSession = () =>
+        sessionRef.current?.controllerToken === service.controllerToken &&
         outputBufferGenerationRef.current === bufferGeneration;
       try {
         const published = await liveClientRef.current.publish(service.controllerToken, {
           ...entry.request,
           publicText: entry.publicText,
         });
-        if (!isStillCurrentService()) return;
+        if (!isStillCurrentSession()) return;
         recordRecentOutput({ id: crypto.randomUUID(), at: Date.now(), sourceText: entry.sourceText, publicText: entry.publicText, hidden: entry.hidden });
         setLiveState((state) => ({
           ...state,
@@ -581,7 +581,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         }));
       } catch (error) {
         // A stale response must not act on a session this tab has since ended or changed.
-        if (!isStillCurrentService()) return;
+        if (!isStillCurrentSession()) return;
         if (isControllerReplaced(error)) {
           handleTakenOver();
           return;
@@ -615,20 +615,20 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           (error instanceof LiveApiError && error.code === "transcription_limit_reached") ||
           /quota|expired|event limit|language could not be detected|authentication/i.test(message)
         ) {
-          await endService(message, true);
+          await endLiveSession(message, true);
           return;
         }
         setLiveState((state) => ({ ...state, message }));
       }
     },
-    [endService, handleTakenOver, reconcileExternalTranslationRevision, outputBufferGenerationRef, recordRecentOutput, resetOutputBuffer, stopCapture],
+    [endLiveSession, handleTakenOver, reconcileExternalTranslationRevision, outputBufferGenerationRef, recordRecentOutput, resetOutputBuffer, stopCapture],
   );
   publishBufferedEntryRef.current = publishBufferedEntry;
 
   const processChunk = useCallback(
     async (audio: Blob, generation: number, draft?: PendingDraft) => {
       const isCurrentCapture = () =>
-        Boolean(serviceRef.current) &&
+        Boolean(sessionRef.current) &&
         capturingRef.current &&
         generation === captureGenerationRef.current;
       if (!isCurrentCapture()) return;
@@ -645,14 +645,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       );
       const signal = captureAbortRef.current?.signal;
       if (!signal) return;
-      const serviceAtStart = serviceRef.current;
-      if (!serviceAtStart) return;
+      const sessionAtStart = sessionRef.current;
+      if (!sessionAtStart) return;
       const reuseDraft = draft && draftReusedAsFinal(
         { captureGeneration: draft.generation, snapshot: draft.snapshot },
         {
           captureGeneration: generation,
-          controllerToken: serviceAtStart.controllerToken,
-          translationRevision: serviceAtStart.translationRevision,
+          controllerToken: sessionAtStart.controllerToken,
+          translationRevision: sessionAtStart.translationRevision,
           settings: current,
           liveWords: liveWordsAtStart,
           liveNote: settingsRef.current.liveNote,
@@ -705,12 +705,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           audio,
           settings: current,
           glossary: activeGlossary,
-          controllerToken: serviceAtStart.controllerToken,
+          controllerToken: sessionAtStart.controllerToken,
           recentContext: recentContextRef.current,
           liveNote: settingsRef.current.liveNote,
           signal,
           isCurrent: isCurrentCapture,
-          currentRevision: serviceAtStart.translationRevision,
+          currentRevision: sessionAtStart.translationRevision,
           onRevisionMismatch: (lease) =>
             reconcileExternalTranslationRevision(lease.translationRevision, lease.transcriptionRequests),
           onLease: (lease) => {
@@ -736,14 +736,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       if (!inference) return;
       const { lease, glossary, originalSource, sourceText, detectedLanguage, translation } = inference;
 
-      if (serviceAtStart.saveHistory) {
+      if (sessionAtStart.saveHistory) {
         try {
           await experienceRequest("source", { source: { id: lease.transcriptionRequests,
             text: originalSource, correction: sourceText !== originalSource ? sourceText : undefined,
-            language: detectedLanguage, translationRevision: lease.translationRevision } }, serviceAtStart.controllerToken);
+            language: detectedLanguage, translationRevision: lease.translationRevision } }, sessionAtStart.controllerToken);
         } catch {
           setLiveState((state) => ({ ...state, historyIncomplete: true, message: tRef.current("live.message.historySavingFailed") }));
-          void experienceRequest("gap", {}, serviceAtStart.controllerToken).catch(() => {});
+          void experienceRequest("gap", {}, sessionAtStart.controllerToken).catch(() => {});
         }
       }
 
@@ -777,7 +777,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         style: normalizeCaptionStyle(settingsRef.current.style),
         translationRevision: lease.translationRevision,
       };
-      const service = serviceRef.current;
+      const service = sessionRef.current;
       if (!service || !isCurrentCapture()) return;
       recentContextRef.current = [...recentContextRef.current, sourceText].slice(-4);
 
@@ -841,8 +841,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
 
   const runLiveDraft = useCallback<LiveDraftRunner>(async ({ audio, signal, isCurrent, captureGeneration, onDisableForSession }) => {
     const current = activeTranslationSettingsRef.current;
-    const serviceAtStart = serviceRef.current;
-    if (!current || !serviceAtStart || !capturingRef.current || !isCurrent()) return null;
+    const sessionAtStart = sessionRef.current;
+    if (!current || !sessionAtStart || !capturingRef.current || !isCurrent()) return null;
     const liveWords = liveWordEntriesRef.current;
     const liveNote = settingsRef.current.liveNote;
     const liveSettings = liveWordsToSettings(liveWords);
@@ -854,16 +854,16 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       isCurrent() &&
       capturingRef.current &&
       captureGeneration === captureGenerationRef.current &&
-      serviceRef.current?.controllerToken === serviceAtStart.controllerToken;
+      sessionRef.current?.controllerToken === sessionAtStart.controllerToken;
     const transcription = await runCaptionTranscription({
       audio,
       settings: current,
       glossary: activeGlossary,
-      controllerToken: serviceAtStart.controllerToken,
+      controllerToken: sessionAtStart.controllerToken,
       recentContext: recentContextRef.current,
       signal,
       isCurrent: isCurrentDraft,
-      currentRevision: serviceAtStart.translationRevision,
+      currentRevision: sessionAtStart.translationRevision,
       onRevisionMismatch: (lease) =>
         reconcileExternalTranslationRevision(lease.translationRevision, lease.transcriptionRequests),
       onLease: (lease) => {
@@ -893,8 +893,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       transcription,
       snapshot: {
         captureGeneration,
-        controllerToken: serviceAtStart.controllerToken,
-        translationRevision: serviceAtStart.translationRevision,
+        controllerToken: sessionAtStart.controllerToken,
+        translationRevision: sessionAtStart.translationRevision,
         settings: current,
         liveWords,
         liveNote,
@@ -907,7 +907,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     if (processingRef.current) return;
     processingRef.current = true;
     try {
-      while (serviceRef.current && capturingRef.current && queueRef.current.length) {
+      while (sessionRef.current && capturingRef.current && queueRef.current.length) {
         const chunk = queueRef.current.shift();
         if (!chunk) continue;
         try {
@@ -936,9 +936,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           }
           const message =
             error instanceof Error ? error.message : tRef.current("live.message.captionProcessingFailed");
-          if (serviceRef.current?.saveHistory) {
+          if (sessionRef.current?.saveHistory) {
             setLiveState((state) => ({ ...state, historyIncomplete: true }));
-            void experienceRequest("gap", {}, serviceRef.current.controllerToken).catch(() => {});
+            void experienceRequest("gap", {}, sessionRef.current.controllerToken).catch(() => {});
           }
           if (
             isTerminalInferenceControlError(error) ||
@@ -948,7 +948,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               message,
             )
           ) {
-            await endService(message, true);
+            await endLiveSession(message, true);
             break;
           }
           if (!providerBusyRef.current && isProviderLimitError(error)) {
@@ -978,7 +978,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     }
   }, [
     clearLiveDraft,
-    endService,
+    endLiveSession,
     handleTakenOver,
     processChunk,
     resetOutputBuffer,
@@ -989,7 +989,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   const enqueueChunk = useCallback(
     (audio: Blob, generation: number, draftWindowId?: number) => {
       if (
-        !serviceRef.current ||
+        !sessionRef.current ||
         !capturingRef.current ||
         generation !== captureGenerationRef.current ||
         audio.size === 0
@@ -1001,12 +1001,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       if (queueRef.current.length >= 2) {
         if (draftWindowId !== undefined) clearLiveDraft(draftWindowId);
         pendingDraftRef.current = null;
-        if (serviceRef.current.saveHistory) {
-          void experienceRequest("gap", {}, serviceRef.current.controllerToken).catch(() => {});
+        if (sessionRef.current.saveHistory) {
+          void experienceRequest("gap", {}, sessionRef.current.controllerToken).catch(() => {});
         }
         setLiveState((state) => ({
           ...state,
-          historyIncomplete: state.historyIncomplete || serviceRef.current?.saveHistory === true,
+          historyIncomplete: state.historyIncomplete || sessionRef.current?.saveHistory === true,
           droppedChunks: state.droppedChunks + 1,
           message: tRef.current("live.message.cloudBehind"),
         }));
@@ -1029,7 +1029,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     (stream: MediaStream, generation: number, recordingWindowMs: RecordingWindowMs) => {
       const startRecorderChunk = () => {
         if (
-          !serviceRef.current ||
+          !sessionRef.current ||
           !capturingRef.current ||
           generation !== captureGenerationRef.current
         ) {
@@ -1047,14 +1047,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         };
         recorder.onerror = () => {
           if (generation === captureGenerationRef.current) {
-            void endService(tRef.current("live.message.recorderStopped"), true);
+            void endLiveSession(tRef.current("live.message.recorderStopped"), true);
           }
         };
         recorder.onstop = () => {
           endLiveDraftWindow();
           if (recorderRef.current === recorder) recorderRef.current = null;
           if (
-            !serviceRef.current ||
+            !sessionRef.current ||
             !capturingRef.current ||
             generation !== captureGenerationRef.current
           ) {
@@ -1169,20 +1169,20 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       };
       startRecorderChunk();
     },
-    [beginLiveDraftWindow, clearLiveDraft, endLiveDraftWindow, endService, enqueueChunk, readLevel, runDraftAtPauseCandidate],
+    [beginLiveDraftWindow, clearLiveDraft, endLiveDraftWindow, endLiveSession, enqueueChunk, readLevel, runDraftAtPauseCandidate],
   );
 
-  const armServiceTimer = useCallback(
-    (service: LiveServiceDetails) => {
-      clearServiceTimer();
+  const armSessionTimer = useCallback(
+    (service: LiveSessionDetails) => {
+      clearSessionTimer();
       sessionTimerRef.current = setBackgroundTimeout(() => {
-        void endService(
+        void endLiveSession(
           tRef.current("live.message.sessionLimit"),
           true,
         );
       }, Math.min(MAX_LIVE_SESSION_MS, new Date(service.expiresAt).getTime() - Date.now()));
     },
-    [clearServiceTimer, endService],
+    [clearSessionTimer, endLiveSession],
   );
 
   const loadChannel = useCallback(async (silent = false) => {
@@ -1223,7 +1223,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             storedController,
           );
           if (!loadIsCurrent()) return;
-          const recovered: LiveServiceDetails = {
+          const recovered: LiveSessionDetails = {
             serviceId: channel.serviceId,
             saveHistory: channel.saveHistory,
             channelId: channel.channelId,
@@ -1243,13 +1243,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               : null;
           recordingWindowRef.current =
             storedTranslationSettings?.recordingWindowMs ?? DEFAULT_RECORDING_WINDOW_MS;
-          serviceRef.current = recovered;
+          sessionRef.current = recovered;
           activeTranslationSettingsRef.current = storedTranslationSettings;
           setActiveTranslationSettings(storedTranslationSettings);
           requireTranslationRefresh(!storedTranslationSettings);
           refreshShouldResumeRef.current = false;
           translationRefreshRequestIdRef.current = null;
-          armServiceTimer(recovered);
+          armSessionTimer(recovered);
           setLiveState({
             ...INITIAL_LIVE_STATE,
             status: "paused",
@@ -1319,18 +1319,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         message: error instanceof Error ? error.message : tRef.current("live.message.channelLoadFailed"),
       });
     }
-  }, [armServiceTimer, requireTranslationRefresh]);
+  }, [armSessionTimer, requireTranslationRefresh]);
 
   useEffect(() => {
     void loadChannel();
   }, [loadChannel]);
 
   useEffect(() => {
-    const service = serviceRef.current;
+    const service = sessionRef.current;
     if (!service) return;
     const style = normalizeCaptionStyle(settings.style);
     const timeout = window.setTimeout(() => {
-      if (serviceRef.current?.controllerToken !== service.controllerToken) return;
+      if (sessionRef.current?.controllerToken !== service.controllerToken) return;
       void liveClientRef.current
         .updateStyle(style, service.controllerToken)
         .catch((error) => {
@@ -1373,7 +1373,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, [channelAction]);
 
   const rotateChannel = useCallback(async () => {
-    if (channelAction || serviceRef.current) return;
+    if (channelAction || sessionRef.current) return;
     setChannelAction("rotate");
     try {
       const channel = await liveClientRef.current.rotateChannel();
@@ -1402,7 +1402,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     if (!liveState.channel?.configured || channelAction) return;
     setChannelAction("save-style");
     try {
-      const service = serviceRef.current;
+      const service = sessionRef.current;
       const style = normalizeCaptionStyle(settingsRef.current.style);
       await liveClientRef.current.updateStyle(style, service?.controllerToken);
       setLiveState((current) => ({
@@ -1424,15 +1424,15 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   }, [channelAction, handleTakenOver, liveState.channel?.configured]);
 
   const rememberReaderLink = useCallback((readerUrl: string) => {
-    const service = serviceRef.current;
+    const service = sessionRef.current;
     if (!service) return;
     const updated = { ...service, readerUrl };
-    serviceRef.current = updated;
+    sessionRef.current = updated;
     setLiveState((current) => ({ ...current, service: updated }));
   }, []);
 
   const replaceViewerLink = useCallback(async () => {
-    const service = serviceRef.current;
+    const service = sessionRef.current;
     if (
       !service ||
       viewerAction ||
@@ -1441,20 +1441,20 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     ) {
       return;
     }
-    const serviceIsCurrent = () =>
+    const sessionIsCurrent = () =>
       !endingRef.current &&
       !endRetryRequiredRef.current &&
-      serviceRef.current?.controllerToken === service.controllerToken;
+      sessionRef.current?.controllerToken === service.controllerToken;
     setViewerAction("replace");
     try {
       const { viewerUrl } = await liveClientRef.current.replaceViewerLink(
         service.controllerToken,
       );
-      if (!serviceIsCurrent()) return;
-      const currentService = serviceRef.current;
-      if (!currentService) return;
-      const updated = { ...currentService, viewerUrl };
-      serviceRef.current = updated;
+      if (!sessionIsCurrent()) return;
+      const currentSession = sessionRef.current;
+      if (!currentSession) return;
+      const updated = { ...currentSession, viewerUrl };
+      sessionRef.current = updated;
       window.sessionStorage.setItem(VIEWER_STORAGE_KEY, viewerUrl);
       setLiveState((current) => ({
         ...current,
@@ -1462,7 +1462,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         message: tRef.current("live.message.viewerReplaced"),
       }));
     } catch (error) {
-      if (!serviceIsCurrent()) return;
+      if (!sessionIsCurrent()) return;
       if (isControllerReplaced(error)) handleTakenOver();
       else {
         setLiveState((current) => ({
@@ -1478,9 +1478,11 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     }
   }, [handleTakenOver, viewerAction]);
 
+  // The Start flow: begins capture, then registers the live session with the server through
+  // the client's startLiveSession.
   const startSession = useCallback(
     async (takeover = false) => {
-      if (serviceRef.current || endingRef.current) return;
+      if (sessionRef.current || endingRef.current) return;
       discardMicTest();
       startLiveDraftSession();
       attemptsUsedRef.current = 0;
@@ -1518,13 +1520,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         const translationSettings = normalizeTranslationSessionSettings(
           settingsRef.current,
         );
-        const service = await liveClientRef.current.startService(
+        const service = await liveClientRef.current.startLiveSession(
           normalizeCaptionStyle(settingsRef.current.style),
           takeover,
           settingsRef.current.saveHistory === true,
         );
         const recordingWindowMs = translationSettings.recordingWindowMs;
-        serviceRef.current = service;
+        sessionRef.current = service;
         activeTranslationSettingsRef.current = translationSettings;
         setActiveTranslationSettings(translationSettings);
         requireTranslationRefresh(false);
@@ -1554,7 +1556,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         captureAbortRef.current = new AbortController();
         capturingRef.current = true;
         startRecorder(stream, generation, recordingWindowMs);
-        armServiceTimer(service);
+        armSessionTimer(service);
         const recordingWindowText =
           recordingWindowMs === "dynamic"
             ? tRef.current("recordingWindow.dynamicShort")
@@ -1600,8 +1602,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         }
         const detail =
           error instanceof Error ? error.message : tRef.current("live.message.startFailed");
-        if (serviceRef.current) {
-          await endService(tRef.current("live.message.startIncomplete", { detail }), true);
+        if (sessionRef.current) {
+          await endLiveSession(tRef.current("live.message.startIncomplete", { detail }), true);
           return;
         }
         stopMicrophone();
@@ -1613,8 +1615,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       }
     },
     [
-      armServiceTimer,
-      endService,
+      armSessionTimer,
+      endLiveSession,
       ensureMicrophone,
       liveState.channel?.configured,
       discardMicTest,
@@ -1628,8 +1630,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     ],
   );
 
-  const pauseOrConfirmService = useCallback(
-    async (service: LiveServiceDetails) => {
+  const pauseOrConfirmSession = useCallback(
+    async (service: LiveSessionDetails) => {
       try {
         return await liveClientRef.current.control(
           "pause",
@@ -1661,12 +1663,12 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   );
 
   const pauseSession = useCallback(async () => {
-    const service = serviceRef.current;
+    const service = sessionRef.current;
     if (!service || endingRef.current) return;
-    const serviceIsCurrent = () =>
+    const sessionIsCurrent = () =>
       !endingRef.current &&
       !endRetryRequiredRef.current &&
-      serviceRef.current?.controllerToken === service.controllerToken;
+      sessionRef.current?.controllerToken === service.controllerToken;
     setControlAction("pause");
     setLiveState((current) => ({
       ...current,
@@ -1676,8 +1678,8 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     stopCapture();
     resetOutputBuffer();
     try {
-      const response = await pauseOrConfirmService(service);
-      if (!serviceIsCurrent()) return;
+      const response = await pauseOrConfirmSession(service);
+      if (!sessionIsCurrent()) return;
       if (response.translationRevision !== service.translationRevision) {
         reconcileExternalTranslationRevision(response.translationRevision);
         return;
@@ -1693,7 +1695,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         channel: current.channel ? { ...current.channel, status: "paused" } : null,
       }));
     } catch (error) {
-      if (!serviceIsCurrent()) return;
+      if (!sessionIsCurrent()) return;
       if (isControllerReplaced(error)) handleTakenOver();
       else {
         setLiveState((current) => ({
@@ -1712,19 +1714,19 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     }
   }, [
     handleTakenOver,
-    pauseOrConfirmService,
+    pauseOrConfirmSession,
     reconcileExternalTranslationRevision,
     resetOutputBuffer,
     stopCapture,
   ]);
 
   const resumeSession = useCallback(async () => {
-    const service = serviceRef.current;
+    const service = sessionRef.current;
     if (!service || endingRef.current) return;
-    const serviceIsCurrent = () =>
+    const sessionIsCurrent = () =>
       !endingRef.current &&
       !endRetryRequiredRef.current &&
-      serviceRef.current?.controllerToken === service.controllerToken;
+      sessionRef.current?.controllerToken === service.controllerToken;
     if (
       translationRefreshRequiredRef.current ||
       !activeTranslationSettingsRef.current
@@ -1748,7 +1750,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         "resume",
         service.controllerToken,
       );
-      if (!serviceIsCurrent()) {
+      if (!sessionIsCurrent()) {
         stopCapture();
         return;
       }
@@ -1774,7 +1776,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       }));
     } catch (error) {
       stopCapture();
-      if (!serviceIsCurrent()) return;
+      if (!sessionIsCurrent()) return;
       if (isControllerReplaced(error)) handleTakenOver();
       else {
         setLiveState((current) => ({
@@ -1801,7 +1803,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
   ]);
 
   const refreshTranslationSession = useCallback(async () => {
-    const service = serviceRef.current;
+    const service = sessionRef.current;
     if (
       !service ||
       endingRef.current ||
@@ -1810,10 +1812,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     ) {
       return;
     }
-    const serviceIsCurrent = () =>
+    const sessionIsCurrent = () =>
       !endingRef.current &&
       !endRetryRequiredRef.current &&
-      serviceRef.current?.controllerToken === service.controllerToken;
+      sessionRef.current?.controllerToken === service.controllerToken;
 
     let translationSettings: TranslationSessionSettings;
     try {
@@ -1852,15 +1854,15 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         service.translationRevision,
         refreshRequestId,
       );
-      if (!serviceIsCurrent()) {
+      if (!sessionIsCurrent()) {
         stopCapture();
         return;
       }
-      const updatedService = {
-        ...(serviceRef.current ?? service),
+      const updatedSession = {
+        ...(sessionRef.current ?? service),
         translationRevision: response.translationRevision,
       };
-      serviceRef.current = updatedService;
+      sessionRef.current = updatedSession;
       activeTranslationSettingsRef.current = translationSettings;
       setActiveTranslationSettings(translationSettings);
       recordingWindowRef.current = translationSettings.recordingWindowMs;
@@ -1871,7 +1873,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         TRANSLATION_SETTINGS_STORAGE_KEY,
         serializeTranslationSessionSettings(
           translationSettings,
-          updatedService,
+          updatedSession,
         ),
       );
       window.sessionStorage.removeItem(LEGACY_SPEECH_BUFFER_STORAGE_KEY);
@@ -1881,7 +1883,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       if (shouldResume) {
         try {
           const stream = await ensureMicrophone(selectedDeviceId || undefined);
-          if (!serviceIsCurrent()) {
+          if (!sessionIsCurrent()) {
             stopCapture();
             return;
           }
@@ -1905,7 +1907,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             latestPublicAt: null,
             latestPublicLanguage: null,
             lastLatencyMs: null,
-            service: updatedService,
+            service: updatedSession,
             channel: current.channel
               ? {
                   ...current.channel,
@@ -1916,18 +1918,18 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           }));
         } catch (error) {
           stopCapture();
-          if (!serviceIsCurrent()) return;
+          if (!sessionIsCurrent()) return;
           refreshShouldResumeRef.current = false;
           let pauseError: unknown;
           try {
-            const pauseResponse = await pauseOrConfirmService(updatedService);
-            if (!serviceIsCurrent()) {
+            const pauseResponse = await pauseOrConfirmSession(updatedSession);
+            if (!sessionIsCurrent()) {
               stopCapture();
               return;
             }
             if (
               pauseResponse.translationRevision !==
-              updatedService.translationRevision
+              updatedSession.translationRevision
             ) {
               reconcileExternalTranslationRevision(
                 pauseResponse.translationRevision,
@@ -1937,7 +1939,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           } catch (caught) {
             pauseError = caught;
           }
-          if (!serviceIsCurrent()) {
+          if (!sessionIsCurrent()) {
             stopCapture();
             return;
           }
@@ -1967,7 +1969,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
             latestPublicAt: null,
             latestPublicLanguage: null,
             lastLatencyMs: null,
-            service: updatedService,
+            service: updatedSession,
             channel: current.channel
               ? {
                   ...current.channel,
@@ -1984,14 +1986,14 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
         if (response.status === "live") {
           let pauseError: unknown;
           try {
-            const pauseResponse = await pauseOrConfirmService(updatedService);
-            if (!serviceIsCurrent()) {
+            const pauseResponse = await pauseOrConfirmSession(updatedSession);
+            if (!sessionIsCurrent()) {
               stopCapture();
               return;
             }
             if (
               pauseResponse.translationRevision !==
-              updatedService.translationRevision
+              updatedSession.translationRevision
             ) {
               reconcileExternalTranslationRevision(
                 pauseResponse.translationRevision,
@@ -2001,7 +2003,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           } catch (caught) {
             pauseError = caught;
           }
-          if (!serviceIsCurrent()) {
+          if (!sessionIsCurrent()) {
             stopCapture();
             return;
           }
@@ -2024,7 +2026,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
               latestPublicAt: null,
               latestPublicLanguage: null,
               lastLatencyMs: null,
-              service: updatedService,
+              service: updatedSession,
               channel: current.channel
                 ? {
                     ...current.channel,
@@ -2045,7 +2047,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           latestPublicAt: null,
           latestPublicLanguage: null,
           lastLatencyMs: null,
-          service: updatedService,
+          service: updatedSession,
           channel: current.channel
             ? {
                 ...current.channel,
@@ -2057,7 +2059,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       }
     } catch (error) {
       stopMicrophone();
-      if (!serviceIsCurrent()) return;
+      if (!sessionIsCurrent()) return;
       if (isControllerReplaced(error)) {
         handleTakenOver();
       } else {
@@ -2065,13 +2067,13 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           error instanceof LiveApiError &&
           typeof error.translationRevision === "number"
         ) {
-          const currentService = serviceRef.current;
-          if (currentService) {
+          const currentSession = sessionRef.current;
+          if (currentSession) {
             const reconciled = {
-              ...currentService,
+              ...currentSession,
               translationRevision: error.translationRevision,
             };
-            serviceRef.current = reconciled;
+            sessionRef.current = reconciled;
             setLiveState((current) => ({ ...current, service: reconciled }));
           }
         }
@@ -2100,7 +2102,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     controlAction,
     ensureMicrophone,
     handleTakenOver,
-    pauseOrConfirmService,
+    pauseOrConfirmSession,
     reconcileExternalTranslationRevision,
     requireTranslationRefresh,
     resetOutputBuffer,
@@ -2121,9 +2123,9 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     try {
       await liveClientRef.current.control(
         "clear",
-        serviceRef.current?.controllerToken,
+        sessionRef.current?.controllerToken,
       );
-      if (wasCapturing && streamRef.current?.active && serviceRef.current) {
+      if (wasCapturing && streamRef.current?.active && sessionRef.current) {
         capturingRef.current = true;
         captureAbortRef.current = new AbortController();
         startRecorder(streamRef.current, captureGenerationRef.current, recordingWindowRef.current);
@@ -2164,7 +2166,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       const current = settingsRef.current;
       const response = await liveClientRef.current.control(
         "show-test",
-        serviceRef.current?.controllerToken,
+        sessionRef.current?.controllerToken,
         {
           targetLanguage: current.targetLanguage,
           style: normalizeCaptionStyle(current.style),
@@ -2211,7 +2213,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
           activeTranslationSettingsRef.current?.targetLanguage ?? current.targetLanguage;
         const response = await liveClientRef.current.control(
           "manual",
-          serviceRef.current?.controllerToken,
+          sessionRef.current?.controllerToken,
           {
             targetLanguage,
             style: normalizeCaptionStyle(current.style),
@@ -2254,7 +2256,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
       lifecyclePauseRef.current = true;
       stopCapture();
       resetOutputBuffer();
-      const service = serviceRef.current;
+      const service = sessionRef.current;
       if (!service) return;
       setLiveState((current) => ({
         ...current,
@@ -2316,10 +2318,10 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     let cancelled = false;
     const controller = liveState.service.controllerToken;
     const stop = startSerialPolling(async () => {
-      if (cancelled || serviceRef.current?.controllerToken !== controller || endingRef.current) return;
+      if (cancelled || sessionRef.current?.controllerToken !== controller || endingRef.current) return;
       try {
         const state = await experienceRequest<{ status: string; command: { id: string; action: "pause" | "resume" | "clear"; status: string } | null }>("host", { capturing: capturingRef.current }, controller);
-        if (cancelled || serviceRef.current?.controllerToken !== controller) return;
+        if (cancelled || sessionRef.current?.controllerToken !== controller) return;
         const command = state.command;
         if (command?.status === "pending") {
           if (remoteResultRef.current?.controller !== controller || remoteResultRef.current.id !== command.id) {
@@ -2388,7 +2390,7 @@ export function useLiveCaptionSession(settings: LiveCaptionSettings) {
     updateOutputBufferEditDraft,
     cancelOutputBufferEdit,
     submitOutputBufferEdit,
-    stopSession: () => endService(),
+    stopSession: () => endLiveSession(),
     reloadChannel: loadChannel,
   };
 }

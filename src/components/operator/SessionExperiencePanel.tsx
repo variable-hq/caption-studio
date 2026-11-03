@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { LiveObserverDetails, LiveServiceDetails } from "@/live/contracts";
+import type { LiveObserverDetails, LiveSessionDetails } from "@/live/contracts";
 import { experienceRequest, ExperienceRequestError } from "@/experience/client";
 import { HISTORY_RETENTION, EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata, type JournalState, type ReaderNote, type ReaderParagraph, type SourceRecord, type SummaryJob, type SummaryModel, type SummaryOptions } from "@/experience/contracts";
 import { DEFAULT_SUMMARY_OPTIONS } from "@/experience/summary-defaults";
@@ -11,24 +11,24 @@ import type { MessageKey } from "@/i18n";
 import { useI18n } from "@/i18n/provider";
 
 interface Archive { details: Omit<JournalState, "readerHash">; metadata: SessionMetadata; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
-interface ServiceEntry { id: string; startedAt: number; metadata?: SessionMetadata }
+interface SessionEntry { id: string; startedAt: number; metadata?: SessionMetadata }
 
 type PanelMessage = { key: MessageKey } | { text: string } | null;
 
-export function SessionExperiencePanel({ view, service, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; service: LiveServiceDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
+export function SessionExperiencePanel({ view, service, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; service: LiveSessionDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
   const { locale, t } = useI18n();
-  const [services, setServices] = useState<ServiceEntry[]>([]);
+  const [services, setServices] = useState<SessionEntry[]>([]);
   const [archive, setArchive] = useState<Archive | null>(null);
   const [metadataDraft, setMetadataDraft] = useState<SessionMetadata>({ ...EMPTY_SESSION_METADATA });
   const [editingMetadata, setEditingMetadata] = useState(false);
   const [issuedLink, setIssuedLink] = useState<{ serviceId: string; url: string } | null>(null);
   const [readerLink, setReaderLink] = useState<{ serviceId: string; url: string } | null>(null);
-  // Pairing works for every workspace operator, so the running service may be
+  // Pairing works for every workspace operator, so the running session may be
   // one this browser only watches. A controller can pair whether or not its start
-  // response carried the service id.
+  // response carried the session id.
   const canPair = Boolean(service || observer?.serviceId);
-  const pairedServiceId = service?.serviceId ?? observer?.serviceId ?? "";
-  const link = issuedLink?.serviceId === pairedServiceId ? issuedLink?.url : "";
+  const pairedSessionId = service?.serviceId ?? observer?.serviceId ?? "";
+  const link = issuedLink?.serviceId === pairedSessionId ? issuedLink?.url : "";
   const dialogRef = useRef<HTMLDialogElement>(null);
   const transcriptRef = useRef<HTMLDetailsElement>(null);
   const summaryRequestRef = useRef<{ serviceId: string; id: string } | null>(null);
@@ -95,7 +95,7 @@ export function SessionExperiencePanel({ view, service, observer = null, onReade
   const [loadedList, setLoadedList] = useState(false);
   async function loadList() {
     await perform(async () => {
-      const result = await experienceRequest<{ services: ServiceEntry[] }>("history");
+      const result = await experienceRequest<{ services: SessionEntry[] }>("history");
       setServices(result.services);
       setLoadedList(true);
     });
@@ -140,7 +140,7 @@ export function SessionExperiencePanel({ view, service, observer = null, onReade
       <div className="shareRow">
         <span><strong>{t("sessionExperience.remoteTitle")}</strong><br /><span className="operatorHint">{canPair ? t("sessionExperience.remoteReady") : t("common.afterStart")}</span></span>
         <button className="secondaryButton" disabled={!canPair || busy} onClick={() => void perform(async () => {
-          const result = await experienceRequest<{ url: string }>("pair", {}, service?.controllerToken); setIssuedLink({ serviceId: pairedServiceId, url: result.url }); setMessage({ key: "sessionExperience.phonePaired" });
+          const result = await experienceRequest<{ url: string }>("pair", {}, service?.controllerToken); setIssuedLink({ serviceId: pairedSessionId, url: result.url }); setMessage({ key: "sessionExperience.phonePaired" });
         })}>{t("sessionExperience.pairPhone")}</button>
       </div>
       {!service && observer && <p className="operatorHint">{t("sessionExperience.otherOperator")}</p>}

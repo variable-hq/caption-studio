@@ -34,7 +34,7 @@ export interface OperatorPreferences {
   outputBufferDwellMs: OutputBufferDwellMs | null;
   /** Pre-ticks "Save transcript history" at Start; the choice stays visible and changeable. */
   saveHistoryDefault: boolean | null;
-  /** Generates an AI summary draft after each saved service this operator ends. */
+  /** Generates an AI summary draft after each saved session this operator ends. */
   autoSummary: boolean;
   updatedAt: number | null;
 }

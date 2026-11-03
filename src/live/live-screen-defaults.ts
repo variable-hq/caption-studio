@@ -6,9 +6,9 @@ import {
   type OutputBufferDwellMs,
 } from "@/live/output-buffer";
 
-/** The per-service choices visible on the Live screen when its shared save button is used. */
+/** The per-session choices visible on the Live screen when its shared save button is used. */
 export interface LiveScreenChoices {
-  hasService: boolean;
+  hasSession: boolean;
   saveHistory: boolean;
   outputBufferCount: OutputBufferCount;
   outputBufferDwellMs: OutputBufferDwellMs;
@@ -60,24 +60,24 @@ function outputBufferDiffers(
 
 /** The Live save button appears only while a visible choice differs from its saved default,
  * or from the built-in value when nothing has been saved. The transcript choice is visible
- * only before a service starts. */
+ * only before a session starts. */
 export function liveScreenDefaultsChanged(
   choices: LiveScreenChoices,
   defaults: LiveScreenSavedDefaults,
 ): boolean {
   const transcriptChanged =
-    !choices.hasService &&
+    !choices.hasSession &&
     (defaults.saveHistoryDefault ?? false) !== choices.saveHistory;
   return transcriptChanged || outputBufferDiffers(choices, defaults);
 }
 
 /** The write for one shared save: only the choices currently visible on Live, so a hidden
- * choice is never overwritten. Before a service that is the transcript choice and the
- * output buffer wait; during a service it is the wait alone. */
+ * choice is never overwritten. Before a session that is the transcript choice and the
+ * output buffer wait; during a session it is the wait alone. */
 export function liveScreenDefaultsPatch(
   choices: LiveScreenChoices,
 ): LiveScreenDefaultsPatch {
-  if (choices.hasService) {
+  if (choices.hasSession) {
     return {
       outputBufferCount: choices.outputBufferCount,
       outputBufferDwellMs: choices.outputBufferDwellMs,

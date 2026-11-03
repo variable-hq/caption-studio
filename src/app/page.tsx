@@ -173,12 +173,12 @@ function OperatorDashboardContent() {
   const [sessionMetadataMessage, setSessionMetadataMessage] = useState("");
   const [liveNote, setLiveNote] = useState("");
   const liveNoteRestoredFor = useRef<string | null>(null);
-  const priorServiceStartedAt = useRef<string | null>(null);
+  const priorSessionStartedAt = useRef<string | null>(null);
   const metadataPostedFor = useRef<string | null>(null);
   const metadataWrite = useRef<Promise<void> | null>(null);
   const shouldAutoSaveMetadata = useRef(false);
-  const [liveDefaultsReport, setLiveDefaultsReport] = useState<{ hasService: boolean; message: string }>({
-    hasService: false,
+  const [liveDefaultsReport, setLiveDefaultsReport] = useState<{ hasSession: boolean; message: string }>({
+    hasSession: false,
     message: "",
   });
   const [autoSummaryMessage, setAutoSummaryMessage] = useState("");
@@ -339,10 +339,10 @@ function OperatorDashboardContent() {
   useEffect(() => {
     const startedAt = liveState.service?.startedAt ?? null;
     if (!startedAt) {
-      if (priorServiceStartedAt.current) {
+      if (priorSessionStartedAt.current) {
         liveNoteRestoredFor.current = null;
         window.sessionStorage.removeItem(LIVE_NOTE_STORAGE_KEY);
-        priorServiceStartedAt.current = null;
+        priorSessionStartedAt.current = null;
         const frame = window.requestAnimationFrame(() => {
           setLiveNote("");
           setSessionMetadata({ ...EMPTY_SESSION_METADATA, sessionAt: Date.now() });
@@ -360,7 +360,7 @@ function OperatorDashboardContent() {
     } catch { restored = ""; }
     const frame = window.requestAnimationFrame(() => {
       liveNoteRestoredFor.current = startedAt;
-      priorServiceStartedAt.current = startedAt;
+      priorSessionStartedAt.current = startedAt;
       setLiveNote(restored);
     });
     return () => window.cancelAnimationFrame(frame);
@@ -561,16 +561,16 @@ function OperatorDashboardContent() {
     setKeywordText(next.keywordText);
     setFilterText(next.filterText);
   };
-  const hasService = Boolean(liveState.service);
+  const hasSession = Boolean(liveState.service);
   // A default-save status belongs to the screen state that produced it: the Start settings
-  // card before a service, and the Captions card while one runs. A transition clears it
+  // card before a session, and the Captions card while one runs. A transition clears it
   // during render, so it can neither follow the change nor return when that state does.
-  if (liveDefaultsReport.hasService !== hasService) {
-    setLiveDefaultsReport({ hasService, message: "" });
+  if (liveDefaultsReport.hasSession !== hasSession) {
+    setLiveDefaultsReport({ hasSession, message: "" });
   }
   const liveDefaultsMessage = liveDefaultsReport.message;
   const liveDefaultsChanged = liveScreenDefaultsChanged(
-    { hasService, saveHistory, outputBufferCount, outputBufferDwellMs },
+    { hasSession, saveHistory, outputBufferCount, outputBufferDwellMs },
     {
       saveHistoryDefault: accountPreferences?.saveHistoryDefault ?? null,
       outputBufferCount: accountPreferences?.outputBufferCount ?? null,
@@ -580,7 +580,7 @@ function OperatorDashboardContent() {
   const isLive = liveState.status === "live";
   const isPaused = liveState.status === "paused";
   const isRefreshing = liveState.status === "refreshing";
-  const liveNeedsAttention = hasService && liveState.status === "error";
+  const liveNeedsAttention = hasSession && liveState.status === "error";
   const isBusy = [
     "loading-channel",
     "starting",
@@ -595,22 +595,22 @@ function OperatorDashboardContent() {
     channelAction !== null ||
     viewerAction !== null;
   const anotherOperatorActive =
-    !hasService &&
+    !hasSession &&
     (liveState.channel?.status === "live" || liveState.channel?.status === "paused");
-  // Read-only mirror of the service a different workspace operator controls.
+  // Read-only mirror of the session a different workspace operator controls.
   const observed = useObservedSession(anotherOperatorActive);
   const watchingOther = anotherOperatorActive && observed.status === "watching";
   // Who holds the microphone right now, for the other operators of this workspace.
   const runningOperator = anotherOperatorActive
     ? observed.observer?.controllerLabel ?? liveState.channel?.controllerLabel ?? null
     : null;
-  const usageServiceStartedAt = liveState.service?.startedAt ??
+  const usageSessionStartedAt = liveState.service?.startedAt ??
     (anotherOperatorActive ? liveState.channel?.startedAt : null);
-  const serviceStartedMs = usageServiceStartedAt
-    ? new Date(usageServiceStartedAt).getTime()
+  const sessionStartedMs = usageSessionStartedAt
+    ? new Date(usageSessionStartedAt).getTime()
     : null;
-  const elapsedServiceMs = serviceStartedMs
-    ? Math.min(MAX_LIVE_SESSION_MS, Math.max(0, usageClock - serviceStartedMs))
+  const elapsedSessionMs = sessionStartedMs
+    ? Math.min(MAX_LIVE_SESSION_MS, Math.max(0, usageClock - sessionStartedMs))
     : 0;
   const channelStatus = liveState.channel?.status ?? "loading";
   const channelConfigured = Boolean(liveState.channel?.configured);
@@ -642,13 +642,13 @@ function OperatorDashboardContent() {
       )
     : [];
   const hasPendingTranslationChanges =
-    hasService &&
+    hasSession &&
     (translationRefreshRequired || translationChanges.length > 0);
   const translationActionBusy = controlAction === "refresh-translation";
-  const translationEditorDisabled = hasService
+  const translationEditorDisabled = hasSession
     ? translationActionBusy || liveState.status === "ending"
     : isBusy;
-  const displayedTranslationSettings = hasService
+  const displayedTranslationSettings = hasSession
     ? activeTranslationSettings
     : draftTranslationSettings;
   const displayedSourceLabel = displayedTranslationSettings?.sourceLanguage === "auto"
@@ -684,14 +684,14 @@ function OperatorDashboardContent() {
   }, []);
 
   useEffect(() => {
-    if (!hasService && !anotherOperatorActive) return;
+    if (!hasSession && !anotherOperatorActive) return;
     const interval = window.setInterval(() => setUsageClock(Date.now()), 1_000);
     return () => window.clearInterval(interval);
-  }, [anotherOperatorActive, hasService]);
+  }, [anotherOperatorActive, hasSession]);
 
   useEffect(() => {
-    if (!hasService) endDialogRef.current?.close();
-  }, [hasService]);
+    if (!hasSession) endDialogRef.current?.close();
+  }, [hasSession]);
 
   useEffect(() => {
     // Start found another system running captions; ask before taking over.
@@ -733,9 +733,9 @@ function OperatorDashboardContent() {
     window.open(viewerUrl, "_blank", "noopener,noreferrer");
   };
 
-  const hasServiceRef = useRef(false);
+  const hasSessionRef = useRef(false);
   useEffect(() => {
-    hasServiceRef.current = Boolean(liveState.service);
+    hasSessionRef.current = Boolean(liveState.service);
   }, [liveState.service]);
 
   useEffect(() => {
@@ -784,7 +784,7 @@ function OperatorDashboardContent() {
         } catch {
           // Storage may be blocked; the account value still applies for this visit.
         }
-        if (loaded.translationDefaults && !hasServiceRef.current) {
+        if (loaded.translationDefaults && !hasSessionRef.current) {
           const defaults = loaded.translationDefaults;
           setSourceLanguage(defaults.sourceLanguage);
           setTargetLanguage(defaults.targetLanguage);
@@ -796,16 +796,16 @@ function OperatorDashboardContent() {
           setFilterInappropriateLanguage(defaults.filterInappropriateLanguage);
           setTranslationDefaultsMessage(tRef.current("settings.message.loadedSharedSetup"));
         }
-        if (loaded.saveHistoryDefault !== null && !hasServiceRef.current) {
+        if (loaded.saveHistoryDefault !== null && !hasSessionRef.current) {
           setSaveHistory(loaded.saveHistoryDefault);
         }
-        if (loaded.outputBufferCount !== null && !hasServiceRef.current) {
+        if (loaded.outputBufferCount !== null && !hasSessionRef.current) {
           setOutputBufferCount(loaded.outputBufferCount);
-          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedSharedSetup") });
+          setLiveDefaultsReport({ hasSession: false, message: tRef.current("settings.message.loadedSharedSetup") });
         }
-        if (loaded.outputBufferDwellMs !== null && !hasServiceRef.current) {
+        if (loaded.outputBufferDwellMs !== null && !hasSessionRef.current) {
           setOutputBufferDwellMs(loaded.outputBufferDwellMs);
-          setLiveDefaultsReport({ hasService: false, message: tRef.current("settings.message.loadedSharedSetup") });
+          setLiveDefaultsReport({ hasSession: false, message: tRef.current("settings.message.loadedSharedSetup") });
         }
       })
       .catch(() => {
@@ -816,7 +816,7 @@ function OperatorDashboardContent() {
     return () => {
       cancelled = true;
     };
-    // Runs once; the setters are stable and the live-service guard uses a ref.
+    // Runs once; the setters are stable and the live-session guard uses a ref.
   }, [setAccountUiLocale, setBrowserFallbackPreference]);
 
   /**
@@ -862,9 +862,9 @@ function OperatorDashboardContent() {
 
   const saveLiveDefaults = () => {
     void saveLiveScreenDefaults({
-      choices: { hasService, saveHistory, outputBufferCount, outputBufferDwellMs },
+      choices: { hasSession, saveHistory, outputBufferCount, outputBufferDwellMs },
       save: syncAccountPreferences,
-      report: (message) => setLiveDefaultsReport({ hasService, message }),
+      report: (message) => setLiveDefaultsReport({ hasSession, message }),
       messages: {
         saving: t("common.savingForEveryone"),
         saved: t("settings.message.savedDefaultChoice"),
@@ -1085,20 +1085,20 @@ function OperatorDashboardContent() {
     : liveState.latestPublicText;
   // Only the controlling tab sees the in-progress Dynamic draft in Heard.
   const heard = heardSourceText(
-    hasService
+    hasSession
       ? liveState.latestSourceText
       : anotherOperatorActive
         ? observed.latestSourceText
         : "",
-    hasService ? liveDraft : null,
+    hasSession ? liveDraft : null,
   );
   const monitorSourceText = heard.text;
   const monitorLanguage =
     (anotherOperatorActive ? observed.latestPublicLanguage : liveState.latestPublicLanguage) ??
     targetLanguage;
   const monitorLive =
-    (hasService && isLive) || (watchingOther && liveState.channel?.status === "live");
-  const outputBadge = hasService
+    (hasSession && isLive) || (watchingOther && liveState.channel?.status === "live");
+  const outputBadge = hasSession
     ? liveNeedsAttention
       ? t("live.badge.needsAttention")
       : isRefreshing
@@ -1146,7 +1146,7 @@ function OperatorDashboardContent() {
       value: t("readiness.languagesValue", {
         source: displayedSourceLabel ?? sourceLanguage,
         target: displayedTargetName,
-        speed: recordingWindowShort(hasService ? activeRecordingWindowMs : recordingWindowMs),
+        speed: recordingWindowShort(hasSession ? activeRecordingWindowMs : recordingWindowMs),
       }),
       href: "#settings=languages",
       fixLabel: t("readiness.fix"),
@@ -1161,7 +1161,7 @@ function OperatorDashboardContent() {
   ];
   const setupBlocked = readinessChecks.some((check) => !check.ok);
 
-  const status: { label: OperatorStatusLabel; tone: StatusTone; detail?: string } = hasService
+  const status: { label: OperatorStatusLabel; tone: StatusTone; detail?: string } = hasSession
     ? liveState.status === "ending"
       ? { label: "ending", tone: "muted" }
       : liveNeedsAttention
@@ -1169,8 +1169,8 @@ function OperatorDashboardContent() {
         : isRefreshing
           ? { label: "applyingChanges", tone: "warn" }
           : isPaused
-            ? { label: "paused", tone: "warn", detail: formatClock(elapsedServiceMs, locale) }
-            : { label: "live", tone: "live", detail: formatClock(elapsedServiceMs, locale) }
+            ? { label: "paused", tone: "warn", detail: formatClock(elapsedSessionMs, locale) }
+            : { label: "live", tone: "live", detail: formatClock(elapsedSessionMs, locale) }
     : anotherOperatorActive
       ? { label: "liveAnotherComputer", tone: "warn" }
       : setupBlocked || liveState.status === "error"
@@ -1179,7 +1179,7 @@ function OperatorDashboardContent() {
           ? { label: "checking", tone: "muted" }
           : { label: "ready", tone: "ok" };
 
-  const minutesLeft = Math.max(0, Math.ceil((MAX_LIVE_SESSION_MS - elapsedServiceMs) / 60_000));
+  const minutesLeft = Math.max(0, Math.ceil((MAX_LIVE_SESSION_MS - elapsedSessionMs) / 60_000));
   const translationChangeLabels = translationChanges.map((change) => {
     switch (change) {
       case "Spoken language": return t("translationChange.spokenLanguage");
@@ -1238,7 +1238,7 @@ function OperatorDashboardContent() {
       <StatusBanner
         status={liveState.status}
         message={liveState.message}
-        hasService={hasService}
+        hasSession={hasSession}
         liveNeedsAttention={liveNeedsAttention}
         isRefreshing={isRefreshing}
         isPaused={isPaused}
@@ -1265,7 +1265,7 @@ function OperatorDashboardContent() {
         </p>
       ) : null}
 
-      {!hasService ? (
+      {!hasSession ? (
         <section className="liveStartBar" aria-label={t("live.startCard")}>
           <div className="startActions">
             <button
@@ -1304,7 +1304,7 @@ function OperatorDashboardContent() {
                 data-in-progress={heard.inProgress ? "true" : undefined}
                 lang={displayedTranslationSettings?.sourceLanguage === "auto" ? undefined : displayedTranslationSettings?.sourceLanguage}
               >
-                {monitorSourceText || (hasService ? (isPaused ? t("live.notListening") : t("live.listening")) : t("live.nothingYet"))}
+                {monitorSourceText || (hasSession ? (isPaused ? t("live.notListening") : t("live.listening")) : t("live.nothingYet"))}
               </p>
             </div>
             <div className="monitorPane">
@@ -1325,7 +1325,7 @@ function OperatorDashboardContent() {
           {!observed.observer ? (
             <div className="outputBufferControls" role="group" aria-label={t("live.checkBeforeShow")}>
               {outputBufferPanel}
-              {hasService && outputBufferCount > 0 ? (
+              {hasSession && outputBufferCount > 0 ? (
                 <OutputBufferQueueControl
                   queue={outputBufferQueue}
                   disabled={isBusy}
@@ -1338,7 +1338,7 @@ function OperatorDashboardContent() {
                   onSubmitEdit={submitOutputBufferEdit}
                 />
               ) : null}
-              {hasService ? (
+              {hasSession ? (
                 <div className="buttonRow">
                   {liveDefaultsChanged ? (
                     <button className="textButton" type="button" disabled={isBusy} onClick={saveLiveDefaults}>
@@ -1358,9 +1358,9 @@ function OperatorDashboardContent() {
           ) : null}
         </section>
 
-        <ReadinessChecks title={hasService ? t("readiness.titleSetup") : setupBlocked ? t("readiness.titleBeforeStart") : t("readiness.titleReady")} checks={readinessChecks} />
+        <ReadinessChecks title={hasSession ? t("readiness.titleSetup") : setupBlocked ? t("readiness.titleBeforeStart") : t("readiness.titleReady")} checks={readinessChecks} />
 
-        {!hasService ? (
+        {!hasSession ? (
           <section className="operatorCard liveActions" aria-label={t("live.saveTranscript")}>
             <label className="checkLabel">
               <input
@@ -1509,7 +1509,7 @@ function OperatorDashboardContent() {
                 level={level}
                 micTest={micTest}
               />
-              {hasService && isLive ? (
+              {hasSession && isLive ? (
                 <p className="settingHint">{t("settings.pauseBeforeMicrophone")}</p>
               ) : null}
               <SettingGroup title={t("settings.appearance.title")} hint={t("settings.appearance.hint")}>
@@ -1566,7 +1566,7 @@ function OperatorDashboardContent() {
             <>
               <SettingGroup
                 title={t("settings.previewTitle")}
-                hint={hasService
+                hint={hasSession
                   ? t("settings.previewLiveHint")
                   : t("settings.previewIdleHint")}
               >
@@ -1584,7 +1584,7 @@ function OperatorDashboardContent() {
 
           {settingsSection === "obs" ? (
             <LiveOutputsSection
-              hasService={hasService}
+              hasSession={hasSession}
               isBusy={isBusy}
               anotherOperatorActive={anotherOperatorActive}
               obs={{
@@ -1697,7 +1697,7 @@ function OperatorDashboardContent() {
       <a className="skipLink" href="#main">{t("page.skipLink")}</a>
       <OperatorTopBar screen={screen} status={status} />
       {screen === "live" ? liveScreen : screen === "transcripts" ? transcriptsScreen : screen === "settings" ? settingsScreen : helpScreen}
-      {hasService && screen === "live" ? (
+      {hasSession && screen === "live" ? (
         <LiveControlBar
           isPaused={isPaused}
           isPausing={liveState.status === "pausing"}

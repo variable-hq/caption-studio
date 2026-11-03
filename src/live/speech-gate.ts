@@ -28,7 +28,7 @@ export function initialSpeechGateState(): SpeechGateState {
 /**
  * Classify one 100ms level sample and learn the recent speech peak. Activity erodes the
  * peak so a loud transient or a loud passage cannot lift the thresholds for the rest of
- * the service; silence does not, so a quiet stretch keeps its baseline and stays gated.
+ * the session; silence does not, so a quiet stretch keeps its baseline and stays gated.
  */
 export function observeSpeechSample(
   state: SpeechGateState,

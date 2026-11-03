@@ -27,7 +27,7 @@ import {
   isActive,
   normalizeConfiguration,
   publicConfiguration,
-  serviceExpired,
+  sessionExpired,
   translationSessionRefreshed,
   validCaptionBody,
   validTranslationAttemptBody,
@@ -39,7 +39,7 @@ import {
   type MutationResult,
   type RecordTranslationUsageRequest,
   type RemoteCommand,
-  type StartServiceRequest,
+  type StartSessionRequest,
   type TranslationAttemptRequest,
   type ViewerStreamEvent,
 } from "@/live/caption-room-helpers";
@@ -81,7 +81,7 @@ export class CaptionRoom {
           await this.queueJournal(after, true, true);
           this.broadcastPublic({ type: "clear" });
           this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
-          this.closeViewerSockets(4002, "Live service could not start.");
+          this.closeViewerSockets(4002, "Live session could not start.");
         }
         return json({ error: "Session history is reconnecting. Retry shortly." }, 503);
       }
@@ -149,7 +149,7 @@ export class CaptionRoom {
       serviceId?: string; action?: "pause" | "resume" | "clear"; id?: string;
       capturing?: boolean; acknowledgement?: string; success?: boolean;
       transcriptionAttempt?: number; stage?: string; source?: unknown; sourceIds?: number[] };
-    const stored = await this.expireServiceIfNeeded();
+    const stored = await this.expireSessionIfNeeded();
     if (!stored || !isActive(stored) || !stored.serviceId) return json({ error: "Session ended.", code: "service_inactive" }, 410);
     const current = normalizeConfiguration(stored);
     if (action === "remove-current") {
@@ -274,7 +274,7 @@ export class CaptionRoom {
       const { id } = await request.json() as { id: string };
       if (!UUID_PATTERN.test(id)) return json({ error: "Invalid archive." }, 400);
       const current = await this.state.storage.get<ChannelConfiguration>("configuration");
-      if (current?.serviceId === id && isActive(current) && !serviceExpired(current)) return json({ error: "End the session first." }, 409);
+      if (current?.serviceId === id && isActive(current) && !sessionExpired(current)) return json({ error: "End the session first." }, 409);
       await this.state.storage.delete(`archive:${id}`);
       return json({ deleted: true });
     }
@@ -306,10 +306,10 @@ export class CaptionRoom {
       return this.replaceViewerLink(request);
     }
     if (url.pathname === "/internal/service" && request.method === "POST") {
-      return this.startService(request);
+      return this.startLiveSession(request);
     }
     if (url.pathname === "/internal/service" && request.method === "DELETE") {
-      return this.endService(request);
+      return this.endLiveSession(request);
     }
     if (url.pathname === "/internal/lease" && request.method === "POST") {
       return this.reserveTranscriptionAttempt(request);
@@ -333,14 +333,14 @@ export class CaptionRoom {
       return this.updateStyle(request);
     }
     if (url.pathname === "/internal/control" && request.method === "POST") {
-      return this.controlService(request);
+      return this.controlSession(request);
     }
 
     return json({ error: "Live-channel route not found." }, 404);
   }
 
   private async getChannel() {
-    const configuration = await this.expireServiceIfNeeded();
+    const configuration = await this.expireSessionIfNeeded();
     return configuration
       ? json(publicConfiguration(configuration))
       : json({ configured: false, status: "unconfigured" });
@@ -400,7 +400,7 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { kind: "channel-not-configured" };
       let configuration = normalizeConfiguration(stored);
-      if (serviceExpired(configuration)) configuration = deactivate(configuration);
+      if (sessionExpired(configuration)) configuration = deactivate(configuration);
       if (isActive(configuration)) {
         return { kind: "channel-in-use", expiresAt: configuration.expiresAt };
       }
@@ -418,7 +418,7 @@ export class CaptionRoom {
     if (result.kind !== "ok") return json({ error: "OBS channel rotation failed." }, 500);
 
     this.broadcastOverlay({ type: "clear" });
-    this.closeViewerSockets(4002, "Live service ended.");
+    this.closeViewerSockets(4002, "Live session ended.");
     for (const socket of this.state.getWebSockets(OVERLAY_SOCKET_TAG)) {
       socket.close(4001, "OBS channel link rotated.");
     }
@@ -430,7 +430,7 @@ export class CaptionRoom {
       return json({ error: "A WebSocket upgrade is required." }, 426);
     }
     const token = websocketToken(request, OVERLAY_PROTOCOL);
-    const configuration = await this.expireServiceIfNeeded();
+    const configuration = await this.expireSessionIfNeeded();
     if (
       !token ||
       !configuration ||
@@ -471,7 +471,7 @@ export class CaptionRoom {
       return json({ error: "A WebSocket upgrade is required." }, 426);
     }
     const token = websocketToken(request, VIEWER_PROTOCOL);
-    const configuration = await this.expireServiceIfNeeded();
+    const configuration = await this.expireSessionIfNeeded();
     const hash = token ? await captionTokenHash(token) : null;
     const observer = Boolean(
       hash &&
@@ -525,8 +525,8 @@ export class CaptionRoom {
     } as ResponseInit & { webSocket: WebSocket });
   }
 
-  private async startService(request: Request) {
-    const body = (await request.json()) as Partial<StartServiceRequest>;
+  private async startLiveSession(request: Request) {
+    const body = (await request.json()) as Partial<StartSessionRequest>;
     if (
       typeof body.controllerHash !== "string" ||
       body.controllerHash.length !== 64 ||
@@ -543,7 +543,7 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { kind: "channel-not-configured" };
       let configuration = normalizeConfiguration(stored);
-      if (serviceExpired(configuration)) configuration = deactivate(configuration);
+      if (sessionExpired(configuration)) configuration = deactivate(configuration);
       if (isActive(configuration) && !body.takeover) {
         return { kind: "channel-in-use", expiresAt: configuration.expiresAt };
       }
@@ -583,7 +583,7 @@ export class CaptionRoom {
       await Promise.all([
         transaction.put("configuration", configuration),
         transaction.delete("latest"),
-        // Remote command IDs and their 1,400 ceiling are scoped to one service.
+        // Remote command IDs and their 1,400 ceiling are scoped to one session.
         transaction.delete("remote-history"),
       ]);
       return { kind: "ok", value: configuration, clear: true };
@@ -594,7 +594,7 @@ export class CaptionRoom {
     if (result.kind !== "ok") return json({ error: "Live session could not start." }, 500);
 
     await this.state.storage.setAlarm(result.value.expiresAt!);
-    // A new service invalidates every earlier audience link and watcher credential.
+    // A new session invalidates every earlier audience link and watcher credential.
     this.closeViewerSockets(4003, "Mobile viewer link replaced.");
     this.broadcastPublic({ type: "clear" });
     this.broadcastPublic({
@@ -631,7 +631,7 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { kind: "channel-not-configured" };
       let configuration = normalizeConfiguration(stored);
-      const expired = serviceExpired(configuration);
+      const expired = sessionExpired(configuration);
       if (expired) {
         configuration = deactivate(configuration);
         await Promise.all([
@@ -660,7 +660,7 @@ export class CaptionRoom {
       if (result.clear) {
         this.broadcastPublic({ type: "clear" });
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
-        this.closeViewerSockets(4002, "Live service ended.");
+        this.closeViewerSockets(4002, "Live session ended.");
       }
       return json({ error: "The live session is no longer active." }, 410);
     }
@@ -672,14 +672,14 @@ export class CaptionRoom {
     return json({ replaced: true, expiresAt: result.value.expiresAt });
   }
 
-  private async endService(request: Request) {
+  private async endLiveSession(request: Request) {
     const body = (await request.json()) as { controllerHash?: string };
     const result = await this.state.storage.transaction<MutationResult<{ serviceId?: string; saved: boolean } | null>>(
       async (transaction) => {
         const stored = await transaction.get<ChannelConfiguration>("configuration");
         if (!stored) return { kind: "channel-not-configured" };
         let configuration = normalizeConfiguration(stored);
-        if (serviceExpired(configuration)) configuration = deactivate(configuration);
+        if (sessionExpired(configuration)) configuration = deactivate(configuration);
         if (!isActive(configuration)) {
           await Promise.all([
             transaction.put("configuration", configuration),
@@ -705,7 +705,7 @@ export class CaptionRoom {
     await this.state.storage.deleteAlarm();
     this.broadcastPublic({ type: "clear" });
     this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
-    this.closeViewerSockets(4002, "Live service ended.");
+    this.closeViewerSockets(4002, "Live session ended.");
     const ended = result.kind === "ok" ? result.value : null;
     // Internal only: the Worker strips these before answering the operator.
     return new Response(null, {
@@ -726,7 +726,7 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { kind: "channel-not-configured" };
       let configuration = normalizeConfiguration(stored);
-      const expired = serviceExpired(configuration);
+      const expired = sessionExpired(configuration);
       if (expired) {
         configuration = deactivate(configuration);
         await Promise.all([
@@ -785,7 +785,7 @@ export class CaptionRoom {
       if (result.clear) {
         this.broadcastPublic({ type: "clear" });
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
-        this.closeViewerSockets(4002, "Live service ended.");
+        this.closeViewerSockets(4002, "Live session ended.");
       }
       return json({ error: "The live session is not accepting captions." }, 410);
     }
@@ -831,7 +831,7 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { kind: "channel-not-configured" };
       let configuration = normalizeConfiguration(stored);
-      if (serviceExpired(configuration)) {
+      if (sessionExpired(configuration)) {
         configuration = deactivate(configuration);
         await Promise.all([
           transaction.put("configuration", configuration),
@@ -867,7 +867,7 @@ export class CaptionRoom {
       if (result.clear) {
         this.broadcastPublic({ type: "clear" });
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
-        this.closeViewerSockets(4002, "Live service ended.");
+        this.closeViewerSockets(4002, "Live session ended.");
       }
       return json({ error: "The live session is no longer active." }, 410);
     }
@@ -899,7 +899,7 @@ export class CaptionRoom {
         const stored = await transaction.get<ChannelConfiguration>("configuration");
         if (!stored) return { kind: "channel-not-configured" };
         let configuration = normalizeConfiguration(stored);
-        if (serviceExpired(configuration)) {
+        if (sessionExpired(configuration)) {
           configuration = deactivate(configuration);
           await Promise.all([
             transaction.put("configuration", configuration),
@@ -935,7 +935,7 @@ export class CaptionRoom {
       if (result.clear) {
         this.broadcastPublic({ type: "clear" });
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
-        this.closeViewerSockets(4002, "Live service ended.");
+        this.closeViewerSockets(4002, "Live session ended.");
       }
       return json({ error: "The live session is not accepting inference.", code: "service_inactive" }, 410);
     }
@@ -971,7 +971,7 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { kind: "channel-not-configured" };
       let configuration = normalizeConfiguration(stored);
-      if (serviceExpired(configuration)) {
+      if (sessionExpired(configuration)) {
         configuration = deactivate(configuration);
         await Promise.all([
           transaction.put("configuration", configuration),
@@ -1013,7 +1013,7 @@ export class CaptionRoom {
       if (result.clear) {
         this.broadcastPublic({ type: "clear" });
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
-        this.closeViewerSockets(4002, "Live service ended.");
+        this.closeViewerSockets(4002, "Live session ended.");
       }
       return json({ error: "The live session is no longer active." }, 410);
     }
@@ -1026,7 +1026,7 @@ export class CaptionRoom {
     return json({ recorded: true, llmUsage: result.value });
   }
 
-  private async controlService(request: Request) {
+  private async controlSession(request: Request) {
     const body = (await request.json()) as Partial<LiveSessionControlRequest> & {
       controllerHash?: string;
     };
@@ -1041,7 +1041,7 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { kind: "channel-not-configured" };
       let configuration = normalizeConfiguration(stored);
-      const expired = serviceExpired(configuration);
+      const expired = sessionExpired(configuration);
       if (expired) {
         configuration = deactivate(configuration);
         await Promise.all([
@@ -1227,7 +1227,7 @@ export class CaptionRoom {
       if (result.clear) {
         this.broadcastPublic({ type: "clear" });
         this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
-        this.closeViewerSockets(4002, "Live service ended.");
+        this.closeViewerSockets(4002, "Live session ended.");
       }
       return json({ error: "The live session is no longer active." }, 410);
     }
@@ -1271,7 +1271,7 @@ export class CaptionRoom {
       });
     }
     if (result.revokeViewers) {
-      this.closeViewerSockets(4002, "Live service ended.");
+      this.closeViewerSockets(4002, "Live session ended.");
     }
     const { caption: omitted, ...response } = result.value;
     void omitted;
@@ -1290,7 +1290,7 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { kind: "channel-not-configured" };
       let configuration = normalizeConfiguration(stored);
-      const expired = serviceExpired(configuration);
+      const expired = sessionExpired(configuration);
       if (expired) configuration = deactivate(configuration);
       if (
         isActive(configuration) &&
@@ -1325,13 +1325,13 @@ export class CaptionRoom {
       this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
     }
     if (result.revokeViewers) {
-      this.closeViewerSockets(4002, "Live service ended.");
+      this.closeViewerSockets(4002, "Live session ended.");
     }
     this.broadcastOverlay({ type: "style", style: result.value });
     return json({ updated: true, style: result.value });
   }
 
-  private async expireServiceIfNeeded() {
+  private async expireSessionIfNeeded() {
     const result = await this.state.storage.transaction<{
       configuration?: ChannelConfiguration;
       expired: boolean;
@@ -1339,7 +1339,7 @@ export class CaptionRoom {
       const stored = await transaction.get<ChannelConfiguration>("configuration");
       if (!stored) return { expired: false };
       let configuration = normalizeConfiguration(stored);
-      if (!serviceExpired(configuration)) {
+      if (!sessionExpired(configuration)) {
         if (stored.translationRevision !== configuration.translationRevision) {
           await transaction.put("configuration", configuration);
         }
@@ -1355,7 +1355,7 @@ export class CaptionRoom {
     if (result.expired) {
       this.broadcastPublic({ type: "clear" });
       this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
-      this.closeViewerSockets(4002, "Live service ended.");
+      this.closeViewerSockets(4002, "Live session ended.");
     }
     return result.configuration;
   }
@@ -1397,7 +1397,7 @@ export class CaptionRoom {
 
   /**
    * Replacing the audience link must not disconnect workspace watchers, so
-   * only service-ending reasons close the observer sockets too.
+   * only session-ending reasons close the observer sockets too.
    */
   private closeViewerSockets(code: number, reason: string, includeObservers = true) {
     const sockets = [
@@ -1448,7 +1448,7 @@ export class CaptionRoom {
     ]);
     this.broadcastPublic({ type: "clear" });
     this.broadcastPublic({ type: "state", status: "idle", expiresAt: null });
-    this.closeViewerSockets(4002, "Live service ended.");
+    this.closeViewerSockets(4002, "Live session ended.");
     await this.queueJournal(configuration, true);
     try {
       await this.flushJournals();

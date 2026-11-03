@@ -34,11 +34,11 @@ export const RECORDING_WINDOW_POLICIES: Record<RecordingWindowMs, RecordingWindo
 };
 export const MAX_CAPTION_EVENTS = 1_400;
 /**
- * Workspace operators who may watch one service without holding the controller.
+ * Workspace operators who may watch one session without holding the controller.
  * Matched to the 32 observer sockets the room accepts, so a workspace runs out
  * of connections before it runs out of identities.
  */
-export const MAX_SERVICE_OBSERVERS = 32;
+export const MAX_SESSION_OBSERVERS = 32;
 export const MAX_MANUAL_CAPTION_CHARS = 240;
 export const MAIN_CHANNEL_ID = "main" as const;
 const TRANSLATION_REFRESH_REQUEST_ID = /^[A-Za-z0-9_-]{16,64}$/;
@@ -78,7 +78,7 @@ export function isLiveSessionControlAction(
 
 export type ChannelStatus = "unconfigured" | "idle" | "live" | "paused";
 
-/** The operator dashboard's read of `/api/ai/health` readiness, independent of channel/service state. */
+/** The operator dashboard's read of `/api/ai/health` readiness, independent of channel/session state. */
 export type CloudState = "checking" | "ready" | "not-configured" | "unavailable";
 
 export interface LiveSessionControlRequest {
@@ -116,7 +116,7 @@ export interface PublicCaptionEvent extends PublicCaptionRequest {
 export interface ObsChannelDetails {
   serviceId?: string;
   saveHistory?: boolean;
-  /** Access email of the operator running the service; Access-protected surfaces only. */
+  /** Access email of the operator running the session; Access-protected surfaces only. */
   controllerLabel?: string;
   channelId: typeof MAIN_CHANNEL_ID;
   configured: boolean;
@@ -130,7 +130,7 @@ export interface ObsChannelDetails {
   translationRevision: number;
 }
 
-export interface LiveServiceDetails {
+export interface LiveSessionDetails {
   serviceId?: string;
   readerUrl?: string;
   saveHistory?: boolean;
@@ -145,7 +145,7 @@ export interface LiveServiceDetails {
 /**
  * What a workspace operator who does not hold the controller receives: a
  * read-only credential for the public caption stream plus the identifiers
- * needed to read the Access-protected archive of the same service.
+ * needed to read the Access-protected archive of the same session.
  */
 export interface LiveObserverDetails {
   channelId: typeof MAIN_CHANNEL_ID;
@@ -198,7 +198,7 @@ export interface LiveSessionState {
   latestPublicLanguage: LanguageLocale | null;
   lastLatencyMs: number | null;
   channel: ObsChannelDetails | null;
-  service: LiveServiceDetails | null;
+  service: LiveSessionDetails | null;
 }
 
 export type LiveApiErrorCode =

@@ -84,7 +84,7 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
     const scoped = request.headers.get("x-caption-remote");
     const issued = ["pair", "reader-rotate"].includes(operation) ? randomToken() : undefined;
     const payload = { ...body, controllerHash: controller ? await captionTokenHash(controller) : undefined,
-      // Pairing is per signed-in operator, so four phones can control one service.
+      // Pairing is per signed-in operator, so four phones can control one session.
       identityKey: operation === "pair" ? await operatorIdentityKey(operator.identity) : undefined,
       remoteHash: operation === "pair" ? await captionTokenHash(issued!) : scoped ? await captionTokenHash(scoped) : undefined,
       readerHash: operation === "reader-rotate" ? await captionTokenHash(issued!) : undefined };
