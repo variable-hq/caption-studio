@@ -714,6 +714,9 @@ describe("reusable OBS channel worker API", () => {
     expect(html).toContain("/api/live/viewer?channel=");
     expect(html).toContain("textContent");
     expect(html).toContain("event.code===4002");
+    // The ended label's session term is filled from the session's snapshot.
+    expect(html).toContain('"endedTemplate":"{Term_session} ended"');
+    expect(html).toContain("payload.preset");
     expect(html).toContain("event.code===4003");
     expect(html).not.toContain("church-caption-v1");
     expect(html).not.toContain("/_next/");

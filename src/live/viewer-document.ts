@@ -26,6 +26,9 @@ function viewerDocument(locale: UiLocale) {
     connectionFailedHelp: t("viewer.connectionFailedHelp"),
     retrying: t("viewer.retrying"),
     liveTranslation: t("viewer.title"),
+    // The ended label with its session term left to fill from the session's snapshot.
+    locale,
+    endedTemplate: translate(locale, "viewer.statusEnded", { Term_session: "{Term_session}" }),
   };
   const copyScript = JSON.stringify(copy).replace(/</gu, "\\u003c");
   return `<!doctype html>
@@ -94,6 +97,12 @@ function viewerDocument(locale: UiLocale) {
       let stopped=false;
       let lastSequence=0;
       const setStatus=(text,state)=>{status.textContent=text;status.className="status"+(state?" "+state:"")};
+      // The session's own format wording arrives with the first message; General until then.
+      let snapshot=null;
+      const endedLabel=()=>{
+        const term=snapshot&&snapshot.terms&&snapshot.terms[copy.locale]&&snapshot.terms[copy.locale].session&&snapshot.terms[copy.locale].session.singular;
+        return typeof term==="string"&&term?copy.endedTemplate.replace("{Term_session}",term.charAt(0).toUpperCase()+term.slice(1)):copy.ended;
+      };
       const card=document.querySelector(".captionCard");
       let empty=true;
       // A long chunk must still fit one phone screen: shrink from the chosen size down to 18px.
@@ -120,7 +129,7 @@ function viewerDocument(locale: UiLocale) {
       const state=payload=>{
         if(payload.status==="live"){setStatus(copy.live,"live");return}
         if(payload.status==="paused"){setStatus(copy.paused,"paused");return}
-        if(payload.status==="idle"){stopped=true;setStatus(copy.ended,"ended");clear(copy.endedText)}
+        if(payload.status==="idle"){stopped=true;setStatus(endedLabel(),"ended");clear(copy.endedText)}
       };
       if(channel!=="main"||!/^[A-Za-z0-9_-]{43}$/.test(token)){
         stopped=true;setStatus(copy.invalidLink,"error");clear(copy.invalidLinkHelp);return;
@@ -138,12 +147,13 @@ function viewerDocument(locale: UiLocale) {
           if(payload.type==="caption"){show(payload.caption);return}
           if(payload.type==="ready"){
             attempt=0;
+            if(payload.preset&&typeof payload.preset==="object")snapshot=payload.preset;
             state(payload);
             if(payload.caption)show(payload.caption);else clear();
           }
         };
         socket.onclose=event=>{
-          if(event.code===4002){stopped=true;setStatus(copy.ended,"ended");clear(copy.endedText);return}
+          if(event.code===4002){stopped=true;setStatus(endedLabel(),"ended");clear(copy.endedText);return}
           if(event.code===4003){stopped=true;setStatus(copy.linkReplaced,"error");clear(copy.linkReplacedHelp);return}
           if(event.code===1000||event.code===1008){stopped=true;setStatus(copy.unavailable,"error");clear(copy.unavailableHelp);return}
           if(attempt>=8){stopped=true;setStatus(copy.connectionFailed,"error");clear(copy.connectionFailedHelp);reconnect.hidden=false;return}

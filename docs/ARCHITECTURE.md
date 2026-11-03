@@ -43,7 +43,12 @@ version and resolved terms (`PresetSnapshot`) in the room's `ChannelConfiguratio
 the first journal sync, in the journal's state. Nothing replaces it for the rest of the
 session, and a session without one reads as General. The journal takes the format for a
 session's summaries (manual and automatic) from that snapshot, not from the request, and
-records it on the summary job. The preset design is recorded in
+records it on the summary job. The public reader (`/api/live/reader`) returns the snapshot
+with each response, and the room sends it in the viewer socket's `ready` message; both pages
+render the three messages that use a term (`reader.status.ended`, `reader.notice.saved` and
+`viewer.statusEnded`) from it, and the viewer page fills its ended label's term from the
+snapshot in the browser. The overlay has no message that uses a term. A response or message
+without a snapshot renders General. The preset design is recorded in
 [ADR 0035](decisions/0035-workspace-presets.md).
 
 GitHub handles source review. Cloudflare Workers Builds builds OpenNext and deploys

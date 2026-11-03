@@ -11,7 +11,15 @@ import {
 import { en } from "@/i18n/messages/en";
 import { id } from "@/i18n/messages/id";
 import { formatCount, formatDecimal } from "@/components/operator/format-count";
-import { BUILT_IN_PRESETS, GENERAL_PRESET, presetTermParams, resolveWorkspacePreset } from "@/experience/presets";
+import {
+  BUILT_IN_PRESETS,
+  GENERAL_PRESET,
+  presetFromSnapshot,
+  presetTermParams,
+  resolveWorkspacePreset,
+  snapshotPreset,
+  type Preset,
+} from "@/experience/presets";
 
 // Messages with the General term set filled in, as the operator interface shows them.
 const enDisplay: Record<string, string> = Object.fromEntries(
@@ -472,5 +480,45 @@ describe("operator interface translations", () => {
     expect(translate("en", "liveOutputs.phoneViewerLiveHint", undefined, resolveWorkspacePreset("builtin:market"))).toBe(
       enDisplay["liveOutputs.phoneViewerLiveHint"],
     );
+  });
+});
+
+describe("audience wording from a session snapshot", () => {
+  const AUDIENCE_KEYS = ["reader.status.ended", "reader.notice.saved", "viewer.statusEnded"] as const;
+
+  it("renders the session's own terms in both languages for each audience message", () => {
+    const sermon = presetFromSnapshot(snapshotPreset(resolveWorkspacePreset("builtin:sermon")));
+    expect(translate("en", "reader.status.ended", undefined, sermon)).toBe("Service ended");
+    expect(translate("en", "viewer.statusEnded", undefined, sermon)).toBe("Service ended");
+    expect(translate("en", "reader.notice.saved", undefined, sermon)).toBe(
+      "Earlier paragraphs are available during this service and for 30 minutes after it ends.",
+    );
+    expect(translate("id", "reader.status.ended", undefined, sermon)).toBe("Ibadah berakhir");
+    expect(translate("id", "reader.notice.saved", undefined, sermon)).toContain("selama ibadah ini");
+  });
+
+  it("keeps the session's wording after the built-in's terms change", () => {
+    const original = resolveWorkspacePreset("builtin:sermon");
+    const snapshot = snapshotPreset(original);
+    const changed: Preset = {
+      ...original,
+      terms: { ...original.terms, en: { ...original.terms.en, session: { singular: "gathering", plural: "gatherings" } } },
+    };
+    for (const key of AUDIENCE_KEYS) {
+      expect(translate("en", key, undefined, changed), key).toMatch(/gathering/iu);
+      expect(translate("en", key, undefined, presetFromSnapshot(snapshot)), key).not.toMatch(/gathering/iu);
+    }
+  });
+
+  it("reads a session without a snapshot as General", () => {
+    for (const key of AUDIENCE_KEYS) {
+      expect(translate("en", key, undefined, presetFromSnapshot(undefined)), key).toBe(translate("en", key));
+    }
+    expect(translate("en", "reader.status.ended", undefined, presetFromSnapshot(undefined))).toBe("Session ended");
+  });
+
+  it("covers every audience message that uses a term, so none is left in General", () => {
+    const withTerms = Object.keys(en).filter((key) => /^(reader|viewer|overlay)\./u.test(key) && /\{(term_|Term_)/u.test(en[key as keyof typeof en]));
+    expect(withTerms.sort()).toEqual([...AUDIENCE_KEYS].sort());
   });
 });

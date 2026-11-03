@@ -217,6 +217,7 @@ export class TranscriptJournal {
       startAfter: key("paragraph", after), limit: 50 })).values()] : this.latest && this.latest.id > after ? [this.latest] : [];
     const removed = await this.state.storage.get<number[]>("removed") ?? [];
     return json({ status: current.status, saved: current.saved, paragraphs: entries,
+      ...(current.preset ? { preset: current.preset } : {}),
       removed, notes: await this.notes(current), revision: current.revision, more: entries.length === 50,
       delaySeconds: READER_INTERVAL / 1000 });
   }

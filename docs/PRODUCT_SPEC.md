@@ -210,6 +210,12 @@ read-only tag above Session details names it; Settings and Help keep the workspa
 Each saved transcript shows a format tag. A second operator tab watching the session follows
 its format too.
 
+The public reader and the mobile viewer use the session's own format words, from the copy the
+session stored when it started. They keep those words if a later release changes the format,
+and a session that began before formats reads as General. Only a few audience messages use
+a term: the ended status on both pages and the reader's note about how long earlier
+paragraphs stay available. The phone remote and the stream overlay keep General wording.
+
 The top bar shows the format after the workspace name. While no session is live it links to
 Settings › Presets and shows the workspace format; while a session is live it shows the
 session's format as plain text.

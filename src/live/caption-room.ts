@@ -535,6 +535,7 @@ export class CaptionRoom {
       JSON.stringify({
         type: "ready",
         status: configuration.status,
+        ...(configuration.preset ? { preset: configuration.preset } : {}),
         caption: latest ? viewerCaption(latest) : null,
       }),
     );

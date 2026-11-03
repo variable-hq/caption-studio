@@ -1644,6 +1644,39 @@ describe("workspace watchers", () => {
     await expect(response.json()).resolves.toMatchObject({ code: "service_inactive" });
   });
 
+  it("sends the viewer the session's format snapshot on ready, and none for a session without one", async () => {
+    const viewerToken = "v".repeat(43);
+    for (const withSnapshot of [true, false]) {
+      const { room, storage } = roomFixture();
+      await createChannel(room);
+      await room.fetch(request("/internal/session", {
+        controllerHash: CONTROLLER_A, viewerTokenHash: await captionTokenHash(viewerToken), takeover: false,
+        style: { fontSize: 60 }, presetId: "builtin:sermon",
+      }));
+      if (!withSnapshot) {
+        // A session stored before formats has no snapshot.
+        const stored = storage.values.get("configuration") as Record<string, unknown>;
+        delete stored.preset;
+      }
+      const pairs: Array<{ 0: FakeSocket; 1: FakeSocket }> = [];
+      class FakePair {
+        readonly 0 = new FakeSocket();
+        readonly 1 = new FakeSocket();
+        constructor() { pairs.push(this); }
+      }
+      vi.stubGlobal("WebSocketPair", FakePair);
+      try {
+        await room.fetch(viewerConnect(viewerToken)).catch(() => null);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+      const ready = JSON.parse(pairs[0]![1].messages[0]!) as { type: string; preset?: { id: string; terms: { en: { session: { singular: string } } } } };
+      expect(ready.type).toBe("ready");
+      if (withSnapshot) expect(ready.preset).toMatchObject({ id: "builtin:sermon", terms: { en: { session: { singular: "service" } } } });
+      else expect(ready).not.toHaveProperty("preset");
+    }
+  });
+
   it("accepts a registered watcher on the public caption socket and rejects an unregistered one", async () => {
     const { room, accepted } = roomFixture();
     await createChannel(room);

@@ -580,6 +580,27 @@ describe("automatic summary", () => {
     expect(await storage.get("auto-summary")).toBeUndefined();
   });
 
+  it("returns the session's snapshot to the reader, unchanged by later syncs, and none without one", async () => {
+    const sermon = snapshotPreset(resolveWorkspacePreset("builtin:sermon"));
+    const talkshow = snapshotPreset(resolveWorkspacePreset("builtin:talkshow"));
+    const read = async (journal: TranscriptJournal) =>
+      await (await journal.fetch(request("/read", undefined, { "x-reader-hash": readerHash }))).json() as { preset?: unknown };
+    const withSnapshot = new TranscriptJournal(state(new Storage()), {});
+    await withSnapshot.fetch(request("/sync", { ...snapshot(true), preset: sermon }));
+    expect((await read(withSnapshot)).preset).toEqual(sermon);
+    await withSnapshot.fetch(request("/sync", { ...snapshot(true), preset: talkshow }));
+    expect((await read(withSnapshot)).preset).toEqual(sermon);
+
+    const without = new TranscriptJournal(state(new Storage()), {});
+    await without.fetch(request("/sync", snapshot(true)));
+    expect(await read(without)).not.toHaveProperty("preset");
+
+    // A snapshot that fails validation is not stored.
+    const invalid = new TranscriptJournal(state(new Storage()), {});
+    await invalid.fetch(request("/sync", { ...snapshot(true), preset: { ...sermon, id: "custom:x" } }));
+    expect(await read(invalid)).not.toHaveProperty("preset");
+  });
+
   it("records the session's format on the automatic summary", async () => {
     const run = summaryRun();
     const storage = new Storage(); const journal = new TranscriptJournal(state(storage), optionalEnvironment(run));
