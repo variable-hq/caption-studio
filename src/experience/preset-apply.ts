@@ -107,3 +107,54 @@ export function planPresetApply(
 
   return { preset, rows, fill, starterTerms: planStarterTerms(defaults.starterTerms ?? [], drafts) };
 }
+
+/** The fields each preview row covers, in display order. */
+const ROW_FIELDS: Record<PresetRowField, (keyof PresetFill)[]> = {
+  captionWait: ["recordingWindowMs"],
+  inference: ["inferenceLevel"],
+  sanitize: ["sanitizeLevel"],
+  outputBuffer: ["outputBufferCount", "outputBufferDwellMs"],
+  summaryLength: ["summaryLength"],
+  summaryGuidance: ["summaryGuidance"],
+};
+
+/** A saved setting whose value differs from the active format's default. */
+export type PresetDifference = {
+  field: PresetRowField;
+  /** `differs`: the action fills the format's value as a draft. `afterSession`: a running session keeps its output buffer until it ends. */
+  status: "differs" | "afterSession";
+  /** The saved value of each covered field; a field the workspace has not saved shows the format's value. */
+  saved: PresetFill;
+  /** The format's value of each covered field, which the action fills in. */
+  preset: PresetFill;
+};
+
+/**
+ * The saved settings that differ from the active format's defaults, in preview order. A setting
+ * the workspace has not saved is never listed, and General has no defaults, so it lists none.
+ */
+export function planPresetDifferences(preset: Preset, saved: PresetSavedSetup, sessionLive: boolean): PresetDifference[] {
+  const defaults: PresetFill = preset.defaults ?? {};
+  const savedValues: PresetFill = {
+    recordingWindowMs: saved.translationDefaults?.recordingWindowMs,
+    inferenceLevel: saved.translationDefaults?.inferenceLevel,
+    sanitizeLevel: saved.translationDefaults?.sanitizeLevel,
+    outputBufferCount: saved.outputBufferCount ?? undefined,
+    outputBufferDwellMs: saved.outputBufferDwellMs ?? undefined,
+    summaryLength: saved.summaryDefaults?.length,
+    summaryGuidance: saved.summaryDefaults?.guidance,
+  };
+  const differences: PresetDifference[] = [];
+  for (const field of Object.keys(ROW_FIELDS) as PresetRowField[]) {
+    const keys = ROW_FIELDS[field].filter((key) => defaults[key] !== undefined);
+    const differs = keys.some((key) => savedValues[key] !== undefined && savedValues[key] !== defaults[key]);
+    if (!differs) continue;
+    differences.push({
+      field,
+      status: field === "outputBuffer" && sessionLive ? "afterSession" : "differs",
+      saved: Object.fromEntries(keys.map((key) => [key, savedValues[key] ?? defaults[key]])) as PresetFill,
+      preset: Object.fromEntries(keys.map((key) => [key, defaults[key]])) as PresetFill,
+    });
+  }
+  return differences;
+}

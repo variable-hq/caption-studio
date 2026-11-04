@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 4 November 2026 against merged PR #108 (`86b8099`). The corrected 13 September
+Reviewed 4 November 2026 against merged PR #110 (`e1aafae`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -178,6 +178,12 @@ format fills in. **Apply preset** saves the format for the whole workspace and f
 settings the workspace has not saved, as changes on the Live, Words, Languages and Summary
 screens; a saved setting is shown as kept. Nothing reaches a running session, and nothing is
 saved as a default, until the operator uses **Apply now** or **Save for everyone**.
+
+**Differs from the format** lists each saved setting whose value differs from the format's
+default, with the saved value and the format's value. **Use preset default** fills the format's
+value as a draft for the operator to review, like Apply preset; nothing is saved, and the row stays
+listed until the setting is saved. While a session runs, a differing output buffer shows a note
+instead of the action. General has no defaults, so it lists nothing.
 
 A format fills these starting values:
 

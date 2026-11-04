@@ -40,7 +40,7 @@ import {
   saveSharedSetup,
 } from "@/experience/preferences-client";
 import { SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPreferences } from "@/experience/preferences";
-import { planPresetApply } from "@/experience/preset-apply";
+import { planPresetApply, planPresetDifferences, type PresetFill, type PresetRowField } from "@/experience/preset-apply";
 import { runningSessionFormat, screenFollowsSessionFormat } from "@/experience/session-format";
 import { messagePresetFor } from "@/live/request-preset";
 import {
@@ -105,6 +105,7 @@ import { formatCount, formatDecimal } from "@/components/operator/format-count";
 import { cutLengthPercentileMs } from "@/live/cut-metrics";
 import { formatClock } from "@/components/operator/format-clock";
 import { PresetChooser } from "@/components/operator/PresetChooser";
+import { PresetDifferences } from "@/components/operator/PresetDifferences";
 import { WorkspaceNameEditor } from "@/components/operator/WorkspaceNameEditor";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
@@ -909,10 +910,8 @@ function OperatorDashboardContent() {
       : null;
 
   // Fills the unsaved settings as drafts for the operator to review; nothing is saved as a default here.
-  const applyPreset = (profile: BuiltInPresetId): Promise<boolean> => {
-    const plan = presetPlanFor(profile);
-    if (!plan) return Promise.resolve(false);
-    const { fill, starterTerms } = plan;
+  // Sets the given values as drafts for the operator to review; nothing is saved here.
+  const setFillDrafts = (fill: PresetFill) => {
     if (fill.recordingWindowMs !== undefined) setRecordingWindowMs(fill.recordingWindowMs);
     if (fill.inferenceLevel !== undefined) setInferenceLevel(fill.inferenceLevel);
     if (fill.sanitizeLevel !== undefined) setSanitizeLevel(fill.sanitizeLevel);
@@ -926,11 +925,27 @@ function OperatorDashboardContent() {
       });
       setSummaryStorageMessage("");
     }
+  };
+
+  const applyPreset = (profile: BuiltInPresetId): Promise<boolean> => {
+    const plan = presetPlanFor(profile);
+    if (!plan) return Promise.resolve(false);
+    setFillDrafts(plan.fill);
+    const { starterTerms } = plan;
     if (starterTerms.added > 0) {
       setKeywordText(starterTerms.keywordText);
       setFilterText(starterTerms.filterText);
     }
     return syncAccountPreferences({ profile });
+  };
+
+  // Differences are computed against the saved format; the action fills one row's format value as a draft.
+  const presetDifferenceRows = accountPreferences
+    ? planPresetDifferences(resolveWorkspacePreset(accountPreferences.profile), accountPreferences, hasSession)
+    : [];
+  const useFormatDefault = (field: PresetRowField) => {
+    const row = presetDifferenceRows.find((candidate) => candidate.field === field);
+    if (row?.status === "differs") setFillDrafts(row.preset);
   };
 
   const saveWorkspaceName = (name: string) =>
@@ -1660,6 +1675,7 @@ function OperatorDashboardContent() {
                 planFor={presetPlanFor}
                 onApply={applyPreset}
               />
+              <PresetDifferences rows={presetDifferenceRows} onUse={useFormatDefault} />
             </>
           ) : null}
 
