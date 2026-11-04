@@ -13,9 +13,12 @@ const output=path.resolve('test-results/operator');
 await fs.mkdir(output,{recursive:true});
 const browser=await chromium.launch({headless:true,timeout:30000,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
 const results=[];
+// Labels each browser context by its pass and width, so a failure screenshot names the width that failed.
+const contextLabels=new Map();
 try {
  const runWidth=async (width,colorScheme,contrastOnly)=>{
   const context=await browser.newContext({viewport:{width,height:width>500?1080:844},colorScheme,permissions:['microphone'],reducedMotion:'reduce'});
+  contextLabels.set(context,`${colorScheme}${contrastOnly?'-contrast':''}-${width}`);
   const page=await context.newPage();
   if(process.env.CAPTION_QA_STUB_MIC){
    // Opt-in for machines where headless Chromium's fake capture device never resolves:
@@ -718,7 +721,7 @@ if(failures.length) throw new Error(failures.join('\n'));
 } catch(error) {
  console.error('operator-ui failed:',error?.message??error);
  for(const context of browser.contexts()) for(const page of context.pages()) {
-  await page.screenshot({path:output+'/failure.png',timeout:5000}).catch(()=>{});
+  await page.screenshot({path:output+`/failure-${contextLabels.get(context)??'unknown'}.png`,timeout:5000}).catch(()=>{});
  }
  throw error;
 } finally {await browser.close()}
