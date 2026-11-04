@@ -1,6 +1,6 @@
 # Design system
 
-Reviewed 4 November 2026 against merged PR #107 (`b54637a`).
+Reviewed 4 November 2026 against merged PR #108 (`86b8099`).
 
 Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
@@ -92,6 +92,9 @@ The dashboard theme never changes the configured OBS caption colours.
   `color: inherit` with an underline; while a session runs the same text is a `role="note"`
   span with no link. Both carry `aria-label` "Session format: <name>". While a session runs
   the name is the session's format.
+- Workspace name (Settings › Presets, above the format): a `settingGroup` titled Workspace with
+  one text input and the shared save bar. Refused text sets `aria-invalid` on the input and
+  shows the error in a `settingHint` with `role="alert"`.
 - Presets preview (Settings › Presets): rows use the `statRow` pattern; kept and not-changed
   rows show their status text in place of a value.
 - Session format: `.startFormat` is a labelled native select with a hint in the Live Start

@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 4 November 2026 against merged PR #107 (`b54637a`). The corrected 13 September
+Reviewed 4 November 2026 against merged PR #108 (`86b8099`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -27,7 +27,7 @@ reviewer and must never invent speech, scripture, or doctrine.
 - **Archive reviewer:** any Access-approved operator can review/correct saved source and
   generate/export summary drafts. There is no distinct reviewer role or per-email
   archive ownership: one Access tenant is one workspace, named *BEST Church workspace*
-  in the operator UI, and every saved transcript in it is reachable by every
+  by default (see Workspace name), and every saved transcript in it is reachable by every
   signed-in operator. Workspace/administrator roles remain deferred.
 
 The first evaluation direction is **Indonesian→English**, with **Operator** selected as
@@ -162,6 +162,13 @@ the public transcript reader and the Worker-rendered viewer document from the re
 server error text are not translated by the interface language setting. The phone remote
 does not load account preferences, so it follows that browser's saved interface-language
 copy or browser language, then English.
+
+## Workspace name
+
+**Settings › Presets** has a **Workspace** group with the workspace name, up to 60 characters
+with no line breaks or control characters. Empty text uses the default, *BEST Church
+workspace*. **Save for everyone** saves it for the whole workspace; the top bar and the
+Live and Transcripts hints show it. Choosing a format never changes it.
 
 ## Workspace format
 

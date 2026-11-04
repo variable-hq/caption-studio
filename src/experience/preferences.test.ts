@@ -206,6 +206,34 @@ describe("shared setup", () => {
   });
 });
 
+describe("workspace name in the setup record", () => {
+  it("keeps a trimmed valid name and drops invalid ones to the default", () => {
+    expect(mergeOperatorPreferences(EMPTY_PREFERENCES, { workspaceName: "  Gereja Sion  " }).workspaceName).toBe("Gereja Sion");
+    expect(mergeOperatorPreferences(EMPTY_PREFERENCES, { workspaceName: "Gereja\nSion" }).workspaceName).toBeNull();
+    expect(mergeOperatorPreferences(EMPTY_PREFERENCES, { workspaceName: "a".repeat(61) }).workspaceName).toBeNull();
+    const saved = mergeOperatorPreferences(EMPTY_PREFERENCES, { workspaceName: "Gereja Sion" });
+    expect(mergeOperatorPreferences(saved, { workspaceName: null }).workspaceName).toBeNull();
+  });
+
+  it("shares the name through the shared setup fields", () => {
+    expect(SHARED_SETUP_FIELDS).toContain("workspaceName");
+    const shared = mergeOperatorPreferences(EMPTY_PREFERENCES, { workspaceName: "Gereja Sion" }, 1_000);
+    expect(effectiveSetup(shared, EMPTY_PREFERENCES).workspaceName).toBe("Gereja Sion");
+    expect(effectiveSetup(EMPTY_PREFERENCES, { ...EMPTY_PREFERENCES, workspaceName: "Gereja Lama" }).workspaceName).toBe("Gereja Lama");
+  });
+
+  it("reads a record stored before the name existed as the default name", () => {
+    const stored: Partial<typeof EMPTY_PREFERENCES> = { ...EMPTY_PREFERENCES, updatedAt: 5 };
+    delete stored.workspaceName;
+    expect(normalizeOperatorPreferences(stored).workspaceName).toBeNull();
+  });
+
+  it("leaves the name unchanged when a preset is applied", () => {
+    const saved = mergeOperatorPreferences(EMPTY_PREFERENCES, { workspaceName: "Gereja Sion" });
+    expect(mergeOperatorPreferences(saved, { profile: "builtin:sermon" }).workspaceName).toBe("Gereja Sion");
+  });
+});
+
 describe("workspace profile in the setup record", () => {
   it("keeps a known profile and drops unknown ones", () => {
     expect(mergeOperatorPreferences(EMPTY_PREFERENCES, { profile: "builtin:sermon" }).profile).toBe("builtin:sermon");

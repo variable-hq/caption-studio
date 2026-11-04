@@ -490,6 +490,24 @@ try {
   assert.equal(await formatSelect.inputValue(),'builtin:general','General is the default format');
   await page.getByText('The base wording, used when no format is chosen.',{exact:true}).waitFor();
   await presetCheck('presets','general');
+  // Workspace name: text with a control character or over 60 characters is refused; a valid name is saved for everyone and reaches the top bar; an empty name restores the default.
+  const workspaceName=page.getByRole('textbox',{name:'Workspace name',exact:true});
+  const saveWorkspaceName=page.getByRole('button',{name:'Save for everyone',exact:true});
+  await workspaceName.fill('x'.repeat(61));
+  await page.getByText('Use up to 60 characters, without line breaks or other control characters.',{exact:true}).waitFor();
+  assert.equal(await saveWorkspaceName.isDisabled(),true,'An over-long workspace name cannot be saved');
+  await check('presets-workspace-name-invalid');
+  await workspaceName.fill('Gereja Sion');
+  const nameSavesBefore=controls.length;
+  await saveWorkspaceName.click();
+  await page.waitForFunction(()=>document.querySelector('.operatorBrandName > span')?.textContent.includes('Gereja Sion'));
+  assert.equal(controls.length,nameSavesBefore+1,'Saving the workspace name writes once');
+  assert.equal(controls.at(-1).preferenceWrite.workspaceName,'Gereja Sion','Saving sends the workspace name in the shared setup');
+  assert.equal(await topBarText(),'Gereja Sion · General · Main channel','The top bar shows the saved workspace name');
+  await workspaceName.fill('');
+  await saveWorkspaceName.click();
+  await page.waitForFunction(()=>document.querySelector('.operatorBrandName > span')?.textContent.includes('BEST Church workspace'));
+  assert.equal(await topBarText(),'BEST Church workspace · General · Main channel','An empty workspace name restores the default');
   await openScreen(page,'Transcripts');
   await page.getByRole('heading',{name:'Transcripts',exact:true}).waitFor();
   await presetCheck('transcripts','general');

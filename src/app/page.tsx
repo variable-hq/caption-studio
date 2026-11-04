@@ -66,7 +66,7 @@ import {
   type LanguageLocale,
   type SourceLanguage,
 } from "@/domain/languages";
-import { WORKSPACE_NAME } from "@/domain/workspace";
+import { normalizeWorkspaceName } from "@/domain/workspace";
 import { wordsFromSettings, wordsToSettings, type WordRow } from "@/live/words";
 import {
   DEFAULT_RECORDING_WINDOW_MS,
@@ -105,9 +105,10 @@ import { formatCount, formatDecimal } from "@/components/operator/format-count";
 import { cutLengthPercentileMs } from "@/live/cut-metrics";
 import { formatClock } from "@/components/operator/format-clock";
 import { PresetChooser } from "@/components/operator/PresetChooser";
+import { WorkspaceNameEditor } from "@/components/operator/WorkspaceNameEditor";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
-import { I18nProvider, PresetScope, useI18n } from "@/i18n/provider";
+import { I18nProvider, PresetScope, useI18n, useWorkspaceName } from "@/i18n/provider";
 import { translate, translatePlural, type MessageKey, type MessageParams, type UiLocalePreference } from "@/i18n";
 import "./operator-shell.css";
 
@@ -153,8 +154,10 @@ function OperatorDashboardContent() {
     setBrowserFallbackPreference,
     setWorkspaceProfile,
     workspacePreset,
+    setWorkspaceName,
     t: workspaceT,
   } = useI18n();
+  const workspaceName = useWorkspaceName();
   const tRef = useRef(workspaceT);
   useEffect(() => {
     tRef.current = workspaceT;
@@ -235,6 +238,10 @@ function OperatorDashboardContent() {
   useEffect(() => {
     if (savedProfile !== undefined) setWorkspaceProfile(savedProfile);
   }, [savedProfile, setWorkspaceProfile]);
+  const savedWorkspaceName = accountPreferences ? accountPreferences.workspaceName : undefined;
+  useEffect(() => {
+    if (savedWorkspaceName !== undefined) setWorkspaceName(savedWorkspaceName);
+  }, [savedWorkspaceName, setWorkspaceName]);
   const [translationDefaultsMessage, setTranslationDefaultsMessage] = useState("");
   const [summaryDefaults, setSummaryDefaults] = useState<SummaryOptions>(DEFAULT_SUMMARY_OPTIONS);
   const [savedSummaryDefaults, setSavedSummaryDefaults] = useState<SummaryOptions | null>(null);
@@ -926,6 +933,9 @@ function OperatorDashboardContent() {
     return syncAccountPreferences({ profile });
   };
 
+  const saveWorkspaceName = (name: string) =>
+    syncAccountPreferences({ workspaceName: normalizeWorkspaceName(name) });
+
   const saveTranslationDefaults = () => {
     setTranslationDefaultsMessage(t("common.savingForEveryone"));
     void syncAccountPreferences({
@@ -1476,7 +1486,7 @@ function OperatorDashboardContent() {
               <span>
                 <strong>{t("live.saveTranscript")}</strong>
                 <br />
-                <span className="operatorHint">{t("live.saveTranscriptHint", { workspace: WORKSPACE_NAME })}</span>
+                <span className="operatorHint">{t("live.saveTranscriptHint", { workspace: workspaceName })}</span>
               </span>
             </label>
             <div className="buttonRow">
@@ -1571,7 +1581,7 @@ function OperatorDashboardContent() {
     <main className="operatorScreen" id="main" aria-labelledby="screen-heading">
       <header className="settingsHeader">
         <h1 id="screen-heading" ref={screenHeadingRef} tabIndex={-1}>{t("transcripts.title")}</h1>
-        <p className="settingHint">{t("transcripts.hint", { workspace: WORKSPACE_NAME })}</p>
+        <p className="settingHint">{t("transcripts.hint", { workspace: workspaceName })}</p>
       </header>
       <SessionExperiencePanel view="archive" liveSession={liveState.liveSession} onReaderLink={rememberReaderLink} summaryDefaults={summaryDefaults} />
     </main>
@@ -1597,7 +1607,7 @@ function OperatorDashboardContent() {
               {t(section.titleKey)}
             </a>
           ))}
-          <p className="operatorHint">{t("settings.scopeHint", { workspace: WORKSPACE_NAME })}</p>
+          <p className="operatorHint">{t("settings.scopeHint", { workspace: workspaceName })}</p>
         </nav>
         <section className="operatorCard settingsPanel" aria-labelledby="settings-section-heading">
           {currentSection.descriptionKey ? (
@@ -1638,12 +1648,19 @@ function OperatorDashboardContent() {
           ) : null}
 
           {settingsSection === "presets" ? (
-            <PresetChooser
-              savedProfile={accountPreferences?.profile ?? null}
-              loaded={accountPreferences !== null}
-              planFor={presetPlanFor}
-              onApply={applyPreset}
-            />
+            <>
+              <WorkspaceNameEditor
+                savedName={accountPreferences?.workspaceName ?? null}
+                loaded={accountPreferences !== null}
+                onSave={saveWorkspaceName}
+              />
+              <PresetChooser
+                savedProfile={accountPreferences?.profile ?? null}
+                loaded={accountPreferences !== null}
+                planFor={presetPlanFor}
+                onApply={applyPreset}
+              />
+            </>
           ) : null}
 
           {settingsSection === "languages" ? (

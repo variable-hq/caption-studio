@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { WORKSPACE_NAME, normalizeWorkspaceName } from "@/domain/workspace";
 import {
   normalizeProfileId,
   resolveWorkspacePreset,
@@ -20,6 +21,7 @@ import {
 
 const UI_LOCALE_PREFERENCE_KEY = "caption-studio:ui-locale:v1";
 const WORKSPACE_PROFILE_KEY = "caption-studio:profile:v1";
+const WORKSPACE_NAME_KEY = "caption-studio:workspace-name:v1";
 
 type I18nValue = {
   locale: UiLocale;
@@ -30,6 +32,9 @@ type I18nValue = {
   /** The workspace's preset; General until the setup or the browser cache says otherwise. */
   workspacePreset: Preset;
   setWorkspaceProfile: (profileId: unknown) => void;
+  /** The workspace name; the default name until the setup or the browser cache says otherwise. */
+  workspaceName: string;
+  setWorkspaceName: (name: unknown) => void;
   t: (key: MessageKey, params?: MessageParams) => string;
 };
 
@@ -92,15 +97,61 @@ function writeProfile(profileId: BuiltInPresetId | null) {
   for (const listener of profileListeners) listener();
 }
 
+function readStoredWorkspaceName(): string | null {
+  try {
+    return normalizeWorkspaceName(window.localStorage.getItem(WORKSPACE_NAME_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function cacheWorkspaceName(name: string | null) {
+  try {
+    if (name === null) window.localStorage.removeItem(WORKSPACE_NAME_KEY);
+    else window.localStorage.setItem(WORKSPACE_NAME_KEY, name);
+  } catch {
+    // The saved name still applies for this visit when browser storage is blocked.
+  }
+}
+
+// The workspace name is an external store, like the format: the browser cache, then the
+// shared setup replaces it. The server render uses the default name.
+const workspaceNameListeners = new Set<() => void>();
+let cachedWorkspaceName: { value: string | null } | null = null;
+
+function subscribeWorkspaceName(listener: () => void) {
+  workspaceNameListeners.add(listener);
+  return () => {
+    workspaceNameListeners.delete(listener);
+  };
+}
+
+function workspaceNameSnapshot(): string | null {
+  cachedWorkspaceName ??= { value: readStoredWorkspaceName() };
+  return cachedWorkspaceName.value;
+}
+
+function writeWorkspaceName(name: string | null) {
+  cachedWorkspaceName = { value: name };
+  cacheWorkspaceName(name);
+  for (const listener of workspaceNameListeners) listener();
+}
+
 export function I18nProvider({ children }: Readonly<{ children: React.ReactNode }>) {
   const [locale, setLocale] = useState<UiLocale>("en");
   const [uiLocalePreference, setPreference] = useState<UiLocalePreference>(null);
   const profileId = useSyncExternalStore(subscribeProfile, profileSnapshot, () => null);
   const workspacePreset = useMemo(() => resolveWorkspacePreset(profileId), [profileId]);
+  const savedWorkspaceName = useSyncExternalStore(subscribeWorkspaceName, workspaceNameSnapshot, () => null);
+  const workspaceName = savedWorkspaceName ?? WORKSPACE_NAME;
   const userChangedPreference = useRef(false);
 
   const setWorkspaceProfile = useCallback((profileId: unknown) => {
     writeProfile(normalizeProfileId(profileId));
+  }, []);
+
+  const setWorkspaceName = useCallback((name: unknown) => {
+    writeWorkspaceName(normalizeWorkspaceName(name));
   }, []);
 
   const applyPreference = useCallback((preference: UiLocalePreference) => {
@@ -142,6 +193,8 @@ export function I18nProvider({ children }: Readonly<{ children: React.ReactNode 
     setBrowserFallbackPreference,
     workspacePreset,
     setWorkspaceProfile,
+    workspaceName,
+    setWorkspaceName,
     t,
   }), [
     locale,
@@ -151,6 +204,8 @@ export function I18nProvider({ children }: Readonly<{ children: React.ReactNode 
     setBrowserFallbackPreference,
     workspacePreset,
     setWorkspaceProfile,
+    workspaceName,
+    setWorkspaceName,
     t,
   ]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
@@ -180,4 +235,9 @@ export function useI18n() {
 
 export function useT() {
   return useI18n().t;
+}
+
+/** The workspace name shown in the top bar and in `{workspace}` messages. */
+export function useWorkspaceName() {
+  return useI18n().workspaceName;
 }
