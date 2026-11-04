@@ -30,7 +30,7 @@ From moderate up, say what could break, what it affects, and how it is contained
 
 ## Documentation
 
-- [ ] Maintained documentation matches the implemented behavior
+- [ ] Maintained documentation matches the implemented behavior; every maintained guide, including `README.md` and `SECURITY.md`, was searched for claims this change makes false
 - [ ] Historical evidence remains clearly separated from current validation claims
 - [ ] Deployment changes include the build, deploy dry run, and relevant Cloudflare result
 

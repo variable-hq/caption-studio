@@ -105,7 +105,10 @@ Create a short-lived branch from the latest `main`:
 
 AI agents use the same prefixes. Keep commits focused, with a
 matching conventional subject (`feat: …`, `fix: …`, `docs: …`). Update the maintained guide
-that describes a change in the same commit as the code. Do not rewrite another
+that describes a change in the same commit as the code. Before opening the pull request,
+search every maintained guide in [the index](docs/README.md#maintained-guides), including
+`README.md` and `SECURITY.md`, for the feature's names and identifiers, and correct any
+claim the change makes false, not only the guide you set out to update. Do not rewrite another
 contributor's branch without agreement. Merge pull requests with a merge commit (GitHub's
 default), as every PR since #33 has, so each merge on `main` names its PR.
 
