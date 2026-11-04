@@ -1,4 +1,4 @@
-import { CAPTION_WAIT_TIME_LABELS, QA_VIEWPORT_WIDTHS, SETTINGS_SECTIONS, openScreen, openSettings } from "./dashboard-helpers.mjs";
+import { AXE_WIDTHS, CAPTION_WAIT_TIME_LABELS, QA_CONCURRENCY, QA_ORIGIN, SETTINGS_LABELS, SETTINGS_SECTIONS, captureScreenshot, openScreen, openSettings, qaPassTasks, settleWithLimit } from "./dashboard-helpers.mjs";
 // Local synthetic UI checks. No provider calls or external requests.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -11,11 +11,14 @@ const { default: AxeBuilder } = await import(pathToFileURL(path.join(tooling, 'n
 const colorScheme=process.env.CAPTION_QA_COLOR_SCHEME==='dark'?'dark':'light';
 const output=path.resolve('test-results/operator');
 await fs.mkdir(output,{recursive:true});
-const browser=await chromium.launch({headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
+const browser=await chromium.launch({headless:true,timeout:30000,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
 const results=[];
+// Labels each browser context by its pass and width, so a failure screenshot names the width that failed.
+const contextLabels=new Map();
 try {
- for (const width of QA_VIEWPORT_WIDTHS) {
+ const runWidth=async (width,colorScheme,contrastOnly)=>{
   const context=await browser.newContext({viewport:{width,height:width>500?1080:844},colorScheme,permissions:['microphone'],reducedMotion:'reduce'});
+  contextLabels.set(context,`${colorScheme}${contrastOnly?'-contrast':''}-${width}`);
   const page=await context.newPage();
   if(process.env.CAPTION_QA_STUB_MIC){
    // Opt-in for machines where headless Chromium's fake capture device never resolves:
@@ -44,7 +47,7 @@ try {
   const emptySetup={version:1,uiLocale:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,outputBufferCount:null,outputBufferDwellMs:null,saveHistoryDefault:null,autoSummary:false,updatedAt:null};
   await context.route('**/*',async route=>{
    const url=new URL(route.request().url());
-   if(url.origin!=='http://127.0.0.1:3100') return route.abort();
+   if(url.origin!==QA_ORIGIN) return route.abort();
    if(!url.pathname.startsWith('/api/')) return route.continue();
    const request=route.request(),path=new URL(request.url()).pathname,method=request.method();
    let body={};try{body=request.postDataJSON()??{}}catch{}
@@ -63,12 +66,12 @@ try {
       ?(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,uiLocale:accountUiLocale})
       :(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,...body,uiLocale:accountUiLocale,updatedAt:Date.now()});
   }
-   else if(path==='/api/live/channel')payload={channelId:'main',configured:true,presetId:sessionPresetId,status,overlayUrl:'http://127.0.0.1:3100/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
+   else if(path==='/api/live/channel')payload={channelId:'main',configured:true,presetId:sessionPresetId,status,overlayUrl:QA_ORIGIN+'/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
    else if(path==='/api/live/channel/style'){style=body.style;payload={ok:true}}
    else if(path==='/api/live/channel/session'&&method==='POST'){
     sessionStarts.push(body);sessionPresetId=typeof body.presetId==='string'?body.presetId:'builtin:general';
     status='live';startedAt=new Date().toISOString();expiresAt=new Date(Date.now()+90*60000).toISOString();
-    payload={channelId:'main',presetId:sessionPresetId,controllerToken:'c'.repeat(43),viewerUrl:'http://127.0.0.1:3100/view#main.'+'v'.repeat(43),startedAt,expiresAt,translationRevision:0};
+    payload={channelId:'main',presetId:sessionPresetId,controllerToken:'c'.repeat(43),viewerUrl:QA_ORIGIN+'/view#main.'+'v'.repeat(43),startedAt,expiresAt,translationRevision:0};
    } else if(path==='/api/live/channel/session'&&method==='DELETE'){status='idle';startedAt=null;expiresAt=null;payload={ok:true}}
    else if(path==='/api/live/channel/control'){
     controls.push(body.action);if(body.action==='pause')status='paused';if(body.action==='resume')status='live';
@@ -77,7 +80,7 @@ try {
     // A second tab of the same workspace watches the running service read-only.
     payload={channelId:'main',sessionId:'11111111-1111-1111-1111-111111111111',saveHistory:false,presetId:sessionPresetId,
      controllerLabel:'operator@example.test',status:status==='paused'?'paused':'live',
-     observerToken:'w'.repeat(43),viewerUrl:'http://127.0.0.1:3100/view#main.'+'w'.repeat(43),
+     observerToken:'w'.repeat(43),viewerUrl:QA_ORIGIN+'/view#main.'+'w'.repeat(43),
      startedAt,expiresAt,translationRevision:0};
    } else if(path==='/api/live/channel/lease')payload={valid:true,status:'live',expiresAt,transcriptionRequests:++transcriptionRequests,translationRevision:0};
    else if(path==='/api/ai/transcribe'){inferenceCalls++;payload={segments:[]};}
@@ -86,8 +89,28 @@ try {
    else {errors.push('Unexpected mocked request: '+method+' '+path);return route.fulfill({status:400,json:{error:'Unexpected test request'}})}
    await route.fulfill({status:200,json:payload});
   });
-  await page.goto('http://127.0.0.1:3100');
+  await page.goto(QA_ORIGIN);
   await page.getByText('Ready to go',{exact:true}).waitFor();
+  if(contrastOnly){
+   // The dark pass reaches each screen that a plain address opens and scans only colour contrast.
+   // Each address waits for its own screen heading, so a routing change fails the pass instead of scanning another screen.
+   const screens=[
+    ['#live',()=>page.getByText('Ready to go',{exact:true})],
+    ['#transcripts',()=>page.getByRole('heading',{name:'Transcripts',exact:true})],
+    ['#help',()=>page.getByRole('heading',{name:'How it works',exact:true})],
+    ...SETTINGS_SECTIONS.map(section=>[`#settings=${section}`,()=>page.getByRole('heading',{name:SETTINGS_LABELS[section],exact:true})]),
+   ];
+   for(const [address,ready] of screens){
+    await page.goto(QA_ORIGIN+'/'+address);
+    await ready().waitFor();
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    const axe=await new AxeBuilder({page}).withRules(['color-contrast']).analyze();
+    violations.push(...axe.violations.map(x=>({screen:address,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
+   }
+   const contrastResult={width,colorScheme,contrastOnly,errors,violations,checks:'dark colour-contrast scan of the Live, Transcripts, Help and Settings addresses'};
+   await context.close();
+   return contrastResult;
+  }
   assert.equal(await page.getByRole('switch',{name:'Live drafts',exact:true}).count(),0,'Live drafts is no longer a user-visible setting');
   assert.equal(await page.locator('.heardText').count(),1,'The Heard pane remains the in-progress source view');
   assert.equal(await page.locator('.liveDraftLine').count(),0,'No separate draft line remains');
@@ -104,7 +127,7 @@ try {
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
    if(general&&/^(live|transcripts|help)/.test(screen)) await assertSessionWording(page,screen);
-   const axe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
+   const axe=AXE_WIDTHS.includes(width)?await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze():{violations:[]};
    violations.push(...axe.violations.map(x=>({screen,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
   };
   // The pinned live control bar must never hide the lowest control on the page.
@@ -158,7 +181,7 @@ try {
   assert.equal(await sharedSave.count(),0,'The shared save hides once the choices match the saved default');
   await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).uncheck();
   assert.equal(inferenceCalls,0,'Idle Live must not invoke inference');
-  await page.screenshot({path:output+`/live-idle-${colorScheme}-${width}.png`,fullPage:true});
+  await captureScreenshot(page,{path:output+`/live-idle-${colorScheme}-${width}.png`,fullPage:true});
 
   for(const section of SETTINGS_SECTIONS){
    await openSettings(page,section);
@@ -168,7 +191,7 @@ try {
     await range.fill('64');
     await range.dispatchEvent('input');
     assert.ok((await page.getByTestId('caption-preview').first().getAttribute('style')).includes('64px'));
-    await page.screenshot({path:output+`/settings-look-${colorScheme}-${width}.png`,fullPage:true});
+    await captureScreenshot(page,{path:output+`/settings-look-${colorScheme}-${width}.png`,fullPage:true});
    }
    if(section==='obs') assert.equal(await page.getByRole('button',{name:'Copy OBS link',exact:true}).isVisible(),true);
    if(section==='computer'){
@@ -262,7 +285,7 @@ try {
   await page.reload();
   await page.getByRole('heading',{name:'Output',exact:true}).waitFor();
   // Old sidebar bookmarks land on the matching screen.
-  await page.goto('http://127.0.0.1:3100/#workspace=history');
+  await page.goto(QA_ORIGIN+'/#workspace=history');
   await page.getByRole('heading',{name:'Transcripts',exact:true}).waitFor();
   assert.equal(inferenceCalls,0,'Navigation and reload must not invoke inference');
 
@@ -302,7 +325,7 @@ try {
    assert.equal(await row.evaluate((node)=>node.scrollWidth<=node.clientWidth&&node.getBoundingClientRect().right<=innerWidth),true,`${width}: "${label}" row overflows`);
   }
   assert.equal((await page.locator('.statRow',{hasText:'Caption wait, typical'}).locator('span').last().textContent())?.trim(),'—','Caption wait is empty before the first window');
-  await page.locator('details.advancedActions',{hasText:'Technical details'}).screenshot({path:output+`/live-technical-details-${colorScheme}-${width}.png`});
+  await captureScreenshot(page.locator('details.advancedActions',{hasText:'Technical details'}),{path:output+`/live-technical-details-${colorScheme}-${width}.png`});
   await check('live-running');
   await barClear('live-running');
   assert.equal(await formatLink('General').count(),0,'A running session shows the format as plain text, not a link');
@@ -322,7 +345,7 @@ try {
   const liveWrite=controls.at(-1).preferenceWrite;
   assert.equal(liveWrite.outputBufferDwellMs,3000,'A live save includes the visible buffer wait');
   assert.equal(Object.hasOwn(liveWrite,'saveHistoryDefault'),false,'A live save never includes the hidden transcript choice');
-  await page.screenshot({path:output+`/live-running-${colorScheme}-${width}.png`,fullPage:true});
+  await captureScreenshot(page,{path:output+`/live-running-${colorScheme}-${width}.png`,fullPage:true});
   // Moving to Settings and back never pauses or clears capture.
   const controlsBefore=controls.length;
   await openSettings(page,'usage');
@@ -331,7 +354,7 @@ try {
 
   // A second tab watches the running session: it names the operator and offers Take over, not Start.
   const other=await context.newPage();
-  await other.goto('http://127.0.0.1:3100/#live');
+  await other.goto(QA_ORIGIN+'/#live');
   await other.getByText('operator@example.test is running captions on another system.',{exact:true}).waitFor();
   assert.equal(await other.getByRole('button',{name:'Take over',exact:true}).count(),1);
   assert.equal(await other.getByRole('button',{name:'Start captions',exact:true}).isDisabled(),true);
@@ -396,7 +419,7 @@ try {
   await page.locator('select[name="liveWordAction"]').selectOption('fix');
   await page.locator('input[name="liveWordWith"]').fill('synthetic-canonical-term');
   await page.getByRole('button',{name:'Add quick override',exact:true}).click();
-  if(width===1920) await page.screenshot({path:output+`/quick-override-${colorScheme}-${width}.png`,fullPage:true});
+  if(width===1920) await captureScreenshot(page,{path:output+`/quick-override-${colorScheme}-${width}.png`,fullPage:true});
   await page.getByRole('button',{name:'Keep in Terms',exact:true}).click();
   await page.getByText('Kept for Apply now',{exact:true}).waitFor();
   await openSettings(page,'words');
@@ -690,16 +713,22 @@ try {
   await check('transcripts-format-tag');
   historySessions=[];
 
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'});
+  const result={width,colorScheme,contrastOnly,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'};
   await context.close();
- }
+ return result;
+ };
+const tasks=qaPassTasks(colorScheme);
+const outcomes=await settleWithLimit(tasks,QA_CONCURRENCY,task=>runWidth(task.width,task.colorScheme,task.contrastOnly));
+const failures=outcomes.flatMap((outcome,index)=>outcome.status==='rejected'?[`${tasks[index].colorScheme}${tasks[index].contrastOnly?' contrast':''} ${tasks[index].width}px: ${outcome.reason?.message??outcome.reason}`]:[]);
+results.push(...outcomes.flatMap(outcome=>outcome.status==='fulfilled'?[outcome.value]:[]));
+if(failures.length) throw new Error(failures.join('\n'));
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));
  console.log(JSON.stringify(results,null,2));
  assert.ok(results.every(r=>r.errors.length===0&&r.violations.length===0));
 } catch(error) {
  console.error('operator-ui failed:',error?.message??error);
  for(const context of browser.contexts()) for(const page of context.pages()) {
-  await page.screenshot({path:output+'/failure.png',timeout:5000}).catch(()=>{});
+  await page.screenshot({path:output+`/failure-${contextLabels.get(context)??'unknown'}.png`,timeout:5000}).catch(()=>{});
  }
  throw error;
 } finally {await browser.close()}

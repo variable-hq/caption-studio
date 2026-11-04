@@ -1,6 +1,6 @@
 # Brand guidelines
 
-Reviewed 3 November 2026 against merged PR #105 (`eaec64a`).
+Reviewed 4 November 2026 against merged PR #112 (`87b37dd`).
 
 The baseline every Caption Studio screen follows: how the product sounds, which token
 to use for which job, and how text, space and components are laid out. Agents and
@@ -274,7 +274,8 @@ difference here, fix it when the screen is next changed, and don't copy it into 
 1. Only tokens: no new hex, rgb or pixel type size.
 2. Sentence case, glossary words, buttons that name the outcome.
 3. One primary action per region; disabled actions say why.
-4. Works at 1920, 1200, 390 and 320px, in light and dark (`npm run qa`).
+4. Works at 1920, 1200, 390 and 320px, in light and dark (`npm run qa` checks layout in light
+   and colour contrast in dark at 390 and 1200px; `CAPTION_QA_COLOR_SCHEME=dark` runs a full dark pass).
 5. Keyboard reachable with visible focus; status changes announced.
 6. The design system and this guide still describe what you built; update them in the
    same commit if not.

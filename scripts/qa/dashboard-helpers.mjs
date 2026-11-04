@@ -8,7 +8,7 @@ export const CAPTION_WAIT_TIME_LABELS = [
   'Dynamic: adapts to the speaker, up to 14 seconds',
 ];
 
-const SETTINGS_LABELS = {
+export const SETTINGS_LABELS = {
   computer: "System",
   presets: "Presets",
   languages: "Language",
@@ -39,3 +39,55 @@ export async function openSettings(page, section) {
 }
 
 export const SETTINGS_SECTIONS = Object.keys(SETTINGS_LABELS);
+
+// Browser QA runs its own dev server on CAPTION_QA_PORT (default 3100) so two runs can share a machine.
+function parseQaPort(value) {
+  if (value === undefined || value === "") return 3100;
+  const port = Number(value);
+  if (!/^\d{1,5}$/.test(value) || port < 1 || port > 65535) throw new Error("CAPTION_QA_PORT must be a port number from 1 to 65535.");
+  return port;
+}
+export const QA_PORT = parseQaPort(process.env.CAPTION_QA_PORT);
+export const QA_ORIGIN = `http://127.0.0.1:${QA_PORT}`;
+
+// Screenshots are evidence for a human reviewer, so they are written only when CAPTION_QA_SHOTS=1.
+// Failure screenshots are written by each suite regardless.
+const QA_SHOTS = process.env.CAPTION_QA_SHOTS === "1";
+export const captureScreenshot = (target, options) => (QA_SHOTS ? target.screenshot(options) : undefined);
+
+// Axe runs at the desktop and the narrowest width; the other widths keep the overflow and wording checks.
+export const AXE_WIDTHS = [1200, 320];
+
+// Browser contexts run at most this many at a time per suite.
+export const QA_CONCURRENCY = 4;
+
+// The default run adds a dark pass that checks colour contrast only, at these widths.
+export const CONTRAST_WIDTHS = [390, 1200];
+
+// Each task is one width in one colour scheme. CAPTION_QA_COLOR_SCHEME=dark runs every width in dark instead.
+export function qaPassTasks(colorScheme) {
+  const passes = colorScheme === "dark"
+    ? [{ colorScheme: "dark", widths: QA_VIEWPORT_WIDTHS, contrastOnly: false }]
+    : [
+        { colorScheme: "light", widths: QA_VIEWPORT_WIDTHS, contrastOnly: false },
+        { colorScheme: "dark", widths: CONTRAST_WIDTHS, contrastOnly: true },
+      ];
+  return passes.flatMap((pass) => pass.widths.map((width) => ({ width, colorScheme: pass.colorScheme, contrastOnly: pass.contrastOnly })));
+}
+
+// Runs task on each item with at most limit in flight and resolves every outcome, in item order.
+export async function settleWithLimit(items, limit, task) {
+  const outcomes = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      outcomes[index] = await task(items[index]).then(
+        (value) => ({ status: "fulfilled", value }),
+        (reason) => ({ status: "rejected", reason }),
+      );
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return outcomes;
+}
