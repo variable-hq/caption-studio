@@ -8,7 +8,7 @@ Explain the user, operator, or contributor need.
 
 ## Validation
 
-- [ ] Relevant automated checks pass
+- [ ] Relevant automated checks pass (list each command and its result for the head commit)
 - [ ] `npm audit --omit=dev` and full `npm audit` results are recorded separately
 - [ ] Manual behavior was tested where appropriate
 - [ ] Screenshots or recordings are attached for visible changes

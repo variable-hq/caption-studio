@@ -43,7 +43,8 @@ npm audit
 one worker, strict TypeScript, ESLint, both production builds, a deployment dry run, and
 the diff check, sequentially. `deploy:check` needs Node 22.12 or newer (Wrangler's
 requirement, in `package.json` `engines`); if only that step fails on an older Node,
-report it rather than skipping it. Record
+report it rather than skipping it. A documentation-only pull request may run just
+`git diff --check`, plus `npm run check:adrs` when `docs/decisions/` changes. Record
 production and full audit results separately. Never use `npm audit fix --force` without
 an explicit dependency-compatibility review.
 
@@ -104,7 +105,9 @@ Create a short-lived branch from the latest `main`:
 - `chore/short-description`
 
 AI agents use the same prefixes. Keep commits focused, with a
-matching conventional subject (`feat: …`, `fix: …`, `docs: …`). Update the maintained guide
+matching conventional subject (`feat: …`, `fix: …`, `docs: …`), and leave `npm run
+typecheck:strict`, `npm run lint` and `npm test` passing at every commit, so each one can
+be reviewed and reverted on its own. Update the maintained guide
 that describes a change in the same commit as the code. Before opening the pull request,
 search every maintained guide in [the index](docs/README.md#maintained-guides), including
 `README.md` and `SECURITY.md`, for the feature's names and identifiers, and correct any
@@ -119,7 +122,10 @@ A pull request should explain:
 - what changed and why;
 - user and operator impact;
 - privacy, security, biblical-context, quota, and OBS implications;
-- tests and manual checks performed;
+- tests and manual checks performed: the commands run and their results for the head
+  commit (a documentation-only pull request may list just `git diff --check`, plus
+  `npm run check:adrs` when `docs/decisions/` changes);
+- assumptions made, and any deviation from the agreed scope (issue or ADR);
 - screenshots or recordings for visible behavior, using synthetic data; and
 - known limitations and follow-up work.
 
@@ -185,6 +191,8 @@ next number after the highest in `docs/decisions/`, follow the shape in
 - Do not log raw audio, caption text, glossary content, Access JWTs, OBS tokens, or mobile
   viewer links.
 - Add failure and recovery tests for changes to live behavior.
+- A fix includes a test that fails without it. Do not edit a passing test to make a change
+  fit unless the behavior it covers is meant to change, and say so in the pull request.
 - Prefer deterministic post-processing for approved terms and public filtering.
 
 ## Code organization
@@ -241,6 +249,11 @@ worked examples of every rule below.
 - New or grown files follow [Code organization](#code-organization) above; a large,
   multi-responsibility file added or extended without comment is a finding, not a style nit.
 - Relevant automated and manual checks pass.
+
+Group review findings as **Blocking** (a bug, regression, scope deviation, or missing
+test or documentation), **Minor** (a small maintainability or consistency gap) and
+**Nits** (wording and formatting), each with its file and symbol. Every finding is
+addressed before merge unless the repository owner waives it on the pull request.
 
 ## Security reports
 
