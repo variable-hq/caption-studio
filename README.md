@@ -287,8 +287,8 @@ finishing with a whitespace check, sequentially. Run
 Browser and runtime QA scripts are separate from validation. The browser scripts load
 Playwright and Axe from an isolated directory so that no test dependency enters the
 product. Run `npm run qa` (or `npm run qa:all`) to install that isolated tooling and
-Chromium when needed, start the local server, and run the two mocked browser suites
-concurrently. Every API request is mocked. The server listens on `CAPTION_QA_PORT`
+Chromium when needed, start the local server, and run the mocked browser suites
+concurrently: the four operator areas (`qa:operator:live`, `qa:operator:settings`, `qa:operator:presets`, `qa:operator:transcripts`; `qa:operator` runs them in turn) and `qa:experience`. Every API request is mocked. The server listens on `CAPTION_QA_PORT`
 (default 3100); the run stops if that port is already in use. Next.js allows one `next dev` per project directory, so a second
 run on another port must come from a separate checkout. Screenshots are written
 to ignored `test-results/` only with `CAPTION_QA_SHOTS=1`. `CAPTION_QA_COLOR_SCHEME=dark`
@@ -337,7 +337,7 @@ version IDs are not recorded after PR #26, and later merges have no recorded dep
 yet. See the [deployment runbook](docs/DEPLOYMENT.md) for the fix that unblocked the first
 deploy and the remaining rehearsal gates.
 
-This document reviewed 4 November 2026 against merged [PR #112](https://github.com/variable-hq/caption-studio/pull/112) (`87b37dd`).
+This document reviewed 5 November 2026 against merged [PR #114](https://github.com/variable-hq/caption-studio/pull/114) (`a24f730`).
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).
