@@ -1,4 +1,4 @@
-import { AXE_WIDTHS, QA_ORIGIN, QA_VIEWPORT_WIDTHS, captureScreenshot, openSettings } from "./dashboard-helpers.mjs";
+import { AXE_WIDTHS, QA_CONCURRENCY, QA_ORIGIN, QA_VIEWPORT_WIDTHS, captureScreenshot, openSettings, qaPassTasks, settleWithLimit } from "./dashboard-helpers.mjs";
 // Synthetic browser checks only. All API requests are mocked and external traffic is blocked.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -10,6 +10,7 @@ const tooling = process.env.CAPTION_QA_TOOLS_DIR;
 assert.ok(tooling, 'Set CAPTION_QA_TOOLS_DIR to the isolated browser QA installation.');
 const { chromium } = await import(pathToFileURL(path.join(tooling, 'node_modules/playwright/index.mjs')));
 const { default: AxeBuilder } = await import(pathToFileURL(path.join(tooling, 'node_modules/@axe-core/playwright/dist/index.mjs')));
+const colorScheme = process.env.CAPTION_QA_COLOR_SCHEME === 'dark' ? 'dark' : 'light';
 const output = path.resolve('test-results/live-session-plan-1');
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true, timeout: 30000 });
@@ -51,8 +52,8 @@ const origin = QA_ORIGIN;
 const source = { id: 1, text: 'Synthetic transcript source about patience.', language: 'id', at: Date.now(), epoch: 0, translationRevision: 1 };
 const paragraph = { id: 1, sourceIds: [1], text: 'Synthetic readable paragraph about patience.', language: 'en', at: Date.now(), epoch: 0, translationRevision: 1, fallback: true };
 try {
- const runWidth = async (width) => {
-  const context = await browser.newContext({ viewport: { width, height: width > 500 ? 1080 : 844 }, reducedMotion: 'reduce' });
+ const runWidth = async (width, colorScheme, contrastOnly) => {
+  const context = await browser.newContext({ viewport: { width, height: width > 500 ? 1080 : 844 }, colorScheme, reducedMotion: 'reduce' });
   const page = await context.newPage(); const errors = []; const requests = [];
   page.on('pageerror', (error) => errors.push(error.message));
   let readerStatus = 'live', readerExpired = false, readerRemoved = false;
@@ -93,10 +94,10 @@ try {
   async function check(screen) {
    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
    const wide = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth ? '' : [...document.querySelectorAll('body *')].filter((el) => el.getBoundingClientRect().right > innerWidth + 1).slice(-4).map((el) => `${el.tagName}.${el.className}:${Math.round(el.getBoundingClientRect().right)}`).join(' | '));
-   assert.ok(!wide, width + '/' + screen + ' overflow: ' + wide);
-   const axe = AXE_WIDTHS.includes(width) ? await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze() : { violations: [] };
-   results.push({ width, screen, violations: axe.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })) });
-   await captureScreenshot(page, { path: `${output}/${screen}-${width}.png`, fullPage: true });
+   if (!contrastOnly) assert.ok(!wide, width + '/' + screen + ' overflow: ' + wide);
+   const axe = contrastOnly ? await new AxeBuilder({ page }).withRules(['color-contrast']).analyze() : AXE_WIDTHS.includes(width) ? await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze() : { violations: [] };
+   results.push({ width, colorScheme, contrastOnly, screen, violations: axe.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })) });
+   if (!contrastOnly) await captureScreenshot(page, { path: `${output}/${screen}-${width}.png`, fullPage: true });
   }
   await page.routeWebSocket('**/api/live/viewer?*', (socket) => socket.send(JSON.stringify({ type: 'ready', ...viewerReady, caption: { sequence: 1, publicText: 'Synthetic latest translation.', targetLanguage: 'en' } })));
   await page.goto(origin + '/view#main.' + 'v'.repeat(43));
@@ -190,8 +191,10 @@ try {
   assert.equal(await page.getByText('Synthetic supported summary.', { exact: false }).count(), 0);
   await openSettings(page, "usage");
   await page.waitForTimeout(250);
-  await captureScreenshot(page, { path: `${output}/usage-before-${width}.png`, fullPage: true });
-  await fs.writeFile(`${output}/usage-before-${width}.txt`, await page.locator('body').innerText());
+  if (!contrastOnly) {
+   await captureScreenshot(page, { path: `${output}/usage-before-${width}.png`, fullPage: true });
+   await fs.writeFile(`${output}/usage-before-${width}.txt`, await page.locator('body').innerText());
+  }
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.getByText('Usage by day (UTC)', { exact: true }).click(); assert.equal(await page.getByText('Plan monthly service capacity', { exact: true }).count(), 0); await check('usage');
   // The saved Sermon format relabels the Transcripts heading.
@@ -201,8 +204,9 @@ try {
   await check('transcripts-sermon');
   assert.deepEqual(errors, []); await context.close();
  };
-const outcomes = await Promise.allSettled(QA_VIEWPORT_WIDTHS.map(runWidth));
-const failures = outcomes.flatMap((outcome, index) => outcome.status === 'rejected' ? [`${QA_VIEWPORT_WIDTHS[index]}px: ${outcome.reason?.message ?? outcome.reason}`] : []);
+const tasks = qaPassTasks(colorScheme);
+const outcomes = await settleWithLimit(tasks, QA_CONCURRENCY, (task) => runWidth(task.width, task.colorScheme, task.contrastOnly));
+const failures = outcomes.flatMap((outcome, index) => outcome.status === 'rejected' ? [`${tasks[index].colorScheme}${tasks[index].contrastOnly ? ' contrast' : ''} ${tasks[index].width}px: ${outcome.reason?.message ?? outcome.reason}`] : []);
 results.sort((a, b) => QA_VIEWPORT_WIDTHS.indexOf(a.width) - QA_VIEWPORT_WIDTHS.indexOf(b.width));
 if (failures.length) throw new Error(failures.join('\n'));
  await fs.writeFile(output + '/results.json', JSON.stringify(results, null, 2));

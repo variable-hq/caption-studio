@@ -1,4 +1,4 @@
-import { AXE_WIDTHS, CAPTION_WAIT_TIME_LABELS, QA_ORIGIN, QA_VIEWPORT_WIDTHS, SETTINGS_SECTIONS, captureScreenshot, openScreen, openSettings } from "./dashboard-helpers.mjs";
+import { AXE_WIDTHS, CAPTION_WAIT_TIME_LABELS, QA_CONCURRENCY, QA_ORIGIN, SETTINGS_SECTIONS, captureScreenshot, openScreen, openSettings, qaPassTasks, settleWithLimit } from "./dashboard-helpers.mjs";
 // Local synthetic UI checks. No provider calls or external requests.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -14,7 +14,7 @@ await fs.mkdir(output,{recursive:true});
 const browser=await chromium.launch({headless:true,timeout:30000,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
 const results=[];
 try {
- const runWidth=async width=>{
+ const runWidth=async (width,colorScheme,contrastOnly)=>{
   const context=await browser.newContext({viewport:{width,height:width>500?1080:844},colorScheme,permissions:['microphone'],reducedMotion:'reduce'});
   const page=await context.newPage();
   if(process.env.CAPTION_QA_STUB_MIC){
@@ -102,9 +102,12 @@ try {
   // Event wording is checked only under General; the other presets use their own terms.
   const check=async (screen,{general=true}={})=>{
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
-   if(general&&/^(live|transcripts|help)/.test(screen)) await assertSessionWording(page,screen);
-   const axe=AXE_WIDTHS.includes(width)?await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze():{violations:[]};
+   if(!contrastOnly){
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
+    if(general&&/^(live|transcripts|help)/.test(screen)) await assertSessionWording(page,screen);
+   }
+   const axe=contrastOnly?await new AxeBuilder({page}).withRules(['color-contrast']).analyze()
+    :AXE_WIDTHS.includes(width)?await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze():{violations:[]};
    violations.push(...axe.violations.map(x=>({screen,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
   };
   // The pinned live control bar must never hide the lowest control on the page.
@@ -690,12 +693,13 @@ try {
   await check('transcripts-format-tag');
   historySessions=[];
 
-  const result={width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'};
+  const result={width,colorScheme,contrastOnly,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'};
   await context.close();
  return result;
  };
-const outcomes=await Promise.allSettled(QA_VIEWPORT_WIDTHS.map(runWidth));
-const failures=outcomes.flatMap((outcome,index)=>outcome.status==='rejected'?[`${QA_VIEWPORT_WIDTHS[index]}px: ${outcome.reason?.message??outcome.reason}`]:[]);
+const tasks=qaPassTasks(colorScheme);
+const outcomes=await settleWithLimit(tasks,QA_CONCURRENCY,task=>runWidth(task.width,task.colorScheme,task.contrastOnly));
+const failures=outcomes.flatMap((outcome,index)=>outcome.status==='rejected'?[`${tasks[index].colorScheme}${tasks[index].contrastOnly?' contrast':''} ${tasks[index].width}px: ${outcome.reason?.message??outcome.reason}`]:[]);
 results.push(...outcomes.flatMap(outcome=>outcome.status==='fulfilled'?[outcome.value]:[]));
 if(failures.length) throw new Error(failures.join('\n'));
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));
