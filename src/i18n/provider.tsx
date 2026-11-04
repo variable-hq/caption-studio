@@ -32,6 +32,11 @@ type I18nValue = {
   /** The workspace's preset; General until the setup or the browser cache says otherwise. */
   workspacePreset: Preset;
   setWorkspaceProfile: (profileId: unknown) => void;
+  /** The workspace's custom presets as the screens use them; empty until they have loaded. */
+  customPresets: readonly Preset[];
+  setCustomPresets: (presets: readonly Preset[]) => void;
+  /** Resolves a format id against the built-in and custom presets; an unknown id is General. */
+  presetFor: (presetId: unknown) => Preset;
   /** The workspace name; the default name until the setup or the browser cache says otherwise. */
   workspaceName: string;
   setWorkspaceName: (name: unknown) => void;
@@ -97,6 +102,27 @@ function writeProfile(profileId: PresetId | null) {
   for (const listener of profileListeners) listener();
 }
 
+// The workspace's custom presets (effective, with held model text removed) load with the shared setup.
+const presetListeners = new Set<() => void>();
+const NO_CUSTOM_PRESETS: readonly Preset[] = [];
+let cachedCustomPresets: readonly Preset[] = NO_CUSTOM_PRESETS;
+
+function subscribeCustomPresets(listener: () => void) {
+  presetListeners.add(listener);
+  return () => {
+    presetListeners.delete(listener);
+  };
+}
+
+function customPresetsSnapshot(): readonly Preset[] {
+  return cachedCustomPresets;
+}
+
+function writeCustomPresets(presets: readonly Preset[]) {
+  cachedCustomPresets = presets;
+  for (const listener of presetListeners) listener();
+}
+
 function readStoredWorkspaceName(): string | null {
   try {
     return normalizeWorkspaceName(window.localStorage.getItem(WORKSPACE_NAME_KEY));
@@ -141,7 +167,10 @@ export function I18nProvider({ children }: Readonly<{ children: React.ReactNode 
   const [locale, setLocale] = useState<UiLocale>("en");
   const [uiLocalePreference, setPreference] = useState<UiLocalePreference>(null);
   const profileId = useSyncExternalStore(subscribeProfile, profileSnapshot, () => null);
-  const workspacePreset = useMemo(() => resolveWorkspacePreset(profileId), [profileId]);
+  const customPresets = useSyncExternalStore(subscribeCustomPresets, customPresetsSnapshot, () => NO_CUSTOM_PRESETS);
+  const workspacePreset = useMemo(() => resolveWorkspacePreset(profileId, customPresets), [profileId, customPresets]);
+  const presetFor = useCallback((presetId: unknown) => resolveWorkspacePreset(presetId, customPresets), [customPresets]);
+  const setCustomPresets = useCallback((presets: readonly Preset[]) => writeCustomPresets(presets), []);
   const savedWorkspaceName = useSyncExternalStore(subscribeWorkspaceName, workspaceNameSnapshot, () => null);
   const workspaceName = savedWorkspaceName ?? WORKSPACE_NAME;
   const userChangedPreference = useRef(false);
@@ -193,6 +222,9 @@ export function I18nProvider({ children }: Readonly<{ children: React.ReactNode 
     setBrowserFallbackPreference,
     workspacePreset,
     setWorkspaceProfile,
+    customPresets,
+    setCustomPresets,
+    presetFor,
     workspaceName,
     setWorkspaceName,
     t,
@@ -204,6 +236,9 @@ export function I18nProvider({ children }: Readonly<{ children: React.ReactNode 
     setBrowserFallbackPreference,
     workspacePreset,
     setWorkspaceProfile,
+    customPresets,
+    setCustomPresets,
+    presetFor,
     workspaceName,
     setWorkspaceName,
     t,
@@ -217,7 +252,7 @@ export function I18nProvider({ children }: Readonly<{ children: React.ReactNode 
  */
 export function PresetScope({ presetId, children }: Readonly<{ presetId: PresetId | null; children: React.ReactNode }>) {
   const parent = useI18n();
-  const preset = useMemo(() => (presetId === null ? null : resolveWorkspacePreset(presetId)), [presetId]);
+  const preset = useMemo(() => (presetId === null ? null : resolveWorkspacePreset(presetId, parent.customPresets)), [presetId, parent.customPresets]);
   const value = useMemo<I18nValue>(
     () => preset === null
       ? parent

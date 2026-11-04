@@ -39,6 +39,29 @@ try {
   const controls=[];
   let accountUiLocale=null;
   let accountPreferencesUnavailable=false;
+  // Custom presets: the workspace's records, the plan's allowance (set to 0 or 1 for the locked and full states) and the commands the mock saw.
+  let presetRecords=[];
+  let presetMax=5;
+  let presetCounter=0;
+  const presetWrites=[];
+  const presetCommand=(command)=>{
+   if(command.action==='create'){
+    if(presetRecords.length>=presetMax) return {status:409,code:'limit-reached',error:'The workspace plan has no room for another custom preset.'};
+    if(presetRecords.some(entry=>entry.preset.name.en.toLowerCase()===command.preset.name.en.toLowerCase())) return {status:409,code:'name-taken',error:'A custom preset has this name.'};
+    presetCounter+=1;
+    const id='custom:'+String(presetCounter).padStart(8,'0')+'-0000-4000-8000-000000000000';
+    presetRecords=[...presetRecords,{preset:{...command.preset,id,version:1},modelTextAllowed:true}];
+    return {status:200};
+   }
+   if(command.action==='update'){
+    const current=presetRecords.find(entry=>entry.preset.id===command.id);
+    if(!current) return {status:404,code:'not-found',error:'Custom preset not found.'};
+    presetRecords=presetRecords.map(entry=>entry.preset.id===command.id?{preset:{...command.preset,id:command.id,version:current.preset.version+1},modelTextAllowed:command.modelTextAllowed??entry.modelTextAllowed}:entry);
+    return {status:200};
+   }
+   presetRecords=presetRecords.filter(entry=>entry.preset.id!==command.id);
+   return {status:200};
+  };
   let sharedSetup=null;
   // The format a running session fixed at start, the start bodies the mock saw, and the saved transcripts it lists.
   let sessionPresetId='builtin:general';
@@ -52,6 +75,7 @@ try {
    const request=route.request(),path=new URL(request.url()).pathname,method=request.method();
    let body={};try{body=request.postDataJSON()??{}}catch{}
    let payload={};
+   let replyStatus=200;
    if(path==='/api/live/experience/preferences'&&accountPreferencesUnavailable){
     await route.fulfill({status:503,json:{error:'Synthetic account preferences unavailable'}});
     return;
@@ -66,6 +90,14 @@ try {
       ?(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,uiLocale:accountUiLocale})
       :(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,...body,uiLocale:accountUiLocale,updatedAt:Date.now()});
   }
+   else if(path==='/api/live/experience/presets'){
+    if(method==='POST'){
+     presetWrites.push(body);
+     const reply=presetCommand(body);
+     if(reply.error){replyStatus=reply.status;payload={error:reply.error,code:reply.code};}
+    }
+    if(!payload.error) payload={presets:presetRecords,limits:{maxCustomPresets:presetMax,used:presetRecords.length}};
+   }
    else if(path==='/api/live/channel')payload={channelId:'main',configured:true,presetId:sessionPresetId,status,overlayUrl:QA_ORIGIN+'/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
    else if(path==='/api/live/channel/style'){style=body.style;payload={ok:true}}
    else if(path==='/api/live/channel/session'&&method==='POST'){
@@ -87,7 +119,7 @@ try {
    else if(path==='/api/live/experience/usage')payload={records:[],next:null};
    else if(path==='/api/live/experience/history')payload={sessions:historySessions,services:historySessions};
    else {errors.push('Unexpected mocked request: '+method+' '+path);return route.fulfill({status:400,json:{error:'Unexpected test request'}})}
-   await route.fulfill({status:200,json:payload});
+   await route.fulfill({status:replyStatus,json:payload});
   });
   await page.goto(QA_ORIGIN);
   await page.getByText('Ready to go',{exact:true}).waitFor();
@@ -583,6 +615,56 @@ try {
   await page.locator('input[type="file"][accept*="json"]').setInputFiles({name:'large.json',mimeType:'application/json',buffer:Buffer.alloc(65537,97)});
   await page.getByRole('alert').filter({hasText:'larger than 64 KB'}).waitFor();
   await check('presets-setup-oversized');
+  // Custom presets: create one from Sermon, edit it, delete it. The chooser and the Start bar list them; a plan with no room blocks a new one.
+  await page.getByRole('button',{name:'New preset',exact:true}).click();
+  await page.getByRole('textbox',{name:'Name',exact:true}).fill('Retreat');
+  await page.getByRole('combobox',{name:'Start from',exact:true}).selectOption('builtin:sermon');
+  await page.getByRole('button',{name:'Save preset',exact:true}).click();
+  await page.getByRole('button',{name:'Edit: Retreat',exact:true}).waitFor();
+  assert.equal(presetWrites.at(-1).action,'create','Saving a new preset sends a create command');
+  assert.equal(presetWrites.at(-1).preset.id,undefined,'The server assigns the id of a new preset');
+  await page.getByText('1 of 5 used',{exact:true}).waitFor();
+  assert.deepEqual(await formatSelect.locator('option').allTextContents(),['General','Sermon','Talkshow','Keynote','Retreat'],'The chooser lists the custom preset after the built-ins');
+  await check('presets-custom-created');
+  await page.getByRole('button',{name:'Edit: Retreat',exact:true}).click();
+  await page.getByRole('textbox',{name:'Name',exact:true}).fill('Retreat weekend');
+  await page.getByRole('button',{name:'Save preset',exact:true}).click();
+  await page.getByRole('button',{name:'Edit: Retreat weekend',exact:true}).waitFor();
+  assert.equal(presetWrites.at(-1).action,'update','Saving an existing preset sends an update command');
+  await page.getByRole('button',{name:'Edit: Retreat weekend',exact:true}).click();
+  await page.getByRole('button',{name:'Delete preset',exact:true}).click();
+  await page.getByRole('button',{name:'Confirm delete',exact:true}).click();
+  await page.getByText('Preset deleted.',{exact:true}).waitFor();
+  assert.equal(presetWrites.at(-1).action,'delete','Deleting a preset needs a second click and sends a delete command');
+  await page.getByText('0 of 5 used',{exact:true}).waitFor();
+  presetMax=0;
+  await page.reload();
+  await openSettings(page,'presets');
+  await page.getByText('Your workspace plan does not include custom presets.',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'New preset',exact:true}).isDisabled(),true,'A plan with no custom presets disables New preset');
+  await check('presets-custom-locked');
+  presetMax=1;
+  await page.reload();
+  await openSettings(page,'presets');
+  await page.getByRole('button',{name:'New preset',exact:true}).click();
+  await page.getByRole('textbox',{name:'Name',exact:true}).fill('Camp');
+  await page.getByRole('button',{name:'Save preset',exact:true}).click();
+  await page.getByRole('button',{name:'Edit: Camp',exact:true}).waitFor();
+  await page.getByText('All 1 custom presets are in use. Delete one to add another.',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'New preset',exact:true}).isDisabled(),true,'A full plan disables New preset');
+  await check('presets-custom-full');
+  presetMax=5;
+  await page.reload();
+  await openSettings(page,'presets');
+  await page.getByRole('button',{name:'Edit: Camp',exact:true}).waitFor();
+  await openScreen(page,'Live');
+  await page.getByRole('combobox',{name:'Session format',exact:true}).locator('option',{hasText:'Camp'}).waitFor({state:'attached'});
+  await openScreen(page,'Settings');
+  await openSettings(page,'presets');
+  await page.getByRole('button',{name:'Edit: Camp',exact:true}).click();
+  await page.getByRole('button',{name:'Delete preset',exact:true}).click();
+  await page.getByRole('button',{name:'Confirm delete',exact:true}).click();
+  await page.getByText('Preset deleted.',{exact:true}).waitFor();
   await openScreen(page,'Transcripts');
   await page.getByRole('heading',{name:'Transcripts',exact:true}).waitFor();
   await presetCheck('transcripts','general');
@@ -713,7 +795,7 @@ try {
   await check('transcripts-format-tag');
   historySessions=[];
 
-  const result={width,colorScheme,contrastOnly,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'};
+  const result={width,colorScheme,contrastOnly,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, custom presets created, edited and deleted with locked and full plan states, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'};
   await context.close();
  return result;
  };

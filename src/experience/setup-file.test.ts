@@ -6,6 +6,7 @@ import {
   buildSetupFile,
   parseSetupFile,
   planSetupImport,
+  remapImportedProfile,
 } from "@/experience/setup-file";
 import { EMPTY_PREFERENCES, SHARED_SETUP_FIELDS, mergeOperatorPreferences, type OperatorPreferences } from "@/experience/preferences";
 import { normalizePreset } from "@/experience/presets";
@@ -274,5 +275,22 @@ describe("setup file custom presets", () => {
       ok: false,
       failure: { reason: "invalid-preset", index: 0 },
     });
+  });
+});
+
+describe("setup import of a custom format", () => {
+  const FROM = "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b";
+  const TO = "custom:9b8a7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
+
+  it("selects the workspace id of a custom format the import added, and drops one it did not add", () => {
+    expect(remapImportedProfile(FROM, [{ fromId: FROM, id: TO }])).toBe(TO);
+    expect(remapImportedProfile(FROM, [])).toBeUndefined();
+    expect(remapImportedProfile(FROM, [{ fromId: "custom:other", id: TO }])).toBeUndefined();
+  });
+
+  it("keeps a built-in format and an absent one as they are", () => {
+    expect(remapImportedProfile("builtin:sermon", [])).toBe("builtin:sermon");
+    expect(remapImportedProfile(undefined, [])).toBeUndefined();
+    expect(remapImportedProfile(null, [])).toBeUndefined();
   });
 });

@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 4 November 2026 against merged PR #111 (`e420b29`). The 13 September deployment
+Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -213,7 +213,10 @@ prompt-injection or translation-quality risk; church-approved review remains req
 A workspace format adds model-facing text only from the built-in presets in
 `src/experience/presets.ts`, selected by id on the server. A format's transcription prefix opens
 the transcription prompt, and its translation rule follows the envelope's safeguards. A
-custom preset cannot add any model text, and request text never supplies it. The text
+custom preset (`src/experience/custom-presets.ts`) adds no transcription, translation or
+summary-framing text; its summary focus and starter Terms are operator-set defaults, held on
+import until an operator allows them for that preset, and the server never reads them. Request
+text never supplies any preset text. The text
 sits after the server envelope's safeguards and changes wording for the model only; it does
 not change the envelope, output contract or language direction.
 

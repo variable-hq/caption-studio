@@ -8,7 +8,7 @@ import { LANGUAGE_OPTIONS } from "@/domain/languages";
 import { SettingGroup } from "@/components/operator/SettingsParts";
 import { SessionMetadataFields } from "@/components/operator/SessionMetadataFields";
 import type { MessageKey } from "@/i18n";
-import { presetLocalizedText, resolveWorkspacePreset } from "@/experience/presets";
+import { presetLocalizedText } from "@/experience/presets";
 import { useI18n } from "@/i18n/provider";
 
 interface Archive { details: Omit<JournalState, "readerHash">; metadata: SessionMetadata; sources: SourceRecord[]; paragraphs: ReaderParagraph[]; notes: ReaderNote[]; summary: SummaryJob | null; more: boolean; moreParagraphs: boolean }
@@ -17,9 +17,9 @@ interface SessionEntry { id: string; startedAt: number; metadata?: SessionMetada
 type PanelMessage = { key: MessageKey } | { text: string } | null;
 
 export function SessionExperiencePanel({ view, liveSession, observer = null, onReaderLink, summaryDefaults = DEFAULT_SUMMARY_OPTIONS }: { view: "sharing" | "archive"; liveSession: LiveSessionDetails | null; observer?: LiveObserverDetails | null; onReaderLink: (url: string) => void; summaryDefaults?: SummaryOptions }) {
-  const { locale, t } = useI18n();
+  const { locale, t, presetFor } = useI18n();
   // A transcript saved before formats, or with an unknown id, is tagged General.
-  const formatName = (presetId: string | undefined) => presetLocalizedText(resolveWorkspacePreset(presetId).name, locale);
+  const formatName = (presetId: string | undefined) => presetLocalizedText(presetFor(presetId).name, locale);
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
   const [archive, setArchive] = useState<Archive | null>(null);
   const [metadataDraft, setMetadataDraft] = useState<SessionMetadata>({ ...EMPTY_SESSION_METADATA });

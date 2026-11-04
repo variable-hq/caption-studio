@@ -1,7 +1,7 @@
 import type { MessageKey } from "@/i18n";
 import { MAX_PRESETS_PER_IMPORT } from "./custom-presets";
 import { EMPTY_PREFERENCES, SHARED_SETUP_FIELDS, mergeOperatorPreferences, type OperatorPreferences } from "./preferences";
-import { PresetValidationError, isCustomPresetId, normalizePreset, type Preset } from "./presets";
+import { PresetValidationError, isCustomPresetId, normalizePreset, type Preset, type PresetId } from "./presets";
 
 /** The setup file a workspace exports and imports; its Terms stay in their own list import. */
 export const SETUP_FILE_KIND = "caption-studio-setup";
@@ -113,6 +113,17 @@ export function parseSetupFile(text: string): SetupFileResult {
     if (field in settings && normalized[field] !== null) Object.assign(setup, { [field]: normalized[field] });
   }
   return { ok: true, setup, presets: presets.presets };
+}
+
+/**
+ * The format an imported setup selects, given the workspace ids its custom presets were saved under.
+ * A custom format the import did not add is dropped, so the setup never names a missing preset.
+ */
+export function remapImportedProfile(profile: PresetId | null | undefined, added: readonly { fromId: string; id: string }[]): PresetId | undefined {
+  if (profile === undefined || profile === null) return undefined;
+  if (!isCustomPresetId(profile)) return profile;
+  const match = added.find((entry) => entry.fromId === profile);
+  return match && isCustomPresetId(match.id) ? match.id : undefined;
 }
 
 /**
