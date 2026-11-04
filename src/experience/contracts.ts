@@ -38,6 +38,8 @@ export interface ExperienceEnvironment {
   AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
   // Explicit deployment switch: only enable after verifying account Free plan and logging.
   CAPTION_OPTIONAL_AI_ENABLED?: string;
+  // Workspace plan for preset limits (`src/experience/entitlements.ts`); unset means the default limits.
+  WORKSPACE_PLAN?: string;
 }
 export interface UsageRecord {
   id: string;
