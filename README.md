@@ -60,6 +60,8 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
   workspace has not saved, and the format adds model context to transcription, translation
   and summaries. Each live session has its own **Session format** on the Live Start bar,
   and saved transcripts show it ([ADR 0035](docs/decisions/0035-workspace-presets.md)).
+  **Share setup** exports the workspace's shared settings to a file and imports one; an import
+  shows what it fills in before anything is saved.
 - **Interface language**: English or Bahasa Indonesia, chosen per operator in
   **Settings › Language**. The Indonesian interface copy is a draft pending native review
   ([ADR 0030](docs/decisions/0030-operator-interface-localization.md)).
@@ -98,7 +100,8 @@ lists the steps of a session in order.
 2. **Settings › System** — choose the microphone or audio interface, check the
    level, and play the test clip back.
 3. **Settings › Presets** (optional) — choose the workspace format and press
-   **Apply preset**, which fills only settings not yet saved.
+   **Apply preset**, which fills only settings not yet saved, or **Share setup** to import a
+   setup file that does the same.
 4. **Settings › Language**, **Translation** and **Terms** — choose the spoken and caption
    languages, set the caption wait time, and add names and terms, one at a time or by
    importing a list, or words never to show.

@@ -39,7 +39,7 @@ import {
   saveOperatorPreferences,
   saveSharedSetup,
 } from "@/experience/preferences-client";
-import { SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPreferences } from "@/experience/preferences";
+import { EMPTY_PREFERENCES, SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPreferences } from "@/experience/preferences";
 import { fillDraftChanges, planPresetApply, planPresetDifferences, type PresetFill, type PresetRowField } from "@/experience/preset-apply";
 import { runningSessionFormat, screenFollowsSessionFormat } from "@/experience/session-format";
 import { messagePresetFor } from "@/live/request-preset";
@@ -106,6 +106,7 @@ import { cutLengthPercentileMs } from "@/live/cut-metrics";
 import { formatClock } from "@/components/operator/format-clock";
 import { PresetChooser } from "@/components/operator/PresetChooser";
 import { PresetDifferences } from "@/components/operator/PresetDifferences";
+import { SetupShare } from "@/components/operator/SetupShare";
 import { WorkspaceNameEditor } from "@/components/operator/WorkspaceNameEditor";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
@@ -949,6 +950,13 @@ function OperatorDashboardContent() {
     if (row?.status === "differs") setFillDrafts(row.preset);
   };
 
+  // Saves the fill-only-unset values of an import, then shows them on the screens.
+  const importSetup = async (patch: Partial<OperatorPreferences>) => {
+    const ok = await syncAccountPreferences(patch);
+    if (ok) applySetupFields({ ...EMPTY_PREFERENCES, ...patch });
+    return ok;
+  };
+
   const saveWorkspaceName = (name: string) =>
     syncAccountPreferences({ workspaceName: normalizeWorkspaceName(name) });
 
@@ -1677,6 +1685,7 @@ function OperatorDashboardContent() {
                 onApply={applyPreset}
               />
               <PresetDifferences rows={presetDifferenceRows} onUse={useFormatDefault} />
+              <SetupShare setup={accountPreferences} terms={{ keywordText, filterText }} onImport={importSetup} />
             </>
           ) : null}
 
