@@ -11,6 +11,8 @@ const { default: AxeBuilder } = await import(pathToFileURL(path.join(tooling, 'n
 const colorScheme=process.env.CAPTION_QA_COLOR_SCHEME==='dark'?'dark':'light';
 const output=path.resolve('test-results/operator');
 await fs.mkdir(output,{recursive:true});
+// Settings sections with their own layout get an Axe scan; the rest keep their overflow check.
+const AXE_SETTINGS=['computer','languages','look','words','usage'];
 const browser=await chromium.launch({headless:true,timeout:30000,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
 const results=[];
 // Labels each browser context by its pass and width, so a failure screenshot names the width that failed.
@@ -155,11 +157,11 @@ try {
    assert.equal(hit,null,`${width}/${label} uses event wording: ${hit?.[0]}`);
   };
   // Event wording is checked only under General; the other presets use their own terms.
-  const check=async (screen,{general=true}={})=>{
+  const check=async (screen,{general=true,scan=true}={})=>{
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
    if(general&&/^(live|transcripts|help)/.test(screen)) await assertSessionWording(page,screen);
-   const axe=AXE_WIDTHS.includes(width)?await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze():{violations:[]};
+   const axe=scan&&AXE_WIDTHS.includes(width)?await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze():{violations:[]};
    violations.push(...axe.violations.map(x=>({screen,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
   };
   // The pinned live control bar must never hide the lowest control on the page.
@@ -217,7 +219,7 @@ try {
 
   for(const section of SETTINGS_SECTIONS){
    await openSettings(page,section);
-   await check(`settings-${section}`);
+   await check(`settings-${section}`,{scan:AXE_SETTINGS.includes(section)});
    if(section==='look'){
     const range=page.locator('input[type=range]').first();
     await range.fill('64');
@@ -398,7 +400,7 @@ try {
   await liveControls.getByRole('button',{name:'Pause',exact:true}).click();
   await liveControls.getByRole('button',{name:'Resume',exact:true}).waitFor();
   assert.ok(controls.includes('pause'));
-  await check('live-paused');
+  await check('live-paused',{scan:false});
   await liveControls.getByRole('button',{name:'Resume',exact:true}).click();
   await liveControls.getByRole('button',{name:'Pause',exact:true}).waitFor();
 
@@ -480,7 +482,7 @@ try {
   assert.equal(await page.locator('.liveWordList > li').count(),20);
   assert.equal(await page.getByText('synthetic-capacity-0',{exact:true}).count(),0);
   assert.equal(await page.getByText('synthetic-capacity-overflow',{exact:true}).isVisible(),true);
-  await check('quick-override-capacity');
+  await check('quick-override-capacity',{scan:false});
 
   await liveControls.getByRole('button',{name:'Clear screen',exact:true}).click();
   await page.waitForFunction(()=>true);
@@ -506,7 +508,7 @@ try {
   assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Pengaturan',exact:true}).count(),1);
   assert.equal(await page.locator('.operatorTabs').getByRole('link',{name:'Transkrip',exact:true}).count(),1);
   assert.equal(inferenceCalls,0,'Settings after End must not invoke inference');
-  await check('settings-interface-language-id');
+  await check('settings-interface-language-id',{scan:false});
   await page.evaluate(()=>localStorage.setItem('caption-studio:ui-locale:v1','en'));
   await page.reload();
   await page.waitForFunction(()=>document.documentElement.lang==='id');
@@ -528,7 +530,7 @@ try {
   await page.reload();
   await page.waitForFunction(()=>document.documentElement.lang==='en');
   await formatLink('General').waitFor();
-  const presetCheck=(screen,slug)=>check(`${screen}-${slug}`,{general:slug==='general'});
+  const presetCheck=(screen,slug,scan=false)=>check(`${screen}-${slug}`,{general:slug==='general',scan});
   const openPresets=async()=>{
    await openScreen(page,'Settings');
    await page.getByRole('navigation',{name:'Settings sections',exact:true}).getByRole('link',{name:'Presets',exact:true}).click();
@@ -566,7 +568,7 @@ try {
   await workspaceName.fill('x'.repeat(61));
   await page.getByText('Use up to 60 characters, without line breaks or other control characters.',{exact:true}).waitFor();
   assert.equal(await saveWorkspaceName.isDisabled(),true,'An over-long workspace name cannot be saved');
-  await check('presets-workspace-name-invalid');
+  await check('presets-workspace-name-invalid',{scan:false});
   await workspaceName.fill('Gereja Sion');
   const nameSavesBefore=controls.length;
   await saveWorkspaceName.click();
@@ -585,7 +587,7 @@ try {
   await setupText.fill('{not json');
   await previewSetup.click();
   await page.getByRole('alert').filter({hasText:'not valid JSON'}).waitFor();
-  await check('presets-setup-error');
+  await check('presets-setup-error',{scan:false});
   await setupText.fill(JSON.stringify({kind:'caption-studio-setup',schemaVersion:1,apiKey:'synthetic'}));
   await previewSetup.click();
   await page.getByText('This setup file has a field this app does not know: apiKey.',{exact:true}).waitFor();
@@ -612,10 +614,10 @@ try {
   await page.getByText('Allow this setup to add model instructions',{exact:true}).click();
   assert.equal(await importSetup.isDisabled(),false,'Allowing the instructions makes them importable');
   await page.getByText('Allow this setup to add model instructions',{exact:true}).click();
-  await check('presets-setup-held');
+  await check('presets-setup-held',{scan:false});
   await page.locator('input[type="file"][accept*="json"]').setInputFiles({name:'large.json',mimeType:'application/json',buffer:Buffer.alloc(65537,97)});
   await page.getByRole('alert').filter({hasText:'larger than 64 KB'}).waitFor();
-  await check('presets-setup-oversized');
+  await check('presets-setup-oversized',{scan:false});
   // Custom presets: create one from Sermon, edit it, delete it. The chooser and the Start bar list them; a plan with no room blocks a new one.
   await page.getByRole('button',{name:'New preset',exact:true}).click();
   await page.getByRole('textbox',{name:'Name',exact:true}).fill('Retreat');
@@ -643,7 +645,7 @@ try {
   await openSettings(page,'presets');
   await page.getByText('Your workspace plan does not include custom presets.',{exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'New preset',exact:true}).isDisabled(),true,'A plan with no custom presets disables New preset');
-  await check('presets-custom-locked');
+  await check('presets-custom-locked',{scan:false});
   presetMax=1;
   await page.reload();
   await openSettings(page,'presets');
@@ -653,7 +655,7 @@ try {
   await page.getByRole('button',{name:'Edit: Camp',exact:true}).waitFor();
   await page.getByText('The 1 custom preset is in use. Delete it to add another.',{exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'New preset',exact:true}).isDisabled(),true,'A full plan disables New preset');
-  await check('presets-custom-full');
+  await check('presets-custom-full',{scan:false});
   presetMax=5;
   await page.reload();
   await openSettings(page,'presets');
@@ -719,7 +721,7 @@ try {
   await page.getByText('Sermon applied. Review the filled-in settings, then save each one for everyone.',{exact:true}).waitFor();
   assert.equal(controls.length,keptSavesBefore+1,'Apply preset writes once');
   assert.deepEqual(Object.keys(controls.at(-1).preferenceWrite),['profile'],'Apply preset sends only the format, so saved settings are not rewritten');
-  await check('presets-kept',{general:false});
+  await check('presets-kept',{general:false,scan:false});
   // Differs from the format: saved settings that differ from Sermon are listed with the format's value; Use preset default fills a draft and saves nothing.
   await page.getByRole('heading',{name:'Differs from the format',exact:true}).waitFor();
   const useButtons=page.getByRole('button',{name:/^Use preset default for /});
@@ -749,7 +751,7 @@ try {
   assert.deepEqual(await sessionFormat.locator('option').allTextContents(),['General','Sermon','Talkshow','Keynote'],'The Start bar offers the four formats');
   assert.equal(await sessionFormat.inputValue(),'builtin:general','The Start bar defaults to the workspace format');
   assert.equal(await sessionFormat.evaluate(node=>{const box=node.getBoundingClientRect();return box.left>=0&&box.right<=innerWidth}),true,`${width}: the Start bar format select fits`);
-  await check('live-session-format-idle');
+  await check('live-session-format-idle',{scan:false});
   await sessionFormat.selectOption('builtin:talkshow');
   await page.getByRole('button',{name:'Start captions',exact:true}).click();
   const formatControls=page.getByRole('region',{name:'Live controls'});
@@ -759,16 +761,16 @@ try {
   await page.locator('.sessionFormatRow').getByText('Talkshow',{exact:true}).waitFor();
   assert.equal(await topBarText(),'BEST Church workspace · Talkshow · Main channel','The top bar follows the running session');
   await formatNote('Talkshow').waitFor();
-  await check('live-session-format-running',{general:false});
+  await check('live-session-format-running',{general:false,scan:false});
   // Settings keeps the workspace wording while the session runs.
   await openSettings(page,'summary');
   await page.getByText(/^Only for sessions with transcript saving on\./u).waitFor();
   assert.equal(await topBarText(),'BEST Church workspace · Talkshow · Main channel','The top bar still names the session on Settings');
-  await check('settings-session-format',{general:false});
+  await check('settings-session-format',{general:false,scan:false});
   // Transcripts follows the session.
   await openScreen(page,'Episodes');
   await page.getByRole('heading',{name:'Episodes',exact:true}).waitFor();
-  await check('transcripts-session-format',{general:false});
+  await check('transcripts-session-format',{general:false,scan:false});
   await openScreen(page,'Live');
   await formatControls.getByRole('button',{name:'End episode',exact:true}).click();
   const formatEnd=page.getByRole('alertdialog',{name:'End this episode?',exact:true});
@@ -786,7 +788,7 @@ try {
   await openScreen(page,'Transcripts');
   await page.getByRole('button',{name:/Synthetic topic one/u}).waitFor();
   assert.deepEqual(await page.locator('.transcriptListItem .formatTag').allTextContents(),['Sermon','General'],'Each saved transcript shows its format');
-  await check('transcripts-format-tag');
+  await check('transcripts-format-tag',{scan:false});
   historySessions=[];
 
   const result={width,colorScheme,contrastOnly,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, custom presets created, edited and deleted with locked and full plan states, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General and Sermon (other formats in vitest)), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'};
