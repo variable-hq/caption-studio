@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { planPresetApply, type PresetSavedSetup } from "@/experience/preset-apply";
+import { fillDraftChanges, planPresetApply, planPresetDifferences, type PresetSavedSetup } from "@/experience/preset-apply";
 import { GENERAL_PRESET, resolveWorkspacePreset } from "@/experience/presets";
 import { wordsFromSettings } from "@/live/words";
 
@@ -141,5 +141,93 @@ describe("planPresetApply", () => {
     expect(plan.rows).toEqual([]);
     expect(plan.fill).toEqual({});
     expect(plan.starterTerms).toMatchObject({ added: 0, skipped: 0 });
+  });
+});
+
+describe("planPresetDifferences", () => {
+  const SAVED_DIFFERENT: PresetSavedSetup = {
+    translationDefaults: {
+      sourceLanguage: "auto",
+      targetLanguage: "en",
+      keywordText: "",
+      filterText: "",
+      recordingWindowMs: 6000,
+      inferenceLevel: "low",
+      sanitizeLevel: "balanced",
+      filterInappropriateLanguage: true,
+    },
+    outputBufferCount: null,
+    outputBufferDwellMs: null,
+    summaryDefaults: { model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", language: "en", length: "short", guidance: "" },
+  };
+
+  it("lists only saved settings whose value differs from the format", () => {
+    const rows = planPresetDifferences(SERMON, SAVED_DIFFERENT, false);
+    expect(rows.map((row) => row.field)).toEqual(["captionWait", "inference", "summaryLength", "summaryGuidance"]);
+    expect(rows[0]).toEqual({
+      field: "captionWait",
+      status: "differs",
+      saved: { recordingWindowMs: 6000 },
+      preset: { recordingWindowMs: "dynamic" },
+    });
+  });
+
+  it("never lists a setting the workspace has not saved", () => {
+    const rows = planPresetDifferences(SERMON, SAVED_DIFFERENT, false);
+    expect(rows.map((row) => row.field)).not.toContain("outputBuffer");
+    expect(rows.map((row) => row.field)).not.toContain("sanitize");
+  });
+
+  it("lists nothing when the saved values match the format", () => {
+    const matching: PresetSavedSetup = {
+      ...SAVED_DIFFERENT,
+      translationDefaults: { ...SAVED_DIFFERENT.translationDefaults!, recordingWindowMs: "dynamic", inferenceLevel: "balanced", sanitizeLevel: "balanced" },
+      summaryDefaults: { ...SAVED_DIFFERENT.summaryDefaults!, length: "detailed", guidance: SERMON.defaults!.summaryGuidance! },
+    };
+    expect(planPresetDifferences(SERMON, matching, false)).toEqual([]);
+  });
+
+  it("lists nothing for General, which sets no defaults", () => {
+    expect(planPresetDifferences(GENERAL_PRESET, SAVED_DIFFERENT, false)).toEqual([]);
+    expect(planPresetDifferences(resolveWorkspacePreset(null), SAVED_DIFFERENT, false)).toEqual([]);
+  });
+
+  it("shows the saved output buffer and the format's value for the part not saved", () => {
+    const saved: PresetSavedSetup = { ...SAVED_DIFFERENT, outputBufferCount: 0, outputBufferDwellMs: null };
+    const [row] = planPresetDifferences(SERMON, saved, false).filter((candidate) => candidate.field === "outputBuffer");
+    expect(row).toEqual({
+      field: "outputBuffer",
+      status: "differs",
+      saved: { outputBufferCount: 0, outputBufferDwellMs: 3000 },
+      preset: { outputBufferCount: 1, outputBufferDwellMs: 3000 },
+    });
+  });
+
+  it("marks a differing output buffer as kept until a running session ends", () => {
+    const saved: PresetSavedSetup = { ...SAVED_DIFFERENT, outputBufferCount: 0, outputBufferDwellMs: 5000 };
+    const [row] = planPresetDifferences(SERMON, saved, true).filter((candidate) => candidate.field === "outputBuffer");
+    expect(row?.status).toBe("afterSession");
+    expect(planPresetDifferences(SERMON, saved, false).find((candidate) => candidate.field === "outputBuffer")?.status).toBe("differs");
+  });
+});
+
+describe("fillDraftChanges", () => {
+  const SUMMARY = { model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" as const, language: "en", guidance: "keep", length: "short" as const };
+
+  it("returns only the fill's own values as drafts", () => {
+    expect(fillDraftChanges({ recordingWindowMs: "dynamic", outputBufferCount: 1 }, SUMMARY)).toEqual({
+      recordingWindowMs: "dynamic",
+      outputBufferCount: 1,
+    });
+  });
+
+  it("returns no summary draft when the fill leaves the summary alone", () => {
+    expect(fillDraftChanges({ inferenceLevel: "balanced" }, SUMMARY)).not.toHaveProperty("summary");
+    expect(fillDraftChanges({}, SUMMARY)).toEqual({});
+  });
+
+  it("applies the fill's length and focus, keeping the other summary options", () => {
+    expect(fillDraftChanges({ summaryLength: "detailed" }, SUMMARY).summary).toEqual({ ...SUMMARY, length: "detailed" });
+    expect(fillDraftChanges({ summaryGuidance: "theme" }, SUMMARY).summary).toEqual({ ...SUMMARY, guidance: "theme" });
   });
 });

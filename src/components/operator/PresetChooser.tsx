@@ -5,18 +5,19 @@ import { useState } from "react";
 import { INFERENCE_LEVEL_LABELS, SANITIZE_LEVEL_LABELS } from "@/components/operator/PromptEditor";
 import { RECORDING_WINDOW_LABELS } from "@/components/operator/TranslationSettingsEditor";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
-import type { PresetApplyPlan, PresetRowField } from "@/experience/preset-apply";
+import type { PresetApplyPlan, PresetFill, PresetRowField } from "@/experience/preset-apply";
 import {
   BUILT_IN_PRESETS,
   normalizeProfileId,
   presetLocalizedText,
   resolveWorkspacePreset,
   type BuiltInPresetId,
+  type Preset,
 } from "@/experience/presets";
-import { translatePlural, type MessageKey } from "@/i18n";
+import { translatePlural, type MessageKey, type MessageParams, type UiLocale } from "@/i18n";
 import { useI18n } from "@/i18n/provider";
 
-const ROW_LABEL_KEYS: Record<PresetRowField, MessageKey> = {
+export const ROW_LABEL_KEYS: Record<PresetRowField, MessageKey> = {
   captionWait: "translationSettings.speedTitle",
   inference: "promptEditor.inferenceTitle",
   sanitize: "promptEditor.sanitizeTitle",
@@ -24,6 +25,32 @@ const ROW_LABEL_KEYS: Record<PresetRowField, MessageKey> = {
   summaryLength: "summarySettings.length",
   summaryGuidance: "summarySettings.focus",
 };
+
+/** The value a format sets for one row, as the operator reads it; `wording` is the active format. */
+export function presetValueText(
+  field: PresetRowField,
+  defaults: PresetFill,
+  t: (key: MessageKey, params?: MessageParams) => string,
+  locale: UiLocale,
+  wording: Preset,
+): string {
+  switch (field) {
+    case "captionWait":
+      return defaults.recordingWindowMs === undefined ? "" : t(RECORDING_WINDOW_LABELS[defaults.recordingWindowMs]);
+    case "inference":
+      return defaults.inferenceLevel === undefined ? "" : t(INFERENCE_LEVEL_LABELS[defaults.inferenceLevel]);
+    case "sanitize":
+      return defaults.sanitizeLevel === undefined ? "" : t(SANITIZE_LEVEL_LABELS[defaults.sanitizeLevel]);
+    case "outputBuffer":
+      return defaults.outputBufferCount === 0
+        ? t("outputBuffer.offOption", { badge: "" })
+        : translatePlural(locale, "outputBuffer.waitOption", (defaults.outputBufferDwellMs ?? 0) / 1000, { badge: "" }, wording);
+    case "summaryLength":
+      return t(defaults.summaryLength === "detailed" ? "summarySettings.detailed" : "summarySettings.short");
+    case "summaryGuidance":
+      return defaults.summaryGuidance ?? "";
+  }
+}
 
 /** Chooses the workspace format and previews what applying it fills in; the choice reaches the screens once applied. */
 export function PresetChooser({
@@ -58,25 +85,8 @@ export function PresetChooser({
       .finally(() => setSaving(false));
   };
 
-  const rowValue = (field: PresetRowField): string => {
-    const defaults = selected.defaults ?? {};
-    switch (field) {
-      case "captionWait":
-        return defaults.recordingWindowMs === undefined ? "" : t(RECORDING_WINDOW_LABELS[defaults.recordingWindowMs]);
-      case "inference":
-        return defaults.inferenceLevel === undefined ? "" : t(INFERENCE_LEVEL_LABELS[defaults.inferenceLevel]);
-      case "sanitize":
-        return defaults.sanitizeLevel === undefined ? "" : t(SANITIZE_LEVEL_LABELS[defaults.sanitizeLevel]);
-      case "outputBuffer":
-        return defaults.outputBufferCount === 0
-          ? t("outputBuffer.offOption", { badge: "" })
-          : translatePlural(locale, "outputBuffer.waitOption", (defaults.outputBufferDwellMs ?? 0) / 1000, { badge: "" }, workspacePreset);
-      case "summaryLength":
-        return t(defaults.summaryLength === "detailed" ? "summarySettings.detailed" : "summarySettings.short");
-      case "summaryGuidance":
-        return defaults.summaryGuidance ?? "";
-    }
-  };
+  const rowValue = (field: PresetRowField): string =>
+    presetValueText(field, selected.defaults ?? {}, t, locale, workspacePreset);
 
   const rowStatus = (status: "kept" | "afterSession") =>
     status === "kept" ? t("settings.presets.kept") : t("settings.presets.afterSession");

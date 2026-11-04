@@ -364,6 +364,19 @@ try {
   await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Undo changes',exact:true}).click();
   await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor({state:'hidden'});
+  // Use preset default during a service: Keynote's 14-second wait differs from the running Dynamic wait, so the Translation draft waits for Apply now, and Undo changes restores the running wait.
+  sharedSetup={...sharedSetup,updatedAt:Date.now(),profile:'builtin:keynote',translationDefaults:{sourceLanguage:'auto',targetLanguage:'en',keywordText:'',filterText:'',recordingWindowMs:6000,inferenceLevel:'low',sanitizeLevel:'off',filterInappropriateLanguage:true}};
+  await page.reload();
+  await openSettings(page,'presets');
+  await page.getByRole('button',{name:'Use preset default for Caption wait time',exact:true}).click();
+  await page.getByText('Set as a change to review: Caption wait time',{exact:true}).waitFor();
+  await openScreen(page,'Live');
+  await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Undo changes',exact:true}).click();
+  await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor({state:'hidden'});
+  await openSettings(page,'translator');
+  assert.equal(await page.locator('[data-testid="recording-window"]').first().inputValue(),'dynamic','Undo changes restores the running caption wait');
+
   await openSettings(page,'presets');
   await page.getByRole('combobox',{name:'Format',exact:true}).selectOption('builtin:general');
   await page.getByRole('button',{name:'Apply preset',exact:true}).click();
@@ -569,6 +582,27 @@ try {
   assert.equal(controls.length,keptSavesBefore+1,'Apply preset writes once');
   assert.deepEqual(Object.keys(controls.at(-1).preferenceWrite),['profile'],'Apply preset sends only the format, so saved settings are not rewritten');
   await check('presets-kept',{general:false});
+  // Differs from the format: saved settings that differ from Sermon are listed with the format's value; Use preset default fills a draft and saves nothing.
+  await page.getByRole('heading',{name:'Differs from the format',exact:true}).waitFor();
+  const useButtons=page.getByRole('button',{name:/^Use preset default for /});
+  assert.equal(await useButtons.count(),5,'Caption wait, inference, sanitization, summary length and summary focus differ from Sermon; the unsaved output buffer is not listed');
+  await page.getByText('Saved: 6 seconds: quickest, may break mid-sentence',{exact:true}).waitFor();
+  await check('presets-differences',{general:false});
+  const differencesSavesBefore=controls.length;
+  await page.getByRole('button',{name:'Use preset default for Length',exact:true}).click();
+  assert.equal(controls.length,differencesSavesBefore,'Use preset default saves nothing');
+  assert.equal(await useButtons.count(),5,'The saved setting stays listed until it is saved');
+  await openSettings(page,'summary');
+  assert.equal(await page.locator('select[name="defaultSummaryLength"]').inputValue(),'detailed','Use preset default sets the summary length draft to the format value');
+  // A Translation setting: the press names the change to review, and the Translator caption wait draft takes the format value; nothing is saved.
+  await openPresets();
+  await page.getByRole('button',{name:'Use preset default for Caption wait time',exact:true}).click();
+  await page.getByText('Set as a change to review: Caption wait time',{exact:true}).waitFor();
+  assert.equal(controls.length,differencesSavesBefore,'Use preset default for caption wait saves nothing');
+  await openSettings(page,'translator');
+  assert.equal(await page.locator('[data-testid="recording-window"]').first().inputValue(),'dynamic','Use preset default sets the caption wait draft to the format value');
+  await page.reload();
+  await openPresets();
   await chooseFormat('builtin:general','General');
 
   // Session format: the Start bar picks it, a running session fixes it, and Live, Transcripts and the top bar follow it while Settings keeps the workspace format.
@@ -617,7 +651,7 @@ try {
   await check('transcripts-format-tag');
   historySessions=[];
 
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (chooser options and save body, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'});
+  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, save and reset, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'});
   await context.close();
  }
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));
