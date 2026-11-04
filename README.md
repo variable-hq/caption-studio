@@ -1,7 +1,8 @@
 # Caption Studio
 
-Cloud-hosted transcription and translation for live sessions such as church services, with fast OBS captions,
-a latest-caption phone viewer, an appending reader, and a paired operator remote.
+Cloud-hosted transcription and translation for live sessions such as church services,
+with fast OBS captions, a latest-caption phone viewer, an appending reader, and a paired
+operator remote.
 Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
 [ADR 0002](docs/decisions/0002-free-cloud-first-ai.md).
 
@@ -147,9 +148,10 @@ current session. **Recent captions** shows the last three published captions wit
 source text and changes nothing. See
 [ADR 0023](docs/decisions/0023-live-note-and-recent-outputs.md).
 
-**Workspace presets and session format.** **Settings › Presets** adds each format's model
+**Workspace presets and session format.** Sermon, Talkshow and Keynote each add model
 context (a transcription prefix, a translation rule and a summary framing) to requests,
-after the server's own safeguards. A session's format is fixed when it starts, and the
+after the server's own safeguards; General adds none. Choose the workspace format in
+**Settings › Presets**. A session's format is fixed when it starts, and the
 public reader and phone viewer show that session's wording. See the
 [Product specification](docs/PRODUCT_SPEC.md#workspace-format).
 
@@ -164,8 +166,8 @@ corrections, reader paragraphs, and summary drafts for seven days after End, sha
 every signed-in operator. Optional **Session details** are record-only and never reach
 a model ([ADR 0024](docs/decisions/0024-session-metadata.md)). After End, an operator can
 correct source, remove passages, export the transcript as JSON, or **Generate summary**
-(requires optional Workers AI; each point cites the transcript passages it is based on); with **Make a
-summary draft automatically after each session** on, End queues one
+(requires optional Workers AI; each point cites the transcript passages it is based on);
+with **Make a summary draft automatically after each session** on, End queues one
 ([ADR 0019](docs/decisions/0019-automatic-post-service-summary.md)). Full behavior:
 [Product specification](docs/PRODUCT_SPEC.md#after-the-session).
 
@@ -318,9 +320,10 @@ pending evaluation, and dated evidence. Start with:
 ## Project status
 
 The 13 September 2026 deployment of PR #26 was verified, and Workers Builds production
-deployments of `main` are recorded through PR #75 (28 October 2026); merges after that have
-no recorded build ID yet. See the [deployment runbook](docs/DEPLOYMENT.md) for build and
-Worker IDs, the fix that unblocked the first deploy, and remaining rehearsal gates.
+deployments of `main` are recorded through PR #75 (28 October 2026). Build and Worker
+version IDs are not recorded after PR #26, and later merges have no recorded deployment
+yet. See the [deployment runbook](docs/DEPLOYMENT.md) for the fix that unblocked the first
+deploy and the remaining rehearsal gates.
 
 This document reviewed 4 November 2026 against merged [PR #108](https://github.com/variable-hq/caption-studio/pull/108) (`86b8099`).
 
