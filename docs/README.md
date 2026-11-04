@@ -73,7 +73,7 @@ records to establish release evidence.
   operator configuration is bound to the Cloudflare Access identity in an
   `OperatorPreferences` Durable Object, with `localStorage` kept only as a fallback.
 - [ADR 0015](decisions/0015-named-workspace-sized-for-its-operators.md) records why the
-  Access tenant is named *BEST Church workspace* in the operator UI, why the saved-transcript
+  Access tenant is named *BEST Church workspace* by default (renamable under Settings › Presets), why the saved-transcript
   copy states that every operator shares the archive, and why the watcher and paired-phone
   identity cap rose from 8 to 32.
 - [ADR 0016](decisions/0016-client-side-output-buffer.md) records why the new output

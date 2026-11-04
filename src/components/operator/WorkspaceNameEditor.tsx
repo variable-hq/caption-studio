@@ -30,7 +30,10 @@ export function WorkspaceNameEditor({
     setSaving(true);
     setStatus(t("common.savingForEveryone"));
     void onSave(value)
-      .then((ok) => setStatus(ok ? t("settings.message.savedForEveryone") : t("settings.error.sharedSetup")))
+      .then((ok) => {
+        setStatus(ok ? t("settings.message.savedForEveryone") : t("settings.error.sharedSetup"));
+        if (ok) setDraft(null);
+      })
       .finally(() => setSaving(false));
   };
 

@@ -108,7 +108,7 @@ import { PresetChooser } from "@/components/operator/PresetChooser";
 import { WorkspaceNameEditor } from "@/components/operator/WorkspaceNameEditor";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
-import { I18nProvider, PresetScope, useI18n } from "@/i18n/provider";
+import { I18nProvider, PresetScope, useI18n, useWorkspaceName } from "@/i18n/provider";
 import { translate, translatePlural, type MessageKey, type MessageParams, type UiLocalePreference } from "@/i18n";
 import "./operator-shell.css";
 
@@ -154,10 +154,10 @@ function OperatorDashboardContent() {
     setBrowserFallbackPreference,
     setWorkspaceProfile,
     workspacePreset,
-    workspaceName,
     setWorkspaceName,
     t: workspaceT,
   } = useI18n();
+  const workspaceName = useWorkspaceName();
   const tRef = useRef(workspaceT);
   useEffect(() => {
     tRef.current = workspaceT;
