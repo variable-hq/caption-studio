@@ -80,11 +80,13 @@ temporary directory), starts a local dev server on `CAPTION_QA_PORT` (default 31
 stops if that port is already in use), and runs the mocked `qa:operator` and
 `qa:experience` suites concurrently, each width in its own browser context (at most four
 at a time). Axe scans run at 1200px and 320px; the other widths keep the overflow and
-wording checks. Screenshots are written only with `CAPTION_QA_SHOTS=1`; `failure.png` is
-always written on failure. `CAPTION_QA_COLOR_SCHEME=dark` runs every width in dark with
+wording checks. Screenshots are written only with `CAPTION_QA_SHOTS=1`; the operator suite
+writes `failure-<pass>-<width>.png` for each failing width, and the experience suite writes no failure
+screenshot. `CAPTION_QA_COLOR_SCHEME=dark` runs every width in dark with
 all checks; without it, the default run adds a dark pass that checks colour contrast only, on the screens a plain address opens (the Live, Transcripts, Help and Settings addresses in the operator suite, and the reader, viewer, remote, transcripts and usage addresses in the experience suite).
 Run those two suites individually only when the server and tooling are already up, with
-`CAPTION_QA_TOOLS_DIR` set (and `CAPTION_QA_PORT` if it is not 3100). If headless Chromium's fake
+`CAPTION_QA_TOOLS_DIR` set (and `CAPTION_QA_PORT` if it is not 3100). Next.js allows one `next dev` per project directory, so a second run on another
+port must come from a separate checkout of the repo; running both from one checkout fails at server start. If headless Chromium's fake
 microphone hangs at **Start captions**, set `CAPTION_QA_STUB_MIC=1`. `npm run qa:runtime`
 remains a separate local Wrangler rehearsal on port 8787; see
 [Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md#runtime-rehearsal). Use only synthetic caption

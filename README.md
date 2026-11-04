@@ -285,7 +285,8 @@ Playwright and Axe from an isolated directory so that no test dependency enters 
 product. Run `npm run qa` (or `npm run qa:all`) to install that isolated tooling and
 Chromium when needed, start the local server, and run the two mocked browser suites
 concurrently. Every API request is mocked. The server listens on `CAPTION_QA_PORT`
-(default 3100); the run stops if that port is already in use. Screenshots are written
+(default 3100); the run stops if that port is already in use. Next.js allows one `next dev` per project directory, so a second
+run on another port must come from a separate checkout. Screenshots are written
 to ignored `test-results/` only with `CAPTION_QA_SHOTS=1`. `CAPTION_QA_COLOR_SCHEME=dark`
 runs every width in dark; by default the run adds a dark colour-contrast pass at 390 and
 1200px:
