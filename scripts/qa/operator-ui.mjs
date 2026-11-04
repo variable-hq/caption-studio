@@ -368,6 +368,7 @@ try {
   sharedSetup={...sharedSetup,updatedAt:Date.now(),profile:'builtin:keynote',translationDefaults:{sourceLanguage:'auto',targetLanguage:'en',keywordText:'',filterText:'',recordingWindowMs:6000,inferenceLevel:'low',sanitizeLevel:'off',filterInappropriateLanguage:true}};
   await page.reload();
   await openSettings(page,'presets');
+  await page.getByRole('heading',{name:'Differs from the format',exact:true}).waitFor();
   await page.getByRole('button',{name:'Use preset default for Caption wait time',exact:true}).click();
   await page.getByText('Set as a change to review: Caption wait time',{exact:true}).waitFor();
   await openScreen(page,'Live');
@@ -521,6 +522,44 @@ try {
   await saveWorkspaceName.click();
   await page.waitForFunction(()=>document.querySelector('.operatorBrandName > span')?.textContent.includes('BEST Church workspace'));
   assert.equal(await topBarText(),'BEST Church workspace · General · Main channel','An empty workspace name restores the default');
+  // Share setup: pasted text and a chosen file are previewed before anything is saved; errors name the problem; an import fills only the unsaved setting.
+  const setupText=page.locator('textarea[name="setupImport"]');
+  const previewSetup=page.getByRole('button',{name:'Preview import',exact:true});
+  const importSetup=page.getByRole('button',{name:'Import setup',exact:true});
+  await setupText.fill('{not json');
+  await previewSetup.click();
+  await page.getByRole('alert').filter({hasText:'not valid JSON'}).waitFor();
+  await check('presets-setup-error');
+  await setupText.fill(JSON.stringify({kind:'caption-studio-setup',schemaVersion:1,apiKey:'synthetic'}));
+  await previewSetup.click();
+  await page.getByText('This setup file has a field this app does not know: apiKey.',{exact:true}).waitFor();
+  const setupFile=JSON.stringify({kind:'caption-studio-setup',schemaVersion:1,workspaceName:'Gereja Impor'});
+  await page.locator('input[type="file"][accept*="json"]').setInputFiles({name:'setup.json',mimeType:'application/json',buffer:Buffer.from(setupFile)});
+  await page.getByText('What the import sets',{exact:true}).waitFor();
+  await page.getByText('Will be filled in',{exact:true}).waitFor();
+  const setupSavesBefore=controls.length;
+  await importSetup.click();
+  await page.getByText('Setup imported for everyone.',{exact:true}).waitFor();
+  assert.equal(controls.length,setupSavesBefore+1,'Import writes once');
+  assert.deepEqual(Object.keys(controls.at(-1).preferenceWrite),['workspaceName'],'Import sends only the unsaved setting');
+  await page.waitForFunction(()=>document.querySelector('.operatorBrandName > span')?.textContent.includes('Gereja Impor'));
+  assert.equal(await topBarText(),'Gereja Impor · General · Main channel','The imported workspace name reaches the top bar');
+  await page.getByRole('textbox',{name:'Workspace name',exact:true}).fill('');
+  await page.getByRole('button',{name:'Save for everyone',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.operatorBrandName > span')?.textContent.includes('BEST Church workspace'));
+  // Model-facing text in a file is held until allowed: it is shown, cannot be imported while held, and an oversized file is refused.
+  await setupText.fill(JSON.stringify({kind:'caption-studio-setup',schemaVersion:1,translationSystemPrompt:'Synthetic instructions for the translator.'}));
+  await previewSetup.click();
+  await page.getByText('Held until you allow model instructions',{exact:true}).waitFor();
+  await page.getByText('Synthetic instructions for the translator.',{exact:true}).waitFor();
+  assert.equal(await importSetup.isDisabled(),true,'Held model instructions cannot be imported before they are allowed');
+  await page.getByText('Allow this setup to add model instructions',{exact:true}).click();
+  assert.equal(await importSetup.isDisabled(),false,'Allowing the instructions makes them importable');
+  await page.getByText('Allow this setup to add model instructions',{exact:true}).click();
+  await check('presets-setup-held');
+  await page.locator('input[type="file"][accept*="json"]').setInputFiles({name:'large.json',mimeType:'application/json',buffer:Buffer.alloc(65537,97)});
+  await page.getByRole('alert').filter({hasText:'larger than 64 KB'}).waitFor();
+  await check('presets-setup-oversized');
   await openScreen(page,'Transcripts');
   await page.getByRole('heading',{name:'Transcripts',exact:true}).waitFor();
   await presetCheck('transcripts','general');
@@ -651,7 +690,7 @@ try {
   await check('transcripts-format-tag');
   historySessions=[];
 
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, save and reset, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'});
+  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'});
   await context.close();
  }
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));

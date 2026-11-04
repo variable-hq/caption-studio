@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 4 November 2026 against merged PR #110 (`e1aafae`). The corrected 13 September
+Reviewed 4 November 2026 against merged PR #111 (`e420b29`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -169,6 +169,25 @@ copy or browser language, then English.
 with no line breaks or control characters. Empty text uses the default, *BEST Church
 workspace*. **Save for everyone** saves it for the whole workspace; the top bar and the
 Live and Transcripts hints show it. Choosing a format never changes it.
+
+## Share setup
+
+**Settings › Presets › Share setup** exports the workspace's shared settings as a JSON file
+(`caption-studio-setup.json`) and imports one. The file holds the saved settings only: the
+format, workspace name, translator instructions, translation defaults without Terms, caption
+style, summary defaults, output buffer, transcript-saving default and automatic summaries.
+Terms stay in their own list import. Export uses the settings in effect for the operator.
+
+Import reads a chosen file or pasted text, up to 64 KB. Text that is not JSON, a file of
+another kind or version, and any unknown field are refused with a message that names the
+problem. Accepted values are normalized, and an invalid value falls back to the default. The
+preview lists each setting in the file as **Will be filled in** or **Kept: saved for this
+workspace**. **Import setup** saves only the filled settings for everyone; a saved setting
+is never overwritten. Automatic summaries are turned on by a file, never off. The translator
+instructions and the summary focus in a file are model-facing text: the preview shows them as
+**Held until you allow model instructions**, and they are saved only when the operator ticks
+**Allow this setup to add model instructions**. Until then **Import setup** can still save the
+other settings in the file.
 
 ## Workspace format
 

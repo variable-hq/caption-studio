@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 4 November 2026 against merged PR #106 (`2f3432e`). The 13 September deployment
+Reviewed 4 November 2026 against merged PR #111 (`e420b29`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -219,6 +219,18 @@ not change the envelope, output contract or language direction.
 
 A format's summary framing is one line in the summary envelope, before the output contract;
 it is server text and is kept out of the untrusted transcript data.
+
+A setup file (**Settings › Presets › Share setup**) is untrusted input, read in the browser and
+saved only through the shared setup route. A file over 64 KB, text that is not JSON, another
+`kind` or `schemaVersion`, and any field the format does not define, at the top level or inside
+a nested setting, are refused before anything is read into a setting. Every accepted value is
+normalized by the same rules as the saved setup, so an invalid value falls back to the default
+or is dropped. Terms are not in the file and cannot be imported through it. The export holds
+only the workspace's shared settings: no keys, tokens, session data, transcripts or operator
+identities. A file can set the translator instructions and the summary focus, which are sent to
+the model as the workspace's own setup. Those two values are shown in the preview and saved only
+after the operator allows them, as a format's model text is; the base safeguards still apply, and
+the file itself is never sent to a model.
 
 The same envelope pattern also structures the optional reader-join and summary prompts,
 which have no operator-editable text of their own. Independently of that input-side

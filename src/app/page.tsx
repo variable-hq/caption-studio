@@ -39,7 +39,7 @@ import {
   saveOperatorPreferences,
   saveSharedSetup,
 } from "@/experience/preferences-client";
-import { SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPreferences } from "@/experience/preferences";
+import { EMPTY_PREFERENCES, SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPreferences } from "@/experience/preferences";
 import { fillDraftChanges, planPresetApply, planPresetDifferences, type PresetFill, type PresetRowField } from "@/experience/preset-apply";
 import { runningSessionFormat, screenFollowsSessionFormat } from "@/experience/session-format";
 import { messagePresetFor } from "@/live/request-preset";
@@ -106,6 +106,7 @@ import { cutLengthPercentileMs } from "@/live/cut-metrics";
 import { formatClock } from "@/components/operator/format-clock";
 import { PresetChooser } from "@/components/operator/PresetChooser";
 import { PresetDifferences } from "@/components/operator/PresetDifferences";
+import { SetupShare } from "@/components/operator/SetupShare";
 import { WorkspaceNameEditor } from "@/components/operator/WorkspaceNameEditor";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
@@ -794,6 +795,56 @@ function OperatorDashboardContent() {
     hasSessionRef.current = Boolean(liveState.liveSession);
   }, [liveState.liveSession]);
 
+  // Applies saved setup values to the screens. A running session and unsaved drafts are left alone.
+  const applySetupFields = useCallback((loaded: OperatorPreferences) => {
+    if (loaded.translationSystemPrompt !== null) {
+      setTranslationSystemPrompt(loaded.translationSystemPrompt);
+      setSavedPromptFingerprint(loaded.translationSystemPrompt);
+      setPromptStorageMessage(tRef.current("settings.message.loadedSharedSetup"));
+    }
+    if (loaded.summaryDefaults) {
+      setSummaryDefaults(loaded.summaryDefaults);
+      setSavedSummaryDefaults(loaded.summaryDefaults);
+      setSummaryStorageMessage(tRef.current("settings.message.loadedSharedSetup"));
+    }
+    if (loaded.captionStyle) {
+      const saved = loaded.captionStyle;
+      setFontSize(saved.fontSize);
+      setTextColor(saved.textColor);
+      setBackgroundColor(saved.backgroundColor);
+      setBackgroundTransparency(saved.backgroundTransparency);
+      setHorizontalMarginPercent(saved.horizontalMarginPercent);
+      setVerticalMarginPercent(saved.verticalMarginPercent);
+      setHorizontalAlign(saved.horizontalAlign);
+      setVerticalAlign(saved.verticalAlign);
+      setFontFamily(saved.fontFamily);
+      setSavedStyleFingerprint(JSON.stringify(saved));
+    }
+    if (loaded.translationDefaults && !hasSessionRef.current) {
+      const defaults = loaded.translationDefaults;
+      setSourceLanguage(defaults.sourceLanguage);
+      setTargetLanguage(defaults.targetLanguage);
+      setKeywordText(defaults.keywordText);
+      setFilterText(defaults.filterText);
+      setRecordingWindowMs(defaults.recordingWindowMs);
+      setInferenceLevel(defaults.inferenceLevel);
+      setSanitizeLevel(defaults.sanitizeLevel);
+      setFilterInappropriateLanguage(defaults.filterInappropriateLanguage);
+      setTranslationDefaultsMessage(tRef.current("settings.message.loadedSharedSetup"));
+    }
+    if (loaded.saveHistoryDefault !== null && !hasSessionRef.current) {
+      setSaveHistory(loaded.saveHistoryDefault);
+    }
+    if (loaded.outputBufferCount !== null && !hasSessionRef.current) {
+      setOutputBufferCount(loaded.outputBufferCount);
+      setLiveDefaultsReport({ hasSession: false, message: tRef.current("settings.message.loadedSharedSetup") });
+    }
+    if (loaded.outputBufferDwellMs !== null && !hasSessionRef.current) {
+      setOutputBufferDwellMs(loaded.outputBufferDwellMs);
+      setLiveDefaultsReport({ hasSession: false, message: tRef.current("settings.message.loadedSharedSetup") });
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const personalPreferencesRequest = loadOperatorPreferences();
@@ -810,58 +861,13 @@ function OperatorDashboardContent() {
         setPersonalPreferences(personal);
         setSharedSetup(shared);
         const loaded = effectiveSetup(shared, personal);
-        if (loaded.translationSystemPrompt !== null) {
-          setTranslationSystemPrompt(loaded.translationSystemPrompt);
-          setSavedPromptFingerprint(loaded.translationSystemPrompt);
-          setPromptStorageMessage(tRef.current("settings.message.loadedSharedSetup"));
-        }
-        if (loaded.summaryDefaults) {
-          setSummaryDefaults(loaded.summaryDefaults);
-          setSavedSummaryDefaults(loaded.summaryDefaults);
-          setSummaryStorageMessage(tRef.current("settings.message.loadedSharedSetup"));
-        }
-        if (loaded.captionStyle) {
-          const saved = loaded.captionStyle;
-          setFontSize(saved.fontSize);
-          setTextColor(saved.textColor);
-          setBackgroundColor(saved.backgroundColor);
-          setBackgroundTransparency(saved.backgroundTransparency);
-          setHorizontalMarginPercent(saved.horizontalMarginPercent);
-          setVerticalMarginPercent(saved.verticalMarginPercent);
-          setHorizontalAlign(saved.horizontalAlign);
-          setVerticalAlign(saved.verticalAlign);
-          setFontFamily(saved.fontFamily);
-          setSavedStyleFingerprint(JSON.stringify(saved));
-        }
+        applySetupFields(loaded);
         setTheme(personal.theme);
         try {
           if (personal.theme === "system") window.localStorage.removeItem(THEME_PREFERENCE_KEY);
           else window.localStorage.setItem(THEME_PREFERENCE_KEY, personal.theme);
         } catch {
           // Storage may be blocked; the account value still applies for this visit.
-        }
-        if (loaded.translationDefaults && !hasSessionRef.current) {
-          const defaults = loaded.translationDefaults;
-          setSourceLanguage(defaults.sourceLanguage);
-          setTargetLanguage(defaults.targetLanguage);
-          setKeywordText(defaults.keywordText);
-          setFilterText(defaults.filterText);
-          setRecordingWindowMs(defaults.recordingWindowMs);
-          setInferenceLevel(defaults.inferenceLevel);
-          setSanitizeLevel(defaults.sanitizeLevel);
-          setFilterInappropriateLanguage(defaults.filterInappropriateLanguage);
-          setTranslationDefaultsMessage(tRef.current("settings.message.loadedSharedSetup"));
-        }
-        if (loaded.saveHistoryDefault !== null && !hasSessionRef.current) {
-          setSaveHistory(loaded.saveHistoryDefault);
-        }
-        if (loaded.outputBufferCount !== null && !hasSessionRef.current) {
-          setOutputBufferCount(loaded.outputBufferCount);
-          setLiveDefaultsReport({ hasSession: false, message: tRef.current("settings.message.loadedSharedSetup") });
-        }
-        if (loaded.outputBufferDwellMs !== null && !hasSessionRef.current) {
-          setOutputBufferDwellMs(loaded.outputBufferDwellMs);
-          setLiveDefaultsReport({ hasSession: false, message: tRef.current("settings.message.loadedSharedSetup") });
         }
       })
       .catch(() => {
@@ -873,7 +879,7 @@ function OperatorDashboardContent() {
       cancelled = true;
     };
     // Runs once; the setters are stable and the live-session guard uses a ref.
-  }, [setAccountUiLocale, setBrowserFallbackPreference]);
+  }, [setAccountUiLocale, setBrowserFallbackPreference, applySetupFields]);
 
   /**
    * Best-effort sync; callers report the browser-only fallback themselves. Theme and
@@ -942,6 +948,13 @@ function OperatorDashboardContent() {
   const useFormatDefault = (field: PresetRowField) => {
     const row = presetDifferenceRows.find((candidate) => candidate.field === field);
     if (row?.status === "differs") setFillDrafts(row.preset);
+  };
+
+  // Saves the fill-only-unset values of an import, then shows them on the screens.
+  const importSetup = async (patch: Partial<OperatorPreferences>) => {
+    const ok = await syncAccountPreferences(patch);
+    if (ok) applySetupFields({ ...EMPTY_PREFERENCES, ...patch });
+    return ok;
   };
 
   const saveWorkspaceName = (name: string) =>
@@ -1672,6 +1685,7 @@ function OperatorDashboardContent() {
                 onApply={applyPreset}
               />
               <PresetDifferences rows={presetDifferenceRows} onUse={useFormatDefault} />
+              <SetupShare setup={accountPreferences} terms={{ keywordText, filterText }} onImport={importSetup} />
             </>
           ) : null}
 
