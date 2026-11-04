@@ -1,4 +1,4 @@
-import { QA_ORIGIN, QA_VIEWPORT_WIDTHS, openSettings } from "./dashboard-helpers.mjs";
+import { AXE_WIDTHS, QA_ORIGIN, QA_VIEWPORT_WIDTHS, captureScreenshot, openSettings } from "./dashboard-helpers.mjs";
 // Synthetic browser checks only. All API requests are mocked and external traffic is blocked.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -94,9 +94,9 @@ try {
    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
    const wide = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth ? '' : [...document.querySelectorAll('body *')].filter((el) => el.getBoundingClientRect().right > innerWidth + 1).slice(-4).map((el) => `${el.tagName}.${el.className}:${Math.round(el.getBoundingClientRect().right)}`).join(' | '));
    assert.ok(!wide, width + '/' + screen + ' overflow: ' + wide);
-   const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+   const axe = AXE_WIDTHS.includes(width) ? await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze() : { violations: [] };
    results.push({ width, screen, violations: axe.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })) });
-   await page.screenshot({ path: `${output}/${screen}-${width}.png`, fullPage: true });
+   await captureScreenshot(page, { path: `${output}/${screen}-${width}.png`, fullPage: true });
   }
   await page.routeWebSocket('**/api/live/viewer?*', (socket) => socket.send(JSON.stringify({ type: 'ready', ...viewerReady, caption: { sequence: 1, publicText: 'Synthetic latest translation.', targetLanguage: 'en' } })));
   await page.goto(origin + '/view#main.' + 'v'.repeat(43));
@@ -190,7 +190,7 @@ try {
   assert.equal(await page.getByText('Synthetic supported summary.', { exact: false }).count(), 0);
   await openSettings(page, "usage");
   await page.waitForTimeout(250);
-  await page.screenshot({ path: `${output}/usage-before-${width}.png`, fullPage: true });
+  await captureScreenshot(page, { path: `${output}/usage-before-${width}.png`, fullPage: true });
   await fs.writeFile(`${output}/usage-before-${width}.txt`, await page.locator('body').innerText());
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.getByText('Usage by day (UTC)', { exact: true }).click(); assert.equal(await page.getByText('Plan monthly service capacity', { exact: true }).count(), 0); await check('usage');

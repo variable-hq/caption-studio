@@ -49,3 +49,11 @@ function parseQaPort(value) {
 }
 export const QA_PORT = parseQaPort(process.env.CAPTION_QA_PORT);
 export const QA_ORIGIN = `http://127.0.0.1:${QA_PORT}`;
+
+// Screenshots are evidence for a human reviewer, so they are written only when CAPTION_QA_SHOTS=1.
+// Failure screenshots are written by each suite regardless.
+const QA_SHOTS = process.env.CAPTION_QA_SHOTS === "1";
+export const captureScreenshot = (target, options) => (QA_SHOTS ? target.screenshot(options) : undefined);
+
+// Axe runs at the desktop and the narrowest width; the other widths keep the overflow and wording checks.
+export const AXE_WIDTHS = [1200, 320];

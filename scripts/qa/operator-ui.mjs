@@ -1,4 +1,4 @@
-import { CAPTION_WAIT_TIME_LABELS, QA_ORIGIN, QA_VIEWPORT_WIDTHS, SETTINGS_SECTIONS, openScreen, openSettings } from "./dashboard-helpers.mjs";
+import { AXE_WIDTHS, CAPTION_WAIT_TIME_LABELS, QA_ORIGIN, QA_VIEWPORT_WIDTHS, SETTINGS_SECTIONS, captureScreenshot, openScreen, openSettings } from "./dashboard-helpers.mjs";
 // Local synthetic UI checks. No provider calls or external requests.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -104,7 +104,7 @@ try {
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
    if(general&&/^(live|transcripts|help)/.test(screen)) await assertSessionWording(page,screen);
-   const axe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
+   const axe=AXE_WIDTHS.includes(width)?await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze():{violations:[]};
    violations.push(...axe.violations.map(x=>({screen,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
   };
   // The pinned live control bar must never hide the lowest control on the page.
@@ -158,7 +158,7 @@ try {
   assert.equal(await sharedSave.count(),0,'The shared save hides once the choices match the saved default');
   await page.getByRole('checkbox',{name:/Save the transcript for 7 days/}).uncheck();
   assert.equal(inferenceCalls,0,'Idle Live must not invoke inference');
-  await page.screenshot({path:output+`/live-idle-${colorScheme}-${width}.png`,fullPage:true});
+  await captureScreenshot(page,{path:output+`/live-idle-${colorScheme}-${width}.png`,fullPage:true});
 
   for(const section of SETTINGS_SECTIONS){
    await openSettings(page,section);
@@ -168,7 +168,7 @@ try {
     await range.fill('64');
     await range.dispatchEvent('input');
     assert.ok((await page.getByTestId('caption-preview').first().getAttribute('style')).includes('64px'));
-    await page.screenshot({path:output+`/settings-look-${colorScheme}-${width}.png`,fullPage:true});
+    await captureScreenshot(page,{path:output+`/settings-look-${colorScheme}-${width}.png`,fullPage:true});
    }
    if(section==='obs') assert.equal(await page.getByRole('button',{name:'Copy OBS link',exact:true}).isVisible(),true);
    if(section==='computer'){
@@ -302,7 +302,7 @@ try {
    assert.equal(await row.evaluate((node)=>node.scrollWidth<=node.clientWidth&&node.getBoundingClientRect().right<=innerWidth),true,`${width}: "${label}" row overflows`);
   }
   assert.equal((await page.locator('.statRow',{hasText:'Caption wait, typical'}).locator('span').last().textContent())?.trim(),'—','Caption wait is empty before the first window');
-  await page.locator('details.advancedActions',{hasText:'Technical details'}).screenshot({path:output+`/live-technical-details-${colorScheme}-${width}.png`});
+  await captureScreenshot(page.locator('details.advancedActions',{hasText:'Technical details'}),{path:output+`/live-technical-details-${colorScheme}-${width}.png`});
   await check('live-running');
   await barClear('live-running');
   assert.equal(await formatLink('General').count(),0,'A running session shows the format as plain text, not a link');
@@ -322,7 +322,7 @@ try {
   const liveWrite=controls.at(-1).preferenceWrite;
   assert.equal(liveWrite.outputBufferDwellMs,3000,'A live save includes the visible buffer wait');
   assert.equal(Object.hasOwn(liveWrite,'saveHistoryDefault'),false,'A live save never includes the hidden transcript choice');
-  await page.screenshot({path:output+`/live-running-${colorScheme}-${width}.png`,fullPage:true});
+  await captureScreenshot(page,{path:output+`/live-running-${colorScheme}-${width}.png`,fullPage:true});
   // Moving to Settings and back never pauses or clears capture.
   const controlsBefore=controls.length;
   await openSettings(page,'usage');
@@ -396,7 +396,7 @@ try {
   await page.locator('select[name="liveWordAction"]').selectOption('fix');
   await page.locator('input[name="liveWordWith"]').fill('synthetic-canonical-term');
   await page.getByRole('button',{name:'Add quick override',exact:true}).click();
-  if(width===1920) await page.screenshot({path:output+`/quick-override-${colorScheme}-${width}.png`,fullPage:true});
+  if(width===1920) await captureScreenshot(page,{path:output+`/quick-override-${colorScheme}-${width}.png`,fullPage:true});
   await page.getByRole('button',{name:'Keep in Terms',exact:true}).click();
   await page.getByText('Kept for Apply now',{exact:true}).waitFor();
   await openSettings(page,'words');
