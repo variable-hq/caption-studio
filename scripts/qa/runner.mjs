@@ -51,9 +51,11 @@ try {
   if (bootstrap.error) throw bootstrap.error;
   if (bootstrap.status !== 0) throw new Error(`QA bootstrap failed (exit ${bootstrap.status}).`);
 
-  for (const script of ["qa:operator", "qa:experience"]) {
-    await run("npm", ["run", script], { shell: process.platform === "win32" });
-  }
+  const outcomes = await Promise.allSettled(
+    ["qa:operator", "qa:experience"].map((script) => run("npm", ["run", script], { shell: process.platform === "win32" })),
+  );
+  const failures = outcomes.flatMap((outcome) => (outcome.status === "rejected" ? [outcome.reason.message] : []));
+  if (failures.length) throw new Error(failures.join("\n"));
 } finally {
   if (server) {
     try {
