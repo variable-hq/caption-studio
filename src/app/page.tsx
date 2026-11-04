@@ -43,7 +43,7 @@ import { EMPTY_PREFERENCES, SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPr
 import { fillDraftChanges, planPresetApply, planPresetDifferences, type PresetFill, type PresetRowField } from "@/experience/preset-apply";
 import { runningSessionFormat, screenFollowsSessionFormat } from "@/experience/session-format";
 import { messagePresetFor } from "@/live/request-preset";
-import { effectiveCustomPreset, type CustomPresetsView, type PresetCommand } from "@/experience/custom-presets";
+import { effectiveCustomPreset, isUnresolvedCustomFormat, type CustomPresetsView, type PresetCommand } from "@/experience/custom-presets";
 import type { Preset } from "@/experience/presets";
 import { loadCustomPresets, sendPresetCommand } from "@/experience/custom-presets-client";
 import {
@@ -654,6 +654,19 @@ function OperatorDashboardContent() {
     observed.observer?.presetId,
   );
   const followsSession = screenFollowsSessionFormat(screen, sessionFormatId);
+  // A running session names a custom format this tab does not hold yet: reload the workspace's presets once per id.
+  const refetchedFormats = useRef(new Set<string>());
+  useEffect(() => {
+    if (sessionFormatId === null || !isUnresolvedCustomFormat(sessionFormatId, customPresets)) return;
+    if (refetchedFormats.current.has(sessionFormatId)) return;
+    refetchedFormats.current.add(sessionFormatId);
+    void loadCustomPresets()
+      .then((view) => {
+        setPresetsView(view);
+        setCustomPresets(view.presets.map(effectiveCustomPreset));
+      })
+      .catch(() => {});
+  }, [sessionFormatId, customPresets, setCustomPresets]);
   const sessionPreset = useMemo(
     () => (followsSession && sessionFormatId !== null ? presetFor(sessionFormatId) : null),
     [followsSession, sessionFormatId, presetFor],
@@ -1577,7 +1590,7 @@ function OperatorDashboardContent() {
             ) : null}
             <div className="statRow sessionFormatRow">
               <span>{t("live.sessionFormat.label")}</span>
-              <span className="formatTag" translate="no">{presetLocalizedText(presetFor(sessionFormatId).name, locale)}</span>
+              <span className="formatTag" translate="no">{isUnresolvedCustomFormat(sessionFormatId, customPresets) ? t("settings.presets.customFormatUnknown") : presetLocalizedText(presetFor(sessionFormatId).name, locale)}</span>
             </div>
             <details className="advancedActions">
               <summary>{t("live.sessionDetails")}</summary>

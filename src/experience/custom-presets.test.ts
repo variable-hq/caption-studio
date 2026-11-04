@@ -7,6 +7,7 @@ import {
   MAX_PRESETS_PER_IMPORT,
   applyPresetCommand,
   effectiveCustomPreset,
+  isUnresolvedCustomFormat,
   normalizeStoredCustomPresets,
   readWorkspaceCustomPresets,
   type StoredCustomPreset,
@@ -200,6 +201,16 @@ describe("stored custom presets", () => {
     expect(held.defaults).toEqual({ outputBufferCount: 0 });
     const allowed = effectiveCustomPreset({ ...withText, modelTextAllowed: true });
     expect(allowed.defaults?.summaryGuidance).toBe("theme");
+  });
+});
+
+describe("unresolved custom formats", () => {
+  it("flags a custom id that no preset of the workspace has", () => {
+    const preset = normalizePreset(raw("Retreat"));
+    expect(isUnresolvedCustomFormat(CUSTOM_A, [preset])).toBe(false);
+    expect(isUnresolvedCustomFormat(CUSTOM_A, [])).toBe(true);
+    expect(isUnresolvedCustomFormat("builtin:sermon", [])).toBe(false);
+    expect(isUnresolvedCustomFormat(undefined, [])).toBe(false);
   });
 });
 

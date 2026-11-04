@@ -207,8 +207,10 @@ creating is blocked. Built-in formats are never limited.
 
 A custom preset gives terms and starting settings only; it adds no transcription, translation or
 summary-framing text. Its summary focus and starter Terms are operator defaults. A session that
-starts with a custom format keeps its terms, so deleting or renaming the format later does not
-change that session's wording.
+starts with a custom format keeps its terms in its snapshot. If a running session or a saved
+transcript names a custom format this tab does not hold, the tab reloads the presets once. A format
+that is still gone is shown as "Custom format" in transcript tags and Live, and the Live screen
+reads its wording as General. The audience reader and viewer keep the session's own terms.
 
 A setup file exports the custom presets with the setup. An import adds them up to the plan's room
 (a name already in use gets " (2)"), and says how many it could not add. An imported preset's

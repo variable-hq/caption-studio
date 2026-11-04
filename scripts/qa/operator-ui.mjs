@@ -650,7 +650,7 @@ try {
   await page.getByRole('textbox',{name:'Name',exact:true}).fill('Camp');
   await page.getByRole('button',{name:'Save preset',exact:true}).click();
   await page.getByRole('button',{name:'Edit: Camp',exact:true}).waitFor();
-  await page.getByText('All 1 custom presets are in use. Delete one to add another.',{exact:true}).waitFor();
+  await page.getByText('The 1 custom preset is in use. Delete it to add another.',{exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'New preset',exact:true}).isDisabled(),true,'A full plan disables New preset');
   await check('presets-custom-full');
   presetMax=5;

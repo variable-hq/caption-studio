@@ -56,5 +56,6 @@ Caption Studio's wording is generic (ADR 0033), but an organization often wants 
 
 ## Related
 
+- Amended by [ADR 0036](0036-custom-presets-and-plan-limits.md): workspace-owned custom presets (`custom:<uuid>`) join the built-in formats. Custom presets carry no model-facing text; a custom preset's summary focus is an operator default that the server never reads, and imported model text is held per preset.
 - [ADR 0030](0030-operator-interface-localization.md): localized operator wording and the terminology rules.
 - [ADR 0033](0033-generic-vocabulary-and-identifiers.md): the neutral vocabulary and the identifier migration that presets build on.

@@ -7,6 +7,7 @@ import { SettingGroup } from "@/components/operator/SettingsParts";
 import type { CustomPresetCommandResult } from "@/experience/custom-presets-client";
 import type { CustomPresetsView, PresetCommand, StoredCustomPreset } from "@/experience/custom-presets";
 import { presetLocalizedText } from "@/experience/presets";
+import { translatePlural } from "@/i18n";
 import { useI18n } from "@/i18n/provider";
 
 type Mode = { kind: "new" } | { kind: "edit"; id: string } | null;
@@ -68,7 +69,7 @@ export function CustomPresetsEditor({
         <span>{t("settings.presets.customUsed", { used, max: maxCustomPresets })}</span>
       </div>
       {maxCustomPresets === 0 ? <p className="settingHint">{t("settings.presets.customLocked")}</p> : null}
-      {maxCustomPresets > 0 && full ? <p className="settingHint">{t("settings.presets.customFull", { max: maxCustomPresets })}</p> : null}
+      {maxCustomPresets > 0 && full ? <p className="settingHint">{translatePlural(locale, "settings.presets.customFull", maxCustomPresets)}</p> : null}
       {view.presets.length === 0 && maxCustomPresets > 0 ? <p className="settingHint">{t("settings.presets.customEmpty")}</p> : null}
       {view.presets.map((entry) => (
         <div key={entry.preset.id}>

@@ -213,3 +213,8 @@ export async function readWorkspaceCustomPresets(env: ExperienceEnvironment | un
     return [];
   }
 }
+
+/** A custom format id that none of the workspace's presets resolves, e.g. one since deleted. */
+export function isUnresolvedCustomFormat(id: unknown, presets: readonly Preset[]): boolean {
+  return isCustomPresetId(id) && !presets.some((preset) => preset.id === id);
+}
