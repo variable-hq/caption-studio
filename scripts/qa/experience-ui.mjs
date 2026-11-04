@@ -51,7 +51,7 @@ const origin = QA_ORIGIN;
 const source = { id: 1, text: 'Synthetic transcript source about patience.', language: 'id', at: Date.now(), epoch: 0, translationRevision: 1 };
 const paragraph = { id: 1, sourceIds: [1], text: 'Synthetic readable paragraph about patience.', language: 'en', at: Date.now(), epoch: 0, translationRevision: 1, fallback: true };
 try {
- for (const width of QA_VIEWPORT_WIDTHS) {
+ const runWidth = async (width) => {
   const context = await browser.newContext({ viewport: { width, height: width > 500 ? 1080 : 844 }, reducedMotion: 'reduce' });
   const page = await context.newPage(); const errors = []; const requests = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -200,7 +200,11 @@ try {
   await page.getByRole('heading', { name: 'Sermons', exact: true }).waitFor();
   await check('transcripts-sermon');
   assert.deepEqual(errors, []); await context.close();
- }
+ };
+const outcomes = await Promise.allSettled(QA_VIEWPORT_WIDTHS.map(runWidth));
+const failures = outcomes.flatMap((outcome, index) => outcome.status === 'rejected' ? [`${QA_VIEWPORT_WIDTHS[index]}px: ${outcome.reason?.message ?? outcome.reason}`] : []);
+results.sort((a, b) => QA_VIEWPORT_WIDTHS.indexOf(a.width) - QA_VIEWPORT_WIDTHS.indexOf(b.width));
+if (failures.length) throw new Error(failures.join('\n'));
  await fs.writeFile(output + '/results.json', JSON.stringify(results, null, 2));
  console.log(JSON.stringify(results, null, 2));
  assert.ok(results.every((r) => r.violations.length === 0));

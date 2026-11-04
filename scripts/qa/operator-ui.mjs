@@ -14,7 +14,7 @@ await fs.mkdir(output,{recursive:true});
 const browser=await chromium.launch({headless:true,timeout:30000,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
 const results=[];
 try {
- for (const width of QA_VIEWPORT_WIDTHS) {
+ const runWidth=async width=>{
   const context=await browser.newContext({viewport:{width,height:width>500?1080:844},colorScheme,permissions:['microphone'],reducedMotion:'reduce'});
   const page=await context.newPage();
   if(process.env.CAPTION_QA_STUB_MIC){
@@ -690,9 +690,14 @@ try {
   await check('transcripts-format-tag');
   historySessions=[];
 
-  results.push({width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'});
+  const result={width,colorScheme,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'};
   await context.close();
- }
+ return result;
+ };
+const outcomes=await Promise.allSettled(QA_VIEWPORT_WIDTHS.map(runWidth));
+const failures=outcomes.flatMap((outcome,index)=>outcome.status==='rejected'?[`${QA_VIEWPORT_WIDTHS[index]}px: ${outcome.reason?.message??outcome.reason}`]:[]);
+results.push(...outcomes.flatMap(outcome=>outcome.status==='fulfilled'?[outcome.value]:[]));
+if(failures.length) throw new Error(failures.join('\n'));
  await fs.writeFile(output+`/operator-results-${colorScheme}.json`,JSON.stringify(results,null,2));
  console.log(JSON.stringify(results,null,2));
  assert.ok(results.every(r=>r.errors.length===0&&r.violations.length===0));
