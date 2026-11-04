@@ -77,13 +77,14 @@ both mobile widths when latest-viewer behavior changes; run `npm run qa:experien
 for reader, remote, archive or usage UI changes. `npm run qa` (alias for `npm run qa:all`)
 installs the isolated Playwright/Axe tooling under `CAPTION_QA_TOOLS_DIR` (default: a
 temporary directory), starts a local dev server on `CAPTION_QA_PORT` (default 3100; the run
-stops if that port is already in use), and runs the mocked `qa:operator` and
-`qa:experience` suites concurrently, each width in its own browser context (at most four
-at a time). Axe scans run at 1200px and 320px; the other widths keep the overflow and
-wording checks. Screenshots are written only with `CAPTION_QA_SHOTS=1`; the operator suite
-writes `failure-<pass>-<width>.png` for each failing width, and the experience suite writes no failure
+stops if that port is already in use), and runs the mocked operator areas
+(`qa:operator:live`, `qa:operator:settings`, `qa:operator:presets`, `qa:operator:transcripts`; `qa:operator` runs them in turn) and
+`qa:experience` concurrently, each width in its own browser context (at most four at a time). Axe scans run at 1200px and 320px; the other widths keep the overflow and
+wording checks. Screenshots are written only with `CAPTION_QA_SHOTS=1`; each operator area
+writes `failure-<area>-<pass>-<width>.png` for each failing width, and the experience suite writes no failure
 screenshot. `CAPTION_QA_COLOR_SCHEME=dark` runs every width in dark with
-all checks; without it, the default run adds a dark pass that checks colour contrast only, on the screens a plain address opens (the Live, Transcripts, Help and Settings addresses in the operator suite, and the reader, viewer, remote, transcripts and usage addresses in the experience suite).
+all checks; without it, the default run adds a dark pass that checks colour contrast only, on the screens a plain address opens (the Live address, the Settings sections except Presets, the Presets address, and the Transcripts and Help addresses in the operator areas; and the reader, viewer, remote, transcripts and usage addresses in the experience suite).
+Browser suites assert what only a browser can prove: reachability, overflow, Axe, focus, and state held across screens or a running session. Wording that depends only on a preset's terms or message overrides is asserted per format in vitest (`src/i18n/format-wording.test.ts`). A new operator check goes in the area whose screen it asserts (`scripts/qa/operator-live.mjs`, `operator-settings.mjs`, `operator-presets.mjs` or `operator-transcripts.mjs`); shared mocks and the width loop live in `scripts/qa/operator-harness.mjs`.
 Run those two suites individually only when the server and tooling are already up, with
 `CAPTION_QA_TOOLS_DIR` set (and `CAPTION_QA_PORT` if it is not 3100). Next.js allows one `next dev` per project directory, so a second run on another
 port must come from a separate checkout of the repo; running both from one checkout fails at server start. If headless Chromium's fake
