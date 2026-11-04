@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import type { PresetDifference, PresetRowField } from "@/experience/preset-apply";
 import { useI18n } from "@/i18n/provider";
 
@@ -15,6 +17,7 @@ export function PresetDifferences({
   onUse: (field: PresetRowField) => void;
 }>) {
   const { t, locale, workspacePreset } = useI18n();
+  const [status, setStatus] = useState("");
   if (rows.length === 0) return null;
   return (
     <SettingGroup title={t("settings.presets.differencesTitle")} hint={t("settings.presets.differencesHint")}>
@@ -37,7 +40,10 @@ export function PresetDifferences({
                   type="button"
                   className="secondaryButton"
                   aria-label={t("settings.presets.usePresetDefaultFor", { setting: label })}
-                  onClick={() => onUse(row.field)}
+                  onClick={() => {
+                    onUse(row.field);
+                    setStatus(t("settings.presets.usedFormatDefault", { setting: label }));
+                  }}
                 >
                   {t("settings.presets.usePresetDefault")}
                 </button>
@@ -46,6 +52,7 @@ export function PresetDifferences({
           </div>
         );
       })}
+      <p className="settingHint" role="status" aria-live="polite">{status}</p>
     </SettingGroup>
   );
 }

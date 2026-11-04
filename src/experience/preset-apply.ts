@@ -1,3 +1,4 @@
+import type { SummaryOptions } from "@/experience/contracts";
 import type { OperatorPreferences } from "@/experience/preferences";
 import type { Preset, PresetDefaults, PresetStarterTerm } from "@/experience/presets";
 import { MAX_WORD_ENTRIES, wordsFromSettings, wordsToSettings } from "@/live/words";
@@ -157,4 +158,21 @@ export function planPresetDifferences(preset: Preset, saved: PresetSavedSetup, s
     });
   }
   return differences;
+}
+
+/**
+ * The draft changes a fill makes to the Presets-visible settings. A value the fill leaves out
+ * keeps its draft; `summary` is the summary defaults with the fill's length and focus applied.
+ */
+export function fillDraftChanges(fill: PresetFill, summary: SummaryOptions): Omit<PresetFill, "summaryLength" | "summaryGuidance"> & { summary?: SummaryOptions } {
+  const { summaryLength, summaryGuidance, ...drafts } = fill;
+  const changes: ReturnType<typeof fillDraftChanges> = drafts;
+  if (summaryLength !== undefined || summaryGuidance !== undefined) {
+    changes.summary = {
+      ...summary,
+      length: summaryLength ?? summary.length,
+      guidance: summaryGuidance ?? summary.guidance,
+    };
+  }
+  return changes;
 }

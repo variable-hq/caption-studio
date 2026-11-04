@@ -581,6 +581,13 @@ try {
   assert.equal(await useButtons.count(),5,'The saved setting stays listed until it is saved');
   await openSettings(page,'summary');
   assert.equal(await page.locator('select[name="defaultSummaryLength"]').inputValue(),'detailed','Use preset default sets the summary length draft to the format value');
+  // A Translation setting: the press names the change to review, and the Translator caption wait draft takes the format value; nothing is saved.
+  await openPresets();
+  await page.getByRole('button',{name:'Use preset default for Caption wait time',exact:true}).click();
+  await page.getByText('Set as a change to review: Caption wait time',{exact:true}).waitFor();
+  assert.equal(controls.length,differencesSavesBefore,'Use preset default for caption wait saves nothing');
+  await openSettings(page,'translator');
+  assert.equal(await page.locator('[data-testid="recording-window"]').first().inputValue(),'dynamic','Use preset default sets the caption wait draft to the format value');
   await page.reload();
   await openPresets();
   await chooseFormat('builtin:general','General');

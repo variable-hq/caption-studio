@@ -40,7 +40,7 @@ import {
   saveSharedSetup,
 } from "@/experience/preferences-client";
 import { SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPreferences } from "@/experience/preferences";
-import { planPresetApply, planPresetDifferences, type PresetFill, type PresetRowField } from "@/experience/preset-apply";
+import { fillDraftChanges, planPresetApply, planPresetDifferences, type PresetFill, type PresetRowField } from "@/experience/preset-apply";
 import { runningSessionFormat, screenFollowsSessionFormat } from "@/experience/session-format";
 import { messagePresetFor } from "@/live/request-preset";
 import {
@@ -909,20 +909,16 @@ function OperatorDashboardContent() {
       ? planPresetApply(resolveWorkspacePreset(profile), accountPreferences, { keywordText, filterText }, hasSession)
       : null;
 
-  // Fills the unsaved settings as drafts for the operator to review; nothing is saved as a default here.
   // Sets the given values as drafts for the operator to review; nothing is saved here.
   const setFillDrafts = (fill: PresetFill) => {
-    if (fill.recordingWindowMs !== undefined) setRecordingWindowMs(fill.recordingWindowMs);
-    if (fill.inferenceLevel !== undefined) setInferenceLevel(fill.inferenceLevel);
-    if (fill.sanitizeLevel !== undefined) setSanitizeLevel(fill.sanitizeLevel);
-    if (fill.outputBufferCount !== undefined) setOutputBufferCount(fill.outputBufferCount);
-    if (fill.outputBufferDwellMs !== undefined) setOutputBufferDwellMs(fill.outputBufferDwellMs);
-    if (fill.summaryLength !== undefined || fill.summaryGuidance !== undefined) {
-      setSummaryDefaults({
-        ...summaryDefaults,
-        length: fill.summaryLength ?? summaryDefaults.length,
-        guidance: fill.summaryGuidance ?? summaryDefaults.guidance,
-      });
+    const changes = fillDraftChanges(fill, summaryDefaults);
+    if (changes.recordingWindowMs !== undefined) setRecordingWindowMs(changes.recordingWindowMs);
+    if (changes.inferenceLevel !== undefined) setInferenceLevel(changes.inferenceLevel);
+    if (changes.sanitizeLevel !== undefined) setSanitizeLevel(changes.sanitizeLevel);
+    if (changes.outputBufferCount !== undefined) setOutputBufferCount(changes.outputBufferCount);
+    if (changes.outputBufferDwellMs !== undefined) setOutputBufferDwellMs(changes.outputBufferDwellMs);
+    if (changes.summary) {
+      setSummaryDefaults(changes.summary);
       setSummaryStorageMessage("");
     }
   };

@@ -531,6 +531,7 @@ export const id: Partial<Record<MessageKey, string>> = {
   "settings.presets.savedValue": "Tersimpan: {value}",
   "settings.presets.formatValue": "Format: {value}",
   "settings.presets.usePresetDefault": "Pakai default format",
+  "settings.presets.usedFormatDefault": "Ditetapkan sebagai perubahan untuk ditinjau: {setting}",
   "settings.presets.usePresetDefaultFor": "Pakai default format untuk {setting}",
   "settings.presets.workspaceTitle": "Workspace",
   "settings.presets.workspaceNameLabel": "Nama workspace",

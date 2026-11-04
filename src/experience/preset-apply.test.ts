@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { planPresetApply, planPresetDifferences, type PresetSavedSetup } from "@/experience/preset-apply";
+import { fillDraftChanges, planPresetApply, planPresetDifferences, type PresetSavedSetup } from "@/experience/preset-apply";
 import { GENERAL_PRESET, resolveWorkspacePreset } from "@/experience/presets";
 import { wordsFromSettings } from "@/live/words";
 
@@ -208,5 +208,26 @@ describe("planPresetDifferences", () => {
     const [row] = planPresetDifferences(SERMON, saved, true).filter((candidate) => candidate.field === "outputBuffer");
     expect(row?.status).toBe("afterSession");
     expect(planPresetDifferences(SERMON, saved, false).find((candidate) => candidate.field === "outputBuffer")?.status).toBe("differs");
+  });
+});
+
+describe("fillDraftChanges", () => {
+  const SUMMARY = { model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" as const, language: "en", guidance: "keep", length: "short" as const };
+
+  it("returns only the fill's own values as drafts", () => {
+    expect(fillDraftChanges({ recordingWindowMs: "dynamic", outputBufferCount: 1 }, SUMMARY)).toEqual({
+      recordingWindowMs: "dynamic",
+      outputBufferCount: 1,
+    });
+  });
+
+  it("returns no summary draft when the fill leaves the summary alone", () => {
+    expect(fillDraftChanges({ inferenceLevel: "balanced" }, SUMMARY)).not.toHaveProperty("summary");
+    expect(fillDraftChanges({}, SUMMARY)).toEqual({});
+  });
+
+  it("applies the fill's length and focus, keeping the other summary options", () => {
+    expect(fillDraftChanges({ summaryLength: "detailed" }, SUMMARY).summary).toEqual({ ...SUMMARY, length: "detailed" });
+    expect(fillDraftChanges({ summaryGuidance: "theme" }, SUMMARY).summary).toEqual({ ...SUMMARY, guidance: "theme" });
   });
 });

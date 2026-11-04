@@ -528,6 +528,7 @@ export const en = {
   "settings.presets.savedValue": "Saved: {value}",
   "settings.presets.formatValue": "Format: {value}",
   "settings.presets.usePresetDefault": "Use preset default",
+  "settings.presets.usedFormatDefault": "Set as a change to review: {setting}",
   "settings.presets.usePresetDefaultFor": "Use preset default for {setting}",
   "settings.presets.workspaceTitle": "Workspace",
   "settings.presets.workspaceNameLabel": "Workspace name",
