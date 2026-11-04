@@ -260,9 +260,10 @@ worked examples of every rule below.
   moderate up, the description gives the reason.
 
 Group review findings as **Blocking** (a bug, regression, scope deviation, missing test
-or documentation, or a missing or inaccurate risk level), **Minor** (a small maintainability or consistency gap) and
-**Nits** (wording and formatting), each with its file and symbol. Every finding is
-addressed before merge unless the repository owner waives it on the pull request.
+or documentation, or a missing or inaccurate risk level), **Minor** (a small
+maintainability or consistency gap) and **Nits** (wording and formatting), each with its
+file and symbol. Every finding is addressed before merge unless the repository owner
+waives it on the pull request.
 
 ## Security reports
 
