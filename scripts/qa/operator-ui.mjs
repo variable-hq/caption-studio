@@ -548,7 +548,8 @@ try {
    assert.equal(controls.length,savesBefore+1,`Applying ${name} writes once`);
    assert.equal(controls.at(-1).preferenceWrite.profile,profileId,`Saving ${name} sends ${profileId}`);
    await formatLink(name).waitFor();
-   assert.equal(await topBarText(),`BEST Church workspace · ${name} · Main channel`,`The top bar names ${name}`);
+   // The top bar's format name for every format is checked in vitest; the browser checks Sermon end to end.
+   if(profileId==='builtin:sermon') assert.equal(await topBarText(),`BEST Church workspace · ${name} · Main channel`,`The top bar names ${name}`);
   };
   // General is the default: the top bar links to Presets, and the chooser offers the four formats.
   await formatLink('General').click();
@@ -558,7 +559,7 @@ try {
   assert.deepEqual(await formatSelect.locator('option').allTextContents(),['General','Sermon','Talkshow','Keynote'],'The chooser lists the four built-in formats');
   assert.equal(await formatSelect.inputValue(),'builtin:general','General is the default format');
   await page.getByText('The base wording, used when no format is chosen.',{exact:true}).waitFor();
-  await presetCheck('presets','general');
+  await presetCheck('presets','general',true);
   // Workspace name: text with a control character or over 60 characters is refused; a valid name is saved for everyone and reaches the top bar; an empty name restores the default.
   const workspaceName=page.getByRole('textbox',{name:'Workspace name',exact:true});
   const saveWorkspaceName=page.getByRole('button',{name:'Save for everyone',exact:true});
@@ -666,13 +667,11 @@ try {
   await page.getByRole('button',{name:'Confirm delete',exact:true}).click();
   await page.getByText('Preset deleted.',{exact:true}).waitFor();
   await openScreen(page,'Transcripts');
-  await page.getByRole('heading',{name:'Transcripts',exact:true}).waitFor();
   await presetCheck('transcripts','general');
   await openScreen(page,'Live');
-  await page.getByText('For Transcripts and AI summary, shared with everyone at BEST Church workspace. Tell attendees when it’s on.',{exact:true}).waitFor();
   await presetCheck('live','general');
 
-  // Sermon: the Transcripts tab and heading, the Live save hint, and the top bar while a service runs.
+  // Sermon is the non-General format end to end: its Transcripts and Live wording, and the top bar while a service runs.
   await chooseFormat('builtin:sermon','Sermon');
   await openScreen(page,'Sermons');
   await page.getByRole('heading',{name:'Sermons',exact:true}).waitFor();
@@ -691,22 +690,17 @@ try {
   await page.getByRole('alertdialog').getByRole('button',{name:/^End /}).click();
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
 
-  // Talkshow: the Transcripts tab and heading, the Live hint and the manual caption example.
+  // Talkshow and Keynote: their wording is checked in vitest; the browser checks each screen's overflow.
   await chooseFormat('builtin:talkshow','Talkshow');
   await openScreen(page,'Episodes');
-  await page.getByRole('heading',{name:'Episodes',exact:true}).waitFor();
   await presetCheck('transcripts','talkshow');
   await openScreen(page,'Live');
-  await page.getByText('For Episodes and AI summary, shared with everyone at BEST Church workspace. Tell attendees when it’s on.',{exact:true}).waitFor();
   await presetCheck('live','talkshow');
 
-  // Keynote: the Transcripts tab and heading, and the Live hint.
   await chooseFormat('builtin:keynote','Keynote');
   await openScreen(page,'Talks');
-  await page.getByRole('heading',{name:'Talks',exact:true}).waitFor();
   await presetCheck('transcripts','keynote');
   await openScreen(page,'Live');
-  await page.getByText('For Talks and AI summary, shared with everyone at BEST Church workspace. Tell attendees when it’s on.',{exact:true}).waitFor();
   await presetCheck('live','keynote');
 
   // Back to General saves it again.
@@ -795,7 +789,7 @@ try {
   await check('transcripts-format-tag');
   historySessions=[];
 
-  const result={width,colorScheme,contrastOnly,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, custom presets created, edited and deleted with locked and full plan states, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General, Sermon, Talkshow and Keynote), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'};
+  const result={width,colorScheme,contrastOnly,errors,violations,checks:'idle Live, draft switch and empty state, no automatic default save, every Settings section, Transcripts, Help, per-screen addresses with Back/Forward/reload and legacy bookmarks, draft and consent persistence across screens, start/pause/resume/clear/end, Technical details cut rows, End dialog focus, pinned control bar clearance, second-tab take over, pending-change banner and Undo, live Quick override actions and Keep in Terms, Quick override capacity and no silent eviction, interface language selection/account persistence/account precedence/offline browser-copy fallback, presets (workspace name validation, custom presets created, edited and deleted with locked and full plan states, save and reset, share setup errors, held model text, an oversized file, file preview and a confirmed import, chooser options and save body, differences list and Use preset default as a draft, top bar format link and note, Transcripts and Live wording for General and Sermon (other formats in vitest)), session format (Start bar select that fits at every width, read-only tag and top bar while running, wording that follows the running session on Live and Transcripts but not Settings, format tag on saved transcripts),no inference before Start or after End, responsive overflow and Axe'};
   await context.close();
  return result;
  };
