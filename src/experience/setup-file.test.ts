@@ -6,8 +6,10 @@ import {
   buildSetupFile,
   parseSetupFile,
   planSetupImport,
+  remapImportedProfile,
 } from "@/experience/setup-file";
 import { EMPTY_PREFERENCES, SHARED_SETUP_FIELDS, mergeOperatorPreferences, type OperatorPreferences } from "@/experience/preferences";
+import { normalizePreset } from "@/experience/presets";
 
 const TERMS = { keywordText: "Gereja Sion, Yesus", filterText: "" };
 const NO_MODEL_TEXT = { allowModelText: false };
@@ -232,5 +234,63 @@ describe("setup import plan", () => {
     const plan = planSetupImport(withText, { ...SAVED, translationSystemPrompt: "Saved instructions." }, TERMS, ALLOW_MODEL_TEXT);
     expect(plan.patch).not.toHaveProperty("translationSystemPrompt");
     expect(plan.rows).toContainEqual({ field: "translationSystemPrompt", status: "kept" });
+  });
+});
+
+describe("setup file custom presets", () => {
+  const CUSTOM = "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b";
+  const terms = {
+    session: { singular: "service", plural: "services" },
+    speaker: { singular: "speaker", plural: "speakers" },
+    audience: { singular: "audience", plural: "audiences" },
+    transcripts: { singular: "transcripts" },
+  };
+  const PRESET = normalizePreset({
+    schemaVersion: 1, version: 1, id: CUSTOM, name: { en: "Retreat" }, description: { en: "A workspace format." },
+    terms: { en: terms },
+  });
+
+  it("exports the custom presets with the setup and reads them back", () => {
+    const file = buildSetupFile(SAVED, [PRESET]);
+    expect(file.presets).toEqual([PRESET]);
+    const result = parseSetupFile(fileText(file));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.presets).toEqual([PRESET]);
+    expect(result.setup.profile).toBe("builtin:sermon");
+  });
+
+  it("leaves the presets list out when there are none, and reads a file without one as none", () => {
+    expect(buildSetupFile(SAVED)).not.toHaveProperty("presets");
+    const result = parseSetupFile(fileText({ kind: SETUP_FILE_KIND, schemaVersion: 1 }));
+    expect(result.ok && result.presets).toEqual([]);
+  });
+
+  it("refuses the whole file when a preset is not valid or does not carry a custom id", () => {
+    const withPreset = (entry: unknown) => parseSetupFile(fileText({ kind: SETUP_FILE_KIND, schemaVersion: 1, presets: [PRESET, entry] }));
+    expect(withPreset({ ...PRESET, id: "builtin:sermon" })).toEqual({ ok: false, failure: { reason: "invalid-preset", index: 1 } });
+    expect(withPreset({ ...PRESET, transcriptionPrefix: { en: "Sermon." } })).toEqual({ ok: false, failure: { reason: "invalid-preset", index: 1 } });
+    expect(withPreset({ ...PRESET, apiKey: "x" })).toEqual({ ok: false, failure: { reason: "invalid-preset", index: 1 } });
+    expect(parseSetupFile(fileText({ kind: SETUP_FILE_KIND, schemaVersion: 1, presets: "x" }))).toEqual({
+      ok: false,
+      failure: { reason: "invalid-preset", index: 0 },
+    });
+  });
+});
+
+describe("setup import of a custom format", () => {
+  const FROM = "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b";
+  const TO = "custom:9b8a7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
+
+  it("selects the workspace id of a custom format the import added, and drops one it did not add", () => {
+    expect(remapImportedProfile(FROM, [{ fromId: FROM, id: TO }])).toBe(TO);
+    expect(remapImportedProfile(FROM, [])).toBeUndefined();
+    expect(remapImportedProfile(FROM, [{ fromId: "custom:other", id: TO }])).toBeUndefined();
+  });
+
+  it("keeps a built-in format and an absent one as they are", () => {
+    expect(remapImportedProfile("builtin:sermon", [])).toBe("builtin:sermon");
+    expect(remapImportedProfile(undefined, [])).toBeUndefined();
+    expect(remapImportedProfile(null, [])).toBeUndefined();
   });
 });

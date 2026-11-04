@@ -10,8 +10,7 @@ import {
   BUILT_IN_PRESETS,
   normalizeProfileId,
   presetLocalizedText,
-  resolveWorkspacePreset,
-  type BuiltInPresetId,
+  type PresetId,
   type Preset,
 } from "@/experience/presets";
 import { translatePlural, type MessageKey, type MessageParams, type UiLocale } from "@/i18n";
@@ -62,20 +61,20 @@ export function PresetChooser({
   savedProfile: string | null;
   /** False until the saved setup has loaded; the preview and Apply preset wait for it. */
   loaded: boolean;
-  planFor: (profile: BuiltInPresetId) => PresetApplyPlan | null;
-  onApply: (profile: BuiltInPresetId) => Promise<boolean>;
+  planFor: (profile: PresetId) => PresetApplyPlan | null;
+  onApply: (profile: PresetId) => Promise<boolean>;
 }>) {
-  const { t, locale, workspacePreset } = useI18n();
-  const saved = resolveWorkspacePreset(savedProfile).id as BuiltInPresetId;
+  const { t, locale, workspacePreset, customPresets, presetFor } = useI18n();
+  const saved = presetFor(savedProfile).id as PresetId;
   // Null until the operator picks; the select then follows the saved format.
-  const [picked, setPicked] = useState<BuiltInPresetId | null>(null);
+  const [picked, setPicked] = useState<PresetId | null>(null);
   const choice = picked ?? saved;
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const selected = resolveWorkspacePreset(choice);
+  const selected = presetFor(choice);
   const plan = loaded ? planFor(choice) : null;
-  const formatName = (profile: BuiltInPresetId) => presetLocalizedText(resolveWorkspacePreset(profile).name, locale);
+  const formatName = (profile: PresetId) => presetLocalizedText(presetFor(profile).name, locale);
 
   const apply = () => {
     setSaving(true);
@@ -102,7 +101,7 @@ export function PresetChooser({
             value={choice}
             onChange={(event) => setPicked(normalizeProfileId(event.target.value) ?? saved)}
           >
-            {BUILT_IN_PRESETS.map((preset) => (
+            {[...BUILT_IN_PRESETS, ...customPresets].map((preset) => (
               <option key={preset.id} value={preset.id}>{presetLocalizedText(preset.name, locale)}</option>
             ))}
           </select>

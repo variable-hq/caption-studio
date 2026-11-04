@@ -61,7 +61,11 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
   and summaries. Each live session has its own **Session format** on the Live Start bar,
   and saved transcripts show it ([ADR 0035](docs/decisions/0035-workspace-presets.md)).
   **Share setup** exports the workspace's shared settings to a file and imports one; an import
-  shows what it fills in before anything is saved.
+  shows what it fills in before anything is saved. A workspace can also keep its own **custom
+  presets** (a name, terms and starting settings), up to the limit its plan allows; the
+  allowance is set by `WORKSPACE_PLAN` ([Deployment](docs/DEPLOYMENT.md)), and imported
+  summary focus or starter Terms stay off until allowed for that preset
+  ([ADR 0036](docs/decisions/0036-custom-presets-and-plan-limits.md)).
 - **Interface language**: English or Bahasa Indonesia, chosen per operator in
   **Settings › Language**. The Indonesian interface copy is a draft pending native review
   ([ADR 0030](docs/decisions/0030-operator-interface-localization.md)).
@@ -100,8 +104,8 @@ lists the steps of a session in order.
 2. **Settings › System** — choose the microphone or audio interface, check the
    level, and play the test clip back.
 3. **Settings › Presets** (optional) — choose the workspace format and press
-   **Apply preset**, which fills only settings not yet saved, or **Share setup** to import a
-   setup file that does the same.
+   **Apply preset**, which fills only settings not yet saved, create a custom preset, or
+   **Share setup** to import a setup file that does the same.
 4. **Settings › Language**, **Translation** and **Terms** — choose the spoken and caption
    languages, set the caption wait time, and add names and terms, one at a time or by
    importing a list, or words never to show.
@@ -195,7 +199,7 @@ provider headroom and rolling usage history.
 ## Not yet implemented
 
 Application audio storage, a paid AI fallback, simultaneous target languages, a live
-correction of captions already shown, custom named presets, preset sharing, tenant roles,
+correction of captions already shown, tenant roles,
 an authorized source-text passage corpus, and a native app (the deferred iOS shell was removed in
 [ADR 0020](docs/decisions/0020-remove-ios-shell.md)). See
 [Roadmap](docs/ROADMAP.md) and [remaining gaps](docs/GAP_ANALYSIS.md) for planned work.

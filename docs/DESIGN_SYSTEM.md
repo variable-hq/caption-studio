@@ -99,6 +99,11 @@ The dashboard theme never changes the configured OBS caption colours.
   paste field, a choose-file button, a preview of `statRow` rows and the `primaryButton` import.
   Refused files show the message in an `errorText` with `role="alert"`; the outcome is a
   `role="status"` line.
+- Custom presets (Settings › Presets): a `settingGroup` with a `statRow` for "n of m used" and an
+  `Edit` `secondaryButton` on each preset's row; the form is a nested `settingGroup` with text and
+  `select` fields in labels, the shared save bar, and a checkbox for held model text. The locked and
+  full plans show a `settingHint` and disable **New preset**; **Delete preset** uses a second
+  `secondaryButton` press to confirm.
 - Presets preview (Settings › Presets): rows use the `statRow` pattern; kept and not-changed
   rows show their status text in place of a value.
 - Session format: `.startFormat` is a labelled native select with a hint in the Live Start

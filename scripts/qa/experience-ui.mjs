@@ -88,7 +88,8 @@ try {
    else if (url.pathname.endsWith('/delete')) { assert.equal(body.confirm, true); payload = { deleted: true }; }
    else if (url.pathname.endsWith('/experience/preferences') || url.pathname.endsWith('/experience/setup')) payload = { version: 1, theme: 'system', profile: url.pathname.endsWith('/experience/setup') ? workspaceProfile : null, translationSystemPrompt: null, summaryDefaults: null, captionStyle: null, translationDefaults: null, updatedAt: workspaceProfile && url.pathname.endsWith('/experience/setup') ? Date.now() : null };
    else if (url.pathname.endsWith('/experience/usage')) payload = { records: [{ id: 'synthetic-attempt', sessionId: id, at: Date.now(), stage: 'translation', provider: 'groq', model: 'openai/gpt-oss-20b', status: 'completed', tokens: { promptTokens: 150, completionTokens: 50, totalTokens: 200 }, audioSeconds: null, estimatedNeurons: 0 }], next: null };
-   else { errors.push('Unexpected API: ' + url.pathname); return route.fulfill({ status: 400, json: { error: 'Unexpected request' } }); }
+   else if (url.pathname.endsWith('/experience/presets')) payload = { presets: [], limits: { maxCustomPresets: 5, used: 0 } };
+  else { errors.push('Unexpected API: ' + url.pathname); return route.fulfill({ status: 400, json: { error: 'Unexpected request' } }); }
    return route.fulfill({ status: 200, json: payload });
   });
   await page.routeWebSocket('**/api/live/viewer?*', (socket) => socket.send(JSON.stringify({ type: 'ready', ...viewerReady, caption: { sequence: 1, publicText: 'Synthetic latest translation.', targetLanguage: 'en' } })));

@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 4 November 2026 against merged PR #111 (`e420b29`). The corrected 13 September
+Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -188,6 +188,35 @@ instructions and the summary focus in a file are model-facing text: the preview 
 **Held until you allow model instructions**, and they are saved only when the operator ticks
 **Allow this setup to add model instructions**. Until then **Import setup** can still save the
 other settings in the file.
+
+## Custom presets
+
+**Settings › Presets › Custom presets** lists the workspace's own formats, each with a name, a
+description, the words the screens use for sessions, speakers, audiences and transcripts, and
+starting settings (caption wait, how closely to follow the words, sanitization, summary length
+and summary focus). **New preset** starts from General or a copy of a built-in format; **Edit**
+changes one, and **Delete preset** asks for a second click. The workspace shares the list, and
+anyone signed in can change it. The chooser, the Live Start bar and the top bar list the custom
+formats after the built-ins.
+
+The plan sets how many custom presets there are: `WORKSPACE_PLAN` in the deployment
+(`docs/DEPLOYMENT.md`) allows 5 when unset, and none on `free`. The Presets section shows "n of
+m used". At the limit, or on a plan without custom presets, **New preset** is disabled with the
+reason. A lowered limit never deletes a preset: existing ones stay editable and deletable, and only
+creating is blocked. Built-in formats are never limited.
+
+A custom preset gives terms and starting settings only; it adds no transcription, translation or
+summary-framing text. Its summary focus and starter Terms are operator defaults. A session that
+starts with a custom format keeps its terms in its snapshot. If a running session names a custom
+format this tab does not hold, the tab reloads the presets once. A saved transcript whose format
+this tab does not hold is tagged "Custom format" until the presets load again. A format that is
+still gone is shown as "Custom format" on Live, which reads its wording as General. The audience
+reader and viewer keep the session's own terms.
+
+A setup file exports the custom presets with the setup. An import adds them up to the plan's room
+(a name already in use gets " (2)"), and says how many it could not add. An imported preset's
+summary focus and starter Terms stay off until an operator allows them for that preset in the
+editor. Its format, if the file selects one of its presets, is set to the added preset.
 
 ## Workspace format
 

@@ -43,13 +43,15 @@ import { EMPTY_PREFERENCES, SHARED_SETUP_FIELDS, effectiveSetup, type OperatorPr
 import { fillDraftChanges, planPresetApply, planPresetDifferences, type PresetFill, type PresetRowField } from "@/experience/preset-apply";
 import { runningSessionFormat, screenFollowsSessionFormat } from "@/experience/session-format";
 import { messagePresetFor } from "@/live/request-preset";
+import { effectiveCustomPreset, isUnresolvedCustomFormat, type CustomPresetsView, type PresetCommand } from "@/experience/custom-presets";
+import type { Preset } from "@/experience/presets";
+import { loadCustomPresets, sendPresetCommand } from "@/experience/custom-presets-client";
 import {
   BUILT_IN_PRESETS,
   GENERAL_PRESET_ID,
   normalizeProfileId,
   presetLocalizedText,
-  resolveWorkspacePreset,
-  type BuiltInPresetId,
+  type PresetId,
 } from "@/experience/presets";
 import {
   DEFAULT_SUMMARY_OPTIONS,
@@ -104,6 +106,7 @@ import { UsageHistory } from "@/components/operator/UsageHistory";
 import { formatCount, formatDecimal } from "@/components/operator/format-count";
 import { cutLengthPercentileMs } from "@/live/cut-metrics";
 import { formatClock } from "@/components/operator/format-clock";
+import { CustomPresetsEditor } from "@/components/operator/CustomPresetsEditor";
 import { PresetChooser } from "@/components/operator/PresetChooser";
 import { PresetDifferences } from "@/components/operator/PresetDifferences";
 import { SetupShare } from "@/components/operator/SetupShare";
@@ -156,6 +159,9 @@ function OperatorDashboardContent() {
     setBrowserFallbackPreference,
     setWorkspaceProfile,
     workspacePreset,
+    customPresets,
+    setCustomPresets,
+    presetFor,
     setWorkspaceName,
     t: workspaceT,
   } = useI18n();
@@ -194,8 +200,8 @@ function OperatorDashboardContent() {
   const [sessionMetadataMessage, setSessionMetadataMessage] = useState("");
   const [liveNote, setLiveNote] = useState("");
   // The Start bar's format for the next session; null follows the workspace format. It stays chosen across sessions until the page reloads.
-  const [pickedFormat, setPickedFormat] = useState<BuiltInPresetId | null>(null);
-  const startFormat: BuiltInPresetId = pickedFormat ?? normalizeProfileId(workspacePreset.id) ?? GENERAL_PRESET_ID;
+  const [pickedFormat, setPickedFormat] = useState<PresetId | null>(null);
+  const startFormat: PresetId = pickedFormat ?? normalizeProfileId(workspacePreset.id) ?? GENERAL_PRESET_ID;
   const liveNoteRestoredFor = useRef<string | null>(null);
   const priorSessionStartedAt = useRef<string | null>(null);
   const metadataPostedFor = useRef<string | null>(null);
@@ -231,6 +237,7 @@ function OperatorDashboardContent() {
   // The operator's own record (theme) and the shared setup everyone shares (ADR 0022).
   const [personalPreferences, setPersonalPreferences] = useState<OperatorPreferences | null>(null);
   const [sharedSetup, setSharedSetup] = useState<OperatorPreferences | null>(null);
+  const [presetsView, setPresetsView] = useState<CustomPresetsView | null>(null);
   const accountPreferences = useMemo(
     () => (personalPreferences && sharedSetup ? effectiveSetup(sharedSetup, personalPreferences) : null),
     [personalPreferences, sharedSetup],
@@ -647,9 +654,22 @@ function OperatorDashboardContent() {
     observed.observer?.presetId,
   );
   const followsSession = screenFollowsSessionFormat(screen, sessionFormatId);
+  // A running session names a custom format this tab does not hold yet: reload the workspace's presets once per id.
+  const refetchedFormats = useRef(new Set<string>());
+  useEffect(() => {
+    if (sessionFormatId === null || !isUnresolvedCustomFormat(sessionFormatId, customPresets)) return;
+    if (refetchedFormats.current.has(sessionFormatId)) return;
+    refetchedFormats.current.add(sessionFormatId);
+    void loadCustomPresets()
+      .then((view) => {
+        setPresetsView(view);
+        setCustomPresets(view.presets.map(effectiveCustomPreset));
+      })
+      .catch(() => {});
+  }, [sessionFormatId, customPresets, setCustomPresets]);
   const sessionPreset = useMemo(
-    () => (followsSession && sessionFormatId !== null ? resolveWorkspacePreset(sessionFormatId) : null),
-    [followsSession, sessionFormatId],
+    () => (followsSession && sessionFormatId !== null ? presetFor(sessionFormatId) : null),
+    [followsSession, sessionFormatId, presetFor],
   );
   const t = useCallback(
     (key: MessageKey, params?: MessageParams) =>
@@ -847,6 +867,15 @@ function OperatorDashboardContent() {
 
   useEffect(() => {
     let cancelled = false;
+    loadCustomPresets()
+      .then((view) => {
+        if (cancelled) return;
+        setPresetsView(view);
+        setCustomPresets(view.presets.map(effectiveCustomPreset));
+      })
+      .catch(() => {
+        if (!cancelled) setPresetsView(null);
+      });
     const personalPreferencesRequest = loadOperatorPreferences();
     void personalPreferencesRequest
       .then((personal) => {
@@ -879,7 +908,7 @@ function OperatorDashboardContent() {
       cancelled = true;
     };
     // Runs once; the setters are stable and the live-session guard uses a ref.
-  }, [setAccountUiLocale, setBrowserFallbackPreference, applySetupFields]);
+  }, [setAccountUiLocale, setBrowserFallbackPreference, applySetupFields, setCustomPresets]);
 
   /**
    * Best-effort sync; callers report the browser-only fallback themselves. Theme and
@@ -910,9 +939,9 @@ function OperatorDashboardContent() {
   }
 
   // The same plan drives the Presets preview and Apply preset, so the preview is what applies.
-  const presetPlanFor = (profile: BuiltInPresetId) =>
+  const presetPlanFor = (profile: PresetId) =>
     accountPreferences
-      ? planPresetApply(resolveWorkspacePreset(profile), accountPreferences, { keywordText, filterText }, hasSession)
+      ? planPresetApply(presetFor(profile), accountPreferences, { keywordText, filterText }, hasSession)
       : null;
 
   // Sets the given values as drafts for the operator to review; nothing is saved here.
@@ -929,7 +958,7 @@ function OperatorDashboardContent() {
     }
   };
 
-  const applyPreset = (profile: BuiltInPresetId): Promise<boolean> => {
+  const applyPreset = (profile: PresetId): Promise<boolean> => {
     const plan = presetPlanFor(profile);
     if (!plan) return Promise.resolve(false);
     setFillDrafts(plan.fill);
@@ -943,12 +972,21 @@ function OperatorDashboardContent() {
 
   // Differences are computed against the saved format; the action fills one row's format value as a draft.
   const presetDifferenceRows = accountPreferences
-    ? planPresetDifferences(resolveWorkspacePreset(accountPreferences.profile), accountPreferences, hasSession)
+    ? planPresetDifferences(presetFor(accountPreferences.profile), accountPreferences, hasSession)
     : [];
   const useFormatDefault = (field: PresetRowField) => {
     const row = presetDifferenceRows.find((candidate) => candidate.field === field);
     if (row?.status === "differs") setFillDrafts(row.preset);
   };
+
+  // Each custom-preset command returns the workspace's presets; the screens and the editor read the same result.
+  const runPresetCommand = async (command: PresetCommand) => {
+    const view = await sendPresetCommand(command);
+    setPresetsView(view);
+    setCustomPresets(view.presets.map(effectiveCustomPreset));
+    return view;
+  };
+  const importCustomPresets = (presets: Preset[]) => runPresetCommand({ action: "import", presets }).catch(() => null);
 
   // Saves the fill-only-unset values of an import, then shows them on the screens.
   const importSetup = async (patch: Partial<OperatorPreferences>) => {
@@ -1418,7 +1456,7 @@ function OperatorDashboardContent() {
               aria-describedby="session-format-hint"
               onChange={(event) => setPickedFormat(normalizeProfileId(event.target.value))}
             >
-              {BUILT_IN_PRESETS.map((preset) => (
+              {[...BUILT_IN_PRESETS, ...customPresets].map((preset) => (
                 <option key={preset.id} value={preset.id}>{presetLocalizedText(preset.name, locale)}</option>
               ))}
             </select>
@@ -1552,7 +1590,7 @@ function OperatorDashboardContent() {
             ) : null}
             <div className="statRow sessionFormatRow">
               <span>{t("live.sessionFormat.label")}</span>
-              <span className="formatTag" translate="no">{presetLocalizedText(resolveWorkspacePreset(sessionFormatId).name, locale)}</span>
+              <span className="formatTag" translate="no">{isUnresolvedCustomFormat(sessionFormatId, customPresets) ? t("settings.presets.customFormatUnknown") : presetLocalizedText(presetFor(sessionFormatId).name, locale)}</span>
             </div>
             <details className="advancedActions">
               <summary>{t("live.sessionDetails")}</summary>
@@ -1685,7 +1723,15 @@ function OperatorDashboardContent() {
                 onApply={applyPreset}
               />
               <PresetDifferences rows={presetDifferenceRows} onUse={useFormatDefault} />
-              <SetupShare setup={accountPreferences} terms={{ keywordText, filterText }} onImport={importSetup} />
+              <CustomPresetsEditor view={presetsView} onCommand={runPresetCommand} />
+              <SetupShare
+                setup={accountPreferences}
+                terms={{ keywordText, filterText }}
+                presets={presetsView?.presets.map((entry) => entry.preset) ?? []}
+                presetRoom={presetsView ? presetsView.limits.maxCustomPresets - presetsView.limits.used : 0}
+                onImportPresets={importCustomPresets}
+                onImport={importSetup}
+              />
             </>
           ) : null}
 

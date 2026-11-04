@@ -1,4 +1,5 @@
-import { resolveWorkspacePreset, snapshotPreset, snapshotPresetId } from "@/experience/presets";
+import { isCustomPresetId, resolveWorkspacePreset, snapshotPreset, snapshotPresetId } from "@/experience/presets";
+import { readWorkspaceCustomPresets } from "@/experience/custom-presets";
 import type { LlmSessionUsage } from "@/ai/contracts";
 import { accumulateLlmSessionUsage, emptyLlmSessionUsage } from "@/ai/usage";
 import { isLanguageLocale } from "@/domain/languages";
@@ -559,6 +560,8 @@ export class CaptionRoom {
       return json({ error: "Invalid live-session configuration." }, 400);
     }
 
+    // A custom format's terms come from the stored workspace record, read before the transaction.
+    const customPresets = isCustomPresetId(body.presetId) ? await readWorkspaceCustomPresets(this.env) : [];
     const result = await this.state.storage.transaction<
       MutationResult<ChannelConfiguration>
     >(async (transaction) => {
@@ -574,7 +577,7 @@ export class CaptionRoom {
       configuration.status = "live";
       configuration.sessionId = crypto.randomUUID();
       configuration.saveHistory = body.saveHistory === true;
-      configuration.preset = snapshotPreset(resolveWorkspacePreset(body.presetId));
+      configuration.preset = snapshotPreset(resolveWorkspacePreset(body.presetId, customPresets));
       configuration.readerHash = body.readerHash;
       configuration.captionEpoch = 0;
       delete configuration.remoteHash;

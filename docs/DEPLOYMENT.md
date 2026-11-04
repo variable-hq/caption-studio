@@ -1,6 +1,6 @@
 # Deployment runbook
 
-Reviewed 4 November 2026 against merged PR #107 (`b54637a`). This describes the current
+Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
@@ -84,7 +84,7 @@ Preserve `custom-worker.ts` as the entry point and all bindings in `wrangler.jso
 | `CAPTION_ROOMS` / `CaptionRoom` | Main channel, controller, inference claims and remote commands |
 | `TRANSCRIPT_JOURNALS` / `TranscriptJournal` | Per-session reader, opted-in history and summary jobs |
 | `AI_USAGE` / `AiUsageLedger` | Numeric provider admissions and rolling usage |
-| `OPERATOR_PREFERENCES` / `OperatorPreferences` | Shared church setup (one workspace record) and each operator's theme, keyed by hashed Access email |
+| `OPERATOR_PREFERENCES` / `OperatorPreferences` | Shared church setup and the workspace's custom presets (one record each), and each operator's theme, keyed by hashed Access email |
 | `AI` | Optional Workers AI inference |
 | `ASSETS` | OpenNext static assets |
 
@@ -114,6 +114,12 @@ Required runtime variables: `CLOUDFLARE_ACCESS_AUD` and
 Manual and automatic summaries ([ADR 0019](decisions/0019-automatic-post-service-summary.md))
 both need `CAPTION_OPTIONAL_AI_ENABLED=true`; without it, End queues nothing.
 Never deploy `CAPTION_LOCAL_AUTH_BYPASS`.
+
+`WORKSPACE_PLAN` sets the workspace's plan limits (`src/experience/entitlements.ts`). Unset, or any
+value the table does not list, allows 5 custom presets; `free` allows none. Built-in formats are never
+limited. Set it in the Worker's variables (dashboard or a deploy-time variable), not in the setup
+record, which every signed-in operator can edit. A lowered limit never deletes a preset; it only
+blocks creating new ones.
 
 ## Access paths
 

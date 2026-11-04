@@ -14,7 +14,7 @@ import {
 } from "@/live/translation-settings";
 import { normalizeTranslationSystemPrompt } from "@/ai/translation-prompt";
 import { normalizeUiLocalePreference, type UiLocalePreference } from "@/i18n";
-import { normalizeProfileId, type BuiltInPresetId } from "./presets";
+import { normalizeProfileId, type PresetId } from "./presets";
 import { normalizeWorkspaceName } from "@/domain/workspace";
 
 /** Bounds a preference record; every field is optional and independently valid. */
@@ -37,7 +37,7 @@ export interface OperatorPreferences {
   /** Pre-ticks "Save transcript history" at Start; the choice stays visible and changeable. */
   saveHistoryDefault: boolean | null;
   /** The workspace format (a preset id); null means General. Only the shared setup sets it. */
-  profile: BuiltInPresetId | null;
+  profile: PresetId | null;
   /** The workspace name; null shows the default name. Only the shared setup sets it. */
   workspaceName: string | null;
   /** Generates an AI summary draft after each saved session this operator ends. */

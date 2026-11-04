@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 4 November 2026 against merged PR #108 (`86b8099`). Cloudflare deployed `20597d8`
+Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -15,7 +15,7 @@ physical-device, provider-output or semantic acceptance.
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
 | `TranscriptJournal` | One session's source/corrections/exclusions, record-only session metadata, reader paragraphs, operator notes, lifecycle checkpoints and manual or automatic summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
-| `OperatorPreferences` | One object per hashed Access email (theme, interface language, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and words, output buffer, transcript-saving default, automatic summaries, the workspace format (preset id) and the workspace name |
+| `OperatorPreferences` | One object per hashed Access email (theme, interface language, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and words, output buffer, transcript-saving default, automatic summaries, the workspace format (preset id) and the workspace name; and one shared `workspace:presets` object holding the workspace's custom presets (`custom:<uuid>`, up to the plan limit, 64 KB), read and written by the `presets` route |
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
 | Workers AI | Optional shared reader phrasing and bounded manual summaries |
 
@@ -35,10 +35,13 @@ the request's `Accept-Language`, never from operator preferences.
 Wording terms (session, speaker, audience and transcripts) are placeholders such as
 `{term_session}` and `{Term_session}` in the catalogs. `translate` fills them from the
 workspace's preset in `src/experience/presets.ts`; `normalizePreset()` is the only
-parser for preset data, and it rejects unknown fields and out-of-bounds values. A preset's
+parser for preset data, and it rejects unknown fields and out-of-bounds values. A workspace's
+custom presets (`custom:<uuid>`) are stored in `workspace:presets` (`src/experience/custom-presets.ts`);
+the server assigns their ids and enforces the plan's allowance (`src/experience/entitlements.ts`).
+Only built-in presets carry model-facing text, so a custom preset gives the server terms only. A preset's
 `defaults` fill only settings the workspace has not saved: `planPresetApply()` in
 `src/experience/preset-apply.ts` gives the preview and the Apply preset action the same
-plan. A session stores its own format when it starts, as a snapshot of the built-in's id,
+plan. A session stores its own format when it starts, as a snapshot of the format's id,
 version and resolved terms (`PresetSnapshot`) in the room's `ChannelConfiguration` and, from
 the first journal sync, in the journal's state. Nothing replaces it for the rest of the
 session, and a session without one reads as General. The journal takes the format for a
@@ -247,8 +250,9 @@ normal readiness and quality review.
 Transcription accepts WebM/Ogg/MP4, at most 3 MB of audio, bounded hints, the previous
 chunk's corrected transcript (at most 1,000 characters accepted), a Sanitization level
 (Off, Low, Balanced, High; omitted or invalid values normalize to Off), and a preset id.
-The server resolves the id from the built-in presets (unknown or custom ids are General);
-the request never supplies preset text. The provider prompt opens with the format's
+The server resolves the id from the built-in presets; a custom id is General here, since a
+custom preset carries no transcription text. The request never supplies preset text. Starting a
+session resolves a custom id's terms from the stored `workspace:presets` record, not from the request. The provider prompt opens with the format's
 transcription prefix (General's when none) and uses a conservative 448 UTF-8-byte budget,
 with the last whole words of the previous transcript (at most 160 bytes) retained as
 Whisper's preceding-speech context and hints filling the rest. If Groq rejects a
