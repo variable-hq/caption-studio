@@ -79,7 +79,8 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
   below, followed by first-time setup.
 - **For contributors** working on the codebase: skip to
   [Development and QA](#development-and-qa) for local setup and validation, and
-  [Contributing](CONTRIBUTING.md) for the branch/PR workflow.
+  [Contributing](CONTRIBUTING.md) for the branch/PR workflow and the standards every pull
+  request follows.
 
 The app runs behind Cloudflare Access: ask whoever manages your team's Access policy to
 add your account, then open the deployed URL (`/`) and sign in to reach the operator
@@ -337,7 +338,7 @@ version IDs are not recorded after PR #26, and later merges have no recorded dep
 yet. See the [deployment runbook](docs/DEPLOYMENT.md) for the fix that unblocked the first
 deploy and the remaining rehearsal gates.
 
-This document reviewed 5 November 2026 against merged [PR #114](https://github.com/variable-hq/caption-studio/pull/114) (`a24f730`).
+This document reviewed 5 November 2026 against merged [PR #115](https://github.com/variable-hq/caption-studio/pull/115) (`f11e649`).
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).

@@ -1,6 +1,6 @@
 # Documentation index
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). Maintained specifications
+Reviewed 5 November 2026 against merged PR #115 (`f11e649`). Maintained specifications
 describe merged source, not an assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
 records to establish release evidence.
 
@@ -13,7 +13,7 @@ records to establish release evidence.
 | [Architecture](ARCHITECTURE.md) | Components, APIs, storage and failure boundaries |
 | [Deployment](DEPLOYMENT.md) | Build/deploy commands, bindings, secrets and Access paths |
 | [Security](../SECURITY.md) | Data handling, credentials and incident response |
-| [Contributing](../CONTRIBUTING.md) | Branch/PR workflow and required QA |
+| [Contributing](../CONTRIBUTING.md) | Branch/PR workflow, risk levels, review standards and required QA |
 | [Stakeholder test guide](STAKEHOLDER_TEST_GUIDE.md) | Protected rehearsal and content-free evidence |
 | [Roadmap](ROADMAP.md) / [Gap analysis](GAP_ANALYSIS.md) | Outstanding work and release gates |
 | [Brand guidelines](BRAND_GUIDELINES.md) | The design baseline: voice and glossary, colour roles, typography, spacing, components, accessibility |

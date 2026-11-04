@@ -11,6 +11,11 @@ the code or service data.
 - Read [README.md](README.md), [SECURITY.md](SECURITY.md), and the relevant document
   under `docs/`. [AGENTS.md](AGENTS.md) routes each kind of task to the guide to read.
 - Use an issue for significant features, bugs, product decisions, or provider changes.
+- Every pull request meets the baseline: one outcome, a risk level, a test that proves
+  the change, maintained guides searched for claims it makes false, the checks run for
+  the head commit, and review findings grouped as Blocking, Minor and Nits. See
+  [Pull requests](#pull-requests), [Engineering rules](#engineering-rules) and the
+  [Review checklist](#review-checklist).
 - Use only synthetic audio or recordings and transcripts explicitly approved for this
   project.
 - Follow [the stakeholder test guide](docs/STAKEHOLDER_TEST_GUIDE.md) for deployed
