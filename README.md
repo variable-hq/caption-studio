@@ -1,6 +1,6 @@
 # Caption Studio
 
-Cloud-hosted transcription and translation for church sessions, with fast OBS captions,
+Cloud-hosted transcription and translation for live sessions such as church services, with fast OBS captions,
 a latest-caption phone viewer, an appending reader, and a paired operator remote.
 Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
 [ADR 0002](docs/decisions/0002-free-cloud-first-ai.md).
@@ -48,12 +48,20 @@ Currently built on free-tier Groq and Cloudflare Workers AI quotas — see
   address (`#live`, `#transcripts`, `#settings=<section>`, `#help`).
   Full behavior and visuals: [Product specification](docs/PRODUCT_SPEC.md),
   [Brand guidelines](docs/BRAND_GUIDELINES.md) and [Design system](docs/DESIGN_SYSTEM.md).
-- **One church setup**: languages and timing, words, translator settings and
+- **One workspace setup**: languages and timing, words, translator settings and
   instructions, caption style, summary defaults and automatic summaries, the output
   buffer and the transcript-saving default are saved once for every operator:
   **Save for everyone** in Settings writes the full setup, and **Save selected settings
   as default** on Live saves the per-session choices shown there. Only the light/dark
   choice is personal ([ADR 0022](docs/decisions/0022-shared-church-setup-and-words-list.md)).
+- **Workspace presets**: **Settings › Presets** chooses **General** (the default),
+  **Sermon**, **Talkshow** or **Keynote**. **Apply preset** fills only the settings the
+  workspace has not saved, and the format adds model context to transcription, translation
+  and summaries. Each live session has its own **Session format** on the Live Start bar,
+  and saved transcripts show it ([ADR 0035](docs/decisions/0035-workspace-presets.md)).
+- **Interface language**: English or Bahasa Indonesia, chosen per operator in
+  **Settings › Language**. The Indonesian interface copy is a draft pending native review
+  ([ADR 0030](docs/decisions/0030-operator-interface-localization.md)).
 - **Session history**: optional workspace-wide private archives with **Session details**
   (topic, speaker, description, date), corrections, exclusions, and AI-generated
   summaries, on request or automatically after End, retained seven days after End.
@@ -88,12 +96,15 @@ lists the steps of a session in order.
    OBS Browser Source on the separate OBS computer.
 2. **Settings › System** — choose the microphone or audio interface, check the
    level, and play the test clip back.
-3. **Settings › Language**, **Translation** and **Terms** — choose the spoken and caption
+3. **Settings › Presets** (optional) — choose the workspace format and press
+   **Apply preset**, which fills only settings not yet saved.
+4. **Settings › Language**, **Translation** and **Terms** — choose the spoken and caption
    languages, set the caption wait time, and add names and terms, one at a time or by
    importing a list, or words never to show.
-4. **Settings › Output** — style the captions.
-5. **Live** — tick **Save the transcript for 7 days** if wanted (optionally fill in
-   **Session details**), press **Start captions**, check a test phrase reaches OBS, then
+5. **Settings › Output** — style the captions.
+6. **Live** — tick **Save the transcript for 7 days** if wanted (optionally fill in
+   **Session details**), choose a **Session format** on the Start bar if it differs from
+   the workspace format, press **Start captions**, check a test phrase reaches OBS, then
    use **Share** for the **Phone viewer** and **Transcript reader** links and **Pair phone**.
    Pause, Clear screen and End session stay at the bottom of the screen.
 
@@ -136,13 +147,24 @@ current session. **Recent captions** shows the last three published captions wit
 source text and changes nothing. See
 [ADR 0023](docs/decisions/0023-live-note-and-recent-outputs.md).
 
+**Workspace presets and session format.** **Settings › Presets** adds each format's model
+context (a transcription prefix, a translation rule and a summary framing) to requests,
+after the server's own safeguards. A session's format is fixed when it starts, and the
+public reader and phone viewer show that session's wording. See the
+[Product specification](docs/PRODUCT_SPEC.md#workspace-format).
+
+**Dynamic caption wait.** **Technical details** shows how caption windows ended (at a
+sentence end, a pause or the wait limit), the unfinished drafts held, and the typical and
+longest-10% caption wait. These counters stay in the controlling tab and are never stored
+or sent ([ADR 0034](docs/decisions/0034-dynamic-pause-adaptation.md)).
+
 **Session history.** History saving is off by default, must be enabled before Start,
 and can't change mid-session. When on, the private journal keeps recognized source,
 corrections, reader paragraphs, and summary drafts for seven days after End, shared by
 every signed-in operator. Optional **Session details** are record-only and never reach
 a model ([ADR 0024](docs/decisions/0024-session-metadata.md)). After End, an operator can
 correct source, remove passages, export the transcript as JSON, or **Generate summary**
-(requires optional Workers AI, grounded to approved church content); with **Make a
+(requires optional Workers AI; each point cites the transcript passages it is based on); with **Make a
 summary draft automatically after each session** on, End queues one
 ([ADR 0019](docs/decisions/0019-automatic-post-service-summary.md)). Full behavior:
 [Product specification](docs/PRODUCT_SPEC.md#after-the-session).
@@ -168,8 +190,8 @@ provider headroom and rolling usage history.
 ## Not yet implemented
 
 Application audio storage, a paid AI fallback, simultaneous target languages, a live
-correction of captions already shown, multiple or named church profiles, tenant roles, an authorized source-text
-passage corpus, and a native app (the deferred iOS shell was removed in
+correction of captions already shown, custom named presets, preset sharing, tenant roles,
+an authorized source-text passage corpus, and a native app (the deferred iOS shell was removed in
 [ADR 0020](docs/decisions/0020-remove-ios-shell.md)). See
 [Roadmap](docs/ROADMAP.md) and [remaining gaps](docs/GAP_ANALYSIS.md) for planned work.
 
@@ -295,11 +317,12 @@ pending evaluation, and dated evidence. Start with:
 
 ## Project status
 
-One successful Cloudflare deployment is on record (13 September 2026); merges since then
-have no recorded build ID yet. See the [deployment runbook](docs/DEPLOYMENT.md) for
-build/Worker IDs, the fix that unblocked the first deploy, and remaining rehearsal gates.
+The 13 September 2026 deployment of PR #26 was verified, and Workers Builds production
+deployments of `main` are recorded through PR #75 (28 October 2026); merges after that have
+no recorded build ID yet. See the [deployment runbook](docs/DEPLOYMENT.md) for build and
+Worker IDs, the fix that unblocked the first deploy, and remaining rehearsal gates.
 
-<sub>This document reviewed 3 November 2026 against merged [PR #98](https://github.com/variable-hq/caption-studio/pull/98) (`00c6164`).</sub>
+This document reviewed 4 November 2026 against merged [PR #108](https://github.com/variable-hq/caption-studio/pull/108) (`86b8099`).
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).
