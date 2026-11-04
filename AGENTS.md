@@ -1,6 +1,6 @@
 # Agent instructions for Caption Studio
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`).
+Reviewed 5 November 2026 against merged PR #114 (`a24f730`).
 
 Machine-oriented index. Humans: see `docs/README.md`. This file mostly routes
 and avoids restating facts that live elsewhere, so it doesn't go stale when they
@@ -98,7 +98,7 @@ build` · `npm run build:cloudflare` · `npm run deploy:check` (dry run) ·
 environment's Node/nvm version to force it through unless explicitly asked.
 
 `npm run qa` starts a dev server on `CAPTION_QA_PORT` (default 3100) and runs
-`qa:operator` and `qa:experience` concurrently: browser UI, responsive-overflow and
+the operator areas (`qa:operator:*`) and `qa:experience` concurrently: browser UI, responsive-overflow and
 Axe checks against mocked APIs. Screenshots go to ignored `test-results/` only when
 `CAPTION_QA_SHOTS=1`. It bootstraps its own
 Playwright/Axe tooling under `CAPTION_QA_TOOLS_DIR` (see `CONTRIBUTING.md`). If
