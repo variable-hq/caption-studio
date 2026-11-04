@@ -1,4 +1,5 @@
 import os from "node:os";
+import { QA_ORIGIN, QA_PORT } from "./dashboard-helpers.mjs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 
@@ -23,7 +24,7 @@ async function waitForServer() {
   while (Date.now() < deadline) {
     if (server.exitCode !== null) throw new Error(`Next dev server exited early (${server.exitCode}).`);
     try {
-      await fetch("http://127.0.0.1:3100", { signal: AbortSignal.timeout(1_000) });
+      await fetch(QA_ORIGIN, { signal: AbortSignal.timeout(1_000) });
       return;
     } catch (error) {
       lastError = error;
@@ -34,7 +35,7 @@ async function waitForServer() {
 }
 
 try {
-  server = spawn("npm", ["run", "dev", "--", "--hostname", "127.0.0.1", "--port", "3100"], {
+  server = spawn("npm", ["run", "dev", "--", "--hostname", "127.0.0.1", "--port", String(QA_PORT)], {
     stdio: "inherit",
     env,
     detached: process.platform !== "win32",

@@ -39,3 +39,13 @@ export async function openSettings(page, section) {
 }
 
 export const SETTINGS_SECTIONS = Object.keys(SETTINGS_LABELS);
+
+// Browser QA runs its own dev server on CAPTION_QA_PORT (default 3100) so two runs can share a machine.
+function parseQaPort(value) {
+  if (value === undefined || value === "") return 3100;
+  const port = Number(value);
+  if (!/^\d{1,5}$/.test(value) || port < 1 || port > 65535) throw new Error("CAPTION_QA_PORT must be a port number from 1 to 65535.");
+  return port;
+}
+export const QA_PORT = parseQaPort(process.env.CAPTION_QA_PORT);
+export const QA_ORIGIN = `http://127.0.0.1:${QA_PORT}`;

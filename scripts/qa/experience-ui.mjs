@@ -1,4 +1,4 @@
-import { QA_VIEWPORT_WIDTHS, openSettings } from "./dashboard-helpers.mjs";
+import { QA_ORIGIN, QA_VIEWPORT_WIDTHS, openSettings } from "./dashboard-helpers.mjs";
 // Synthetic browser checks only. All API requests are mocked and external traffic is blocked.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -12,7 +12,7 @@ const { chromium } = await import(pathToFileURL(path.join(tooling, 'node_modules
 const { default: AxeBuilder } = await import(pathToFileURL(path.join(tooling, 'node_modules/@axe-core/playwright/dist/index.mjs')));
 const output = path.resolve('test-results/live-session-plan-1');
 await fs.mkdir(output, { recursive: true });
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, timeout: 30000 });
 const results = [];
 
 function loadTypeScriptModule(source, stubs = {}) {
@@ -47,7 +47,7 @@ function viewerHtml(locale) {
 const viewerHtmlEn = await viewerHtml('en');
 const viewerHtmlId = await viewerHtml('id');
 const id = '12345678-1234-1234-1234-123456789012';
-const origin = 'http://127.0.0.1:3100';
+const origin = QA_ORIGIN;
 const source = { id: 1, text: 'Synthetic transcript source about patience.', language: 'id', at: Date.now(), epoch: 0, translationRevision: 1 };
 const paragraph = { id: 1, sourceIds: [1], text: 'Synthetic readable paragraph about patience.', language: 'en', at: Date.now(), epoch: 0, translationRevision: 1, fallback: true };
 try {

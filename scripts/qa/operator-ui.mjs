@@ -1,4 +1,4 @@
-import { CAPTION_WAIT_TIME_LABELS, QA_VIEWPORT_WIDTHS, SETTINGS_SECTIONS, openScreen, openSettings } from "./dashboard-helpers.mjs";
+import { CAPTION_WAIT_TIME_LABELS, QA_ORIGIN, QA_VIEWPORT_WIDTHS, SETTINGS_SECTIONS, openScreen, openSettings } from "./dashboard-helpers.mjs";
 // Local synthetic UI checks. No provider calls or external requests.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -11,7 +11,7 @@ const { default: AxeBuilder } = await import(pathToFileURL(path.join(tooling, 'n
 const colorScheme=process.env.CAPTION_QA_COLOR_SCHEME==='dark'?'dark':'light';
 const output=path.resolve('test-results/operator');
 await fs.mkdir(output,{recursive:true});
-const browser=await chromium.launch({headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
+const browser=await chromium.launch({headless:true,timeout:30000,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
 const results=[];
 try {
  for (const width of QA_VIEWPORT_WIDTHS) {
@@ -44,7 +44,7 @@ try {
   const emptySetup={version:1,uiLocale:null,translationSystemPrompt:null,summaryDefaults:null,captionStyle:null,translationDefaults:null,outputBufferCount:null,outputBufferDwellMs:null,saveHistoryDefault:null,autoSummary:false,updatedAt:null};
   await context.route('**/*',async route=>{
    const url=new URL(route.request().url());
-   if(url.origin!=='http://127.0.0.1:3100') return route.abort();
+   if(url.origin!==QA_ORIGIN) return route.abort();
    if(!url.pathname.startsWith('/api/')) return route.continue();
    const request=route.request(),path=new URL(request.url()).pathname,method=request.method();
    let body={};try{body=request.postDataJSON()??{}}catch{}
@@ -63,12 +63,12 @@ try {
       ?(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,uiLocale:accountUiLocale})
       :(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,...body,uiLocale:accountUiLocale,updatedAt:Date.now()});
   }
-   else if(path==='/api/live/channel')payload={channelId:'main',configured:true,presetId:sessionPresetId,status,overlayUrl:'http://127.0.0.1:3100/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
+   else if(path==='/api/live/channel')payload={channelId:'main',configured:true,presetId:sessionPresetId,status,overlayUrl:QA_ORIGIN+'/overlay#main.'+'o'.repeat(43),style,startedAt,expiresAt,transcriptionRequests,llmUsage:emptyUsage,translationRevision:0};
    else if(path==='/api/live/channel/style'){style=body.style;payload={ok:true}}
    else if(path==='/api/live/channel/session'&&method==='POST'){
     sessionStarts.push(body);sessionPresetId=typeof body.presetId==='string'?body.presetId:'builtin:general';
     status='live';startedAt=new Date().toISOString();expiresAt=new Date(Date.now()+90*60000).toISOString();
-    payload={channelId:'main',presetId:sessionPresetId,controllerToken:'c'.repeat(43),viewerUrl:'http://127.0.0.1:3100/view#main.'+'v'.repeat(43),startedAt,expiresAt,translationRevision:0};
+    payload={channelId:'main',presetId:sessionPresetId,controllerToken:'c'.repeat(43),viewerUrl:QA_ORIGIN+'/view#main.'+'v'.repeat(43),startedAt,expiresAt,translationRevision:0};
    } else if(path==='/api/live/channel/session'&&method==='DELETE'){status='idle';startedAt=null;expiresAt=null;payload={ok:true}}
    else if(path==='/api/live/channel/control'){
     controls.push(body.action);if(body.action==='pause')status='paused';if(body.action==='resume')status='live';
@@ -77,7 +77,7 @@ try {
     // A second tab of the same workspace watches the running service read-only.
     payload={channelId:'main',sessionId:'11111111-1111-1111-1111-111111111111',saveHistory:false,presetId:sessionPresetId,
      controllerLabel:'operator@example.test',status:status==='paused'?'paused':'live',
-     observerToken:'w'.repeat(43),viewerUrl:'http://127.0.0.1:3100/view#main.'+'w'.repeat(43),
+     observerToken:'w'.repeat(43),viewerUrl:QA_ORIGIN+'/view#main.'+'w'.repeat(43),
      startedAt,expiresAt,translationRevision:0};
    } else if(path==='/api/live/channel/lease')payload={valid:true,status:'live',expiresAt,transcriptionRequests:++transcriptionRequests,translationRevision:0};
    else if(path==='/api/ai/transcribe'){inferenceCalls++;payload={segments:[]};}
@@ -86,7 +86,7 @@ try {
    else {errors.push('Unexpected mocked request: '+method+' '+path);return route.fulfill({status:400,json:{error:'Unexpected test request'}})}
    await route.fulfill({status:200,json:payload});
   });
-  await page.goto('http://127.0.0.1:3100');
+  await page.goto(QA_ORIGIN);
   await page.getByText('Ready to go',{exact:true}).waitFor();
   assert.equal(await page.getByRole('switch',{name:'Live drafts',exact:true}).count(),0,'Live drafts is no longer a user-visible setting');
   assert.equal(await page.locator('.heardText').count(),1,'The Heard pane remains the in-progress source view');
@@ -262,7 +262,7 @@ try {
   await page.reload();
   await page.getByRole('heading',{name:'Output',exact:true}).waitFor();
   // Old sidebar bookmarks land on the matching screen.
-  await page.goto('http://127.0.0.1:3100/#workspace=history');
+  await page.goto(QA_ORIGIN+'/#workspace=history');
   await page.getByRole('heading',{name:'Transcripts',exact:true}).waitFor();
   assert.equal(inferenceCalls,0,'Navigation and reload must not invoke inference');
 
@@ -331,7 +331,7 @@ try {
 
   // A second tab watches the running session: it names the operator and offers Take over, not Start.
   const other=await context.newPage();
-  await other.goto('http://127.0.0.1:3100/#live');
+  await other.goto(QA_ORIGIN+'/#live');
   await other.getByText('operator@example.test is running captions on another system.',{exact:true}).waitFor();
   assert.equal(await other.getByRole('button',{name:'Take over',exact:true}).count(),1);
   assert.equal(await other.getByRole('button',{name:'Start captions',exact:true}).isDisabled(),true);
