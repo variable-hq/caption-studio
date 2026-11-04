@@ -332,7 +332,7 @@ version IDs are not recorded after PR #26, and later merges have no recorded dep
 yet. See the [deployment runbook](docs/DEPLOYMENT.md) for the fix that unblocked the first
 deploy and the remaining rehearsal gates.
 
-This document reviewed 4 November 2026 against merged [PR #111](https://github.com/variable-hq/caption-studio/pull/111) (`e420b29`).
+This document reviewed 4 November 2026 against merged [PR #112](https://github.com/variable-hq/caption-studio/pull/112) (`87b37dd`).
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).

@@ -1,6 +1,6 @@
 # Agent instructions for Caption Studio
 
-Reviewed 4 November 2026 against merged PR #111 (`e420b29`).
+Reviewed 4 November 2026 against merged PR #112 (`87b37dd`).
 
 Machine-oriented index. Humans: see `docs/README.md`. This file mostly routes
 and avoids restating facts that live elsewhere, so it doesn't go stale when they
