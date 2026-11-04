@@ -2,8 +2,8 @@ import { CAPTION_WAIT_TIME_LABELS, QA_ORIGIN, SETTINGS_LABELS, SETTINGS_SECTIONS
 import assert from 'node:assert/strict';
 import { runOperatorArea } from './operator-harness.mjs';
 
-// Settings sections whose layout differs get an Axe scan; the others keep their overflow check.
-const AXE_SETTINGS = ['computer', 'languages', 'look', 'words', 'usage'];
+// Every Settings section but Presets gets an Axe scan; Presets is scanned in the presets area.
+const AXE_SETTINGS = ['computer', 'languages', 'look', 'obs', 'translator', 'summary', 'words', 'usage'];
 
 await runOperatorArea({
   name: 'settings',

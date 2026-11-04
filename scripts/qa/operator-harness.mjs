@@ -160,7 +160,7 @@ export async function runOperatorArea({ name, checks, contrastScreens, body }) {
   // The dark pass checks colour contrast only, each screen at its plain address after its own heading loads.
   if (contrastOnly) {
    for (const screen of contrastScreens) {
-    await page.goto(QA_ORIGIN + '/#' + screen.address.replace(/^/, ''));
+    await page.goto(QA_ORIGIN + '/#' + screen.address);
     await screen.ready(page).waitFor();
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const axe = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze();
