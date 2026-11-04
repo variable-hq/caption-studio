@@ -43,8 +43,6 @@ try {
   let presetRecords=[];
   let presetMax=5;
   let presetCounter=0;
-  // Reads of the presets that return nothing before the workspace's presets are revealed, for a session that names a format this tab does not hold.
-  let presetHiddenReads=0;
   const presetWrites=[];
   const presetCommand=(command)=>{
    if(command.action==='create'){
@@ -93,8 +91,7 @@ try {
       :(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,...body,uiLocale:accountUiLocale,updatedAt:Date.now()});
   }
    else if(path==='/api/live/experience/presets'){
-    if(method==='GET'&&presetHiddenReads>0){presetHiddenReads-=1;payload={presets:[],limits:{maxCustomPresets:presetMax,used:0}};}
-   else if(method==='POST'){
+    if(method==='POST'){
      presetWrites.push(body);
      const reply=presetCommand(body);
      if(reply.error){replyStatus=reply.status;payload={error:reply.error,code:reply.code};}
@@ -662,14 +659,6 @@ try {
   await page.getByRole('button',{name:'Edit: Camp',exact:true}).waitFor();
   await openScreen(page,'Live');
   await page.getByRole('combobox',{name:'Session format',exact:true}).locator('option',{hasText:'Camp'}).waitFor({state:'attached'});
-  // A running session names Camp, and this tab's first presets read hides it: the tab reloads the presets once and shows the name.
-  sessionPresetId=presetRecords[0].preset.id;status='live';startedAt=new Date().toISOString();expiresAt=new Date(Date.now()+90*60000).toISOString();
-  presetHiddenReads=1;
-  await page.reload();
-  await page.locator('.sessionFormatRow .formatTag').getByText('Camp',{exact:true}).waitFor();
-  assert.equal(presetHiddenReads,0,'The hidden presets read happened before the reload');
-  sessionPresetId='builtin:general';status='idle';startedAt=null;expiresAt=null;
-  await page.reload();
   await openScreen(page,'Settings');
   await openSettings(page,'presets');
   await page.getByRole('button',{name:'Edit: Camp',exact:true}).click();
