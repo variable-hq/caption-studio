@@ -1,7 +1,16 @@
 import os from "node:os";
-import { QA_ORIGIN, QA_PORT } from "./dashboard-helpers.mjs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+
+// Loaded here so an invalid CAPTION_QA_PORT prints one line and exits, instead of an import stack trace.
+let QA_ORIGIN;
+let QA_PORT;
+try {
+  ({ QA_ORIGIN, QA_PORT } = await import("./dashboard-helpers.mjs"));
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 
 const tooling = path.resolve(process.env.CAPTION_QA_TOOLS_DIR || path.join(os.tmpdir(), "caption-studio-ui-qa"));
 const env = { ...process.env, CAPTION_QA_TOOLS_DIR: tooling };

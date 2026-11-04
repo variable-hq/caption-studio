@@ -1,4 +1,4 @@
-import { AXE_WIDTHS, CAPTION_WAIT_TIME_LABELS, QA_CONCURRENCY, QA_ORIGIN, SETTINGS_SECTIONS, captureScreenshot, openScreen, openSettings, qaPassTasks, settleWithLimit } from "./dashboard-helpers.mjs";
+import { AXE_WIDTHS, CAPTION_WAIT_TIME_LABELS, QA_CONCURRENCY, QA_ORIGIN, SETTINGS_LABELS, SETTINGS_SECTIONS, captureScreenshot, openScreen, openSettings, qaPassTasks, settleWithLimit } from "./dashboard-helpers.mjs";
 // Local synthetic UI checks. No provider calls or external requests.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -93,9 +93,16 @@ try {
   await page.getByText('Ready to go',{exact:true}).waitFor();
   if(contrastOnly){
    // The dark pass reaches each screen that a plain address opens and scans only colour contrast.
-   const screens=[...new Set(['#live','#transcripts','#help',...SETTINGS_SECTIONS.map(section=>`#settings=${section}`)])];
-   for(const address of screens){
+   // Each address waits for its own screen heading, so a routing change fails the pass instead of scanning another screen.
+   const screens=[
+    ['#live',()=>page.getByText('Ready to go',{exact:true})],
+    ['#transcripts',()=>page.getByRole('heading',{name:'Transcripts',exact:true})],
+    ['#help',()=>page.getByRole('heading',{name:'How it works',exact:true})],
+    ...SETTINGS_SECTIONS.map(section=>[`#settings=${section}`,()=>page.getByRole('heading',{name:SETTINGS_LABELS[section],exact:true})]),
+   ];
+   for(const [address,ready] of screens){
     await page.goto(QA_ORIGIN+'/'+address);
+    await ready().waitFor();
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const axe=await new AxeBuilder({page}).withRules(['color-contrast']).analyze();
     violations.push(...axe.violations.map(x=>({screen:address,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));

@@ -91,17 +91,20 @@ try {
    else { errors.push('Unexpected API: ' + url.pathname); return route.fulfill({ status: 400, json: { error: 'Unexpected request' } }); }
    return route.fulfill({ status: 200, json: payload });
   });
+  await page.routeWebSocket('**/api/live/viewer?*', (socket) => socket.send(JSON.stringify({ type: 'ready', ...viewerReady, caption: { sequence: 1, publicText: 'Synthetic latest translation.', targetLanguage: 'en' } })));
   if (contrastOnly) {
    // The dark pass opens each screen that a plain address reaches and scans only colour contrast.
+   // Each address waits for its own loaded content, so the scan covers the screen and not a placeholder.
    const addresses = [
-    '/view#main.' + 'v'.repeat(43),
-    '/read#' + id + '.' + 'r'.repeat(43),
-    '/operator/mobile#' + id + '.' + 'p'.repeat(43),
-    '/#transcripts',
-    '/#settings=usage',
+    ['/view#main.' + 'v'.repeat(43), () => page.getByText('Synthetic latest translation.', { exact: true })],
+    ['/read#' + id + '.' + 'r'.repeat(43), () => page.getByText(paragraph.text, { exact: true })],
+    ['/operator/mobile#' + id + '.' + 'p'.repeat(43), () => page.getByText(/Capture system connected · /)],
+    ['/#transcripts', () => page.getByRole('heading', { name: 'Transcripts', exact: true })],
+    ['/#settings=usage', () => page.getByText('Usage by day (UTC)', { exact: true })],
    ];
-   for (const address of addresses) {
+   for (const [address, ready] of addresses) {
     await page.goto(origin + address);
+    await ready().waitFor();
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
     const axe = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze();
     results.push({ width, colorScheme, contrastOnly, screen: address, violations: axe.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })) });
@@ -117,7 +120,6 @@ try {
    results.push({ width, colorScheme, contrastOnly, screen, violations: axe.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })) });
    await captureScreenshot(page, { path: `${output}/${screen}-${width}.png`, fullPage: true });
   }
-  await page.routeWebSocket('**/api/live/viewer?*', (socket) => socket.send(JSON.stringify({ type: 'ready', ...viewerReady, caption: { sequence: 1, publicText: 'Synthetic latest translation.', targetLanguage: 'en' } })));
   await page.goto(origin + '/view#main.' + 'v'.repeat(43));
   await page.getByText('Synthetic latest translation.', { exact: true }).waitFor();
   await check('viewer');

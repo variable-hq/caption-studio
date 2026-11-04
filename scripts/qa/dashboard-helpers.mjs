@@ -8,7 +8,7 @@ export const CAPTION_WAIT_TIME_LABELS = [
   'Dynamic: adapts to the speaker, up to 14 seconds',
 ];
 
-const SETTINGS_LABELS = {
+export const SETTINGS_LABELS = {
   computer: "System",
   presets: "Presets",
   languages: "Language",
