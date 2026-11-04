@@ -35,6 +35,8 @@ async function waitForServer() {
 }
 
 try {
+  const portInUse = await fetch(QA_ORIGIN, { signal: AbortSignal.timeout(1_000) }).then(() => true, () => false);
+  if (portInUse) throw new Error(`Port ${QA_PORT} is already in use; set CAPTION_QA_PORT to a free port.`);
   server = spawn("npm", ["run", "dev", "--", "--hostname", "127.0.0.1", "--port", String(QA_PORT)], {
     stdio: "inherit",
     env,
