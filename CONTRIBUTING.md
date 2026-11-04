@@ -1,6 +1,6 @@
 # Contributing
 
-Last reviewed 30 October 2026 against merged PR #80 (`3a7d1d2`).
+Last reviewed 5 November 2026 against merged PR #115 (`f11e649`).
 
 Thank you for helping build Caption Studio. The repository is private and has no
 open-source license; access to collaborate does not grant permission to redistribute
@@ -120,8 +120,35 @@ A pull request should explain:
 - screenshots or recordings for visible behavior, using synthetic data; and
 - known limitations and follow-up work.
 
-Keep a pull request small enough to review. Request review before merging whenever
-repository settings allow it. A change to languages, biblical reference material,
+Keep a pull request small enough to review in one sitting, with one outcome. Work found
+to be needed outside it is proposed as a follow-up, not added to it. Prefer the design
+with the lower risk level when both meet the goal, and put a critical or high part in its
+own pull request.
+
+Start the template's **Risk review** section with the change's risk level. When two
+levels both seem to fit, choose the higher one.
+
+- **Critical**: cannot easily be undone, such as a one-way migration or rename of stored
+  data, wire names or a Durable Object; or touches a trust boundary (Access, tokens,
+  retention, logged content); or removes or loosens a live safety limit (the recording
+  window cap, attempt ceilings, rate-limit backoff). State why it is needed now, the
+  rollback plan (or "forward only" and why), and the deploy precondition, such as no
+  live session running.
+- **High**: changes a contract or the live path with a compatibility or rollback path:
+  a stored shape that still reads old data, a Worker route or binding, live capture, cut
+  or draft behavior, model prompts, parsing untrusted input, or quota, metering and
+  entitlements. State what old data and already-open pages see, and what reverting
+  leaves behind.
+- **Moderate**: a new or reworked operator or audience capability within existing
+  contracts, or functionality other code depends on.
+- **Low**: contained, revertible on its own, and nothing depends on it.
+- **None**: no runtime effect (documentation, comments), or tests and QA scripts only.
+
+From moderate up, add two or three lines on what could break, what it affects, and how
+it is contained. The repository owner may waive any of these on a pull request by saying
+so on it.
+
+Request review before merging whenever repository settings allow it. A change to languages, biblical reference material,
 retention, filtering, public URLs, roles, providers, models, or AI behavior must record
 the decision and tradeoffs in the issue, pull request, or an ADR. For an ADR, take the
 next number after the highest in `docs/decisions/`, follow the shape in

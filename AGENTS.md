@@ -1,6 +1,6 @@
 # Agent instructions for Caption Studio
 
-Reviewed 5 November 2026 against merged PR #114 (`a24f730`).
+Reviewed 5 November 2026 against merged PR #115 (`f11e649`).
 
 Machine-oriented index. Humans: see `docs/README.md`. This file mostly routes
 and avoids restating facts that live elsewhere, so it doesn't go stale when they
@@ -31,7 +31,7 @@ appear in, or be cited by, a feature branch's commits, PR text, code, or docs.
 | Adding or changing operator-facing UI text | `src/i18n/messages/en.ts` and `id.ts`; ADR 0030 |
 | Why a past decision was made | `docs/decisions/*.md` — check each file's own status, several are superseded |
 | What's already proposed, deferred, or a known gap | `docs/PILOT_IMPROVEMENTS.md`, `docs/ROADMAP.md`, `docs/GAP_ANALYSIS.md` |
-| Contribution / PR / validation workflow | `CONTRIBUTING.md` |
+| Contribution / PR / validation workflow, a PR's scope and risk level | `CONTRIBUTING.md` ("Pull requests" for scope and risk level) |
 | A file/component/hook is growing large, or you're deciding whether to split one | `CONTRIBUTING.md`'s "Code organization" section |
 | Anything not above | `docs/README.md` — the full human-facing index |
 

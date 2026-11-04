@@ -15,6 +15,9 @@ Explain the user, operator, or contributor need.
 
 ## Risk review
 
+Risk: critical, high, moderate, low or none (see CONTRIBUTING.md, "Pull requests").
+From moderate up, say what could break, what it affects, and how it is contained.
+
 - [ ] No credentials or private sermon data are included
 - [ ] Recording and retention behavior is explicit
 - [ ] Operator routes remain Cloudflare Access-protected
