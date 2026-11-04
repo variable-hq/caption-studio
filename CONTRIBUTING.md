@@ -11,11 +11,12 @@ the code or service data.
 - Read [README.md](README.md), [SECURITY.md](SECURITY.md), and the relevant document
   under `docs/`. [AGENTS.md](AGENTS.md) routes each kind of task to the guide to read.
 - Use an issue for significant features, bugs, product decisions, or provider changes.
-- Every pull request meets the baseline: one outcome, a risk level, a test that proves
-  the change, maintained guides searched for claims it makes false, the checks run for
-  the head commit, and review findings grouped as Blocking, Minor and Nits. See
+- Every pull request meets the baseline: one outcome, a risk level, tests for the
+  behavior it changes, maintained guides searched for claims it makes false, the checks
+  run for the head commit, and review findings grouped as Blocking, Minor and Nits. See
   [Pull requests](#pull-requests), [Engineering rules](#engineering-rules) and the
-  [Review checklist](#review-checklist).
+  [Review checklist](#review-checklist). The repository owner may waive any part of it
+  on a pull request by saying so there.
 - Use only synthetic audio or recordings and transcripts explicitly approved for this
   project.
 - Follow [the stakeholder test guide](docs/STAKEHOLDER_TEST_GUIDE.md) for deployed
@@ -112,13 +113,13 @@ Create a short-lived branch from the latest `main`:
 AI agents use the same prefixes. Keep commits focused, with a
 matching conventional subject (`feat: …`, `fix: …`, `docs: …`), and leave `npm run
 typecheck:strict`, `npm run lint` and `npm test` passing at every commit, so each one can
-be reviewed and reverted on its own. Update the maintained guide
-that describes a change in the same commit as the code. Before opening the pull request,
-search every maintained guide in [the index](docs/README.md#maintained-guides), including
-`README.md` and `SECURITY.md`, for the feature's names and identifiers, and correct any
-claim the change makes false, not only the guide you set out to update. Do not rewrite another
-contributor's branch without agreement. Merge pull requests with a merge commit (GitHub's
-default), as every PR since #33 has, so each merge on `main` names its PR.
+be reviewed and reverted on its own. Update the maintained guide that describes a change
+in the same commit as the code. Before opening the pull request, search every maintained
+guide in [the index](docs/README.md#maintained-guides) for the feature's names and
+identifiers, and correct any claim the change makes false, not only in the guide you set
+out to update. Do not rewrite another contributor's branch without agreement. Merge pull
+requests with a merge commit (GitHub's default), as every PR since #33 has, so each merge
+on `main` names its PR.
 
 ## Pull requests
 
@@ -127,9 +128,8 @@ A pull request should explain:
 - what changed and why;
 - user and operator impact;
 - privacy, security, biblical-context, quota, and OBS implications;
-- tests and manual checks performed: the commands run and their results for the head
-  commit (a documentation-only pull request may list just `git diff --check`, plus
-  `npm run check:adrs` when `docs/decisions/` changes);
+- tests and manual checks performed, with each command run and its result for the head
+  commit;
 - assumptions made, and any deviation from the agreed scope (issue or ADR);
 - screenshots or recordings for visible behavior, using synthetic data; and
 - known limitations and follow-up work.
@@ -159,11 +159,11 @@ levels both seem to fit, choose the higher one.
 - **None**: no runtime effect (documentation, comments), or tests and QA scripts only.
 
 From moderate up, add two or three lines on what could break, what it affects, and how
-it is contained. The repository owner may waive any of these on a pull request by saying
-so on it.
+it is contained.
 
-Request review before merging whenever repository settings allow it. A change to languages, biblical reference material,
-retention, filtering, public URLs, roles, providers, models, or AI behavior must record
+Request review before merging whenever repository settings allow it. A change to
+languages, biblical reference material, retention, filtering, public URLs, roles,
+providers, models, or AI behavior must record
 the decision and tradeoffs in the issue, pull request, or an ADR. For an ADR, take the
 next number after the highest in `docs/decisions/`, follow the shape in
 [AGENTS.md](AGENTS.md#recording-a-decision-adr), and add it to the
