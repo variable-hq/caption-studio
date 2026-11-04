@@ -82,7 +82,7 @@ stops if that port is already in use), and runs the mocked `qa:operator` and
 at a time). Axe scans run at 1200px and 320px; the other widths keep the overflow and
 wording checks. Screenshots are written only with `CAPTION_QA_SHOTS=1`; `failure.png` is
 always written on failure. `CAPTION_QA_COLOR_SCHEME=dark` runs every width in dark with
-all checks; without it, the default run adds a dark pass that checks colour contrast only.
+all checks; without it, the default run adds a dark pass that checks colour contrast only, on the screens a plain address opens (the Live, Transcripts, Help and Settings addresses in the operator suite, and the reader, viewer, remote, transcripts and usage addresses in the experience suite).
 Run those two suites individually only when the server and tooling are already up, with
 `CAPTION_QA_TOOLS_DIR` set (and `CAPTION_QA_PORT` if it is not 3100). If headless Chromium's fake
 microphone hangs at **Start captions**, set `CAPTION_QA_STUB_MIC=1`. `npm run qa:runtime`

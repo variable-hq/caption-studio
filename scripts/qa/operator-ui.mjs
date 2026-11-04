@@ -88,6 +88,19 @@ try {
   });
   await page.goto(QA_ORIGIN);
   await page.getByText('Ready to go',{exact:true}).waitFor();
+  if(contrastOnly){
+   // The dark pass reaches each screen that a plain address opens and scans only colour contrast.
+   const screens=[...new Set(['#live','#transcripts','#help',...SETTINGS_SECTIONS.map(section=>`#settings=${section}`)])];
+   for(const address of screens){
+    await page.goto(QA_ORIGIN+'/'+address);
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    const axe=await new AxeBuilder({page}).withRules(['color-contrast']).analyze();
+    violations.push(...axe.violations.map(x=>({screen:address,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
+   }
+   const contrastResult={width,colorScheme,contrastOnly,errors,violations,checks:'dark colour-contrast scan of the Live, Transcripts, Help and Settings addresses'};
+   await context.close();
+   return contrastResult;
+  }
   assert.equal(await page.getByRole('switch',{name:'Live drafts',exact:true}).count(),0,'Live drafts is no longer a user-visible setting');
   assert.equal(await page.locator('.heardText').count(),1,'The Heard pane remains the in-progress source view');
   assert.equal(await page.locator('.liveDraftLine').count(),0,'No separate draft line remains');
@@ -102,12 +115,9 @@ try {
   // Event wording is checked only under General; the other presets use their own terms.
   const check=async (screen,{general=true}={})=>{
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-   if(!contrastOnly){
-    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
-    if(general&&/^(live|transcripts|help)/.test(screen)) await assertSessionWording(page,screen);
-   }
-   const axe=contrastOnly?await new AxeBuilder({page}).withRules(['color-contrast']).analyze()
-    :AXE_WIDTHS.includes(width)?await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze():{violations:[]};
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}/${screen} overflow`);
+   if(general&&/^(live|transcripts|help)/.test(screen)) await assertSessionWording(page,screen);
+   const axe=AXE_WIDTHS.includes(width)?await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze():{violations:[]};
    violations.push(...axe.violations.map(x=>({screen,id:x.id,impact:x.impact,nodes:x.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})));
   };
   // The pinned live control bar must never hide the lowest control on the page.

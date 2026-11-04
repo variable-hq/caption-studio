@@ -91,13 +91,31 @@ try {
    else { errors.push('Unexpected API: ' + url.pathname); return route.fulfill({ status: 400, json: { error: 'Unexpected request' } }); }
    return route.fulfill({ status: 200, json: payload });
   });
+  if (contrastOnly) {
+   // The dark pass opens each screen that a plain address reaches and scans only colour contrast.
+   const addresses = [
+    '/view#main.' + 'v'.repeat(43),
+    '/read#' + id + '.' + 'r'.repeat(43),
+    '/operator/mobile#' + id + '.' + 'p'.repeat(43),
+    '/#transcripts',
+    '/#settings=usage',
+   ];
+   for (const address of addresses) {
+    await page.goto(origin + address);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+    const axe = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze();
+    results.push({ width, colorScheme, contrastOnly, screen: address, violations: axe.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })) });
+   }
+   await context.close();
+   return;
+  }
   async function check(screen) {
    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
    const wide = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth ? '' : [...document.querySelectorAll('body *')].filter((el) => el.getBoundingClientRect().right > innerWidth + 1).slice(-4).map((el) => `${el.tagName}.${el.className}:${Math.round(el.getBoundingClientRect().right)}`).join(' | '));
-   if (!contrastOnly) assert.ok(!wide, width + '/' + screen + ' overflow: ' + wide);
-   const axe = contrastOnly ? await new AxeBuilder({ page }).withRules(['color-contrast']).analyze() : AXE_WIDTHS.includes(width) ? await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze() : { violations: [] };
+   assert.ok(!wide, width + '/' + screen + ' overflow: ' + wide);
+   const axe = AXE_WIDTHS.includes(width) ? await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze() : { violations: [] };
    results.push({ width, colorScheme, contrastOnly, screen, violations: axe.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })) });
-   if (!contrastOnly) await captureScreenshot(page, { path: `${output}/${screen}-${width}.png`, fullPage: true });
+   await captureScreenshot(page, { path: `${output}/${screen}-${width}.png`, fullPage: true });
   }
   await page.routeWebSocket('**/api/live/viewer?*', (socket) => socket.send(JSON.stringify({ type: 'ready', ...viewerReady, caption: { sequence: 1, publicText: 'Synthetic latest translation.', targetLanguage: 'en' } })));
   await page.goto(origin + '/view#main.' + 'v'.repeat(43));
@@ -191,10 +209,8 @@ try {
   assert.equal(await page.getByText('Synthetic supported summary.', { exact: false }).count(), 0);
   await openSettings(page, "usage");
   await page.waitForTimeout(250);
-  if (!contrastOnly) {
-   await captureScreenshot(page, { path: `${output}/usage-before-${width}.png`, fullPage: true });
-   await fs.writeFile(`${output}/usage-before-${width}.txt`, await page.locator('body').innerText());
-  }
+  await captureScreenshot(page, { path: `${output}/usage-before-${width}.png`, fullPage: true });
+  await fs.writeFile(`${output}/usage-before-${width}.txt`, await page.locator('body').innerText());
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.getByText('Usage by day (UTC)', { exact: true }).click(); assert.equal(await page.getByText('Plan monthly service capacity', { exact: true }).count(), 0); await check('usage');
   // The saved Sermon format relabels the Transcripts heading.
