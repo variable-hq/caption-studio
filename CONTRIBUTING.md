@@ -70,15 +70,21 @@ for copy, layout and controls, and use the tokens and shared control classes in 
 [design system](docs/DESIGN_SYSTEM.md); do not add hard-coded colours or one-off button
 styles. Check the change against `.agents/skills/web-design-guidelines/SKILL.md`. Test in both the light and dark themes at the primary 1920 × 1080 operator
 viewport, then at a 1200px intermediate width and 390px and 320px mobile widths in a
-real browser. `npm run qa` automates all four widths: 1920, 1200, 390 and 320px.
+real browser. `npm run qa` automates all four widths: 1920, 1200, 390 and 320px, and adds a dark colour-contrast pass at 390 and 1200px.
 Confirm keyboard focus, reachable controls, no horizontal overflow, and continuous
 preview updates while appearance ranges or colours are being changed. Test `/view` at
 both mobile widths when latest-viewer behavior changes; run `npm run qa:experience`
 for reader, remote, archive or usage UI changes. `npm run qa` (alias for `npm run qa:all`)
 installs the isolated Playwright/Axe tooling under `CAPTION_QA_TOOLS_DIR` (default: a
-temporary directory), starts a local dev server on port 3100, and runs the mocked
-`qa:operator` and `qa:experience` suites. Run those two individually only when the server
-and tooling are already up, with `CAPTION_QA_TOOLS_DIR` set. If headless Chromium's fake
+temporary directory), starts a local dev server on `CAPTION_QA_PORT` (default 3100; the run
+stops if that port is already in use), and runs the mocked `qa:operator` and
+`qa:experience` suites concurrently, each width in its own browser context (at most four
+at a time). Axe scans run at 1200px and 320px; the other widths keep the overflow and
+wording checks. Screenshots are written only with `CAPTION_QA_SHOTS=1`; `failure.png` is
+always written on failure. `CAPTION_QA_COLOR_SCHEME=dark` runs every width in dark with
+all checks; without it, the default run adds a dark pass that checks colour contrast only.
+Run those two suites individually only when the server and tooling are already up, with
+`CAPTION_QA_TOOLS_DIR` set (and `CAPTION_QA_PORT` if it is not 3100). If headless Chromium's fake
 microphone hangs at **Start captions**, set `CAPTION_QA_STUB_MIC=1`. `npm run qa:runtime`
 remains a separate local Wrangler rehearsal on port 8787; see
 [Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md#runtime-rehearsal). Use only synthetic caption

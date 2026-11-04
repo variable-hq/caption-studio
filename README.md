@@ -283,11 +283,15 @@ finishing with a whitespace check, sequentially. Run
 Browser and runtime QA scripts are separate from validation. The browser scripts load
 Playwright and Axe from an isolated directory so that no test dependency enters the
 product. Run `npm run qa` (or `npm run qa:all`) to install that isolated tooling and
-Chromium when needed, start the local server, and run the two mocked browser suites in
-sequence. Every API request is mocked:
+Chromium when needed, start the local server, and run the two mocked browser suites
+concurrently. Every API request is mocked. The server listens on `CAPTION_QA_PORT`
+(default 3100); the run stops if that port is already in use. Screenshots are written
+to ignored `test-results/` only with `CAPTION_QA_SHOTS=1`. `CAPTION_QA_COLOR_SCHEME=dark`
+runs every width in dark; by default the run adds a dark colour-contrast pass at 390 and
+1200px:
 
 ```sh
-npm run dev -- --hostname 127.0.0.1 --port 3100
+CAPTION_QA_PORT=3200 npm run qa
 # Individual scripts remain available when the server and tooling are already running.
 CAPTION_QA_TOOLS_DIR=/tmp/caption-studio-ui-qa npm run qa:operator
 CAPTION_QA_TOOLS_DIR=/tmp/caption-studio-ui-qa npm run qa:experience
@@ -328,7 +332,7 @@ version IDs are not recorded after PR #26, and later merges have no recorded dep
 yet. See the [deployment runbook](docs/DEPLOYMENT.md) for the fix that unblocked the first
 deploy and the remaining rehearsal gates.
 
-This document reviewed 4 November 2026 against merged [PR #108](https://github.com/variable-hq/caption-studio/pull/108) (`86b8099`).
+This document reviewed 4 November 2026 against merged [PR #111](https://github.com/variable-hq/caption-studio/pull/111) (`e420b29`).
 
 The repository is private and has no open-source license. Third-party adaptations retain
 their [notices](THIRD_PARTY_NOTICES.md).

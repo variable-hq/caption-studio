@@ -1,6 +1,6 @@
 # Agent instructions for Caption Studio
 
-Reviewed 31 October 2026 against merged PR #81 (`ff97386`).
+Reviewed 4 November 2026 against merged PR #111 (`e420b29`).
 
 Machine-oriented index. Humans: see `docs/README.md`. This file mostly routes
 and avoids restating facts that live elsewhere, so it doesn't go stale when they
@@ -97,9 +97,10 @@ build` · `npm run build:cloudflare` · `npm run deploy:check` (dry run) ·
 `engines`). If it fails only on that, report it — don't change the
 environment's Node/nvm version to force it through unless explicitly asked.
 
-`npm run qa` starts a dev server on port 3100 and runs `qa:operator` and
-`qa:experience`: browser UI, responsive-overflow and Axe checks against mocked
-APIs, with screenshots in ignored `test-results/`. It bootstraps its own
+`npm run qa` starts a dev server on `CAPTION_QA_PORT` (default 3100) and runs
+`qa:operator` and `qa:experience` concurrently: browser UI, responsive-overflow and
+Axe checks against mocked APIs. Screenshots go to ignored `test-results/` only when
+`CAPTION_QA_SHOTS=1`. It bootstraps its own
 Playwright/Axe tooling under `CAPTION_QA_TOOLS_DIR` (see `CONTRIBUTING.md`). If
 headless Chromium's fake microphone never resolves on your machine, set
 `CAPTION_QA_STUB_MIC=1` and say so in the PR. Run it for any UI change; it is

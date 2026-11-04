@@ -154,5 +154,6 @@ Text selection, the caret and the scrollbars are themed from the palette
 - Indonesian copy is an implementation draft pending native-speaker review; track that
   status in the PR and localization ADR.
 - Check every visible change in both themes at 1920, 1200, 390 and 320px. `npm run qa`
-  automates all four widths, including the 320px minimum where a prior regression was found.
+  automates all four widths, including the 320px minimum where a prior regression was found,
+  and adds a dark colour-contrast pass at 390 and 1200px.
 - Keep class names, `data-testid` values and labels that `scripts/qa/*.mjs` reference.
