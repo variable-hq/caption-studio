@@ -42,8 +42,7 @@ appear in, or be cited by, a feature branch's commits, PR text, code, or docs.
   PR #<n> (<sha>)` stamp, in the *same commit* as any code change it
   describes — this repo's history shows that's the actual practice, not a
   follow-up task. Then search every maintained guide for the feature's names
-  and identifiers and correct any claim the change makes false; stale claims in
-  guides nobody meant to touch are the most common review finding.
+  and identifiers and correct any claim the change makes false.
 - **Decisions** (`docs/decisions/*.md`, ADRs): why, not what. May be
   superseded — the file says so if it is.
 - **Dated evidence** (`docs/README.md`'s "Dated evidence and research" table,

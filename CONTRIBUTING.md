@@ -155,8 +155,10 @@ levels both seem to fit, choose the higher one.
   leaves behind.
 - **Moderate**: a new or reworked operator or audience capability within existing
   contracts, or functionality other code depends on.
-- **Low**: contained, revertible on its own, and nothing depends on it.
-- **None**: no runtime effect (documentation, comments), or tests and QA scripts only.
+- **Low**: contained, revertible on its own, and nothing depends on it, including a
+  behavior-preserving refactor of runtime code.
+- **None**: documentation, comments, tests and QA scripts only, with no runtime code
+  changed.
 
 From moderate up, add two or three lines on what could break, what it affects, and how
 it is contained.
@@ -254,9 +256,11 @@ worked examples of every rule below.
 - New or grown files follow [Code organization](#code-organization) above; a large,
   multi-responsibility file added or extended without comment is a finding, not a style nit.
 - Relevant automated and manual checks pass.
+- The stated risk level matches the change (the higher one when two fit) and, from
+  moderate up, the description gives the reason.
 
-Group review findings as **Blocking** (a bug, regression, scope deviation, or missing
-test or documentation), **Minor** (a small maintainability or consistency gap) and
+Group review findings as **Blocking** (a bug, regression, scope deviation, missing test
+or documentation, or a missing or inaccurate risk level), **Minor** (a small maintainability or consistency gap) and
 **Nits** (wording and formatting), each with its file and symbol. Every finding is
 addressed before merge unless the repository owner waives it on the pull request.
 
