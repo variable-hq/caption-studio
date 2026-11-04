@@ -1,7 +1,6 @@
 "use client";
 
-import { WORKSPACE_NAME } from "@/domain/workspace";
-import { useI18n } from "@/i18n/provider";
+import { useI18n, useWorkspaceName } from "@/i18n/provider";
 
 import { workspaceFormatView } from "./workspace-format";
 
@@ -44,6 +43,7 @@ interface OperatorTopBarProps {
  * every screen has its own address and survives a refresh. */
 export function OperatorTopBar({ screen, status, sessionLive }: OperatorTopBarProps) {
   const { t, locale, workspacePreset } = useI18n();
+  const workspaceName = useWorkspaceName();
   const format = workspaceFormatView(workspacePreset, locale, sessionLive);
   const formatLabel = t("shell.format.ariaLabel", { format: format.name });
   const statusLabels: Record<OperatorStatusLabel, Parameters<typeof t>[0]> = {
@@ -64,7 +64,7 @@ export function OperatorTopBar({ screen, status, sessionLive }: OperatorTopBarPr
         <span className="operatorBrandName">
           <strong translate="no">Caption Studio</strong>
           <span>
-            <span translate="no">{WORKSPACE_NAME}</span> ·{" "}
+            <span translate="no">{workspaceName}</span> ·{" "}
             {format.href ? (
               <a href={format.href} aria-label={formatLabel} translate="no">{format.name}</a>
             ) : (

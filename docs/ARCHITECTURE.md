@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 4 November 2026 against merged PR #107 (`b54637a`). Cloudflare deployed `20597d8`
+Reviewed 4 November 2026 against merged PR #108 (`86b8099`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -15,7 +15,7 @@ physical-device, provider-output or semantic acceptance.
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
 | `TranscriptJournal` | One session's source/corrections/exclusions, record-only session metadata, reader paragraphs, operator notes, lifecycle checkpoints and manual or automatic summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
-| `OperatorPreferences` | One object per hashed Access email (theme, interface language, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and words, output buffer, transcript-saving default, automatic summaries and the workspace format (preset id) |
+| `OperatorPreferences` | One object per hashed Access email (theme, interface language, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and words, output buffer, transcript-saving default, automatic summaries the workspace format (preset id) and the workspace name |
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
 | Workers AI | Optional shared reader phrasing and bounded manual summaries |
 
@@ -152,8 +152,8 @@ server-only `OBS_CHANNEL_ENCRYPTION_KEY`. Other raw live credentials stay in the
 operator tab's sessionStorage; server state retains hashes. End/expiry preserves the
 OBS URL and style. Only explicit idle rotation changes that reusable credential.
 
-One Access workspace shares one operation. That workspace is shown as *BEST Church
-workspace* in the operator UI. Every signed-in operator already reads the
+One Access workspace shares one operation. That workspace is shown by its name in the
+operator UI (default *BEST Church workspace*, set under Settings › Presets). Every signed-in operator already reads the
 same channel status, usage, archive and OBS URL; the channel also names the Access email
 of the operator who started the running service, and a watcher credential adds the live
 public caption stream to that, and the Access-protected archive supplies source text
@@ -219,7 +219,7 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | Draft translation settings | Page memory; active snapshot in tab sessionStorage for recovery |
 | Live note | Controlling tab memory and sessionStorage, keyed to the service start time; never journaled or logged |
 | Recent outputs | Controlling tab memory; last 3 published outputs, reset at Start, End and takeover |
-| Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, history-saving default, automatic-summary opt-in (church setup, `workspace:setup`); theme and interface language (per operator) | `OperatorPreferences`: the church setup in the one shared `workspace:setup` object, personal preferences in an object keyed by the SHA-256 of the lower-cased Access email, kept until cleared; the theme's localStorage copy is applied before account loading and then overridden by the account value, while the interface-language copy is used only when account preferences are unavailable; the shared channel style also persists |
+| Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, history-saving default, automatic-summary opt-in, workspace name (church setup, `workspace:setup`); theme and interface language (per operator) | `OperatorPreferences`: the church setup in the one shared `workspace:setup` object, personal preferences in an object keyed by the SHA-256 of the lower-cased Access email, kept until cleared; the theme's localStorage copy is applied before account loading and then overridden by the account value, while the interface-language copy is used only when account preferences are unavailable; the shared channel style also persists |
 | OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
 | Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
 | Latest public caption | Main live state; cleared by controls and End/expiry |

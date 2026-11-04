@@ -15,6 +15,7 @@ import {
 import { normalizeTranslationSystemPrompt } from "@/ai/translation-prompt";
 import { normalizeUiLocalePreference, type UiLocalePreference } from "@/i18n";
 import { normalizeProfileId, type BuiltInPresetId } from "./presets";
+import { normalizeWorkspaceName } from "@/domain/workspace";
 
 /** Bounds a preference record; every field is optional and independently valid. */
 export const PREFERENCES_VERSION = 1;
@@ -37,6 +38,8 @@ export interface OperatorPreferences {
   saveHistoryDefault: boolean | null;
   /** The workspace format (a preset id); null means General. Only the shared setup sets it. */
   profile: BuiltInPresetId | null;
+  /** The workspace name; null shows the default name. Only the shared setup sets it. */
+  workspaceName: string | null;
   /** Generates an AI summary draft after each saved session this operator ends. */
   autoSummary: boolean;
   updatedAt: number | null;
@@ -54,6 +57,7 @@ export const EMPTY_PREFERENCES: OperatorPreferences = {
   outputBufferDwellMs: null,
   saveHistoryDefault: null,
   profile: null,
+  workspaceName: null,
   autoSummary: false,
   updatedAt: null,
 };
@@ -117,6 +121,7 @@ export function mergeOperatorPreferences(
     outputBufferDwellMs: pick("outputBufferDwellMs", base.outputBufferDwellMs, normalizeOutputBufferDwellMs),
     saveHistoryDefault: pick("saveHistoryDefault", base.saveHistoryDefault, (value) => value === true),
     profile: pick("profile", base.profile, normalizeProfileId),
+    workspaceName: pick("workspaceName", base.workspaceName, normalizeWorkspaceName),
     autoSummary: "autoSummary" in input ? input.autoSummary === true : base.autoSummary,
     updatedAt: at,
   };
@@ -154,6 +159,7 @@ export const SHARED_SETUP_FIELDS = [
   "outputBufferDwellMs",
   "saveHistoryDefault",
   "profile",
+  "workspaceName",
   "autoSummary",
 ] as const satisfies readonly (keyof OperatorPreferences)[];
 
@@ -174,6 +180,7 @@ export function effectiveSetup(shared: OperatorPreferences, personal: OperatorPr
     outputBufferDwellMs: shared.outputBufferDwellMs ?? personal.outputBufferDwellMs,
     saveHistoryDefault: shared.saveHistoryDefault ?? personal.saveHistoryDefault,
     profile: shared.profile ?? personal.profile,
+    workspaceName: shared.workspaceName ?? personal.workspaceName,
     autoSummary: shared.autoSummary,
     updatedAt: shared.updatedAt,
   };
