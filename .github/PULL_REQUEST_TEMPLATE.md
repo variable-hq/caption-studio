@@ -8,12 +8,15 @@ Explain the user, operator, or contributor need.
 
 ## Validation
 
-- [ ] Relevant automated checks pass
+- [ ] Relevant automated checks pass (list each command and its result for the head commit)
 - [ ] `npm audit --omit=dev` and full `npm audit` results are recorded separately
 - [ ] Manual behavior was tested where appropriate
 - [ ] Screenshots or recordings are attached for visible changes
 
 ## Risk review
+
+Risk: critical, high, moderate, low or none (see CONTRIBUTING.md, "Pull requests").
+From moderate up, say what could break, what it affects, and how it is contained.
 
 - [ ] No credentials or private sermon data are included
 - [ ] Recording and retention behavior is explicit
@@ -27,7 +30,7 @@ Explain the user, operator, or contributor need.
 
 ## Documentation
 
-- [ ] Maintained documentation matches the implemented behavior
+- [ ] Maintained documentation matches the implemented behavior; every maintained guide was searched for claims this change makes false
 - [ ] Historical evidence remains clearly separated from current validation claims
 - [ ] Deployment changes include the build, deploy dry run, and relevant Cloudflare result
 

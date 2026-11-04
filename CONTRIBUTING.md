@@ -1,6 +1,6 @@
 # Contributing
 
-Last reviewed 30 October 2026 against merged PR #80 (`3a7d1d2`).
+Last reviewed 5 November 2026 against merged PR #115 (`f11e649`).
 
 Thank you for helping build Caption Studio. The repository is private and has no
 open-source license; access to collaborate does not grant permission to redistribute
@@ -11,6 +11,12 @@ the code or service data.
 - Read [README.md](README.md), [SECURITY.md](SECURITY.md), and the relevant document
   under `docs/`. [AGENTS.md](AGENTS.md) routes each kind of task to the guide to read.
 - Use an issue for significant features, bugs, product decisions, or provider changes.
+- Every pull request meets the baseline: one outcome, a risk level, tests for the
+  behavior it changes, maintained guides searched for claims it makes false, the checks
+  run for the head commit, and review findings grouped as Blocking, Minor and Nits. See
+  [Pull requests](#pull-requests), [Engineering rules](#engineering-rules) and the
+  [Review checklist](#review-checklist). The repository owner may waive any part of it
+  on a pull request by saying so there.
 - Use only synthetic audio or recordings and transcripts explicitly approved for this
   project.
 - Follow [the stakeholder test guide](docs/STAKEHOLDER_TEST_GUIDE.md) for deployed
@@ -43,7 +49,8 @@ npm audit
 one worker, strict TypeScript, ESLint, both production builds, a deployment dry run, and
 the diff check, sequentially. `deploy:check` needs Node 22.12 or newer (Wrangler's
 requirement, in `package.json` `engines`); if only that step fails on an older Node,
-report it rather than skipping it. Record
+report it rather than skipping it. A documentation-only pull request may run just
+`git diff --check`, plus `npm run check:adrs` when `docs/decisions/` changes. Record
 production and full audit results separately. Never use `npm audit fix --force` without
 an explicit dependency-compatibility review.
 
@@ -104,10 +111,15 @@ Create a short-lived branch from the latest `main`:
 - `chore/short-description`
 
 AI agents use the same prefixes. Keep commits focused, with a
-matching conventional subject (`feat: …`, `fix: …`, `docs: …`). Update the maintained guide
-that describes a change in the same commit as the code. Do not rewrite another
-contributor's branch without agreement. Merge pull requests with a merge commit (GitHub's
-default), as every PR since #33 has, so each merge on `main` names its PR.
+matching conventional subject (`feat: …`, `fix: …`, `docs: …`), and leave `npm run
+typecheck:strict`, `npm run lint` and `npm test` passing at every commit, so each one can
+be reviewed and reverted on its own. Update the maintained guide that describes a change
+in the same commit as the code. Before opening the pull request, search every maintained
+guide in [the index](docs/README.md#maintained-guides) for the feature's names and
+identifiers, and correct any claim the change makes false, not only in the guide you set
+out to update. Do not rewrite another contributor's branch without agreement. Merge pull
+requests with a merge commit (GitHub's default), as every PR since #33 has, so each merge
+on `main` names its PR.
 
 ## Pull requests
 
@@ -116,13 +128,44 @@ A pull request should explain:
 - what changed and why;
 - user and operator impact;
 - privacy, security, biblical-context, quota, and OBS implications;
-- tests and manual checks performed;
+- tests and manual checks performed, with each command run and its result for the head
+  commit;
+- assumptions made, and any deviation from the agreed scope (issue or ADR);
 - screenshots or recordings for visible behavior, using synthetic data; and
 - known limitations and follow-up work.
 
-Keep a pull request small enough to review. Request review before merging whenever
-repository settings allow it. A change to languages, biblical reference material,
-retention, filtering, public URLs, roles, providers, models, or AI behavior must record
+Keep a pull request small enough to review in one sitting, with one outcome. Work found
+to be needed outside it is proposed as a follow-up, not added to it. Prefer the design
+with the lower risk level when both meet the goal, and put a critical or high part in its
+own pull request.
+
+Start the template's **Risk review** section with the change's risk level. When two
+levels both seem to fit, choose the higher one.
+
+- **Critical**: cannot easily be undone, such as a one-way migration or rename of stored
+  data, wire names or a Durable Object; or touches a trust boundary (Access, tokens,
+  retention, logged content); or removes or loosens a live safety limit (the recording
+  window cap, attempt ceilings, rate-limit backoff). State why it is needed now, the
+  rollback plan (or "forward only" and why), and the deploy precondition, such as no
+  live session running.
+- **High**: changes a contract or the live path with a compatibility or rollback path:
+  a stored shape that still reads old data, a Worker route or binding, live capture, cut
+  or draft behavior, model prompts, parsing untrusted input, or quota, metering and
+  entitlements. State what old data and already-open pages see, and what reverting
+  leaves behind.
+- **Moderate**: a new or reworked operator or audience capability within existing
+  contracts, or functionality other code depends on.
+- **Low**: contained, revertible on its own, and nothing depends on it, including a
+  behavior-preserving refactor of runtime code.
+- **None**: documentation, comments, tests and QA scripts only, with no runtime code
+  changed.
+
+From moderate up, add two or three lines on what could break, what it affects, and how
+it is contained.
+
+Request review before merging whenever repository settings allow it. A change to
+languages, biblical reference material, retention, filtering, public URLs, roles,
+providers, models, or AI behavior must record
 the decision and tradeoffs in the issue, pull request, or an ADR. For an ADR, take the
 next number after the highest in `docs/decisions/`, follow the shape in
 [AGENTS.md](AGENTS.md#recording-a-decision-adr), and add it to the
@@ -155,6 +198,8 @@ next number after the highest in `docs/decisions/`, follow the shape in
 - Do not log raw audio, caption text, glossary content, Access JWTs, OBS tokens, or mobile
   viewer links.
 - Add failure and recovery tests for changes to live behavior.
+- A fix includes a test that fails without it. Do not edit a passing test to make a change
+  fit unless the behavior it covers is meant to change, and say so in the pull request.
 - Prefer deterministic post-processing for approved terms and public filtering.
 
 ## Code organization
@@ -211,6 +256,14 @@ worked examples of every rule below.
 - New or grown files follow [Code organization](#code-organization) above; a large,
   multi-responsibility file added or extended without comment is a finding, not a style nit.
 - Relevant automated and manual checks pass.
+- The stated risk level matches the change (the higher one when two fit) and, from
+  moderate up, the description gives the reason.
+
+Group review findings as **Blocking** (a bug, regression, scope deviation, missing test
+or documentation, or a missing or inaccurate risk level), **Minor** (a small
+maintainability or consistency gap) and **Nits** (wording and formatting), each with its
+file and symbol. Every finding is addressed before merge unless the repository owner
+waives it on the pull request.
 
 ## Security reports
 
