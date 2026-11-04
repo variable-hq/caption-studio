@@ -59,6 +59,8 @@ export function SetupShare({
         return t("settings.setup.errorVersion");
       case "unknown-field":
         return t("settings.setup.errorUnknownField", { field: failure.field });
+      case "invalid-preset":
+        return t("settings.setup.errorInvalidPreset");
     }
   };
 

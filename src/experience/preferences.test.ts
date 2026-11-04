@@ -238,7 +238,8 @@ describe("workspace profile in the setup record", () => {
   it("keeps a known profile and drops unknown ones", () => {
     expect(mergeOperatorPreferences(EMPTY_PREFERENCES, { profile: "builtin:sermon" }).profile).toBe("builtin:sermon");
     expect(mergeOperatorPreferences(EMPTY_PREFERENCES, { profile: "builtin:market" }).profile).toBeNull();
-    expect(mergeOperatorPreferences(EMPTY_PREFERENCES, { profile: "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b" }).profile).toBeNull();
+    expect(mergeOperatorPreferences(EMPTY_PREFERENCES, { profile: "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b" }).profile).toBe("custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b");
+    expect(mergeOperatorPreferences(EMPTY_PREFERENCES, { profile: "custom:not-a-uuid" }).profile).toBeNull();
     const saved = mergeOperatorPreferences(EMPTY_PREFERENCES, { profile: "builtin:keynote" });
     expect(mergeOperatorPreferences(saved, { profile: null }).profile).toBeNull();
   });

@@ -49,7 +49,7 @@ import {
   normalizeProfileId,
   presetLocalizedText,
   resolveWorkspacePreset,
-  type BuiltInPresetId,
+  type PresetId,
 } from "@/experience/presets";
 import {
   DEFAULT_SUMMARY_OPTIONS,
@@ -194,8 +194,8 @@ function OperatorDashboardContent() {
   const [sessionMetadataMessage, setSessionMetadataMessage] = useState("");
   const [liveNote, setLiveNote] = useState("");
   // The Start bar's format for the next session; null follows the workspace format. It stays chosen across sessions until the page reloads.
-  const [pickedFormat, setPickedFormat] = useState<BuiltInPresetId | null>(null);
-  const startFormat: BuiltInPresetId = pickedFormat ?? normalizeProfileId(workspacePreset.id) ?? GENERAL_PRESET_ID;
+  const [pickedFormat, setPickedFormat] = useState<PresetId | null>(null);
+  const startFormat: PresetId = pickedFormat ?? normalizeProfileId(workspacePreset.id) ?? GENERAL_PRESET_ID;
   const liveNoteRestoredFor = useRef<string | null>(null);
   const priorSessionStartedAt = useRef<string | null>(null);
   const metadataPostedFor = useRef<string | null>(null);
@@ -910,7 +910,7 @@ function OperatorDashboardContent() {
   }
 
   // The same plan drives the Presets preview and Apply preset, so the preview is what applies.
-  const presetPlanFor = (profile: BuiltInPresetId) =>
+  const presetPlanFor = (profile: PresetId) =>
     accountPreferences
       ? planPresetApply(resolveWorkspacePreset(profile), accountPreferences, { keywordText, filterText }, hasSession)
       : null;
@@ -929,7 +929,7 @@ function OperatorDashboardContent() {
     }
   };
 
-  const applyPreset = (profile: BuiltInPresetId): Promise<boolean> => {
+  const applyPreset = (profile: PresetId): Promise<boolean> => {
     const plan = presetPlanFor(profile);
     if (!plan) return Promise.resolve(false);
     setFillDrafts(plan.fill);

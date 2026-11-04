@@ -4,6 +4,8 @@ import { captionTokenHash } from "@/live/caption-room";
 import { InvalidRequestBodyError, RequestBodyTooLargeError, readJsonObject } from "@/http/request-body";
 import { CAPABILITY_TOKEN_PATTERN, UUID_PATTERN, randomToken } from "@/http/tokens";
 import { json, rpc } from "./contracts";
+import { MAX_PRESET_COMMAND_BYTES, WORKSPACE_PRESETS_KEY } from "./custom-presets";
+import { presetLimits } from "./entitlements";
 
 export async function handleExperienceRequest(request: Request, env: LiveWorkerEnvironment) {
   const url = new URL(request.url);
@@ -21,6 +23,22 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       }));
     }
     const operation = url.pathname.slice("/api/live/experience/".length);
+    if (operation === "presets") {
+      // The workspace's custom presets: one record every signed-in operator shares.
+      if (!["GET", "POST"].includes(request.method)) return json({ error: "Use GET or POST." }, 405);
+      const authorized = await authorizeOperatorIdentity(request, env);
+      if (authorized.denied) return authorized.denied;
+      if (!env.OPERATOR_PREFERENCES) return json({ error: "Operator preferences are not configured." }, 503);
+      const body = request.method === "POST" ? await readJsonObject(request, MAX_PRESET_COMMAND_BYTES) : undefined;
+      // The plan's allowance is set here from the Worker variable and passed along, never taken from the body.
+      const max = presetLimits(env.WORKSPACE_PLAN).maxCustomPresets;
+      const target = env.OPERATOR_PREFERENCES.get(env.OPERATOR_PREFERENCES.idFromName(WORKSPACE_PRESETS_KEY));
+      return target.fetch(new Request(`https://internal/presets?max=${max}`, {
+        method: request.method, signal: AbortSignal.timeout(8000),
+        headers: { "content-type": "application/json" },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      }));
+    }
     if (operation === "preferences" || operation === "setup") {
       if (!["GET", "POST", "DELETE"].includes(request.method)) return json({ error: "Use GET, POST, or DELETE." }, 405);
       const authorized = await authorizeOperatorIdentity(request, env);

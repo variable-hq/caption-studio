@@ -16,7 +16,11 @@ describe("runningSessionFormat", () => {
   it("reads a session that began before formats, or with an unknown id, as General", () => {
     expect(runningSessionFormat(true, undefined, undefined)).toBe("builtin:general");
     expect(runningSessionFormat(true, "builtin:market", undefined)).toBe("builtin:general");
-    expect(runningSessionFormat(true, "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b", undefined)).toBe("builtin:general");
+    expect(runningSessionFormat(true, "custom:not-a-uuid", undefined)).toBe("builtin:general");
+  });
+
+  it("reads a running custom format by its id", () => {
+    expect(runningSessionFormat(true, "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b", undefined)).toBe("custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b");
   });
 });
 

@@ -281,10 +281,11 @@ describe("built-in presets", () => {
     expect(resolveWorkspacePreset("builtin:sermon").id).toBe("builtin:sermon");
   });
 
-  it("stores only known built-in profile ids", () => {
+  it("stores only known built-in ids and well-formed custom ids", () => {
     expect(normalizeProfileId("builtin:keynote")).toBe("builtin:keynote");
     expect(normalizeProfileId("builtin:unknown")).toBeNull();
-    expect(normalizeProfileId(CUSTOM_ID)).toBeNull();
+    expect(normalizeProfileId(CUSTOM_ID)).toBe(CUSTOM_ID);
+    expect(normalizeProfileId("custom:not-a-uuid")).toBeNull();
     expect(normalizeProfileId(42)).toBeNull();
   });
 });
@@ -312,8 +313,10 @@ describe("session preset snapshot", () => {
   it("rejects a snapshot with an unknown id, version, field or malformed terms", () => {
     const good = snapshotPreset(resolveWorkspacePreset("builtin:talkshow"));
     expect(normalizePresetSnapshot(good)).toEqual(good);
+    const custom = { ...good, id: CUSTOM_ID };
+    expect(normalizePresetSnapshot(custom)).toEqual(custom);
     for (const bad of [
-      null, "x", {}, { ...good, id: "builtin:market" }, { ...good, id: "custom:3f2a9c1e-6b7d-4e8f-9a0b-1c2d3e4f5a6b" },
+      null, "x", {}, { ...good, id: "builtin:market" }, { ...good, id: "custom:not-a-uuid" },
       { ...good, version: 0 }, { ...good, version: 1.5 }, { ...good, extra: true },
       { ...good, terms: { en: good.terms.en } },
       { ...good, terms: { ...good.terms, en: { ...good.terms.en, session: { singular: "x\u202e" , plural: "y" } } } },

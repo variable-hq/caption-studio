@@ -360,9 +360,16 @@ export function presetTermParams(preset: PresetWording, locale: PresetLocale, ge
   return params;
 }
 
-/** Built-in ids. The workspace profile stores one of these; an absent or unknown value means General. */
+/** Built-in ids. The workspace profile stores one of these or a custom id; an absent or unknown value means General. */
 export const BUILT_IN_PRESET_IDS = ["builtin:general", "builtin:sermon", "builtin:talkshow", "builtin:keynote"] as const;
 export type BuiltInPresetId = (typeof BUILT_IN_PRESET_IDS)[number];
+/** A workspace's own preset, stored in the workspace presets record and resolved by id. */
+export type CustomPresetId = `custom:${string}`;
+export type PresetId = BuiltInPresetId | CustomPresetId;
+
+export function isCustomPresetId(value: unknown): value is CustomPresetId {
+  return typeof value === "string" && CUSTOM_ID_PATTERN.test(value);
+}
 
 const SERMON_PRESET: Preset = {
   schemaVersion: PRESET_SCHEMA_VERSION,
@@ -554,17 +561,20 @@ export const BUILT_IN_PRESETS: readonly Preset[] = [GENERAL_PRESET, SERMON_PRESE
   (preset) => normalizePreset(preset),
 );
 
-/** The stored form of a workspace profile: a known built-in id, or null when none is saved. */
-export function normalizeProfileId(value: unknown): BuiltInPresetId | null {
-  return typeof value === "string" && (BUILT_IN_PRESET_IDS as readonly string[]).includes(value)
-    ? (value as BuiltInPresetId)
-    : null;
+/** The stored form of a format id: a known built-in id or a well-formed custom id, else null. */
+export function normalizeProfileId(value: unknown): PresetId | null {
+  if (typeof value !== "string") return null;
+  if ((BUILT_IN_PRESET_IDS as readonly string[]).includes(value)) return value as BuiltInPresetId;
+  return isCustomPresetId(value) ? value : null;
 }
 
-/** The preset a profile id resolves to; an absent or unknown id is General. */
-export function resolveWorkspacePreset(profileId: unknown): Preset {
+/**
+ * The preset a format id resolves to. `customPresets` are the workspace's own presets; a built-in
+ * id needs none. An absent, unknown or deleted id is General.
+ */
+export function resolveWorkspacePreset(profileId: unknown, customPresets: readonly Preset[] = []): Preset {
   const id = normalizeProfileId(profileId) ?? GENERAL_PRESET_ID;
-  return BUILT_IN_PRESETS.find((preset) => preset.id === id) ?? BUILT_IN_PRESETS[0];
+  return BUILT_IN_PRESETS.find((preset) => preset.id === id) ?? customPresets.find((preset) => preset.id === id) ?? BUILT_IN_PRESETS[0];
 }
 
 /** Display text for a locale; Indonesian falls back to English when a value is missing. */
@@ -578,7 +588,7 @@ export function presetLocalizedText(text: PresetLocalizedText, locale: PresetLoc
  * when a later release changes the built-in.
  */
 export type PresetSnapshot = {
-  id: BuiltInPresetId;
+  id: PresetId;
   version: number;
   terms: { en: PresetTermSet; id: PresetTermSet };
 };
@@ -613,7 +623,7 @@ export function normalizePresetSnapshot(value: unknown): PresetSnapshot | undefi
 }
 
 /** The format a session ran under; a session without a snapshot is General. */
-export function snapshotPresetId(snapshot: PresetSnapshot | undefined): BuiltInPresetId {
+export function snapshotPresetId(snapshot: PresetSnapshot | undefined): PresetId {
   return snapshot?.id ?? GENERAL_PRESET_ID;
 }
 

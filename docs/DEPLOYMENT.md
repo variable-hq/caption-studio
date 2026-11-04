@@ -84,7 +84,7 @@ Preserve `custom-worker.ts` as the entry point and all bindings in `wrangler.jso
 | `CAPTION_ROOMS` / `CaptionRoom` | Main channel, controller, inference claims and remote commands |
 | `TRANSCRIPT_JOURNALS` / `TranscriptJournal` | Per-session reader, opted-in history and summary jobs |
 | `AI_USAGE` / `AiUsageLedger` | Numeric provider admissions and rolling usage |
-| `OPERATOR_PREFERENCES` / `OperatorPreferences` | Shared church setup (one workspace record) and each operator's theme, keyed by hashed Access email |
+| `OPERATOR_PREFERENCES` / `OperatorPreferences` | Shared church setup and the workspace's custom presets (one record each), and each operator's theme, keyed by hashed Access email |
 | `AI` | Optional Workers AI inference |
 | `ASSETS` | OpenNext static assets |
 

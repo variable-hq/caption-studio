@@ -553,6 +553,7 @@ export const id: Partial<Record<MessageKey, string>> = {
   "settings.setup.errorVersion": "Berkas pengaturan ini memakai versi yang tidak bisa dibaca aplikasi ini. Ekspor ulang dari aplikasi terbaru.",
   "settings.setup.errorUnknownField": "Berkas pengaturan ini punya kolom yang tidak dikenali aplikasi ini: {field}.",
   "settings.setup.errorUnreadable": "Berkas pengaturan tidak bisa dibaca. Pilih ulang atau tempel teksnya.",
+  "settings.setup.errorInvalidPreset": "Sebuah preset kustom di berkas pengaturan ini tidak valid, sehingga berkas tidak dibaca. Ekspor ulang dari workspace yang membuatnya.",
   "settings.presets.workspaceTitle": "Workspace",
   "settings.presets.workspaceNameLabel": "Nama workspace",
   "settings.presets.workspaceNameHint": "Tampil di bilah atas dan layar operator. Maksimal 60 karakter; kosongkan untuk memakai {name}.",

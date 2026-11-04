@@ -550,6 +550,7 @@ export const en = {
   "settings.setup.errorVersion": "This setup file uses a version this app cannot read. Export it again from a current app.",
   "settings.setup.errorUnknownField": "This setup file has a field this app does not know: {field}.",
   "settings.setup.errorUnreadable": "Couldn’t read the setup file. Choose it again or paste its text.",
+  "settings.setup.errorInvalidPreset": "A custom preset in this setup file is not valid, so the file was not read. Export it again from the workspace that made it.",
   "settings.presets.workspaceTitle": "Workspace",
   "settings.presets.workspaceNameLabel": "Workspace name",
   "settings.presets.workspaceNameHint": "Shown in the top bar and on operator screens. Up to 60 characters; leave empty to use {name}.",

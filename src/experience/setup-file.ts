@@ -1,12 +1,15 @@
 import type { MessageKey } from "@/i18n";
+import { MAX_PRESETS_PER_IMPORT } from "./custom-presets";
 import { EMPTY_PREFERENCES, SHARED_SETUP_FIELDS, mergeOperatorPreferences, type OperatorPreferences } from "./preferences";
+import { PresetValidationError, isCustomPresetId, normalizePreset, type Preset } from "./presets";
 
 /** The setup file a workspace exports and imports; its Terms stay in their own list import. */
 export const SETUP_FILE_KIND = "caption-studio-setup";
 export const SETUP_FILE_VERSION = 1;
 export const MAX_SETUP_FILE_BYTES = 64 * 1024;
 
-const TOP_LEVEL_KEYS: readonly string[] = ["kind", "schemaVersion", ...SHARED_SETUP_FIELDS];
+/** The workspace's custom presets travel in the file's `presets` list, outside the shared setup record. */
+const TOP_LEVEL_KEYS: readonly string[] = ["kind", "schemaVersion", "presets", ...SHARED_SETUP_FIELDS];
 const TRANSLATION_KEYS: readonly string[] = [
   "sourceLanguage",
   "targetLanguage",
@@ -33,19 +36,24 @@ export type SetupFileFailure =
   | { reason: "not-json" }
   | { reason: "not-setup-file" }
   | { reason: "unsupported-version" }
-  | { reason: "unknown-field"; field: string };
+  | { reason: "unknown-field"; field: string }
+  | { reason: "invalid-preset"; index: number };
 
 export type SetupFileResult =
-  | { ok: true; setup: Partial<OperatorPreferences> }
+  | { ok: true; setup: Partial<OperatorPreferences>; presets: Preset[] }
   | { ok: false; failure: SetupFileFailure };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** The saved shared setup as a file: only the settings the workspace has saved; Terms are left out. */
-export function buildSetupFile(saved: OperatorPreferences): Record<string, unknown> {
+/**
+ * The saved shared setup as a file: only the settings the workspace has saved, and its custom
+ * presets; Terms are left out.
+ */
+export function buildSetupFile(saved: OperatorPreferences, presets: readonly Preset[] = []): Record<string, unknown> {
   const file: Record<string, unknown> = { kind: SETUP_FILE_KIND, schemaVersion: SETUP_FILE_VERSION };
+  if (presets.length > 0) file.presets = presets;
   for (const field of SHARED_SETUP_FIELDS) {
     const value = saved[field];
     if (value === null || value === undefined) continue;
@@ -92,15 +100,39 @@ export function parseSetupFile(text: string): SetupFileResult {
     if (extra !== undefined) return { ok: false, failure: { reason: "unknown-field", field: `${field}.${extra}` } };
   }
 
+  const presets = parseFilePresets(value.presets);
+  if (!presets.ok) return presets;
+
   const settings: Record<string, unknown> = { ...value };
   delete settings.kind;
   delete settings.schemaVersion;
+  delete settings.presets;
   const normalized = mergeOperatorPreferences(EMPTY_PREFERENCES, settings, 0);
   const setup: Partial<OperatorPreferences> = {};
   for (const field of SHARED_SETUP_FIELDS) {
     if (field in settings && normalized[field] !== null) Object.assign(setup, { [field]: normalized[field] });
   }
-  return { ok: true, setup };
+  return { ok: true, setup, presets: presets.presets };
+}
+
+/**
+ * A file's custom presets. Each must pass `normalizePreset()` with a custom id; one that does not
+ * refuses the whole file, so nothing from it is partly applied.
+ */
+function parseFilePresets(value: unknown): { ok: true; presets: Preset[] } | { ok: false; failure: SetupFileFailure } {
+  if (value === undefined) return { ok: true, presets: [] };
+  if (!Array.isArray(value) || value.length > MAX_PRESETS_PER_IMPORT) return { ok: false, failure: { reason: "invalid-preset", index: 0 } };
+  const presets: Preset[] = [];
+  for (const [index, entry] of value.entries()) {
+    try {
+      const preset = normalizePreset(entry);
+      if (!isCustomPresetId(preset.id)) throw new PresetValidationError("id must be custom");
+      presets.push(preset);
+    } catch {
+      return { ok: false, failure: { reason: "invalid-preset", index } };
+    }
+  }
+  return { ok: true, presets };
 }
 
 export type SetupRowField = (typeof SHARED_SETUP_FIELDS)[number] | "outputBuffer" | "summaryGuidance";

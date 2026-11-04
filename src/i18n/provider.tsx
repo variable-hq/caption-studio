@@ -6,7 +6,7 @@ import { WORKSPACE_NAME, normalizeWorkspaceName } from "@/domain/workspace";
 import {
   normalizeProfileId,
   resolveWorkspacePreset,
-  type BuiltInPresetId,
+  type PresetId,
   type Preset,
 } from "@/experience/presets";
 import {
@@ -57,7 +57,7 @@ function cachePreference(preference: UiLocalePreference) {
   }
 }
 
-function readStoredProfile(): BuiltInPresetId | null {
+function readStoredProfile(): PresetId | null {
   try {
     return normalizeProfileId(window.localStorage.getItem(WORKSPACE_PROFILE_KEY));
   } catch {
@@ -65,7 +65,7 @@ function readStoredProfile(): BuiltInPresetId | null {
   }
 }
 
-function cacheProfile(profileId: BuiltInPresetId | null) {
+function cacheProfile(profileId: PresetId | null) {
   try {
     if (profileId === null) window.localStorage.removeItem(WORKSPACE_PROFILE_KEY);
     else window.localStorage.setItem(WORKSPACE_PROFILE_KEY, profileId);
@@ -77,7 +77,7 @@ function cacheProfile(profileId: BuiltInPresetId | null) {
 // The workspace format is an external store: the browser cache, then the shared setup
 // replaces it. The server render uses General, so the first client render matches it.
 const profileListeners = new Set<() => void>();
-let cachedProfile: { value: BuiltInPresetId | null } | null = null;
+let cachedProfile: { value: PresetId | null } | null = null;
 
 function subscribeProfile(listener: () => void) {
   profileListeners.add(listener);
@@ -86,12 +86,12 @@ function subscribeProfile(listener: () => void) {
   };
 }
 
-function profileSnapshot(): BuiltInPresetId | null {
+function profileSnapshot(): PresetId | null {
   cachedProfile ??= { value: readStoredProfile() };
   return cachedProfile.value;
 }
 
-function writeProfile(profileId: BuiltInPresetId | null) {
+function writeProfile(profileId: PresetId | null) {
   cachedProfile = { value: profileId };
   cacheProfile(profileId);
   for (const listener of profileListeners) listener();
@@ -215,7 +215,7 @@ export function I18nProvider({ children }: Readonly<{ children: React.ReactNode 
  * Renders its children with the wording of a session's format, so the screens that follow a
  * running session read its terms. A null id leaves the surrounding wording unchanged.
  */
-export function PresetScope({ presetId, children }: Readonly<{ presetId: BuiltInPresetId | null; children: React.ReactNode }>) {
+export function PresetScope({ presetId, children }: Readonly<{ presetId: PresetId | null; children: React.ReactNode }>) {
   const parent = useI18n();
   const preset = useMemo(() => (presetId === null ? null : resolveWorkspacePreset(presetId)), [presetId]);
   const value = useMemo<I18nValue>(
