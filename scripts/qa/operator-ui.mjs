@@ -364,6 +364,19 @@ try {
   await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Undo changes',exact:true}).click();
   await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor({state:'hidden'});
+  // Use preset default during a service: Keynote's 14-second wait differs from the running Dynamic wait, so the Translation draft waits for Apply now, and Undo changes restores the running wait.
+  sharedSetup={...sharedSetup,updatedAt:Date.now(),profile:'builtin:keynote',translationDefaults:{sourceLanguage:'auto',targetLanguage:'en',keywordText:'',filterText:'',recordingWindowMs:6000,inferenceLevel:'low',sanitizeLevel:'off',filterInappropriateLanguage:true}};
+  await page.reload();
+  await openSettings(page,'presets');
+  await page.getByRole('button',{name:'Use preset default for Caption wait time',exact:true}).click();
+  await page.getByText('Set as a change to review: Caption wait time',{exact:true}).waitFor();
+  await openScreen(page,'Live');
+  await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Undo changes',exact:true}).click();
+  await page.getByText('Your changes aren’t in use yet.',{exact:true}).waitFor({state:'hidden'});
+  await openSettings(page,'translator');
+  assert.equal(await page.locator('[data-testid="recording-window"]').first().inputValue(),'dynamic','Undo changes restores the running caption wait');
+
   await openSettings(page,'presets');
   await page.getByRole('combobox',{name:'Format',exact:true}).selectOption('builtin:general');
   await page.getByRole('button',{name:'Apply preset',exact:true}).click();
