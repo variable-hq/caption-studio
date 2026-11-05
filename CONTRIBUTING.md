@@ -1,6 +1,6 @@
 # Contributing
 
-Last reviewed 5 November 2026 against merged PR #115 (`f11e649`).
+Last reviewed 5 November 2026 against merged PR #116 (`46a13e4`).
 
 Thank you for helping build Caption Studio. The repository is private and has no
 open-source license; access to collaborate does not grant permission to redistribute
@@ -96,7 +96,8 @@ Run those two suites individually only when the server and tooling are already u
 `CAPTION_QA_TOOLS_DIR` set (and `CAPTION_QA_PORT` if it is not 3100). Next.js allows one `next dev` per project directory, so a second run on another
 port must come from a separate checkout of the repo; running both from one checkout fails at server start. If headless Chromium's fake
 microphone hangs at **Start captions**, set `CAPTION_QA_STUB_MIC=1`. `npm run qa:runtime`
-remains a separate local Wrangler rehearsal on port 8787; see
+remains a separate local Wrangler rehearsal on port 8787 (`CAPTION_QA_ORIGIN` overrides
+its default origin, `http://127.0.0.1:8787`); see
 [Plan 1 QA](docs/LIVE_SESSION_PLAN_1_QA.md#runtime-rehearsal). Use only synthetic caption
 text in screenshots or recordings.
 
