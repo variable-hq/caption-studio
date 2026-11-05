@@ -64,10 +64,12 @@ top bar) lists the steps of a session in order.
   session, **Quick fixes** adds a **Live note** for the translator, a quick override for
   unexpected words, and a typed message while paused.
 - **Operator dashboard**: **Live**, **Transcripts**, **Settings** and **Help** screens for
-  volunteers, in English or Bahasa Indonesia (the Indonesian copy awaits native review,
+  volunteers, in English or Bahasa Indonesia, chosen per operator in
+  **Settings › Language** (the Indonesian copy awaits native review,
   [ADR 0030](docs/decisions/0030-operator-interface-localization.md)).
-- **Shared workspace setup**: settings are saved once for every operator; only light/dark
-  is personal ([ADR 0022](docs/decisions/0022-shared-church-setup-and-words-list.md)).
+- **Shared workspace setup**: settings are saved once for every operator; only the
+  light/dark theme and the interface language are personal
+  ([ADR 0022](docs/decisions/0022-shared-church-setup-and-words-list.md)).
 - **Presets**: **General**, **Sermon**, **Talkshow** and **Keynote** formats add context
   to the AI, and a workspace can keep custom presets up to its plan's limit
   ([ADR 0035](docs/decisions/0035-workspace-presets.md),
@@ -163,8 +165,8 @@ npm run qa:runtime   # real local Durable Objects on an isolated Wrangler previe
 ```
 
 `npm run dev` serves only the Next routes; it doesn't exercise `custom-worker.ts` or the
-Durable Objects, which is what `qa:runtime` is for. QA options (port, screenshots, dark
-mode, microphone stub) and the branch, PR and review workflow are in
+Durable Objects, which is what `qa:runtime` is for. QA options (port, runtime origin,
+screenshots, dark mode, microphone stub) and the branch, PR and review workflow are in
 [Contributing](CONTRIBUTING.md); commands, bindings, secrets and Access paths are in the
 [deployment runbook](docs/DEPLOYMENT.md). Keep credentials and session content out of
 logs, screenshots, chat and issues.
