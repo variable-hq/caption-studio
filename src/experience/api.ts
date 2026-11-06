@@ -5,7 +5,7 @@ import { InvalidRequestBodyError, RequestBodyTooLargeError, readJsonObject } fro
 import { CAPABILITY_TOKEN_PATTERN, UUID_PATTERN, randomToken } from "@/http/tokens";
 import { json, rpc } from "./contracts";
 import { MAX_PRESET_COMMAND_BYTES, WORKSPACE_PRESETS_KEY } from "./custom-presets";
-import { presetLimits } from "./entitlements";
+import { presetLimits, termsLimits } from "./entitlements";
 
 export async function handleExperienceRequest(request: Request, env: LiveWorkerEnvironment) {
   const url = new URL(request.url);
@@ -39,6 +39,12 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       }));
     }
+    if (operation === "limits") {
+      if (request.method !== "GET") return json({ error: "Use GET." }, 405);
+      const authorized = await authorizeOperatorIdentity(request, env);
+      if (authorized.denied) return authorized.denied;
+      return json(termsLimits(env.WORKSPACE_PLAN));
+    }
     if (operation === "preferences" || operation === "setup") {
       if (!["GET", "POST", "DELETE"].includes(request.method)) return json({ error: "Use GET, POST, or DELETE." }, 405);
       const authorized = await authorizeOperatorIdentity(request, env);
@@ -48,7 +54,8 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       const key = operation === "setup" ? WORKSPACE_SETUP_KEY : await operatorIdentityKey(authorized.identity);
       const target = env.OPERATOR_PREFERENCES.get(env.OPERATOR_PREFERENCES.idFromName(key));
       const body = request.method === "POST" ? await readJsonObject(request, MAX_PREFERENCES_BYTES) : undefined;
-      return target.fetch(new Request("https://internal/preferences", {
+      const termsMax = termsLimits(env.WORKSPACE_PLAN).maxTermsPerList;
+      return target.fetch(new Request(`https://internal/preferences?termsMax=${termsMax}`, {
         method: request.method, signal: AbortSignal.timeout(8000),
         headers: { "content-type": "application/json" },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
