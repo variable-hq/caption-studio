@@ -1,6 +1,6 @@
 # Contributing
 
-Last reviewed 5 November 2026 against merged PR #116 (`46a13e4`).
+Last reviewed 7 November 2026 against merged PR #119 (`912a3af`).
 
 Thank you for helping build Caption Studio. The repository is private and has no
 open-source license; access to collaborate does not grant permission to redistribute
@@ -54,13 +54,17 @@ report it rather than skipping it. A documentation-only pull request may run jus
 production and full audit results separately. Never use `npm audit fix --force` without
 an explicit dependency-compatibility review.
 
-This repository intentionally has no GitHub Actions workflow. Local validation is a
-required contributor responsibility: include the commands and results in the pull
-request. After merge, Cloudflare's connected Workers build—not GitHub—builds and deploys
-`main`; per-branch preview builds are off because previews omit Durable Objects (see
+One GitHub Actions workflow, `.github/workflows/validate.yml`, runs `npm run validate` and
+`npm audit --omit=dev` on pull requests into `develop` and `main` in the upstream repository
+only ([ADR 0039](docs/decisions/0039-github-actions-validation.md)). It checks; it does not
+replace local validation, which stays a required contributor responsibility: include the
+commands and results in the pull request. It runs no browser QA (`npm run qa`,
+`npm run qa:runtime` stay local) and uses no secrets. After merge, Cloudflare's connected
+Workers build—not GitHub—builds and deploys `main`; per-branch preview builds are off
+because previews omit Durable Objects (see
 [Deployment](docs/DEPLOYMENT.md#connected-cloudflare-build)). Do not add a GitHub-hosted
-build or deployment workflow without an explicit owner decision about duplicated compute,
-credentials, and cost.
+build or deployment workflow, or give a workflow credentials, without an explicit owner
+decision about duplicated compute, credentials, and cost.
 
 Use the Worker runtime QA procedure when a change affects Cloudflare or audience routes.
 `npm run preview` requests a remote Workers AI proxy and needs Wrangler credentials plus

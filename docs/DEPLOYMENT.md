@@ -1,13 +1,14 @@
 # Deployment runbook
 
-Reviewed 7 November 2026 against merged PR #118 (`f4279db`). This describes the current
+Reviewed 7 November 2026 against merged PR #119 (`912a3af`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
 ## Connected Cloudflare build
 
-GitHub stores source and PR review. Cloudflare Workers Builds watches `main` only; there
-is no GitHub Actions workflow. Use these settings for the connected Worker:
+GitHub stores source and PR review. Cloudflare Workers Builds watches `main` only; the
+repository's one GitHub Actions workflow (`validate`) checks pull requests and never builds
+for production or deploys. Use these settings for the connected Worker:
 
 | Setting | Value |
 | --- | --- |
@@ -22,8 +23,8 @@ Keep preview-branch builds off. With them on, every PR branch ran `npm run build
 `npx wrangler preview` (open beta), which always failed with "Your Wrangler configuration
 needs a `previews` block to run this command" and warned that Durable Objects are not
 included in previews. This app depends on Durable Objects, Workers AI and Cloudflare Access,
-so per-branch previews are unsupported; local validation (`npm run validate`, `npm run qa`)
-is the pull-request gate. Re-enable only together with a `previews` configuration that
+so per-branch previews are unsupported; `npm run validate` (run locally and by the `validate`
+workflow) and the local `npm run qa` are the pull-request gate. Re-enable only together with a `previews` configuration that
 covers the Durable Objects, AI and Access.
 
 The equivalent repository command after building is `npm run deploy:worker`.

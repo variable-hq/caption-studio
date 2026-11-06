@@ -1,0 +1,28 @@
+name: validate
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    # The upstream repository only; forks inherit this file and skip the job.
+    if: github.repository == 'variable-hq/caption-studio'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # package.json engines: >=22.12.0
+          cache: npm
+      - run: npm ci
+      - run: npm run validate
+      - run: npm audit --omit=dev

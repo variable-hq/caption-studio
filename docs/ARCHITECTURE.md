@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 7 November 2026 against merged PR #118 (`f4279db`). Cloudflare deployed `20597d8`
+Reviewed 7 November 2026 against merged PR #119 (`912a3af`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -68,7 +68,7 @@ returns the cap and whether import is included. These limits do not change the p
 ceiling or the session-only Live word controls. See [ADR 0038](decisions/0038-plan-based-terms-limits.md).
 
 GitHub handles source review. Cloudflare Workers Builds builds OpenNext and deploys
-`custom-worker.ts` plus assets after merges to main. There is no GitHub Actions workflow.
+`custom-worker.ts` plus assets after merges to main. A GitHub Actions workflow only validates pull requests; it does not deploy.
 Direct deployment uses the existing `OPEN_NEXT_DEPLOY` guard to avoid an unnecessary
 remote AI proxy; see [Deployment](DEPLOYMENT.md#why-the-deploy-command-sets-open_next_deploy).
 The default OpenNext config has no configured incremental/tag cache or skew protection.
