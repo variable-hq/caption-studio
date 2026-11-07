@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). Cloudflare deployed `20597d8`
+Reviewed 6 November 2026 against merged PR #117 (`ba76470`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -22,6 +22,12 @@ physical-device, provider-output or semantic acceptance.
 The browser is the sole client platform; the deferred iOS shell was removed
 ([ADR 0020](decisions/0020-remove-ios-shell.md)). There is no audio object
 store, D1, Queues, Supabase, analytics SDK, local model runtime or paid fallback.
+
+The Live Share card reveals the phone viewer QR only on request. `src/live/viewer-qr.ts`
+accepts only an HTTP(S) `/view` URL up to 300 UTF-8 bytes and uses the browser-only
+`qrcode-generator` dependency to return a module matrix; `src/components/operator/ViewerQrCode.tsx`
+draws it as inline SVG. The QR contains the same fragment bearer link as Copy link. It is
+not sent to a service, stored, downloaded or printed.
 
 The operator dashboard's typed `src/i18n/` lookup uses English source messages and
 Indonesian overrides without a runtime library. `uiLocale` is a personal preference,

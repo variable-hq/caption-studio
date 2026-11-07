@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). The corrected 13 September
+Reviewed 6 November 2026 against merged PR #117 (`ba76470`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -96,8 +96,10 @@ plain words. Nothing opens automatically.
    or clearing the current caption also clears the output buffer queue.
 9. A second operator is blocked unless they explicitly confirm takeover. Takeover clears
    OBS, replaces controller ownership, and causes stale operations to stop the old mic.
-10. The operator can copy a separate mobile link. A viewer receives only current
-    moderated target text and session status. A long caption shrinks on the phone
+10. The operator can copy the separate mobile link or reveal its QR code on request in
+    Live's Share card. The QR contains the same link and is drawn in the browser; it is
+    hidden when the link changes or ends. A viewer receives only current moderated
+    target text and session status. A long caption shrinks on the phone
     from the chosen text size down to 18 px so it fits one screen. Confirmed replacement revokes that link
     without changing OBS.
 11. Source/target language, terminology, public filters, recording window, and operator
@@ -616,8 +618,8 @@ Terms list and leaves the live entry active.
   **Save selected settings as default** control, and **Session details**. Each checklist
   row links to the Settings section that changes it (a chevron when ready, a Fix, Set up or
   Help button when not).
-  **Share** holds the phone viewer link, transcript reader link, **Phone remote** pairing, and
-  replacing a reader link shared by mistake.
+  **Share** holds the phone viewer link, its on-request QR code, transcript reader link,
+  **Phone remote** pairing, and replacing a reader link shared by mistake.
 - During a session a bar pinned to the bottom of Live holds **Pause**/**Resume**, **Clear
   screen**, the minutes left and whether the transcript is being saved, and **End session**
   (or **Try End again** when End could not be confirmed); the

@@ -1,6 +1,6 @@
 # Roadmap
 
-Reviewed 3 November 2026 against merged PR #96 (`f74a25f`). Status describes source
+Reviewed 6 November 2026 against merged PR #117 (`ba76470`). Status describes source
 implementation; deployment and church-approved quality require separate evidence.
 
 ## Implemented baseline
@@ -106,8 +106,8 @@ Local tests and screenshots do not constitute these deployment, hardware or qual
   block hides captions containing a word, a paused Manual caption replaces the output,
   and Live note guides upcoming translations; none edits a displayed OBS caption, and
   archive source corrections change only private summary input.
-- Local QR joining, subject to the measured need in [Pilot improvements](PILOT_IMPROVEMENTS.md).
-  (Reusable terminology is now the shared Settings › Terms list.)
+- Reusable terminology is now the shared Settings › Terms list; its original proposal is
+  recorded in [Pilot improvements](PILOT_IMPROVEMENTS.md).
 - Display density/line policy, speaker identification and meaningful non-speech cues.
 - Authorized TB2 passage retrieval, provenance and licensing; additional summary providers
   only after a separate data/cost decision.
