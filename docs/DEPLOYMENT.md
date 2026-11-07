@@ -1,6 +1,6 @@
 # Deployment runbook
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). This describes the current
+Reviewed 7 November 2026 against merged PR #118 (`f4279db`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
@@ -116,10 +116,14 @@ both need `CAPTION_OPTIONAL_AI_ENABLED=true`; without it, End queues nothing.
 Never deploy `CAPTION_LOCAL_AUTH_BYPASS`.
 
 `WORKSPACE_PLAN` sets the workspace's plan limits (`src/experience/entitlements.ts`). Unset, or any
-value the table does not list, allows 5 custom presets; `free` allows none. Built-in formats are never
-limited. Set it in the Worker's variables (dashboard or a deploy-time variable), not in the setup
-record, which every signed-in operator can edit. A lowered limit never deletes a preset; it only
-blocks creating new ones.
+value the table does not list, allows 5 custom presets and 40 saved entries in each Terms list;
+Terms list import is allowed. `free` allows no custom presets, 10 saved names-and-terms entries and
+10 saved hidden-term entries, and no Terms list import. Built-in formats are never limited. The
+server enforces saved Terms on preferences and shared setup saves; a refused save writes nothing.
+The Access-protected `GET /api/live/experience/limits` returns the Terms cap and import allowance.
+Set the variable in the Worker's variables (dashboard or a deploy-time variable), not in the setup
+record, which every signed-in operator can edit. A lowered limit never deletes presets or Terms;
+it blocks new presets and prevents an over-cap Terms list from growing.
 
 ## Access paths
 

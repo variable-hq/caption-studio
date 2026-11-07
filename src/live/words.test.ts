@@ -1,9 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import { parseGlossaryInput, parseModerationInput } from "@/live/config";
-import { cleanWordValue, wordsFromSettings, wordsToSettings, type WordRow } from "@/live/words";
+import { cleanWordValue, countWordEntries, wordsFromSettings, wordsToSettings, type WordRow } from "@/live/words";
 
 describe("Words list", () => {
+  it("counts comma and newline entries after trimming blanks and whitespace", () => {
+    const compiled = "Jesus, Saul, Betlehem";
+    for (const text of [compiled, compiled.replaceAll(", ", ",\n"), " Jesus ,\n Saul ,, Betlehem "]) {
+      expect(countWordEntries(text)).toBe(3);
+    }
+    expect(countWordEntries("\n, ,  \n")).toBe(0);
+  });
+
+  it("matches pipeline entry counts for well-formed lists and errs on the safe side for malformed ones", () => {
+    const glossary = "Jesus Christ, Saul|swauf|sol => Saulus, Betlehem => Bethlehem";
+    const filters = "darn, heck=>gosh, slur=>!hide";
+    expect(countWordEntries(glossary)).toBe(parseGlossaryInput(glossary, "en").length);
+    expect(countWordEntries(filters)).toBe(parseModerationInput(filters).length);
+    expect(countWordEntries("=>translation")).toBeGreaterThanOrEqual(parseGlossaryInput("=>translation", "en").length);
+  });
+
   it("reads every existing syntax into one row per word", () => {
     expect(
       wordsFromSettings(

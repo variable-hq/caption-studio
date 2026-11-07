@@ -15,6 +15,7 @@ import {
   type StoredCustomPreset,
 } from "./custom-presets";
 import type { CustomPresetId } from "./presets";
+import { termsLimitExceeded } from "./terms-limit";
 
 const RECORD_KEY = "preferences";
 const PRESETS_KEY = "presets";
@@ -54,13 +55,35 @@ export class OperatorPreferences {
     if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
       return json({ error: "Preferences must be an object." }, 400);
     }
+    const maxValue = url.searchParams.get("termsMax");
+    const parsedMax = maxValue === null ? null : Number(maxValue);
+    const termsMax = maxValue !== null && /^\d+$/u.test(maxValue) && parsedMax !== null && Number.isSafeInteger(parsedMax) && parsedMax >= 0
+      ? parsedMax
+      : null;
     return this.state.storage.transaction(async (storage) => {
       const stored = await storage.get<PreferenceRecord>(RECORD_KEY);
       const base = stored ? normalizeOperatorPreferences(stored) : EMPTY_PREFERENCES;
       const next = mergeOperatorPreferences(base, patch);
+      if (termsMax !== null && Object.hasOwn(patch, "translationDefaults")) {
+        let exceeded = false;
+        try {
+          exceeded = this.checkTermsLimit(base.translationDefaults, next.translationDefaults, termsMax);
+        } catch {
+          // Fail open: a faulty check may permit a larger list but never blocks saving preferences.
+        }
+        if (exceeded) return json({ error: "The plan's Terms limit has been reached.", code: "terms-limit-reached", max: termsMax }, 409);
+      }
       await storage.put(RECORD_KEY, next);
       return json(next);
     });
+  }
+
+  protected checkTermsLimit(
+    before: PreferenceRecord["translationDefaults"],
+    after: PreferenceRecord["translationDefaults"],
+    max: number,
+  ) {
+    return termsLimitExceeded(before, after, max);
   }
 
   /**

@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 6 November 2026 against merged PR #117 (`ba76470`). Cloudflare deployed `20597d8`
+Reviewed 7 November 2026 against merged PR #118 (`f4279db`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -15,7 +15,7 @@ physical-device, provider-output or semantic acceptance.
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
 | `TranscriptJournal` | One session's source/corrections/exclusions, record-only session metadata, reader paragraphs, operator notes, lifecycle checkpoints and manual or automatic summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
-| `OperatorPreferences` | One object per hashed Access email (theme, interface language, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and words, output buffer, transcript-saving default, automatic summaries, the workspace format (preset id) and the workspace name; and one shared `workspace:presets` object holding the workspace's custom presets (`custom:<uuid>`, up to the plan limit, 64 KB), read and written by the `presets` route |
+| `OperatorPreferences` | One object per hashed Access email (theme, interface language, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and Terms, output buffer, transcript-saving default, automatic summaries, the workspace format (preset id) and the workspace name; and one shared `workspace:presets` object holding the workspace's custom presets (`custom:<uuid>`, up to the plan limit, 64 KB). The `preferences` and `setup` routes enforce saved Terms limits atomically; the `limits` route exposes the current cap and import allowance. |
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
 | Workers AI | Optional shared reader phrasing and bounded manual summaries |
 
@@ -59,6 +59,13 @@ render the three messages that use a term (`reader.status.ended`, `reader.notice
 snapshot in the browser. The overlay has no message that uses a term. A response or message
 without a snapshot renders General. The preset design is recorded in
 [ADR 0035](decisions/0035-workspace-presets.md).
+
+Saved Terms use two independent plan-limited lists in `translationDefaults`. `termsLimits()` in
+`src/experience/entitlements.ts` sets both lists to 40 by default and 10 on `free`; the preferences
+Durable Object checks each normalized save in its transaction. An over-cap list can be edited or
+trimmed but cannot grow, and a refused patch writes no fields. `GET /api/live/experience/limits`
+returns the cap and whether import is included. These limits do not change the pipeline's 40-entry
+ceiling or the session-only Live word controls. See [ADR 0038](decisions/0038-plan-based-terms-limits.md).
 
 GitHub handles source review. Cloudflare Workers Builds builds OpenNext and deploys
 `custom-worker.ts` plus assets after merges to main. There is no GitHub Actions workflow.

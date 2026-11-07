@@ -1,6 +1,6 @@
 # Documentation index
 
-Reviewed 5 November 2026 against merged PR #117 (`ba76470`). Maintained specifications
+Reviewed 7 November 2026 against merged PR #118 (`f4279db`). Maintained specifications
 describe merged source, not an assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
 records to establish release evidence.
 
@@ -65,6 +65,7 @@ records to establish release evidence.
 - [ADR 0035](decisions/0035-workspace-presets.md) records the workspace preset design: presets as validated data, the term placeholders and lookup order, where a choice is stored and applied, model-facing text limits and the session snapshot.
 - [ADR 0036](decisions/0036-custom-presets-and-plan-limits.md) records custom presets: the stored workspace record, the server-assigned ids, the held model text of imported presets, and the `WORKSPACE_PLAN` allowance.
 - [ADR 0037](decisions/0037-local-viewer-link-qr.md) records the local, on-request QR handoff for the current phone viewer link.
+- [ADR 0038](decisions/0038-plan-based-terms-limits.md) records plan-based limits for saved Terms, with fail-open server enforcement and no stored-data migration.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator, and the default-on operator control for faithful
   rendering when that omission rule is disabled.

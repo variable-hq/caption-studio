@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_TRANSLATION_SYSTEM_PROMPT } from "@/ai/translation-prompt";
 import { SUMMARY_MODELS } from "@/experience/contracts";
@@ -10,14 +10,23 @@ import {
   mergeOperatorPreferences,
   normalizeOperatorPreferences,
   operatorIdentityKey,
+  type OperatorPreferences as PreferenceRecord,
 } from "@/experience/preferences";
+import { countWordEntries } from "@/live/words";
 
 class Storage {
   values = new Map<string, unknown>();
+  private transactionTail = Promise.resolve();
   async get<T>(key: string) { return structuredClone(this.values.get(key)) as T | undefined; }
   async put(key: string, value: unknown) { this.values.set(key, structuredClone(value)); }
   async delete(key: string) { this.values.delete(key); }
-  async transaction<T>(work: (storage: Storage) => Promise<T>) { return work(this); }
+  async transaction<T>(work: (storage: Storage) => Promise<T>) {
+    const previous = this.transactionTail;
+    let release!: () => void;
+    this.transactionTail = new Promise<void>((resolve) => { release = resolve; });
+    await previous;
+    try { return await work(this); } finally { release(); }
+  }
 }
 
 function preferencesObject() {
@@ -26,11 +35,29 @@ function preferencesObject() {
   return { object, storage };
 }
 
-function request(method: string, body?: unknown) {
-  return new Request("https://internal/preferences", {
+function request(method: string, body?: unknown, termsMax?: string) {
+  return new Request(`https://internal/preferences${termsMax === undefined ? "" : `?termsMax=${termsMax}`}`, {
     method,
     ...(body === undefined ? {} : { body: typeof body === "string" ? body : JSON.stringify(body) }),
   });
+}
+
+function terms(keywordText: string, filterText = "") {
+  return { translationDefaults: { keywordText, filterText } };
+}
+
+function limitedPreferencesObject(check?: () => boolean) {
+  const storage = new Storage();
+  class TestPreferences extends OperatorPreferencesObject {
+    protected override checkTermsLimit(
+      before: PreferenceRecord["translationDefaults"],
+      after: PreferenceRecord["translationDefaults"],
+      max: number,
+    ) {
+      return check ? check() : super.checkTermsLimit(before, after, max);
+    }
+  }
+  return { object: new TestPreferences({ storage } as unknown as DurableObjectState), storage };
 }
 
 describe("operator preferences", () => {
@@ -177,6 +204,96 @@ describe("operator preferences", () => {
     expect(mergeOperatorPreferences(saved, { saveHistoryDefault: null }, 3))
       .toMatchObject({ saveHistoryDefault: null, autoSummary: true });
     expect(normalizeOperatorPreferences({})).toMatchObject({ saveHistoryDefault: null, autoSummary: false });
+  });
+});
+
+describe("plan-based Terms save enforcement", () => {
+  it.each([
+    { name: "missing", termsMax: undefined },
+    { name: "empty", termsMax: "" },
+    { name: "non-numeric", termsMax: "abc" },
+    { name: "negative", termsMax: "-1" },
+    { name: "fractional", termsMax: "1.5" },
+    { name: "NaN", termsMax: "NaN" },
+  ])("fails open when the internal Terms limit is $name", async ({ termsMax }) => {
+    const { object, storage } = limitedPreferencesObject();
+    const response = await object.fetch(request("POST", terms("one, two, three"), termsMax));
+    expect(response.status).toBe(200);
+    expect(countWordEntries((storage.values.get("preferences") as PreferenceRecord).translationDefaults?.keywordText ?? "")).toBe(3);
+  });
+
+  it("refuses an over-cap save with a content-free 409 and leaves storage byte-identical", async () => {
+    const { object, storage } = limitedPreferencesObject();
+    const original = mergeOperatorPreferences(EMPTY_PREFERENCES, terms("one, two"), 1_234);
+    storage.values.set("preferences", original);
+    const before = JSON.stringify(original);
+    const response = await object.fetch(request("POST", terms("one, two, three"), "2"));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "The plan's Terms limit has been reached.", code: "terms-limit-reached", max: 2 });
+    expect(JSON.stringify(storage.values.get("preferences"))).toBe(before);
+  });
+
+  it("refuses the whole patch atomically when unrelated fields accompany over-cap Terms", async () => {
+    const { object, storage } = limitedPreferencesObject();
+    const response = await object.fetch(request("POST", { theme: "dark", ...terms("one, two, three") }, "2"));
+    expect(response.status).toBe(409);
+    expect(storage.values.has("preferences")).toBe(false);
+  });
+
+  it("allows unrelated patches while stored Terms exceed the cap", async () => {
+    const { object, storage } = limitedPreferencesObject();
+    await object.fetch(request("POST", terms("one, two, three")));
+    const response = await object.fetch(request("POST", { theme: "dark" }, "2"));
+    expect(response.status).toBe(200);
+    expect((storage.values.get("preferences") as PreferenceRecord).theme).toBe("dark");
+    expect(countWordEntries((storage.values.get("preferences") as PreferenceRecord).translationDefaults?.keywordText ?? "")).toBe(3);
+  });
+
+  it("allows unchanged or trimmed over-cap Terms, refuses growth, and permits clearing", async () => {
+    const { object } = limitedPreferencesObject();
+    await object.fetch(request("POST", terms("one, two, three")));
+    expect((await object.fetch(request("POST", terms("one, two, three"), "2"))).status).toBe(200);
+    expect((await object.fetch(request("POST", terms("one, two"), "2"))).status).toBe(200);
+    expect((await object.fetch(request("POST", terms("one, two, three"), "2"))).status).toBe(409);
+    expect((await object.fetch(request("POST", { translationDefaults: null }, "2"))).status).toBe(200);
+  });
+
+  it("checks normalized text and treats a malformed stored record as empty", async () => {
+    const { object, storage } = limitedPreferencesObject();
+    const bounded = await object.fetch(request("POST", terms("x,".repeat(4_100)), "4000"));
+    expect(bounded.status).toBe(200);
+
+    storage.values.set("preferences", "{broken");
+    const malformed = await object.fetch(request("POST", terms("one, two"), "2"));
+    expect(malformed.status).toBe(200);
+  });
+
+  it("serializes concurrent saves without leaving either list above the cap", async () => {
+    const { object, storage } = limitedPreferencesObject();
+    await object.fetch(request("POST", terms("one")));
+    const responses = await Promise.all([
+      object.fetch(request("POST", terms("one, two"), "2")),
+      object.fetch(request("POST", terms("one, three"), "2")),
+    ]);
+    expect(responses.map(({ status }) => status)).toEqual([200, 200]);
+    const saved = (storage.values.get("preferences") as PreferenceRecord).translationDefaults;
+    expect(countWordEntries(saved?.keywordText ?? "")).toBeLessThanOrEqual(2);
+    expect(countWordEntries(saved?.filterText ?? "")).toBeLessThanOrEqual(2);
+  });
+
+  it("fails open when the Terms check throws and does not log the Terms content", async () => {
+    const { object } = limitedPreferencesObject(() => { throw new Error("Synthetic check failure."); });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = await object.fetch(request("POST", terms("private synthetic term, another"), "1"));
+    expect(response.status).toBe(200);
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("ignores Terms limits on GET and DELETE", async () => {
+    const { object } = limitedPreferencesObject();
+    expect((await object.fetch(request("GET", undefined, "invalid"))).status).toBe(200);
+    expect((await object.fetch(request("DELETE", undefined, "invalid"))).status).toBe(200);
   });
 });
 

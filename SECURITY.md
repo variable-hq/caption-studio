@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 6 November 2026 against merged PR #117 (`ba76470`). The 13 September deployment
+Reviewed 7 November 2026 against merged PR #118 (`f4279db`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -125,6 +125,15 @@ viewers, never place it in logs, analytics, screenshots, or public posts, and re
 immediately if it is mis-shared.
 
 ## Data handling
+
+### Workspace plan limits
+
+`WORKSPACE_PLAN` is read only from the Worker's deployment variables, never from editable setup
+records or client requests. The preferences Durable Object applies saved Terms limits to its
+normalized record inside the storage transaction; a refused save writes nothing. Its internal
+limit parameter is supplied by the Worker, and the public limits response requires Cloudflare
+Access. Missing or invalid internal limits and an exception in the limit check fail open: a defect
+can allow a larger Terms list but cannot prevent operators from saving preferences.
 
 Treat these as sensitive even when the app does not persist them:
 
