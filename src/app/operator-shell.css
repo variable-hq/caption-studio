@@ -437,6 +437,30 @@
 
 .operatorCard > h2 + .shareRow { border-top: 0; padding-top: 0; }
 
+.viewerQrPanel {
+  display: grid;
+  justify-items: start;
+  gap: var(--gap-sm);
+  min-width: 0;
+  margin: var(--gap-sm) 0 var(--gap-md);
+}
+
+.viewerQrPanel > div:not([hidden]) {
+  display: grid;
+  justify-items: start;
+  gap: var(--gap-sm);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.viewerQrCode {
+  display: block;
+  width: min(100%, 15rem);
+  height: auto;
+  aspect-ratio: 1;
+  background: #fff;
+}
+
 .statRow {
   display: flex;
   justify-content: space-between;

@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). The 13 September deployment
+Reviewed 6 November 2026 against merged PR #117 (`ba76470`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -93,6 +93,10 @@ production remediation must account for the existing encrypted OBS credential. S
 - The link keeps `main.token` in the URL fragment. The self-contained page sends it only
   as the `caption-studio-viewer-v1` WebSocket subprotocol (the earlier `church-caption-viewer-v1` is still accepted); the token is never placed in a
   page request or query string.
+- The Live Share card can show a locally generated QR for that exact link after an
+  operator requests it. It is the same short-lived bearer credential; the browser draws
+  it inline and does not send, store, download or print it. Keep it off the broadcast
+  and share it only with intended viewers.
 - The Durable Object stores only the viewer-token SHA-256 hash. The raw link remains in
   the operator tab's `sessionStorage`; it is not recoverable by another operator tab.
 - A viewer can receive only the current moderated target-language caption and live,

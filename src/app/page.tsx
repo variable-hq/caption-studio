@@ -102,6 +102,7 @@ import { normalizeLiveNote } from "@/live/live-note";
 import { EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata } from "@/experience/contracts";
 import { experienceRequest } from "@/experience/client";
 import { SessionExperiencePanel } from "@/components/operator/SessionExperiencePanel";
+import { ViewerQrCode } from "@/components/operator/ViewerQrCode";
 import { UsageHistory } from "@/components/operator/UsageHistory";
 import { formatCount, formatDecimal } from "@/components/operator/format-count";
 import { cutLengthPercentileMs } from "@/live/cut-metrics";
@@ -1632,6 +1633,16 @@ function OperatorDashboardContent() {
               {viewerCopied ? t("common.copied") : t("common.copyLink")}
             </button>
           </div>
+          {viewerUrl && (
+            <ViewerQrCode
+              key={viewerUrl}
+              url={viewerUrl}
+              showLabel={t("live.showQr")}
+              hideLabel={t("live.hideQr")}
+              imageLabel={t("live.qrLabel")}
+              hint={t("live.qrHint")}
+            />
+          )}
           <SessionExperiencePanel view="sharing" liveSession={liveState.liveSession} observer={observed.observer} onReaderLink={rememberReaderLink} />
           <p className="operatorHint" role="status" aria-live="polite">{clipboardMessage}</p>
         </section>

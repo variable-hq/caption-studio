@@ -95,8 +95,9 @@ records to establish release evidence.
 - [Caption policy](evaluation/CAPTION_POLICY_DECISION.md) describes completion and filtering.
 - [Indonesian→English review](evaluation/ID_EN_REVIEW.md) and its
   [synthetic fixtures](evaluation/id-en-synthetic.json) remain unscored.
-- [Pilot improvements](PILOT_IMPROVEMENTS.md) contains deferred QR, saved-pack and live
-  correction proposals; it is not the implemented archive correction workflow.
+- [Pilot improvements](PILOT_IMPROVEMENTS.md) records the QR handoff implementation,
+  the superseded saved-pack proposal and remaining live correction proposal; it is not
+  the implemented archive correction workflow.
 
 ## Dated evidence and research
 
