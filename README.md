@@ -192,7 +192,8 @@ flowchart LR
 
 `custom-worker.ts` is the deployed entry: it serves the live and audience routes before
 OpenNext and exports the Durable Objects. Cloudflare Workers Builds deploys `main`
-directly; there is no GitHub Actions workflow and preview-branch builds are off. See
+directly; a `validate` GitHub Actions workflow checks pull requests without deploying, and
+preview-branch builds are off. See
 [Architecture](docs/ARCHITECTURE.md) and [Deployment](docs/DEPLOYMENT.md).
 
 ## Documentation and status

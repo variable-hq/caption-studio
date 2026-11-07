@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 7 November 2026 against merged PR #118 (`f4279db`). The 13 September deployment
+Reviewed 7 November 2026 against merged PR #119 (`912a3af`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -264,7 +264,8 @@ setting.
 ## Deployment requirements
 
 - Keep deployment credentials and runtime secrets in Cloudflare. GitHub stores source
-  and pull requests only; the repository has no GitHub Actions deployment workflow.
+  and pull requests only; its one GitHub Actions workflow validates pull requests with
+  read-only repository permission and no secrets, and never deploys.
 - Treat the connected Cloudflare build as the production publisher and verify its
   deployed revision after every merge to `main`.
 - Store `GROQ_API_KEY` and `OBS_CHANNEL_ENCRYPTION_KEY` only as encrypted Worker secrets.
