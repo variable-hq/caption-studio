@@ -1,6 +1,6 @@
 # Agent instructions for Caption Studio
 
-Reviewed 7 November 2026 against merged PR #119 (`912a3af`).
+Reviewed 8 November 2026 against merged PR #120 (`5352f30`).
 
 Machine-oriented index. Humans: see `docs/README.md`. This file mostly routes
 and avoids restating facts that live elsewhere, so it doesn't go stale when they
@@ -8,17 +8,30 @@ change; "Easy-to-miss traps" records only what lint and tests don't catch. Read
 only the file(s) a row below points to for your current task; don't read the
 full `docs/` tree unless the task is genuinely repo-wide.
 
+## Branching: `develop` first, then `main`
+
+Branch from a freshly fetched `develop` and open every pull request into
+`develop`, never `main`. `main` is the production branch: Cloudflare builds and
+deploys on every merge into it, so it only receives a release pull request from
+`develop` once the batched features are confirmed (`CONTRIBUTING.md`, "Branch
+and commit workflow"; ADR 0040).
+
+```sh
+git fetch origin && git switch -c <type>/<name> origin/develop
+```
+
 ## Working in a fork
 
 If `git remote -v` shows an `upstream` remote, this checkout is a fork. Branch
-from a freshly fetched `upstream/main`, not the fork's `main`:
+from a freshly fetched `upstream/develop`, not the fork's own branches:
 
 ```sh
-git fetch upstream && git switch -c <type>/<name> upstream/main
+git fetch upstream && git switch -c <type>/<name> upstream/develop
 ```
 
-Fork-only commits on the fork's `main` (planning notes, local config) must not
-appear in, or be cited by, a feature branch's commits, PR text, code, or docs.
+Fork-only commits on the fork's `main` or `develop` (planning notes, local
+config) must not appear in, or be cited by, a feature branch's commits, PR text,
+code, or docs.
 
 ## Where to look
 
@@ -114,10 +127,12 @@ not part of the required validation chain above. Committed evidence goes under
 
 - CI beyond `.github/workflows/validate.yml` (browser QA jobs, build or deploy
   workflows, secrets). `CONTRIBUTING.md` states the boundary: Cloudflare's
-  connected Workers build deploys `main` directly, and local validation stays
+  connected Workers build deploys `main` on each merge, and local validation stays
   the contributor's responsibility.
-- Per-branch Cloudflare preview builds. They are switched off on purpose; see
-  `docs/DEPLOYMENT.md` before proposing to re-enable them.
+- Per-branch Cloudflare preview builds, including a build of `develop`. They are
+  switched off on purpose: the Cloudflare build of `main` is the release gate, so
+  only a release merge produces a new deployed version. See `docs/DEPLOYMENT.md`
+  before proposing to re-enable them.
 - Automated doc/KB regeneration. Every maintained doc is hand-updated, in the
   same commit, by whoever makes the change it describes — see "Doc taxonomy"
   above.
