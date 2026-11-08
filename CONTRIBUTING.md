@@ -139,6 +139,14 @@ deploy—follow [Deployment](docs/DEPLOYMENT.md#connected-cloudflare-build) for 
 migration or binding change in the batch. A production fix follows the same path: merge
 it into `develop`, then release.
 
+Branch protection on both `develop` and `main` blocks direct pushes, force-pushes and
+deletion, and requires a pull request with one approval, a passing `validate` check, a
+branch that is up to date with its base, and resolved conversations; `main` also dismisses
+approvals when new commits arrive. Only repository admins can merge, and they can bypass
+these rules—do so only for an emergency, and say why in the pull request. GitHub does not
+check that a pull request into `main` comes from `develop`; whoever approves the release
+checks that.
+
 ## Pull requests
 
 A pull request should explain:

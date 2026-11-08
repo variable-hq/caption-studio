@@ -14,5 +14,5 @@ Date: 8 November 2026. Status: accepted; it replaces the earlier practice of bra
 
 - One deploy per confirmed batch instead of one per merged pull request: fewer production builds and no half-finished feature set going live, at the cost of slower delivery for a single urgent fix and a release step someone has to perform.
 - Because `develop` has no Cloudflare build, the Worker runtime (Durable Objects, Access, Workers AI) is first exercised in production unless `npm run qa:runtime` is run locally on `develop` before the release.
-- Restricting `main` to pull requests from `develop` is not enforced by GitHub; a branch-protection or ruleset change is a repository-admin step outside this change.
+- Branch protection on `develop` and `main` (set by the repository admins on 8 November 2026) requires a pull request, one approval and the `validate` check, and blocks direct pushes. Only admins can merge, and they can bypass the rules; GitHub does not check that a pull request into `main` comes from `develop`, so the release approver does.
 - Pull requests #118–#120 were the first to target `develop`; `git rev-list origin/develop..origin/main` being empty after each release confirms the histories stayed aligned.
