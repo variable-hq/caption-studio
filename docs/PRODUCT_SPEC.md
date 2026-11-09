@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 9 November 2026 against merged PR #122 (`aa5e010`). The corrected 13 September
+Reviewed 9 November 2026 against merged PR #123 (`4afb3e5`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -126,6 +126,21 @@ plain words. Nothing opens automatically.
    generate a summary when optional AI is enabled; End itself makes no summary call
    unless the church setup opts in to automatic summaries (see Summary below).
 6. Numeric usage survives session/content actions for a rolling 30 days.
+
+### What each action affects
+
+| Action | OBS and latest viewer | Appending reader | Private history and usage |
+| --- | --- | --- | --- |
+| Clear screen | Blank; capture continues | Keep committed paragraphs, discard pending work | Preserved |
+| Quick override (**Hide the whole caption**) | Hides any caption containing it immediately, without a settings refresh | Same caption hidden in the reader/archive too | Preserved |
+| Pause | Blank; capture stops | Keep committed paragraphs, mark boundary | Preserved |
+| Manual caption (**Show your own message**, while paused) | Show operator-typed text (240 characters max) in place of the hidden translation | Not appended to paragraphs; recorded as a separate operator note | Note saved if history saving is on |
+| Resume | New capture after acknowledgement | Append new paragraphs | Same session |
+| Refresh translation settings (**Apply now**) | Clear and reject old results; keep session/links | Preserve earlier text; separate later revisions/languages | Preserved |
+| End or 90-minute expiry | Blank; latest-viewer link revoked; OBS URL retained | Bounded finalization, then 30-minute reading grace | Saved content expires seven days later; usage keeps its own expiry |
+| Takeover | Replace controller and latest-viewer link | Revoke previous reader and remote | Prior saved session retained until expiry |
+| Remove passage | Clear current caption if its source belongs to the removed passage | Remove selected paragraph on refresh/poll | Preserve original source, exclude its IDs from summaries, invalidate drafts |
+| Delete transcript | Available after End | Revoke reader and remove history on its next successful poll | Delete transcript content; numeric usage retained |
 
 ## Supported languages
 
