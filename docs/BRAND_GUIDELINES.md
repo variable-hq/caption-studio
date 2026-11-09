@@ -1,6 +1,6 @@
 # Brand guidelines
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`).
+Reviewed 9 November 2026 against merged PR #123 (`4afb3e5`).
 
 The baseline every Caption Studio screen follows: how the product sounds, which token
 to use for which job, and how text, space and components are laid out. Agents and
@@ -111,10 +111,14 @@ hex, rgb or named colour to a stylesheet or inline style. The only exceptions ar
 
 ## Typography
 
-- One family: `--font-sans`. Inter is self-hosted by `next/font` in `layout.tsx`
-  (latin and latin-ext subsets), so no page request goes to a font host. Use
-  `--font-mono` only for codes, identifiers and numbers that must align in technical
-  views.
+- One family: `--font-sans`, Calibri. Calibri is licensed and cannot be shipped, so the
+  stack uses it where it is installed (Windows and Office machines) and otherwise Carlito, its
+  metric-compatible open stand-in, self-hosted by `next/font` in `layout.tsx` (latin and
+  latin-ext subsets), so text takes the same space either way and no page request goes to a
+  font host.
+- Technical text uses `--font-mono` (Consolas, or Inconsolata self-hosted the same way): model
+  names, API keys, links, colour codes, dates and figures in Usage and Technical details. Apply
+  the `.techText` class; never use mono for sentences or labels.
 - Two weights only: `--weight-regular` and `--weight-bold`.
 - Line height: `--leading-tight` for headings and single-line labels,
   `--leading-normal` for everything else.

@@ -107,6 +107,7 @@ export function AiProvidersEditor() {
           <input
             type="text"
             name="transcriptionModel"
+            className="techText"
             autoComplete="off"
             spellCheck={false}
             value={selections.transcription.model}
@@ -134,6 +135,7 @@ export function AiProvidersEditor() {
           <input
             type="text"
             name="translationModel"
+            className="techText"
             autoComplete="off"
             spellCheck={false}
             list="translation-model-suggestions"
@@ -152,10 +154,11 @@ export function AiProvidersEditor() {
           <p className="settingHint" role="alert">{t("settings.providers.needsKey", { provider: keyName(missingKey) })}</p>
         ) : null}
         {modelsValid ? null : <p id="provider-model-error" className="settingHint" role="alert">{t("settings.providers.modelInvalid")}</p>}
-        <SaveBar onSave={saveSelections} disabled={saving || !draft || !modelsValid || Boolean(missingKey)} status={status} />
+        <SaveBar onSave={saveSelections} disabled={saving || !draft || !modelsValid || Boolean(missingKey)} status={status || (draft ? "" : t("settings.providers.noChanges"))} />
       </SettingGroup>
 
       <SettingGroup title={t("settings.providers.keysTitle")} hint={t("settings.providers.keysHint")}>
+        <div className="providerKeyList">
         {KEYED_PROVIDER_IDS.map((provider) => (
           <ProviderKeyField
             key={provider}
@@ -166,6 +169,7 @@ export function AiProvidersEditor() {
             onChange={setView}
           />
         ))}
+        </div>
       </SettingGroup>
     </>
   );
@@ -207,6 +211,7 @@ function ProviderKeyField({ provider, saved, inUse, locale, onChange }: Readonly
         <input
           type="password"
           name={inputId}
+          className="techText"
           autoComplete="off"
           spellCheck={false}
           value={value}
@@ -220,8 +225,8 @@ function ProviderKeyField({ provider, saved, inUse, locale, onChange }: Readonly
           ? t("settings.providers.keySaved", { last4: saved.last4, savedAt: new Date(saved.savedAt).toLocaleDateString(locale) })
           : t("settings.providers.keyNotSaved")}
       </p>
-      <div className="saveBar">
-        <button type="button" className="primaryButton" disabled={busy || !valid}
+      <div className="buttonRow">
+        <button type="button" className="secondaryButton" disabled={busy || !valid}
           onClick={() => run(() => saveProviderKey(provider, value), "settings.providers.keySavedMessage")}>
           {t("settings.providers.saveKey", { provider: name })}
         </button>
@@ -232,8 +237,8 @@ function ProviderKeyField({ provider, saved, inUse, locale, onChange }: Readonly
             {t("settings.providers.removeKey", { provider: name })}
           </button>
         ) : null}
-        <p className="settingHint" role="status" aria-live="polite">{status}</p>
       </div>
+      <p className="settingHint" role="status" aria-live="polite">{status}</p>
       <ConfirmDialog
         dialogRef={removeDialogRef}
         title={t("settings.providers.removeKeyTitle", { provider: name })}

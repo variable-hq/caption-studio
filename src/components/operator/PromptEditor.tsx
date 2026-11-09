@@ -36,9 +36,7 @@ const INFERENCE_LEVEL_DESCRIPTIONS: Record<InferenceLevel, MessageKey> = {
 function LevelDescription({ messageKey, id }: { messageKey: MessageKey; id?: string }) {
   const t = useI18n().t;
   return (
-    <ul id={id} className="helpText levelDescription" aria-live="polite">
-      <li>{t(messageKey)}</li>
-    </ul>
+    <p id={id} className="settingHint" aria-live="polite">{t(messageKey)}</p>
   );
 }
 

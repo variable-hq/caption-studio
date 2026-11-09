@@ -1,7 +1,9 @@
 :root {
   color-scheme: light;
-  --font-sans: var(--font-inter, Inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  /* Calibri where installed, else its metric-compatible stand-in, so layouts match either way. */
+  --font-sans: Calibri, var(--font-carlito, Carlito), "Segoe UI", Arial, sans-serif;
+  /* Consolas pairs with Calibri; Inconsolata is its open counterpart. Technical text only. */
+  --font-mono: Consolas, var(--font-inconsolata, Inconsolata), "SFMono-Regular", monospace;
 
   /* Colour */
   --ink: #111111;
@@ -34,16 +36,17 @@
   --shield: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6z'/%3E%3Cpath d='M12 11v3'/%3E%3Cpath d='M12 8.5h.01'/%3E%3C/svg%3E");
 
   /* Type */
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 14px;
-  --text-md: 15px;
-  --text-lg: 18px;
-  --text-xl: 22px;
-  --text-2xl: 28px;
+  /* One step above the Inter-era scale: Calibri and Carlito run small for their size. */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 16px;
+  --text-lg: 19px;
+  --text-xl: 23px;
+  --text-2xl: 29px;
   --leading-tight: 1.2;
   --leading-normal: 1.5;
-  --weight-regular: 500;
+  --weight-regular: 400;
   --weight-bold: 700;
   --tracking-caps: 0.06em;
 
@@ -351,6 +354,11 @@ h3 {
 h4 {
   font-size: var(--text-base);
 }
+
+/* Technical text: model ids, keys, links, codes and machine-readable figures. */
+.techText { font-family: var(--font-mono); }
+/* A placeholder is a sentence, so it stays in the body face even in a technical field. */
+.techText::placeholder { font-family: var(--font-sans); }
 
 code {
   font-family: var(--font-mono);
@@ -872,7 +880,7 @@ input[type="color"] {
   top: var(--gap-md);
   right: var(--gap-md);
   color: rgba(255, 255, 255, 0.64);
-  font: 650 9px var(--font-mono);
+  font: var(--weight-bold) 9px var(--font-mono);
   letter-spacing: 0.08em;
 }
 

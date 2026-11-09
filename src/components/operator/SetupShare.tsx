@@ -236,7 +236,7 @@ export function SetupShare({
           {presetsDropped > 0 ? <p className="settingHint">{t("settings.setup.presetsDropped", { count: presetsDropped })}</p> : null}
           {presetsHeld > 0 ? <p className="settingHint">{t("settings.setup.presetsHeld", { count: presetsHeld })}</p> : null}
           {hasModelText ? (
-            <label>
+            <label className="checkLabel">
               <input
                 type="checkbox"
                 name="allowModelText"
