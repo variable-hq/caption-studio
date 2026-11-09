@@ -669,6 +669,14 @@
 
 .settingGroup > h3 + .settingHint { margin-top: calc(var(--gap-md) * -1 + var(--space-0)); }
 
+/* One saved-key field per AI provider: field, saved-key note, then its own actions. */
+.providerKeyField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  min-width: 0;
+}
+
 /* Language fields pair a bold role with a regular field name, separated by a middle dot. */
 .languageFieldGrid > label { font-weight: var(--weight-regular); }
 

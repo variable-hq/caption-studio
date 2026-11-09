@@ -9,6 +9,7 @@ export type SettingsSectionId =
   | "obs"
   | "translator"
   | "summary"
+  | "providers"
   | "usage";
 
 export const SETTINGS_SECTION_IDS: readonly SettingsSectionId[] = [
@@ -20,6 +21,7 @@ export const SETTINGS_SECTION_IDS: readonly SettingsSectionId[] = [
   "obs",
   "translator",
   "summary",
+  "providers",
   "usage",
 ];
 

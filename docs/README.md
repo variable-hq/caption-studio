@@ -1,6 +1,6 @@
 # Documentation index
 
-Reviewed 8 November 2026 against merged PR #120 (`5352f30`). Maintained specifications
+Reviewed 9 November 2026 against merged PR #122 (`aa5e010`). Maintained specifications
 describe merged source, not an assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
 records to establish release evidence.
 
@@ -70,6 +70,8 @@ records to establish release evidence.
   workflow that validates pull requests in the upstream repository, and what stays local.
 - [ADR 0040](decisions/0040-develop-integration-branch.md) records why feature pull requests
   merge into `develop` and only confirmed release batches reach `main`, which deploys.
+- [ADR 0041](decisions/0041-workspace-ai-providers.md) records workspace-chosen AI providers
+  per stage (OpenAI, Claude, DeepSeek beside Groq) and how their saved keys are encrypted.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator, and the default-on operator control for faithful
   rendering when that omission rule is disabled.

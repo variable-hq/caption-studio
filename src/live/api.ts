@@ -52,6 +52,8 @@ export interface LiveWorkerEnvironment extends ExperienceEnvironment {
   CLOUDFLARE_ACCESS_TEAM_DOMAIN?: string;
   CAPTION_LOCAL_AUTH_BYPASS?: string;
   OBS_CHANNEL_ENCRYPTION_KEY?: string;
+  /** Encrypts workspace AI provider keys (ADR 0041); separate from the OBS key so each rotates alone. */
+  PROVIDER_KEY_ENCRYPTION_KEY?: string;
 }
 
 /** The field name used before sessionId; still sent so pages loaded before the rename keep working. */

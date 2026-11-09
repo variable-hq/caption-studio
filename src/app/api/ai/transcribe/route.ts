@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { meteredGroq } from "@/experience/metering";
 
-import {
-  GroqProviderError,
-  transcribeWithGroq,
-} from "@/ai/server/groq";
+import { ProviderError } from "@/ai/server/groq";
+import { transcribeAudio, workspaceInferenceTarget } from "@/ai/server/inference";
 import { normalizeSanitizeLevel } from "@/ai/contracts";
 import { isLanguageLocale, type SourceLanguage } from "@/domain/languages";
 import {
@@ -25,11 +23,11 @@ function errorResponse(error: unknown) {
   if (error instanceof CloudAccessError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
-  if (error instanceof GroqProviderError) {
+  if (error instanceof ProviderError) {
     return NextResponse.json(
       {
         error: error.message,
-        ...(error.upstreamStatus === 400 ? { code: "provider_request_rejected" } : {}),
+        ...(error.code ? { code: error.code } : error.upstreamStatus === 400 ? { code: "provider_request_rejected" } : {}),
       },
       {
         status: error.status,
@@ -99,7 +97,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Keyword hints are invalid." }, { status: 400 });
     }
 
-    const result = await meteredGroq(request, "transcription", (telemetry) => transcribeWithGroq({
+    // Resolve the workspace's provider before usage admission, so a missing key records no provider usage.
+    const target = await workspaceInferenceTarget("transcription");
+    const result = await meteredGroq(request, "transcription", (telemetry) => transcribeAudio({
       audio,
       sourceLanguage: sourceLanguage as SourceLanguage,
       keywordHints,
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       presetId,
       signal: request.signal,
       telemetry,
-    }));
+    }, target));
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return errorResponse(error);

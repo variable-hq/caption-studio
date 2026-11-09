@@ -16,14 +16,23 @@ import {
 } from "./custom-presets";
 import type { CustomPresetId } from "./presets";
 import { termsLimitExceeded } from "./terms-limit";
+import {
+  MAX_PROVIDER_COMMAND_BYTES,
+  applyProviderCommand,
+  normalizeStoredProviderSettings,
+  parseStoredProviderCommand,
+  providerSettingsView,
+} from "./provider-settings";
 
 const RECORD_KEY = "preferences";
 const PRESETS_KEY = "presets";
+const PROVIDERS_KEY = "providers";
 
 /**
  * One object per operator identity, addressed by a hashed identity key.
- * Holds only operator-chosen configuration: no captions, audio, credentials, or the
- * identity itself. Each field can be cleared individually or the whole record deleted.
+ * Holds only operator-chosen configuration: no captions, audio, or the identity itself.
+ * The only credentials are the workspace's provider keys, stored as Worker-encrypted
+ * ciphertext in the `workspace:providers` object. Each field can be cleared individually or the whole record deleted.
  */
 export class OperatorPreferences {
   constructor(private readonly state: DurableObjectState) {}
@@ -31,6 +40,7 @@ export class OperatorPreferences {
   async fetch(request: Request) {
     const url = new URL(request.url);
     if (url.pathname === "/presets") return this.presets(request, url);
+    if (url.pathname === "/providers" || url.pathname === "/providers/resolve") return this.providers(request, url);
     const path = url.pathname;
     if (path !== "/preferences") return json({ error: "Not found." }, 404);
     if (request.method === "GET") {
@@ -84,6 +94,39 @@ export class OperatorPreferences {
     max: number,
   ) {
     return termsLimitExceeded(before, after, max);
+  }
+
+  /**
+   * The workspace's AI provider choice and saved keys (`workspace:providers`, ADR 0041).
+   * Keys arrive already encrypted by the Worker. `/providers` returns the browser-safe view;
+   * `/providers/resolve` returns ciphertext and is reachable only from Worker code, which
+   * never forwards it to a browser.
+   */
+  private async providers(request: Request, url: URL) {
+    if (request.method === "GET") {
+      const stored = normalizeStoredProviderSettings(await this.state.storage.get(PROVIDERS_KEY));
+      return json(url.pathname === "/providers/resolve" ? stored : providerSettingsView(stored));
+    }
+    if (request.method !== "POST" || url.pathname !== "/providers") return json({ error: "Use GET or POST." }, 405);
+    const text = await request.text();
+    if (new TextEncoder().encode(text).length > MAX_PROVIDER_COMMAND_BYTES) {
+      return json({ error: "Provider settings are too large." }, 413);
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return json({ error: "Invalid JSON request." }, 400);
+    }
+    const command = parseStoredProviderCommand(parsed);
+    if (!command) return json({ error: "Unknown provider command." }, 400);
+    return this.state.storage.transaction(async (storage) => {
+      const stored = normalizeStoredProviderSettings(await storage.get(PROVIDERS_KEY));
+      const result = applyProviderCommand(stored, command, Date.now());
+      if (!result.ok) return json({ error: result.error, code: result.code }, result.status);
+      await storage.put(PROVIDERS_KEY, result.settings);
+      return json(providerSettingsView(result.settings));
+    });
   }
 
   /**

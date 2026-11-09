@@ -18,8 +18,8 @@ interface CloudProviderHealth {
   status: "ready" | "not-configured" | "unavailable";
   hosting: string;
   access: { ready: boolean; provider: string };
-  transcription: { ready: boolean; model: string };
-  translation: { ready: boolean; model: string };
+  transcription: { ready: boolean; model: string; provider?: string };
+  translation: { ready: boolean; model: string; provider?: string };
 }
 
 interface CloudErrorPayload {
@@ -38,6 +38,11 @@ const TERMINAL_INFERENCE_CONTROL_CODES = new Set([
   "invalid_transcription_attempt",
   "invalid_translation_attempt",
   "session_inactive",
+  // A workspace provider key that is missing, rejected or unreadable fails every later
+  // chunk the same way; stop instead of spending attempts until the key is fixed.
+  "provider_key_missing",
+  "provider_key_rejected",
+  "provider_key_unreadable",
 ]);
 
 function normalizeCloudErrorCode(value: unknown) {
