@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 
-import {
-  GroqProviderError,
-  verifyGroqProvider,
-} from "@/ai/server/groq";
+import { ProviderError } from "@/ai/server/groq";
+import { verifyWorkspaceProviders } from "@/ai/server/inference";
 import {
   CloudAccessError,
   requireCloudAccess,
@@ -14,11 +12,11 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   try {
     await requireCloudAccess(request);
-    return NextResponse.json(await verifyGroqProvider(), {
+    return NextResponse.json(await verifyWorkspaceProviders(), {
       headers: { "cache-control": "no-store" },
     });
   } catch (error) {
-    if (error instanceof CloudAccessError || error instanceof GroqProviderError) {
+    if (error instanceof CloudAccessError || error instanceof ProviderError) {
       return NextResponse.json(
         { error: error.message },
         { status: error.status },

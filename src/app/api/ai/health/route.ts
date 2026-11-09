@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { getCloudProviderHealth } from "@/ai/server/groq";
+import { workspaceProviderHealth } from "@/ai/server/inference";
 
 export const dynamic = "force-dynamic";
 
-export function GET() {
-  return NextResponse.json(getCloudProviderHealth(), {
+export async function GET() {
+  return NextResponse.json(await workspaceProviderHealth(), {
     headers: { "cache-control": "no-store" },
   });
 }

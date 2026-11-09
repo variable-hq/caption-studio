@@ -1,11 +1,12 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { LlmTokenUsage } from "@/ai/contracts";
+import type { AiProviderId } from "@/ai/providers";
 import { captionTokenHash } from "@/live/caption-room";
 import { rpc, type ExperienceEnvironment } from "./contracts";
 import type { LiveWorkerEnvironment } from "@/live/api";
 
 export interface ProviderTelemetry {
-  dispatch(model: string): Promise<void>;
+  dispatch(model: string, provider?: AiProviderId): Promise<void>;
   tokens?: LlmTokenUsage;
   audioSeconds?: number;
 }
@@ -29,9 +30,9 @@ export async function meteredGroq<T>(request: Request, stage: "transcription" | 
   const id = `${sessionId}:${stage}:${attempt}`;
   let dispatched = false;
   const telemetry: ProviderTelemetry = {
-    async dispatch(model) {
+    async dispatch(model, provider = "groq") {
       const admission = await rpc(env.AI_USAGE!, "usage", "/admit", {
-        id, sessionId, stage, provider: "groq", model, reservedNeurons: 0,
+        id, sessionId, stage, provider, model, reservedNeurons: 0,
       });
       if (!admission.ok) throw new Error("AI usage admission failed before provider dispatch.");
       dispatched = true;

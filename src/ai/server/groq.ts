@@ -33,10 +33,33 @@ import {
 } from "@/domain/languages";
 import { isCloudAccessConfigured } from "@/auth/cloudflare-access";
 import type { ProviderTelemetry } from "@/experience/metering";
+import {
+  AI_PROVIDER_LABELS,
+  DEFAULT_TRANSCRIPTION_MODELS,
+  DEFAULT_TRANSLATION_MODELS,
+  type AiProviderId,
+} from "@/ai/providers";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1";
-const DEFAULT_TRANSCRIPTION_MODEL = "whisper-large-v3-turbo";
-const DEFAULT_TRANSLATION_MODEL = "openai/gpt-oss-20b";
+const DEFAULT_TRANSCRIPTION_MODEL = DEFAULT_TRANSCRIPTION_MODELS.groq;
+const DEFAULT_TRANSLATION_MODEL = DEFAULT_TRANSLATION_MODELS.groq;
+
+/** OpenAI-compatible endpoints this module calls; Claude has its own module. */
+export const OPENAI_COMPATIBLE_BASE_URLS: Readonly<Record<Exclude<AiProviderId, "anthropic">, string>> = {
+  groq: GROQ_API_URL,
+  openai: "https://api.openai.com/v1",
+  deepseek: "https://api.deepseek.com",
+};
+
+/**
+ * Where one inference call goes. Groq without `apiKey` uses the deployment secret;
+ * other providers carry the workspace key decrypted for this request only.
+ */
+export interface InferenceTarget {
+  provider: AiProviderId;
+  model: string;
+  apiKey?: string;
+}
 const RETIRED_FREE_TRANSLATION_MODELS = new Set(["llama-3.1-8b-instant"]);
 
 interface GroqTranscriptResponse {
@@ -61,16 +84,42 @@ interface GroqModelsResponse {
   data?: Array<{ id?: string }>;
 }
 
-export class GroqProviderError extends Error {
+export class ProviderError extends Error {
   constructor(
     message: string,
     readonly status: number,
     readonly retryAfter?: string,
     readonly rateLimit?: LlmProviderRateLimitSnapshot,
     readonly upstreamStatus?: number,
+    readonly code?: string,
   ) {
     super(message);
   }
+}
+
+/** Former name, kept for existing imports. */
+export { ProviderError as GroqProviderError };
+
+export function providerKeyRejectedError(provider: AiProviderId, upstreamStatus?: number) {
+  return new ProviderError(
+    `The ${AI_PROVIDER_LABELS[provider]} API key was rejected. Update it in Settings › AI providers.`,
+    502, undefined, undefined, upstreamStatus, "provider_key_rejected",
+  );
+}
+
+export function providerRateLimitedError(provider: AiProviderId, retryAfter?: string, rateLimit?: LlmProviderRateLimitSnapshot, upstreamStatus?: number) {
+  return new ProviderError(
+    provider === "groq"
+      ? "The free AI quota is temporarily exhausted. Try again after the provider reset."
+      // No "quota" wording: a paid provider's 429 is usually a per-minute limit, and the
+      // live session treats quota messages as final but rides out a busy provider.
+      : `${AI_PROVIDER_LABELS[provider]} is limiting requests right now. Captions continue when it allows more.`,
+    429, retryAfter, rateLimit, upstreamStatus,
+  );
+}
+
+export function groqTarget(stage: "transcription" | "translation"): InferenceTarget {
+  return { provider: "groq", model: stage === "transcription" ? transcriptionModel() : translationModel() };
 }
 
 function translationModel() {
@@ -105,10 +154,20 @@ export function getCloudProviderHealth() {
   };
 }
 
-function apiKey() {
+function apiKey(target: InferenceTarget) {
+  if (target.provider !== "groq") {
+    const value = target.apiKey?.trim();
+    if (!value) {
+      throw new ProviderError(
+        `No ${AI_PROVIDER_LABELS[target.provider]} API key is saved. Add it in Settings › AI providers.`,
+        503, undefined, undefined, undefined, "provider_key_missing",
+      );
+    }
+    return value;
+  }
   const value = process.env.GROQ_API_KEY?.trim();
   if (!value) {
-    throw new GroqProviderError(
+    throw new ProviderError(
       "Cloud AI is not configured. Add the GROQ_API_KEY deployment secret.",
       503,
     );
@@ -116,18 +175,24 @@ function apiKey() {
   return value;
 }
 
-async function groqFetch(
+function baseUrl(target: InferenceTarget) {
+  if (target.provider === "anthropic") throw new ProviderError("Claude is not an OpenAI-compatible endpoint.", 500);
+  return OPENAI_COMPATIBLE_BASE_URLS[target.provider];
+}
+
+async function providerFetch(
+  target: InferenceTarget,
   path: string,
   init: RequestInit,
   rateLimitModel?: string,
   telemetry?: ProviderTelemetry,
 ) {
-  const credential = apiKey();
-  if (telemetry) await telemetry.dispatch(rateLimitModel ?? transcriptionModel());
+  const credential = apiKey(target);
+  if (telemetry) await telemetry.dispatch(rateLimitModel ?? target.model, target.provider);
   let response: Response;
   try {
     const timeout = AbortSignal.timeout(path.includes("/audio/") ? 30_000 : 15_000);
-    response = await fetch(`${GROQ_API_URL}${path}`, {
+    response = await fetch(`${baseUrl(target)}${path}`, {
       ...init,
       signal: init.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
       headers: {
@@ -137,7 +202,7 @@ async function groqFetch(
     });
   } catch (error) {
     const timedOut = error instanceof DOMException && error.name === "TimeoutError";
-    throw new GroqProviderError(
+    throw new ProviderError(
       timedOut
         ? "The cloud AI provider timed out. The caption session remains available to retry."
         : "The cloud AI provider is unreachable.",
@@ -146,19 +211,20 @@ async function groqFetch(
   }
 
   if (!response.ok) {
-    const status = response.status === 429 ? 429 : 502;
-    const message =
-      response.status === 429
-        ? "The free AI quota is temporarily exhausted. Try again after the provider reset."
-        : "The cloud AI provider could not complete the request.";
-    throw new GroqProviderError(
-      message,
-      status,
-      response.headers.get("retry-after") ?? undefined,
-      rateLimitModel
-        ? providerRateLimitFromHeaders(response.headers, rateLimitModel) ??
-          undefined
-        : undefined,
+    const retryAfter = response.headers.get("retry-after") ?? undefined;
+    // Groq and OpenAI share the x-ratelimit-* header shape; DeepSeek sends none.
+    const rateLimit = rateLimitModel
+      ? providerRateLimitFromHeaders(response.headers, rateLimitModel) ?? undefined
+      : undefined;
+    if (response.status === 429) throw providerRateLimitedError(target.provider, retryAfter, rateLimit, 429);
+    if (target.provider !== "groq" && (response.status === 401 || response.status === 403)) {
+      throw providerKeyRejectedError(target.provider, response.status);
+    }
+    throw new ProviderError(
+      "The cloud AI provider could not complete the request.",
+      502,
+      retryAfter,
+      rateLimit,
       response.status,
     );
   }
@@ -166,8 +232,15 @@ async function groqFetch(
   return response;
 }
 
+/** Lists the models an OpenAI-compatible account can use, for readiness. */
+export async function listOpenAiCompatibleModels(target: InferenceTarget) {
+  const response = await providerFetch(target, "/models", { method: "GET" });
+  const payload = (await response.json()) as GroqModelsResponse;
+  return new Set(payload.data?.flatMap(({ id }) => (id ? [id] : [])));
+}
+
 export async function verifyGroqProvider() {
-  const response = await groqFetch("/models", { method: "GET" });
+  const response = await providerFetch(groqTarget("translation"), "/models", { method: "GET" });
   const payload = (await response.json()) as GroqModelsResponse;
   const modelIds = new Set(payload.data?.flatMap(({ id }) => (id ? [id] : [])));
   const configuredTranscriptionModel = transcriptionModel();
@@ -177,7 +250,7 @@ export async function verifyGroqProvider() {
     !modelIds.has(configuredTranscriptionModel) ||
     !modelIds.has(configuredTranslationModel)
   ) {
-    throw new GroqProviderError(
+    throw new ProviderError(
       "The configured free AI models are not available to this Groq account.",
       503,
     );
@@ -205,7 +278,8 @@ const TRANSCRIPTION_PROMPT_BYTES = 448;
 const PREVIOUS_TRANSCRIPT_PROMPT_BYTES = 160;
 const LEGACY_TRANSCRIPTION_PROMPT_BYTES = 224;
 const LEGACY_PREVIOUS_TRANSCRIPT_PROMPT_BYTES = 96;
-let useLegacyTranscriptionPromptBudget = false;
+// Per provider: one provider rejecting the larger prompt says nothing about another.
+const legacyTranscriptionPromptProviders = new Set<AiProviderId>();
 
 function utf8Bytes(value: string) {
   return new TextEncoder().encode(value).length;
@@ -342,17 +416,15 @@ interface GroqTranscriptionInput {
   signal?: AbortSignal;
 }
 
-async function requestGroqTranscription(
+async function requestTranscription(
+  target: InferenceTarget,
   input: GroqTranscriptionInput,
   prompt: string,
   telemetry?: ProviderTelemetry,
 ) {
   const form = new FormData();
   form.append("file", input.audio, "caption-audio.webm");
-  form.append(
-    "model",
-    transcriptionModel(),
-  );
+  form.append("model", target.model);
   form.append("response_format", "verbose_json");
   form.append("temperature", "0");
   form.append("prompt", prompt);
@@ -362,7 +434,7 @@ async function requestGroqTranscription(
     if (speechCode) form.append("language", speechCode);
   }
 
-  return groqFetch("/audio/transcriptions", {
+  return providerFetch(target, "/audio/transcriptions", {
     method: "POST",
     body: form,
     signal: input.signal,
@@ -370,29 +442,38 @@ async function requestGroqTranscription(
 }
 
 export async function transcribeWithGroq(input: GroqTranscriptionInput): Promise<TranscriptionResult> {
-  const usingLegacyBudget = useLegacyTranscriptionPromptBudget;
+  return transcribeAudio(input, groqTarget("transcription"));
+}
+
+/** Whisper-style transcription on Groq or OpenAI; both return verbose_json segments. */
+export async function transcribeAudio(input: GroqTranscriptionInput, target: InferenceTarget): Promise<TranscriptionResult> {
+  if (target.provider !== "groq" && target.provider !== "openai") {
+    throw new ProviderError(`${AI_PROVIDER_LABELS[target.provider]} does not offer transcription.`, 400);
+  }
+  const usingLegacyBudget = legacyTranscriptionPromptProviders.has(target.provider);
   const preset = resolveWorkspacePreset(input.presetId);
   const initialPrompt = usingLegacyBudget
     ? buildLegacyTranscriptionPrompt(input.keywordHints, input.sourceLanguage, input.previousTranscript ?? "", preset)
     : buildTranscriptionPrompt(input.keywordHints, input.sourceLanguage, input.previousTranscript, preset);
   let response: Response;
   try {
-    response = await requestGroqTranscription(input, initialPrompt, input.telemetry);
+    response = await requestTranscription(target, input, initialPrompt, input.telemetry);
   } catch (error) {
     if (
       usingLegacyBudget ||
-      !(error instanceof GroqProviderError) ||
+      !(error instanceof ProviderError) ||
       error.upstreamStatus !== 400
     ) {
       throw error;
     }
 
     // The failed request already dispatched this metered attempt; reuse it for fallback.
-    response = await requestGroqTranscription(
+    response = await requestTranscription(
+      target,
       input,
       buildLegacyTranscriptionPrompt(input.keywordHints, input.sourceLanguage, input.previousTranscript ?? "", preset),
     );
-    useLegacyTranscriptionPromptBudget = true;
+    legacyTranscriptionPromptProviders.add(target.provider);
   }
 
   const payload = (await response.json()) as GroqTranscriptResponse;
@@ -429,26 +510,54 @@ export async function translateWithGroq(
   signal?: AbortSignal,
   telemetry?: ProviderTelemetry,
 ): Promise<TranslationResult> {
+  return translateOpenAiCompatible(request, groqTarget("translation"), signal, telemetry);
+}
+
+/** Room for a reasoning model's hidden reasoning; the visible caption stays short. */
+export const REASONING_TRANSLATION_COMPLETION_TOKENS = 2_048;
+
+function isOpenAiReasoningModel(model: string) {
+  return /^(gpt-5|o\d)/u.test(model);
+}
+
+/** Provider-specific request body for one translation; the messages are identical. */
+export function translationRequestBody(target: InferenceTarget, request: TranslationRequest) {
+  const messages = buildTranslationMessages(request);
+  const { model } = target;
+  if (target.provider === "openai" && isOpenAiReasoningModel(model)) {
+    // Reasoning models reject temperature and spend completion tokens on reasoning.
+    return { model, messages, reasoning_effort: "low", max_completion_tokens: REASONING_TRANSLATION_COMPLETION_TOKENS };
+  }
+  if (target.provider === "deepseek") {
+    return { model, messages, temperature: 0.1, max_tokens: MAX_TRANSLATION_COMPLETION_TOKENS };
+  }
+  return {
+    model,
+    messages,
+    temperature: 0.1,
+    ...(model.startsWith("openai/gpt-oss-") ? { reasoning_effort: "low" } : {}),
+    max_completion_tokens: MAX_TRANSLATION_COMPLETION_TOKENS,
+  };
+}
+
+export async function translateOpenAiCompatible(
+  request: TranslationRequest,
+  target: InferenceTarget,
+  signal?: AbortSignal,
+  telemetry?: ProviderTelemetry,
+): Promise<TranslationResult> {
   if (
     !isLanguageLocale(request.sourceLanguage) ||
     !isLanguageLocale(request.targetLanguage)
   ) {
-    throw new GroqProviderError("Unsupported language selection.", 400);
+    throw new ProviderError("Unsupported language selection.", 400);
   }
 
-  const model = translationModel();
-  const response = await groqFetch("/chat/completions", {
+  const { model } = target;
+  const response = await providerFetch(target, "/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: buildTranslationMessages(request),
-      temperature: 0.1,
-      ...(model.startsWith("openai/gpt-oss-")
-        ? { reasoning_effort: "low" }
-        : {}),
-      max_completion_tokens: MAX_TRANSLATION_COMPLETION_TOKENS,
-    }),
+    body: JSON.stringify(translationRequestBody(target, request)),
     signal,
   }, model, telemetry);
   const payload = (await response.json()) as GroqChatResponse;
@@ -461,7 +570,7 @@ export async function translateWithGroq(
     completionTokens: payload.usage?.completion_tokens,
     totalTokens: payload.usage?.total_tokens,
   });
-  const rateLimit = providerRateLimitFromHeaders(response.headers, model);
+  const rateLimit = target.provider === "deepseek" ? null : providerRateLimitFromHeaders(response.headers, model);
   if (telemetry && usage) telemetry.tokens = usage;
 
   return {

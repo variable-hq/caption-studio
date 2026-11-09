@@ -1,3 +1,4 @@
+import type { AiProviderId } from "@/ai/providers";
 import type { PresetSnapshot } from "@/experience/presets";
 import type { LlmTokenUsage } from "@/ai/contracts";
 
@@ -47,7 +48,7 @@ export interface UsageRecord {
   /** Name written before sessionId; mapped on read and dropped on the next write. */
   serviceId?: string;
   stage: UsageStage;
-  provider: "groq" | "cloudflare";
+  provider: AiProviderId | "cloudflare";
   model: string;
   at: number;
   status: "pending" | "completed" | "unknown";

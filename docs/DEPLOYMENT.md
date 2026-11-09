@@ -1,6 +1,6 @@
 # Deployment runbook
 
-Reviewed 8 November 2026 against merged PR #120 (`5352f30`). This describes the current
+Reviewed 9 November 2026 against merged PR #122 (`aa5e010`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
@@ -109,9 +109,12 @@ supported. After the deploy, check that the Worker's Durable Object bindings inc
 `TRANSCRIPT_JOURNALS` / `TranscriptJournal` and that the v4 migration is applied, then open a
 reader link saved before the deploy and check that it and its summary still load.
 
-Encrypted Worker secrets: `GROQ_API_KEY` and `OBS_CHANNEL_ENCRYPTION_KEY`.
-Generate the latter with at least 32 random characters; changing it requires controlled
-OBS token recovery/rotation. Never copy its value into logs or plaintext configuration.
+Encrypted Worker secrets: `GROQ_API_KEY`, `OBS_CHANNEL_ENCRYPTION_KEY` and
+`PROVIDER_KEY_ENCRYPTION_KEY`. Generate the two encryption values with at least 32 random
+characters each. Changing the OBS one requires controlled OBS token recovery/rotation;
+changing the provider-key one makes saved OpenAI/Claude/DeepSeek keys unreadable until an
+operator saves them again in Settings › AI providers. Without it, keys cannot be saved and
+the workspace stays on Groq ([ADR 0041](decisions/0041-workspace-ai-providers.md)). Never copy its value into logs or plaintext configuration.
 
 Required runtime variables: `CLOUDFLARE_ACCESS_AUD` and
 `CLOUDFLARE_ACCESS_TEAM_DOMAIN`. Optional model overrides and the disabled-by-default

@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { meteredGroq } from "@/experience/metering";
 
-import {
-  GroqProviderError,
-  translateWithGroq,
-} from "@/ai/server/groq";
+import { ProviderError } from "@/ai/server/groq";
+import { translateCaption, workspaceInferenceTarget } from "@/ai/server/inference";
 import type { TranslationRequest } from "@/ai/contracts";
 import { MAX_LIVE_NOTE_CHARS, normalizeLiveNote } from "@/live/live-note";
 import { normalizeInferenceLevel, normalizeSanitizeLevel } from "@/ai/contracts";
@@ -30,10 +28,11 @@ function errorResponse(error: unknown) {
   if (error instanceof CloudAccessError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
-  if (error instanceof GroqProviderError) {
+  if (error instanceof ProviderError) {
     return NextResponse.json(
       {
         error: error.message,
+        ...(error.code ? { code: error.code } : {}),
         ...(error.rateLimit ? { rateLimit: error.rateLimit } : {}),
       },
       {
@@ -104,7 +103,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Live note must be up to ${MAX_LIVE_NOTE_CHARS} characters without control characters.` }, { status: 400 });
     }
 
-    const result = await meteredGroq(request, "translation", (telemetry) => translateWithGroq(
+    // Resolve the workspace's provider before usage admission, so a missing key records no provider usage.
+    const target = await workspaceInferenceTarget("translation");
+    const result = await meteredGroq(request, "translation", (telemetry) => translateCaption(
       {
         text: body.text!,
         sourceLanguage: body.sourceLanguage!,
@@ -123,6 +124,7 @@ export async function POST(request: Request) {
         ...(liveNote ? { liveNote } : {}),
         presetId: typeof body.presetId === "string" ? body.presetId : undefined,
       },
+      target,
       request.signal,
       telemetry,
     ));

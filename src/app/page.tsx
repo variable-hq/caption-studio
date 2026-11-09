@@ -112,6 +112,7 @@ import { PresetChooser } from "@/components/operator/PresetChooser";
 import { PresetDifferences } from "@/components/operator/PresetDifferences";
 import { SetupShare } from "@/components/operator/SetupShare";
 import { WorkspaceNameEditor } from "@/components/operator/WorkspaceNameEditor";
+import { AiProvidersEditor } from "@/components/operator/AiProvidersEditor";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
 import { I18nProvider, PresetScope, useI18n, useWorkspaceName } from "@/i18n/provider";
@@ -138,6 +139,7 @@ const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey;
   { id: "obs", titleKey: "settings.section.obs.title", descriptionKey: "settings.section.obs.description" },
   { id: "translator", titleKey: "settings.section.translator.title", descriptionKey: "settings.section.translator.description" },
   { id: "summary", titleKey: "settings.section.summary.title", descriptionKey: "settings.section.summary.description" },
+  { id: "providers", titleKey: "settings.section.providers.title", descriptionKey: "settings.section.providers.description" },
   { id: "usage", titleKey: "settings.section.usage.title", descriptionKey: "settings.section.usage.description" },
 ];
 
@@ -1878,6 +1880,8 @@ function OperatorDashboardContent() {
               autoSummaryMessage={autoSummaryMessage}
             />
           ) : null}
+
+          {settingsSection === "providers" ? <AiProvidersEditor /> : null}
 
           {settingsSection === "usage" ? (
             <>

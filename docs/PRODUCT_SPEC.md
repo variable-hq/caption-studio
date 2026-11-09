@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 6 November 2026 against merged PR #117 (`ba76470`). The corrected 13 September
+Reviewed 9 November 2026 against merged PR #122 (`aa5e010`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -903,8 +903,22 @@ generated automatically, still needs review before export, and is skipped if a s
 already exists. See [ADR 0019](decisions/0019-automatic-post-service-summary.md).
 
 Exact quoted source text, licensed retrieval, an editable structured summary, section-selection UI,
-workspace roles, multiple providers and autonomous agent tools are not implemented.
+workspace roles and autonomous agent tools are not implemented. Summaries stay on Workers AI;
+only live transcription and translation follow Settings › AI providers.
 Summaries must not manufacture scripture or claim a generated paraphrase is an exact quote.
+
+## AI providers
+
+**Settings › AI providers** chooses, for the whole workspace, which provider and model run
+live transcription and translation ([ADR 0041](decisions/0041-workspace-ai-providers.md)).
+Transcription offers Groq (the default, on the deployment's key) and OpenAI; Claude and
+DeepSeek have no speech-to-text API and are offered for translation only, next to Groq and
+OpenAI. Leaving the model empty uses the provider's default; readiness confirms the key can
+use the chosen model. API keys for OpenAI, Claude and DeepSeek are saved once for everyone,
+encrypted, and afterwards shown only by their last four characters. A provider can be
+chosen only after its key is saved, and a key in use cannot be removed. A change applies to
+the next caption request, including during a live session. Usage on a saved key is billed
+by that provider and is not part of the free-allowance figures under Usage.
 
 ## Usage history and optional AI
 
