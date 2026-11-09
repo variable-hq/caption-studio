@@ -1,16 +1,18 @@
 # Evidence-gated pilot improvements
 
-Reviewed 3 November 2026 against merged PR #96 (`f74a25f`).
+Reviewed 6 November 2026 against merged PR #117 (`ba76470`).
 
-Prepared 12 September; scope reconciled 13 September 2026. QR joining, reusable saved
-terminology packs and live public-caption correction remain proposals. Plan 1 has since
-implemented private source corrections, approved recognition aliases and passage exclusion;
+Prepared 12 September; scope reconciled 13 September 2026. QR joining is implemented;
+reusable saved terminology packs and live public-caption correction remain proposals.
+Plan 1 has since implemented private source corrections, approved recognition aliases and passage exclusion;
 those do not edit an already displayed OBS caption. See [current product scope](PRODUCT_SPEC.md).
 This document adds no runtime feature or new data retention.
 
-Status at the 30 October review, without changing the proposals below:
+Status at the 6 November review:
 
-- **QR joining:** still a proposal. No QR encoder or joining control exists.
+- **QR joining:** implemented in Live's Share card. The operator can reveal a local QR
+  for the current phone viewer link on request; it adds no route or credential. The
+  measured handoff benefit and real-device scanning remain to be checked in the pilot.
 - **Terminology pack:** superseded by a different design. Terms are part of the one church
   setup every signed-in operator shares, stored server-side and edited as the Settings ›
   Terms list ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)); there is
@@ -83,23 +85,24 @@ of bearer credentials in Git, tickets, or chat for this evaluation.
 
 ## Candidate 1: local QR joining
 
-**Status (28 October 2026):** not implemented. The phone viewer link is now copied with
-**Copy link** in Live's Share card; **Open preview** and the manual-copy field are in
-Settings › OBS & links.
+**Status (6 November 2026):** implemented as an addition to link handoff. The current
+phone viewer link is copied with **Copy link** in Live's Share card, which also has an
+on-request QR code; **Open preview** and the manual-copy field remain in Settings › OBS
+& links.
 
 ### Current flow and smallest change
 
-[`page.tsx`](../src/app/page.tsx) already offers Copy mobile link, Open preview, and a
-concealed manual-copy field. Starting a service creates the link; replacement, End,
-expiry, and takeover revoke it. [`session-client.ts`](../src/live/session-client.ts)
-uses the existing protected service/viewer routes. The fragment contains the viewer
-credential, separate from the reusable OBS credential.
+[`page.tsx`](../src/app/page.tsx) offers Copy link and the new QR action in Live's Share
+card; Open preview and a concealed manual-copy field remain in Settings › OBS & links.
+Starting a service creates the link; replacement, End, expiry, and takeover revoke it.
+[`session-client.ts`](../src/live/session-client.ts) uses the existing protected
+service/viewer routes. The fragment contains the viewer credential, separate from the
+reusable OBS credential.
 
-If J1/J2 demonstrate link-handoff friction, add one explicit **Show joining QR** action
-inside Mobile viewer. Encode the current `viewerUrl` locally in the operator browser.
-Keep the existing copy/open/manual options as alternatives. Label the code as the
-current service's audience access, with the selected caption language and expiry
-behavior. Do not imply that scanning provides simultaneous language choice.
+The owner approved the feature as an addition to manual link handoff, waiving the J1/J2
+trigger. **Show QR code** encodes the current `viewerUrl` locally in the operator browser.
+Copy link remains available. The hint says the code grants access in the current caption
+language; it does not imply simultaneous language choice.
 
 The code must be concealed until the operator requests it and removed when the current
 link disappears or changes. It contains a bearer credential just as the URL does:
@@ -107,12 +110,9 @@ show it only to intended viewers, keep it out of the broadcast/recording by defa
 and do not automatically create a printable/downloaded artifact. A permanent church
 joining URL, short-code service, QR analytics, and audience accounts are separate work.
 
-This needs no new API, database, AI call, or token format. Native DOM/CSS does not itself
-encode a QR symbol. At implementation time, check for an existing suitable encoder;
-otherwise review a small locally bundled encoder's license, maintenance, and security
-before choosing a package or vendored implementation. Do not implement a new QR
-algorithm or send the link to a third-party QR/image service. No encoder is installed
-for this plan.
+This adds no API, database, AI call, or token format. The browser uses the MIT-licensed
+`qrcode-generator` 2.0.4 dependency; the URL is encoded locally and never sent to a QR
+service. The matrix is limited to valid HTTP(S) `/view` links up to 300 UTF-8 bytes.
 
 ### Acceptance before release
 
@@ -127,9 +127,10 @@ for this plan.
 - A network inspection finds no external QR request and no credential in request URLs,
   logs, telemetry, or query strings. Existing provider-call counters do not change.
 
-Pending owner decisions: where the code may be displayed, who may see it, whether an
-attendee display is permitted under the existing private-link policy, and whether the
-measured improvement over current private link sharing justifies the encoder footprint.
+The owner approved showing the code in the Live Share card only, to operators who request
+it. Treat it as the same bearer link: do not put it on the broadcast or share it beyond
+intended viewers. Whether it improves handoff enough to justify its bundle cost remains
+for pilot evidence.
 
 ## Candidate 2: one explicit terminology pack in this browser
 

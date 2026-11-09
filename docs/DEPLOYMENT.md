@@ -1,13 +1,18 @@
 # Deployment runbook
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). This describes the current
+Reviewed 9 November 2026 against merged PR #122 (`aa5e010`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
 ## Connected Cloudflare build
 
-GitHub stores source and PR review. Cloudflare Workers Builds watches `main` only; there
-is no GitHub Actions workflow. Use these settings for the connected Worker:
+GitHub stores source and PR review. Feature pull requests merge into `develop`, which
+never builds; `main` only receives release pull requests from `develop` once the batch is
+confirmed ([contributing](../CONTRIBUTING.md#branch-and-commit-workflow),
+[ADR 0040](decisions/0040-develop-integration-branch.md)).
+Cloudflare Workers Builds watches `main` only, so merging a release is the deploy; the
+repository's one GitHub Actions workflow (`validate`) checks pull requests and never builds
+for production or deploys. Use these settings for the connected Worker:
 
 | Setting | Value |
 | --- | --- |
@@ -18,12 +23,13 @@ is no GitHub Actions workflow. Use these settings for the connected Worker:
 | Deploy command | `OPEN_NEXT_DEPLOY=true npx wrangler deploy` |
 | Settings › Builds › Previews Base: Builds for Preview branches | Off (since 28 October 2026) |
 
-Keep preview-branch builds off. With them on, every PR branch ran `npm run build` and then
+Keep preview-branch builds off, `develop` included: the build of `main` is the release
+gate, so a new version only exists once a confirmed batch is released. With them on, every PR branch ran `npm run build` and then
 `npx wrangler preview` (open beta), which always failed with "Your Wrangler configuration
 needs a `previews` block to run this command" and warned that Durable Objects are not
 included in previews. This app depends on Durable Objects, Workers AI and Cloudflare Access,
-so per-branch previews are unsupported; local validation (`npm run validate`, `npm run qa`)
-is the pull-request gate. Re-enable only together with a `previews` configuration that
+so per-branch previews are unsupported; `npm run validate` (run locally and by the `validate`
+workflow) and the local `npm run qa` are the pull-request gate. Re-enable only together with a `previews` configuration that
 covers the Durable Objects, AI and Access.
 
 The equivalent repository command after building is `npm run deploy:worker`.
@@ -95,7 +101,7 @@ Keep all four SQLite migrations: v1 creates CaptionRoom; v2 adds SermonJournal a
 AiUsageLedger; v3 adds OperatorPreferences; v4 renames SermonJournal to TranscriptJournal
 (`renamed_classes`). Do not rename/delete established migration tags to repair a build.
 
-The v4 rename is one-way. Workers Builds deploys `main` on merge, so the merge is the deploy:
+The v4 rename is one-way. Workers Builds deploys `main` on merge, so the merge into `main` is the deploy:
 merge it only after the build with session names (PR #100) has finished deploying and with no
 live session running. Once v4 is applied, a build from before it cannot
 bind `TRANSCRIPT_JOURNALS` / `TranscriptJournal`, so rolling back to an earlier build is not
@@ -103,9 +109,12 @@ supported. After the deploy, check that the Worker's Durable Object bindings inc
 `TRANSCRIPT_JOURNALS` / `TranscriptJournal` and that the v4 migration is applied, then open a
 reader link saved before the deploy and check that it and its summary still load.
 
-Encrypted Worker secrets: `GROQ_API_KEY` and `OBS_CHANNEL_ENCRYPTION_KEY`.
-Generate the latter with at least 32 random characters; changing it requires controlled
-OBS token recovery/rotation. Never copy its value into logs or plaintext configuration.
+Encrypted Worker secrets: `GROQ_API_KEY`, `OBS_CHANNEL_ENCRYPTION_KEY` and
+`PROVIDER_KEY_ENCRYPTION_KEY`. Generate the two encryption values with at least 32 random
+characters each. Changing the OBS one requires controlled OBS token recovery/rotation;
+changing the provider-key one makes saved OpenAI/Claude/DeepSeek keys unreadable until an
+operator saves them again in Settings › AI providers. Without it, keys cannot be saved and
+the workspace stays on Groq ([ADR 0041](decisions/0041-workspace-ai-providers.md)). Never copy its value into logs or plaintext configuration.
 
 Required runtime variables: `CLOUDFLARE_ACCESS_AUD` and
 `CLOUDFLARE_ACCESS_TEAM_DOMAIN`. Optional model overrides and the disabled-by-default
@@ -116,10 +125,14 @@ both need `CAPTION_OPTIONAL_AI_ENABLED=true`; without it, End queues nothing.
 Never deploy `CAPTION_LOCAL_AUTH_BYPASS`.
 
 `WORKSPACE_PLAN` sets the workspace's plan limits (`src/experience/entitlements.ts`). Unset, or any
-value the table does not list, allows 5 custom presets; `free` allows none. Built-in formats are never
-limited. Set it in the Worker's variables (dashboard or a deploy-time variable), not in the setup
-record, which every signed-in operator can edit. A lowered limit never deletes a preset; it only
-blocks creating new ones.
+value the table does not list, allows 5 custom presets and 40 saved entries in each Terms list;
+Terms list import is allowed. `free` allows no custom presets, 10 saved names-and-terms entries and
+10 saved hidden-term entries, and no Terms list import. Built-in formats are never limited. The
+server enforces saved Terms on preferences and shared setup saves; a refused save writes nothing.
+The Access-protected `GET /api/live/experience/limits` returns the Terms cap and import allowance.
+Set the variable in the Worker's variables (dashboard or a deploy-time variable), not in the setup
+record, which every signed-in operator can edit. A lowered limit never deletes presets or Terms;
+it blocks new presets and prevents an over-cap Terms list from growing.
 
 ## Access paths
 

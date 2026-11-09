@@ -1,3 +1,4 @@
+import { AI_PROVIDER_IDS } from "@/ai/providers";
 import { normalizeLlmTokenUsage } from "@/ai/usage";
 import { DAY, USAGE_RETENTION, json, type UsageRecord } from "./contracts";
 
@@ -30,7 +31,7 @@ export class AiUsageLedger {
       const sessionId = body.sessionId ?? body.serviceId;
       if (!SAFE_ID.test(body.id ?? "") || !SAFE_ID.test(sessionId ?? "") ||
           !["transcription", "translation", "reader", "summary"].includes(body.stage ?? "") ||
-          !["groq", "cloudflare"].includes(body.provider ?? "") ||
+          ![...AI_PROVIDER_IDS, "cloudflare"].includes(body.provider ?? "") ||
           typeof body.model !== "string" || body.model.length > 160 ||
           !Number.isFinite(body.reservedNeurons) || body.reservedNeurons! < 0) {
         return json({ error: "Invalid usage admission." }, 400);

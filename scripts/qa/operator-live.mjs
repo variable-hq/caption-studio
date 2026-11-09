@@ -13,6 +13,7 @@ await runOperatorArea({
   assert.equal(await page.locator('.heardText[data-in-progress="true"]').count(),0,'An idle pane shows no in-progress draft');
   // Idle: one Start, a ready checklist, no live controls, no inference.
   await check('live-idle');
+  assert.equal(await page.getByRole('button',{name:'Show QR code',exact:true}).count(),0,'The QR action is absent until a viewer link exists');
   assert.equal(await page.getByRole('button',{name:'Start captions',exact:true}).isEnabled(),true);
   assert.equal(await formatLink('General').getAttribute('href'),'#settings=presets','With no session, the format links to Settings › Presets');
   assert.equal(await topBarText(),'BEST Church workspace · General · Main channel','The top bar names the General format');
@@ -207,6 +208,24 @@ await runOperatorArea({
   assert.equal(await page.getByText('synthetic-capacity-overflow',{exact:true}).isVisible(),true);
   await check('quick-override-capacity',{scan:false});
 
+  // The QR is requested on demand, draws locally and disappears with its link.
+  const resourcesBeforeQr=await page.evaluate(()=>performance.getEntriesByType('resource').length);
+  const showQr=page.getByRole('button',{name:'Show QR code',exact:true});
+  assert.equal(await showQr.count(),1,'The viewer QR can be requested while the session runs');
+  await showQr.click();
+  const qr=page.locator('svg.viewerQrCode[role="img"]');
+  await qr.waitFor();
+  assert.equal(await qr.getAttribute('aria-label'),'QR code for the phone viewer link');
+  assert.equal(await page.getByText('Anyone who scans this can watch this session in the current caption language. Keep it off the broadcast.',{exact:true}).count(),1);
+  assert.equal(await page.getByRole('button',{name:'Hide QR code',exact:true}).getAttribute('aria-expanded'),'true');
+  assert.equal(await qr.evaluate((node)=>{const rect=node.getBoundingClientRect();return rect.width<=240&&rect.right<=innerWidth;}),true,`${width}: QR fits the viewport`);
+  assert.equal(await page.evaluate(()=>performance.getEntriesByType('resource').length),resourcesBeforeQr,'Revealing the QR makes no network request');
+  await page.getByRole('button',{name:'Hide QR code',exact:true}).click();
+  assert.equal(await qr.count(),0,'Hiding the QR removes the SVG from the page');
+  assert.equal(await page.getByRole('button',{name:'Show QR code',exact:true}).getAttribute('aria-expanded'),'false');
+  await page.getByRole('button',{name:'Show QR code',exact:true}).click();
+  await qr.waitFor();
+
   await liveControls.getByRole('button',{name:'Clear screen',exact:true}).click();
   await page.waitForFunction(()=>true);
   assert.ok(controls.includes('clear'));
@@ -222,5 +241,6 @@ await runOperatorArea({
   await endDialog.getByRole('button',{name:'End session',exact:true}).click();
   await page.getByRole('button',{name:'Start captions',exact:true}).waitFor();
   assert.equal(mock.status,'idle');
+  assert.equal(await page.getByRole('button',{name:'Show QR code',exact:true}).count(),0,'Ending removes the viewer QR action with its link');
   },
 });

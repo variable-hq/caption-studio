@@ -92,6 +92,10 @@ export async function runOperatorArea({ name, checks, contrastScreens, body }) {
       ?(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,uiLocale:accountUiLocale})
       :(isShared?{...emptySetup,...sharedSetup}:{...emptySetup,...body,uiLocale:accountUiLocale,updatedAt:Date.now()});
   }
+   else if(path==='/api/live/experience/providers'){
+    // Synthetic workspace: Groq for both stages, one saved OpenAI key (last four only).
+    payload={selections:{transcription:{provider:'groq',model:''},translation:{provider:'groq',model:''}},keys:{openai:{last4:'wxyz',savedAt:Date.now()}}};
+   }
    else if(path==='/api/live/experience/presets'){
     if(method==='POST'){
      presetWrites.push(body);

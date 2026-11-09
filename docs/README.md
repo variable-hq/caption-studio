@@ -1,6 +1,6 @@
 # Documentation index
 
-Reviewed 5 November 2026 against merged PR #115 (`f11e649`). Maintained specifications
+Reviewed 9 November 2026 against merged PR #122 (`aa5e010`). Maintained specifications
 describe merged source, not an assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
 records to establish release evidence.
 
@@ -64,6 +64,14 @@ records to establish release evidence.
   and the retuning rule for Dynamic's pause lengths.
 - [ADR 0035](decisions/0035-workspace-presets.md) records the workspace preset design: presets as validated data, the term placeholders and lookup order, where a choice is stored and applied, model-facing text limits and the session snapshot.
 - [ADR 0036](decisions/0036-custom-presets-and-plan-limits.md) records custom presets: the stored workspace record, the server-assigned ids, the held model text of imported presets, and the `WORKSPACE_PLAN` allowance.
+- [ADR 0037](decisions/0037-local-viewer-link-qr.md) records the local, on-request QR handoff for the current phone viewer link.
+- [ADR 0038](decisions/0038-plan-based-terms-limits.md) records plan-based limits for saved Terms, with fail-open server enforcement and no stored-data migration.
+- [ADR 0039](decisions/0039-github-actions-validation.md) records the single GitHub Actions
+  workflow that validates pull requests in the upstream repository, and what stays local.
+- [ADR 0040](decisions/0040-develop-integration-branch.md) records why feature pull requests
+  merge into `develop` and only confirmed release batches reach `main`, which deploys.
+- [ADR 0041](decisions/0041-workspace-ai-providers.md) records workspace-chosen AI providers
+  per stage (OpenAI, Claude, DeepSeek beside Groq) and how their saved keys are encrypted.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator, and the default-on operator control for faithful
   rendering when that omission rule is disabled.
@@ -94,8 +102,9 @@ records to establish release evidence.
 - [Caption policy](evaluation/CAPTION_POLICY_DECISION.md) describes completion and filtering.
 - [Indonesian→English review](evaluation/ID_EN_REVIEW.md) and its
   [synthetic fixtures](evaluation/id-en-synthetic.json) remain unscored.
-- [Pilot improvements](PILOT_IMPROVEMENTS.md) contains deferred QR, saved-pack and live
-  correction proposals; it is not the implemented archive correction workflow.
+- [Pilot improvements](PILOT_IMPROVEMENTS.md) records the QR handoff implementation,
+  the superseded saved-pack proposal and remaining live correction proposal; it is not
+  the implemented archive correction workflow.
 
 ## Dated evidence and research
 

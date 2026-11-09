@@ -102,6 +102,7 @@ import { normalizeLiveNote } from "@/live/live-note";
 import { EMPTY_SESSION_METADATA, normalizeSessionMetadata, type SessionMetadata } from "@/experience/contracts";
 import { experienceRequest } from "@/experience/client";
 import { SessionExperiencePanel } from "@/components/operator/SessionExperiencePanel";
+import { ViewerQrCode } from "@/components/operator/ViewerQrCode";
 import { UsageHistory } from "@/components/operator/UsageHistory";
 import { formatCount, formatDecimal } from "@/components/operator/format-count";
 import { cutLengthPercentileMs } from "@/live/cut-metrics";
@@ -111,6 +112,7 @@ import { PresetChooser } from "@/components/operator/PresetChooser";
 import { PresetDifferences } from "@/components/operator/PresetDifferences";
 import { SetupShare } from "@/components/operator/SetupShare";
 import { WorkspaceNameEditor } from "@/components/operator/WorkspaceNameEditor";
+import { AiProvidersEditor } from "@/components/operator/AiProvidersEditor";
 import { SaveBar, SettingGroup } from "@/components/operator/SettingsParts";
 import { StatusBanner } from "@/components/operator/StatusBanner";
 import { I18nProvider, PresetScope, useI18n, useWorkspaceName } from "@/i18n/provider";
@@ -137,6 +139,7 @@ const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; titleKey: MessageKey;
   { id: "obs", titleKey: "settings.section.obs.title", descriptionKey: "settings.section.obs.description" },
   { id: "translator", titleKey: "settings.section.translator.title", descriptionKey: "settings.section.translator.description" },
   { id: "summary", titleKey: "settings.section.summary.title", descriptionKey: "settings.section.summary.description" },
+  { id: "providers", titleKey: "settings.section.providers.title", descriptionKey: "settings.section.providers.description" },
   { id: "usage", titleKey: "settings.section.usage.title", descriptionKey: "settings.section.usage.description" },
 ];
 
@@ -1632,6 +1635,16 @@ function OperatorDashboardContent() {
               {viewerCopied ? t("common.copied") : t("common.copyLink")}
             </button>
           </div>
+          {viewerUrl && (
+            <ViewerQrCode
+              key={viewerUrl}
+              url={viewerUrl}
+              showLabel={t("live.showQr")}
+              hideLabel={t("live.hideQr")}
+              imageLabel={t("live.qrLabel")}
+              hint={t("live.qrHint")}
+            />
+          )}
           <SessionExperiencePanel view="sharing" liveSession={liveState.liveSession} observer={observed.observer} onReaderLink={rememberReaderLink} />
           <p className="operatorHint" role="status" aria-live="polite">{clipboardMessage}</p>
         </section>
@@ -1867,6 +1880,8 @@ function OperatorDashboardContent() {
               autoSummaryMessage={autoSummaryMessage}
             />
           ) : null}
+
+          {settingsSection === "providers" ? <AiProvidersEditor /> : null}
 
           {settingsSection === "usage" ? (
             <>

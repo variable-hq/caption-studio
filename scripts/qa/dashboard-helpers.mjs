@@ -17,6 +17,7 @@ export const SETTINGS_LABELS = {
   obs: "OBS & links",
   translator: "Translation",
   summary: "Summary",
+  providers: "AI providers",
   usage: "Usage",
 };
 

@@ -1,6 +1,6 @@
 # Product specification
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). The corrected 13 September
+Reviewed 9 November 2026 against merged PR #122 (`aa5e010`). The corrected 13 September
 deploy of `20597d8` succeeded; protected runtime and church-language acceptance remain separate gates.
 See [Deployment](DEPLOYMENT.md) and [Plan 1 QA](LIVE_SESSION_PLAN_1_QA.md).
 
@@ -96,8 +96,10 @@ plain words. Nothing opens automatically.
    or clearing the current caption also clears the output buffer queue.
 9. A second operator is blocked unless they explicitly confirm takeover. Takeover clears
    OBS, replaces controller ownership, and causes stale operations to stop the old mic.
-10. The operator can copy a separate mobile link. A viewer receives only current
-    moderated target text and session status. A long caption shrinks on the phone
+10. The operator can copy the separate mobile link or reveal its QR code on request in
+    Live's Share card. The QR contains the same link and is drawn in the browser; it is
+    hidden when the link changes or ends. A viewer receives only current moderated
+    target text and session status. A long caption shrinks on the phone
     from the chosen text size down to 18 px so it fits one screen. Confirmed replacement revokes that link
     without changing OBS.
 11. Source/target language, terminology, public filters, recording window, and operator
@@ -616,8 +618,8 @@ Terms list and leaves the live entry active.
   **Save selected settings as default** control, and **Session details**. Each checklist
   row links to the Settings section that changes it (a chevron when ready, a Fix, Set up or
   Help button when not).
-  **Share** holds the phone viewer link, transcript reader link, **Phone remote** pairing, and
-  replacing a reader link shared by mistake.
+  **Share** holds the phone viewer link, its on-request QR code, transcript reader link,
+  **Phone remote** pairing, and replacing a reader link shared by mistake.
 - During a session a bar pinned to the bottom of Live holds **Pause**/**Resume**, **Clear
   screen**, the minutes left and whether the transcript is being saved, and **End session**
   (or **Try End again** when End could not be confirmed); the
@@ -901,8 +903,22 @@ generated automatically, still needs review before export, and is skipped if a s
 already exists. See [ADR 0019](decisions/0019-automatic-post-service-summary.md).
 
 Exact quoted source text, licensed retrieval, an editable structured summary, section-selection UI,
-workspace roles, multiple providers and autonomous agent tools are not implemented.
+workspace roles and autonomous agent tools are not implemented. Summaries stay on Workers AI;
+only live transcription and translation follow Settings › AI providers.
 Summaries must not manufacture scripture or claim a generated paraphrase is an exact quote.
+
+## AI providers
+
+**Settings › AI providers** chooses, for the whole workspace, which provider and model run
+live transcription and translation ([ADR 0041](decisions/0041-workspace-ai-providers.md)).
+Transcription offers Groq (the default, on the deployment's key) and OpenAI; Claude and
+DeepSeek have no speech-to-text API and are offered for translation only, next to Groq and
+OpenAI. Leaving the model empty uses the provider's default; readiness confirms the key can
+use the chosen model. API keys for OpenAI, Claude and DeepSeek are saved once for everyone,
+encrypted, and afterwards shown only by their last four characters. A provider can be
+chosen only after its key is saved, and a key in use cannot be removed. A change applies to
+the next caption request, including during a live session. Usage on a saved key is billed
+by that provider and is not part of the free-allowance figures under Usage.
 
 ## Usage history and optional AI
 

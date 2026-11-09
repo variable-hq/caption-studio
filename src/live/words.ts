@@ -39,6 +39,11 @@ function entries(value: string) {
   return value.split(/[\n,]+/u).map((item) => item.trim()).filter(Boolean);
 }
 
+/** Counts saved Terms entries using the separators the caption pipeline reads. */
+export function countWordEntries(value: string) {
+  return entries(value).length;
+}
+
 export function wordsFromSettings(keywordText: string, filterText: string): WordRow[] {
   const rows: WordRow[] = [];
   for (const entry of entries(keywordText)) {

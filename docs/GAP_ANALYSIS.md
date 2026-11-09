@@ -1,6 +1,6 @@
 # Caption Studio: gap analysis and improvement plan
 
-Reviewed 3 November 2026 against merged PR #96 (`f74a25f`). Plan 1 (`20597d8`) deployed
+Reviewed 6 November 2026 against merged PR #117 (`ba76470`). Plan 1 (`20597d8`) deployed
 successfully after the Access proxy fix; merges through `080e6ca`, including the rename
 to the `caption-studio` Worker, deployed via Workers Builds on 26–28 October, but none has
 a recorded session rehearsal. Only `main` builds; preview-branch
@@ -127,7 +127,8 @@ Verify that pending phone commands cannot be mistaken for physical microphone co
 
 ### G10 — P2: market feature gaps need demand and a scope decision
 
-Local QR joining remains a proposal in [Pilot improvements](PILOT_IMPROVEMENTS.md).
+Local QR joining is implemented in Live's Share card; physical-device scanning and the
+handoff's practical benefit remain to be checked during the pilot.
 Saved terminology is now the shared church setup's Settings › Terms list
 ([ADR 0022](decisions/0022-shared-church-setup-and-words-list.md)). Live correction is
 covered from the next caption by Quick override, and before publication by editing the

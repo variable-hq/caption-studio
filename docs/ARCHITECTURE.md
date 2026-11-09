@@ -1,6 +1,6 @@
 # Architecture
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). Cloudflare deployed `20597d8`
+Reviewed 9 November 2026 against merged PR #122 (`aa5e010`). Cloudflare deployed `20597d8`
 after the proxy fix; later merges have no recorded deployment yet. See the
 [runbook](DEPLOYMENT.md). Deployment success does not establish
 physical-device, provider-output or semantic acceptance.
@@ -15,13 +15,19 @@ physical-device, provider-output or semantic acceptance.
 | `CaptionRoom` | Main channel and reusable OBS credential, active controller, service limits, attempt claims, live public output, reader identity, per-operator watcher and remote credentials, remote commands and archive index |
 | `TranscriptJournal` | One session's source/corrections/exclusions, record-only session metadata, reader paragraphs, operator notes, lifecycle checkpoints and manual or automatic summary jobs |
 | `AiUsageLedger` | Deployment-wide numeric admissions, deduplication, optional AI budgets and rolling 30-day expiry |
-| `OperatorPreferences` | One object per hashed Access email (theme, interface language, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and words, output buffer, transcript-saving default, automatic summaries, the workspace format (preset id) and the workspace name; and one shared `workspace:presets` object holding the workspace's custom presets (`custom:<uuid>`, up to the plan limit, 64 KB), read and written by the `presets` route |
+| `OperatorPreferences` | One object per hashed Access email (theme, interface language, plus any setup saved before ADR 0022) and one shared `workspace:setup` object: saved prompt, summary defaults, caption style, default translation setup and Terms, output buffer, transcript-saving default, automatic summaries, the workspace format (preset id) and the workspace name; and one shared `workspace:presets` object holding the workspace's custom presets (`custom:<uuid>`, up to the plan limit, 64 KB). The `preferences` and `setup` routes enforce saved Terms limits atomically; the `limits` route exposes the current cap and import allowance. |
 | Groq | Whisper transcription and contextual GPT-OSS 20B translation |
 | Workers AI | Optional shared reader phrasing and bounded manual summaries |
 
 The browser is the sole client platform; the deferred iOS shell was removed
 ([ADR 0020](decisions/0020-remove-ios-shell.md)). There is no audio object
 store, D1, Queues, Supabase, analytics SDK, local model runtime or paid fallback.
+
+The Live Share card reveals the phone viewer QR only on request. `src/live/viewer-qr.ts`
+accepts only an HTTP(S) `/view` URL up to 300 UTF-8 bytes and uses the browser-only
+`qrcode-generator` dependency to return a module matrix; `src/components/operator/ViewerQrCode.tsx`
+draws it as inline SVG. The QR contains the same fragment bearer link as Copy link. It is
+not sent to a service, stored, downloaded or printed.
 
 The operator dashboard's typed `src/i18n/` lookup uses English source messages and
 Indonesian overrides without a runtime library. `uiLocale` is a personal preference,
@@ -54,8 +60,15 @@ snapshot in the browser. The overlay has no message that uses a term. A response
 without a snapshot renders General. The preset design is recorded in
 [ADR 0035](decisions/0035-workspace-presets.md).
 
+Saved Terms use two independent plan-limited lists in `translationDefaults`. `termsLimits()` in
+`src/experience/entitlements.ts` sets both lists to 40 by default and 10 on `free`; the preferences
+Durable Object checks each normalized save in its transaction. An over-cap list can be edited or
+trimmed but cannot grow, and a refused patch writes no fields. `GET /api/live/experience/limits`
+returns the cap and whether import is included. These limits do not change the pipeline's 40-entry
+ceiling or the session-only Live word controls. See [ADR 0038](decisions/0038-plan-based-terms-limits.md).
+
 GitHub handles source review. Cloudflare Workers Builds builds OpenNext and deploys
-`custom-worker.ts` plus assets after merges to main. There is no GitHub Actions workflow.
+`custom-worker.ts` plus assets after merges to main. A GitHub Actions workflow only validates pull requests; it does not deploy.
 Direct deployment uses the existing `OPEN_NEXT_DEPLOY` guard to avoid an unnecessary
 remote AI proxy; see [Deployment](DEPLOYMENT.md#why-the-deploy-command-sets-open_next_deploy).
 The default OpenNext config has no configured incremental/tag cache or skew protection.
@@ -106,7 +119,7 @@ still consumes its claim; it cannot be replayed to spend again.
 
 | Route | Access | Purpose |
 | --- | --- | --- |
-| `GET /api/ai/health`, `POST /api/ai/readiness` | Access (readiness) | Configured models; readiness also checks Groq model availability |
+| `GET /api/ai/health`, `POST /api/ai/readiness` | Access (readiness) | The workspace's provider and model per stage; readiness also proves each chosen provider accepts its key and offers the model |
 | `POST /api/ai/transcribe`, `POST /api/ai/translate` | Access + controller + attempt claim | Live inference; 3 MB audio + 16 KB fields, 32,000-byte JSON |
 | `GET`/`POST /api/live/channel` | Access | Read or create the Main channel |
 | `POST /api/live/channel/session`, `DELETE …/session` (aliases `…/service`) | Access | Start/takeover and End |
@@ -117,11 +130,12 @@ still consumes its claim; it cannot be replayed to spend again.
 | `GET /api/live/overlay?channel=main`, `GET /api/live/viewer?channel=main` | Token subprotocol (`caption-studio-v1` / `caption-studio-viewer-v1`; earlier `church-caption-*` names still accepted) | OBS and latest-viewer WebSockets |
 | `POST /api/live/experience/source`, `…/gap`, `…/host`, `…/pair`, `…/remote`, `…/reader-rotate` | Access (+ `x-caption-remote` for remote) | Opted-in source, capture gaps, host heartbeat, phone pairing and commands, reader link rotation. `…/pair` needs Access only, so any workspace operator can pair a phone; the other operations still need the controller |
 | `GET`/`POST`/`DELETE …/experience/preferences` | Access | The signed-in operator's saved configuration; POST merges a partial record, `null` clears a field |
+| `GET`/`POST …/experience/providers` | Access | The workspace's AI provider per stage and saved-key status (last four characters only); POST `select`, `set-key` (encrypted by the Worker) or `clear-key`, 4,096-byte bodies |
 | `GET …/experience/usage`, `GET …/experience/history`, `GET …/transcripts/{id}/metadata`, `GET …/transcripts/{id}/archive` (aliases `…/sermons/…`) | Access | Rolling usage, archive index with metadata-only reads, one transcript's workspace-wide archive |
 | `POST …/transcripts/{id}/summary`, `…/remove`, `…/correct`, `…/delete`, `…/metadata` (aliases `…/sermons/…`) | Access | Manual summary (16–64 char `requestId`, returns an existing queued job), passage removal, source correction, deletion, record-only session details |
 | `GET /api/live/reader` | `x-caption-reader` header | Appending reader paragraphs and operator notes, 50 per poll |
 
-Experience JSON bodies are limited to 32,768 bytes. Groq calls time out after 30 seconds
+Experience JSON bodies are limited to 32,768 bytes. Provider calls time out after 30 seconds
 for audio and 15 seconds for chat; Durable Object calls after 8 seconds.
 
 Translation requests may include a 500-character `liveNote`; it is validated and placed
@@ -151,7 +165,10 @@ Wrong-purpose credentials are rejected. Audience clients receive no private sour
 summary, usage, controller or provider secrets.
 
 The Main room stores an OBS token hash and AES-GCM-encrypted recoverable copy under the
-server-only `OBS_CHANNEL_ENCRYPTION_KEY`. Other raw live credentials stay in the
+server-only `OBS_CHANNEL_ENCRYPTION_KEY`. Workspace AI provider keys are encrypted the same
+way under the separate `PROVIDER_KEY_ENCRYPTION_KEY`, bound to their provider, decrypted
+only in the Worker for one inference or readiness call, and never returned to a browser
+([ADR 0041](decisions/0041-workspace-ai-providers.md)). Other raw live credentials stay in the
 operator tab's sessionStorage; server state retains hashes. End/expiry preserves the
 OBS URL and style. Only explicit idle rotation changes that reusable credential.
 
@@ -223,6 +240,7 @@ the archive index, and leaves a tombstone. Revision/deletion checks reject late 
 | Live note | Controlling tab memory and sessionStorage, keyed to the service start time; never journaled or logged |
 | Recent outputs | Controlling tab memory; last 3 published outputs, reset at Start, End and takeover |
 | Explicitly saved prompt, summary defaults, style, default translation setup, output buffer default, history-saving default, automatic-summary opt-in, workspace name (church setup, `workspace:setup`); theme and interface language (per operator) | `OperatorPreferences`: the church setup in the one shared `workspace:setup` object, personal preferences in an object keyed by the SHA-256 of the lower-cased Access email, kept until cleared; the theme's localStorage copy is applied before account loading and then overridden by the account value, while the interface-language copy is used only when account preferences are unavailable; the shared channel style also persists |
+| AI provider choice and saved OpenAI/Claude/DeepSeek keys | `OperatorPreferences` `workspace:providers`: provider and model per stage, and per key only AES-GCM ciphertext, last four characters and save time, kept until replaced or removed |
 | OBS ciphertext/hash, style and sequence | Main room until explicit rotation/change |
 | Controller/viewer/reader/remote hashes, claims, service counters | Service-scoped Main/journal state; reader has bounded post-End grace |
 | Latest public caption | Main live state; cleared by controls and End/expiry |
@@ -242,7 +260,16 @@ Provider data policies/settings require separate verification.
 
 ## Models, prompting and bounds
 
-The live defaults are `whisper-large-v3-turbo` and `openai/gpt-oss-20b`.
+The live defaults are `whisper-large-v3-turbo` and `openai/gpt-oss-20b` on Groq.
+Settings › AI providers may instead choose OpenAI for transcription (default `whisper-1`)
+and OpenAI, Claude or DeepSeek for translation (defaults `gpt-5.4-nano`, `claude-opus-5-5`,
+`deepseek-flash`), each on a saved workspace key ([ADR 0041](decisions/0041-workspace-ai-providers.md)).
+Each request resolves its stage's provider before usage admission and fails closed when
+the key is missing or unreadable; the ledger records the provider. Transcription on either
+provider uses the same Whisper prompt, `verbose_json` guard and 400 fallback (tracked per
+provider). Translation sends every provider the same envelope; OpenAI reasoning models and
+Claude (adaptive thinking, low effort, server-side refusal fallbacks where supported) get a
+2,048-token cap, and Claude output is publishable only on `end_turn`.
 Readiness verifies configured model availability. Stale `llama-3.1-8b-instant`
 overrides resolve to the migrated translation default. Other explicit overrides require
 normal readiness and quality review.
@@ -316,6 +343,7 @@ IDs each.
 | `invalid_overlay_key`, `invalid_viewer_key` | 401 (503 when the OBS credential cannot be decrypted) | Wrong-purpose or revoked token |
 | `translation_incomplete` | 422 | Provider output skipped; usage retained |
 | `*_authorization_unavailable`, `translation_usage_unavailable`, viewer capacity | 503 | Room or ledger unavailable, or 250 viewer sockets reached |
+| `provider_key_missing`, `provider_key_unreadable` (503), `provider_key_rejected` (502) | 502/503 | The workspace's chosen provider has no saved key, its key cannot be decrypted, or the provider refused it; the client stops capture rather than retrying |
 
 ## Limits and remaining validation
 

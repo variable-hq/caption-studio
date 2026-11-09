@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`). The 13 September deployment
+Reviewed 9 November 2026 against merged PR #122 (`aa5e010`). The 13 September deployment
 retry of `20597d8` succeeded;
 [Deployment](docs/DEPLOYMENT.md) records the version and remaining runtime gates.
 
@@ -27,8 +27,8 @@ The deployment separates operator authentication from scoped audience credential
 | --- | --- | --- |
 | Dashboard and Next.js app | Cloudflare Access | Operator UI |
 | `/api/ai/health` | Deployment-level Cloudflare Access | Non-secret configuration status |
-| `/api/ai/readiness` | Access JWT plus server-side Groq secret | Provider model-availability verification |
-| `/api/ai/transcribe`, `/api/ai/translate` | Access JWT, active controller, one-time reserved attempt per stage, and server-side Groq secret | Bounded AI inference |
+| `/api/ai/readiness` | Access JWT plus server-side Groq secret or the workspace's saved provider key | Provider key and model-availability verification |
+| `/api/ai/transcribe`, `/api/ai/translate` | Access JWT, active controller, one-time reserved attempt per stage, and the server-side Groq secret or the workspace's saved provider key | Bounded AI inference |
 | `/api/live/channel*` | Cloudflare Access JWT | Create, retrieve, control, take over, end, and rotate the Main channel |
 | `/overlay*` | Public network path; no operator capability | Self-contained OBS page |
 | `/api/live/overlay*` | Reusable channel token and read-only WebSocket | Current public caption stream |
@@ -93,6 +93,10 @@ production remediation must account for the existing encrypted OBS credential. S
 - The link keeps `main.token` in the URL fragment. The self-contained page sends it only
   as the `caption-studio-viewer-v1` WebSocket subprotocol (the earlier `church-caption-viewer-v1` is still accepted); the token is never placed in a
   page request or query string.
+- The Live Share card can show a locally generated QR for that exact link after an
+  operator requests it. It is the same short-lived bearer credential; the browser draws
+  it inline and does not send, store, download or print it. Keep it off the broadcast
+  and share it only with intended viewers.
 - The Durable Object stores only the viewer-token SHA-256 hash. The raw link remains in
   the operator tab's `sessionStorage`; it is not recoverable by another operator tab.
 - A viewer can receive only the current moderated target-language caption and live,
@@ -121,6 +125,15 @@ viewers, never place it in logs, analytics, screenshots, or public posts, and re
 immediately if it is mis-shared.
 
 ## Data handling
+
+### Workspace plan limits
+
+`WORKSPACE_PLAN` is read only from the Worker's deployment variables, never from editable setup
+records or client requests. The preferences Durable Object applies saved Terms limits to its
+normalized record inside the storage transaction; a refused save writes nothing. Its internal
+limit parameter is supplied by the Worker, and the public limits response requires Cloudflare
+Access. Missing or invalid internal limits and an exception in the limit check fail open: a defect
+can allow a larger Terms list but cannot prevent operators from saving preferences.
 
 Treat these as sensitive even when the app does not persist them:
 
@@ -243,6 +256,13 @@ into the response, before the response is trusted. It is a heuristic safety net,
 guarantee: only its construction has been tested, not its effectiveness against a live
 model, and a sufficiently subtle prompt-injection attempt could still pass both checks.
 
+Saved OpenAI, Claude and DeepSeek keys ([ADR 0041](docs/decisions/0041-workspace-ai-providers.md))
+are workspace credentials: any Access-approved operator can replace or remove them, the
+browser only ever sees their last four characters, and the stored copy is AES-GCM
+ciphertext under `PROVIDER_KEY_ENCRYPTION_KEY`, bound to its provider. Usage on them is
+billed to that key's account. Each chosen provider's own data-retention terms apply to the
+captions sent to it; verify them, as for Groq below, before real-service use.
+
 Groq Zero Data Retention must be enabled before approved real-service testing. Groq's
 published policy says non-content usage metadata is still retained. Verify the active
 organization's Data Controls rather than assuming a key inherits another account's ZDR
@@ -251,10 +271,13 @@ setting.
 ## Deployment requirements
 
 - Keep deployment credentials and runtime secrets in Cloudflare. GitHub stores source
-  and pull requests only; the repository has no GitHub Actions deployment workflow.
+  and pull requests only; its one GitHub Actions workflow validates pull requests with
+  read-only repository permission and no secrets, and never deploys.
 - Treat the connected Cloudflare build as the production publisher and verify its
   deployed revision after every merge to `main`.
-- Store `GROQ_API_KEY` and `OBS_CHANNEL_ENCRYPTION_KEY` only as encrypted Worker secrets.
+- Store `GROQ_API_KEY`, `OBS_CHANNEL_ENCRYPTION_KEY` and `PROVIDER_KEY_ENCRYPTION_KEY` only as
+  encrypted Worker secrets. Generate the provider-key secret with at least 32 random
+  characters; changing it makes every saved provider key unreadable until it is saved again.
 - Generate the OBS encryption value with at least 32 random characters. If it is lost
   or changed, use the authenticated rotation recovery path and update OBS.
 - Never expose secrets through `NEXT_PUBLIC_` variables or client bundles.
@@ -264,7 +287,9 @@ setting.
 - Restrict the Access allow policy to approved operator identities and remove former
   collaborators promptly.
 - Keep the Worker on the intended plan and do not introduce paid fallback without an
-  explicit owner decision.
+  explicit owner decision. Paid providers on a workspace's own saved key are that
+  decision ([ADR 0041](docs/decisions/0041-workspace-ai-providers.md)); nothing falls
+  back to them automatically.
 - Preserve all four SQLite Durable Object bindings and v1/v2/v3 migrations in
   `wrangler.jsonc`, plus AI and assets. Optional AI remains disabled until configured.
 - Keep logs free of audio, captions, prompts, glossary terms, JWTs, OBS URLs, and mobile
@@ -317,8 +342,11 @@ If a secret or token is exposed:
    exposed remote, or rotate an exposed OBS link while idle. End revokes the latest
    viewer and remote but leaves a 30-minute reader grace; replace the reader link while
    active or delete an ended saved archive to revoke that reader immediately.
-2. Rotate the Groq or OBS encryption key, or invalidate the affected Cloudflare Access
-   session, as appropriate. Rotating the encryption key also requires rotating the OBS URL.
+2. Rotate the Groq or OBS encryption key, revoke an exposed OpenAI/Claude/DeepSeek key at
+   its provider and save a new one in Settings › AI providers, or invalidate the affected
+   Cloudflare Access session, as appropriate. Rotating the OBS encryption key also requires
+   rotating the OBS URL; rotating `PROVIDER_KEY_ENCRYPTION_KEY` requires saving every
+   provider key again.
 3. Check Worker and provider logs for time, routes, and usage metadata without copying
    service content into the incident record.
 4. Remove the exposed material from the source location and repository history where

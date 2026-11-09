@@ -5,7 +5,10 @@ import { InvalidRequestBodyError, RequestBodyTooLargeError, readJsonObject } fro
 import { CAPABILITY_TOKEN_PATTERN, UUID_PATTERN, randomToken } from "@/http/tokens";
 import { json, rpc } from "./contracts";
 import { MAX_PRESET_COMMAND_BYTES, WORKSPACE_PRESETS_KEY } from "./custom-presets";
-import { presetLimits } from "./entitlements";
+import { presetLimits, termsLimits } from "./entitlements";
+import { MAX_PROVIDER_COMMAND_BYTES, WORKSPACE_PROVIDERS_KEY } from "./provider-settings";
+import { isKeyedProvider, isValidApiKeyInput } from "@/ai/providers";
+import { ProviderKeyEncryptionError, encryptProviderKey } from "@/ai/server/provider-key-crypto";
 
 export async function handleExperienceRequest(request: Request, env: LiveWorkerEnvironment) {
   const url = new URL(request.url);
@@ -39,6 +42,41 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       }));
     }
+    if (operation === "providers") {
+      // The workspace's AI provider choice and saved keys, shared by every signed-in operator.
+      if (!["GET", "POST"].includes(request.method)) return json({ error: "Use GET or POST." }, 405);
+      const authorized = await authorizeOperatorIdentity(request, env);
+      if (authorized.denied) return authorized.denied;
+      if (!env.OPERATOR_PREFERENCES) return json({ error: "Operator preferences are not configured." }, 503);
+      let command: Record<string, unknown> | undefined;
+      if (request.method === "POST") {
+        const body = await readJsonObject(request, MAX_PROVIDER_COMMAND_BYTES) as Record<string, unknown>;
+        if (body.action === "set-key") {
+          // The raw key is encrypted here and dropped; only ciphertext reaches storage.
+          const apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+          if (!isKeyedProvider(body.provider) || !isValidApiKeyInput(apiKey)) {
+            return json({ error: "Enter a valid API key for a supported provider.", code: "provider-key-invalid" }, 400);
+          }
+          command = { action: "set-key", provider: body.provider,
+            ciphertext: await encryptProviderKey(body.provider, apiKey, env.PROVIDER_KEY_ENCRYPTION_KEY),
+            last4: apiKey.slice(-4) };
+        } else {
+          command = { action: body.action, provider: body.provider, selections: body.selections };
+        }
+      }
+      const target = env.OPERATOR_PREFERENCES.get(env.OPERATOR_PREFERENCES.idFromName(WORKSPACE_PROVIDERS_KEY));
+      return target.fetch(new Request("https://internal/providers", {
+        method: request.method, signal: AbortSignal.timeout(8000),
+        headers: { "content-type": "application/json" },
+        ...(command === undefined ? {} : { body: JSON.stringify(command) }),
+      }));
+    }
+    if (operation === "limits") {
+      if (request.method !== "GET") return json({ error: "Use GET." }, 405);
+      const authorized = await authorizeOperatorIdentity(request, env);
+      if (authorized.denied) return authorized.denied;
+      return json(termsLimits(env.WORKSPACE_PLAN));
+    }
     if (operation === "preferences" || operation === "setup") {
       if (!["GET", "POST", "DELETE"].includes(request.method)) return json({ error: "Use GET, POST, or DELETE." }, 405);
       const authorized = await authorizeOperatorIdentity(request, env);
@@ -48,7 +86,8 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
       const key = operation === "setup" ? WORKSPACE_SETUP_KEY : await operatorIdentityKey(authorized.identity);
       const target = env.OPERATOR_PREFERENCES.get(env.OPERATOR_PREFERENCES.idFromName(key));
       const body = request.method === "POST" ? await readJsonObject(request, MAX_PREFERENCES_BYTES) : undefined;
-      return target.fetch(new Request("https://internal/preferences", {
+      const termsMax = termsLimits(env.WORKSPACE_PLAN).maxTermsPerList;
+      return target.fetch(new Request(`https://internal/preferences?termsMax=${termsMax}`, {
         method: request.method, signal: AbortSignal.timeout(8000),
         headers: { "content-type": "application/json" },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -115,6 +154,7 @@ export async function handleExperienceRequest(request: Request, env: LiveWorkerE
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) return json({ error: "Request body is too large." }, 413);
     if (error instanceof InvalidRequestBodyError) return json({ error: "Invalid JSON request." }, 400);
+    if (error instanceof ProviderKeyEncryptionError) return json({ error: "Provider keys cannot be saved until the deployment's encryption secret is configured.", code: "provider-key-encryption-unavailable" }, 503);
     return json({ error: "The service request failed. Check the connection and retry." }, 503);
   }
 }
