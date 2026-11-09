@@ -631,6 +631,7 @@ export const id: Partial<Record<MessageKey, string>> = {
   "settings.providers.modelLabel": "Model",
   "settings.providers.modelHint": "Kosongkan model untuk memakai default penyedia. Jalankan pemeriksaan kesiapan setelah mengubahnya untuk memastikan kunci dapat memakai model itu.",
   "settings.providers.modelInvalid": "Masukkan nama model berisi huruf, angka, titik, tanda hubung, titik dua, atau garis miring.",
+  "settings.providers.noChanges": "Ubah penyedia atau model untuk menyimpan.",
   "settings.providers.needsKey": "Simpan kunci API {provider} di bawah sebelum memilihnya.",
   "settings.providers.keysTitle": "Kunci API",
   "settings.providers.keysHint": "Kunci dienkripsi dan dipakai bersama di workspace ini. Setelah disimpan, hanya empat karakter terakhir yang ditampilkan. Groq memakai kunci milik deployment.",

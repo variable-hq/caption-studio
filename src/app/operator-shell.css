@@ -163,7 +163,8 @@
 .liveStartBar {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  /* The format select has its label above it, so line controls up along their bottom edge. */
+  align-items: flex-end;
   gap: var(--gap-sm) var(--gap-md);
   padding: var(--gap-md) var(--space-2);
   border: 1px solid var(--line);
@@ -175,14 +176,11 @@
 .liveStartBar .operatorHint { flex: 1 1 260px; min-width: 0; }
 
 .startFormat {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
   gap: var(--gap-sm);
   min-width: 0;
 }
 
-.startFormat span { color: var(--muted); font-size: var(--text-sm); }
 .startFormat select { min-width: 0; max-width: 100%; }
 .startFormatHint { flex: 1 1 100%; margin: 0; }
 
@@ -257,6 +255,7 @@
   margin: 0;
   color: var(--muted);
   font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
   line-height: var(--leading-normal);
 }
 
@@ -661,6 +660,16 @@
   border-top: 1px solid var(--line);
 }
 
+/* System and Language show no section header (their groups name themselves), so their first
+   group needs no divider above it. */
+.settingsPanel > .visuallyHidden + .settingGroup {
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* An empty status line stays in the DOM as a live region but adds no gap until it has text. */
+.settingGroup > .settingHint:empty { margin-top: calc(var(--gap-md) * -1); }
+
 .settingGroup > h3 {
   margin: 0;
   font-size: var(--text-md);
@@ -669,13 +678,22 @@
 
 .settingGroup > h3 + .settingHint { margin-top: calc(var(--gap-md) * -1 + var(--space-0)); }
 
-/* One saved-key field per AI provider: field, saved-key note, then its own actions. */
+/* The saved-key fields, one per AI provider, spaced like separate decisions within one group. */
+.providerKeyList {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* One field: label and input, saved-key note, its own buttons, then its status. */
 .providerKeyField {
   display: flex;
   flex-direction: column;
-  gap: var(--gap-md);
+  gap: var(--gap-sm);
   min-width: 0;
 }
+
+.providerKeyField > .settingHint:empty { margin-top: calc(var(--gap-sm) * -1); }
 
 /* Language fields pair a bold role with a regular field name, separated by a middle dot. */
 .languageFieldGrid > label { font-weight: var(--weight-regular); }
@@ -683,13 +701,6 @@
 .fieldKind { font-weight: var(--weight-bold); }
 
 .fieldKind::after { content: " · "; }
-
-.levelDescription {
-  display: grid;
-  gap: var(--space-0);
-  margin: 0;
-  padding-inline-start: var(--gap-lg);
-}
 
 .settingHint {
   margin: 0;

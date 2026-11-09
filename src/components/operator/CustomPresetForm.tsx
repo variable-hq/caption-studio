@@ -222,7 +222,7 @@ export function CustomPresetForm({
         </label>
       </SettingGroup>
       {heldText ? (
-        <label>
+        <label className="checkLabel">
           <input type="checkbox" name="allowModelText" checked={allowModelText} disabled={saving} onChange={(event) => setAllowModelText(event.target.checked)} />
           {t("settings.presets.customAllowModelText")}
         </label>

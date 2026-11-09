@@ -1,6 +1,6 @@
 # Design system
 
-Reviewed 4 November 2026 against merged PR #112 (`87b37dd`).
+Reviewed 9 November 2026 against merged PR #123 (`4afb3e5`).
 
 Describes the tokens and shared rules in `src/app/globals.css`,
 `src/app/operator-shell.css` and the React Bits `BorderGlow` adaptation.
@@ -107,7 +107,9 @@ The dashboard theme never changes the configured OBS caption colours.
 - Presets preview (Settings › Presets): rows use the `statRow` pattern; kept and not-changed
   rows show their status text in place of a value.
 - Session format: `.startFormat` is a labelled native select with a hint in the Live Start
-  bar; it wraps to its own row at 680px and narrower. While a session runs, a
+  bar, its label above it like every field; the bar lines its controls up along their bottom
+  edge, so the select sits level with Start captions. It wraps to its own row at 680px and
+  narrower. While a session runs, a
   `.statRow.sessionFormatRow` above Session details shows the format as a read-only
   `.formatTag`. `.formatTag` is also the small tag on each saved transcript in the
   Transcripts list.
@@ -133,6 +135,14 @@ The dashboard theme never changes the configured OBS caption colours.
   `SettingGroup`s (an `h3`, an optional `.settingHint`, the controls), each above a hairline,
   then one `SaveBar` (**Save for everyone** and its status). `.buttonRow` lines buttons up;
   `.statTiles` show figures; `.inlineForm` puts a field and its button side by side.
+  System and Language have no visible header (their groups name themselves), so their first
+  group drops its divider. A group's status line (`.settingHint` with `role="status"`) stays
+  in the DOM while empty but takes no space. Field hints are plain `.settingHint` lines,
+  never bulleted lists, and every checkbox uses `.checkLabel`.
+- AI providers (Settings › AI providers): the Transcription and Translation groups share one
+  save bar; the API keys group is a `.providerKeyList` of `.providerKeyField`s, each a
+  password field, its saved-key note, a `.buttonRow` of `secondaryButton`s (save, and remove
+  behind a `ConfirmDialog`) and its own status line.
 
 
 ## Headings and browser surfaces
