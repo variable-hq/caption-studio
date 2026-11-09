@@ -1,4 +1,4 @@
-import { openScreen, openSettings } from './dashboard-helpers.mjs';
+import { captureScreenshot, openScreen, openSettings } from './dashboard-helpers.mjs';
 import assert from 'node:assert/strict';
 import { runOperatorArea } from './operator-harness.mjs';
 
@@ -6,7 +6,7 @@ await runOperatorArea({
   name: 'presets',
   checks: "Presets: the chooser and its save body, the workspace name (invalid and saved), the setup share (errors, held model text, an oversized file, preview and import), custom presets created, edited and deleted with locked and full plan states, General, Sermon, Talkshow and Keynote applied with Sermon end to end (Transcripts, Live, top bar, running service), kept and differing settings with Use preset default as a draft, the session format on Live and Transcripts; overflow at every width, Axe on the Presets screen, its custom preset editor and the differences list",
   contrastScreens: [{ address: 'settings=presets', ready: (page) => page.getByRole('heading', { name: 'Presets', exact: true }) }],
-  async body({ page, width, mock, check, formatLink, formatNote, topBarText, controls, presetWrites, sessionStarts, emptySetup }) {
+  async body({ page, width, colorScheme, output, mock, check, formatLink, formatNote, topBarText, controls, presetWrites, sessionStarts, emptySetup }) {
   // Presets: Settings › Presets saves the format for everyone; the top bar, Transcripts, Live and Help follow it.
   // The account keeps English across the reload that loads its preferences again.
   mock.accountPreferencesUnavailable=false;
@@ -116,6 +116,7 @@ await runOperatorArea({
   await page.getByText('1 of 5 used',{exact:true}).waitFor();
   assert.deepEqual(await formatSelect.locator('option').allTextContents(),['General','Sermon','Talkshow','Keynote','Retreat'],'The chooser lists the custom preset after the built-ins');
   await check('presets-custom-created');
+  await captureScreenshot(page,{path:output+`/settings-presets-${colorScheme}-${width}.png`,fullPage:true});
   await page.getByRole('button',{name:'Edit: Retreat',exact:true}).click();
   await page.getByRole('textbox',{name:'Name',exact:true}).fill('Retreat weekend');
   await page.getByRole('button',{name:'Save preset',exact:true}).click();

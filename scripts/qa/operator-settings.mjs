@@ -3,16 +3,17 @@ import assert from 'node:assert/strict';
 import { runOperatorArea } from './operator-harness.mjs';
 
 // Every Settings section but Presets gets an Axe scan; Presets is scanned in the presets area.
-const AXE_SETTINGS = ['computer', 'languages', 'look', 'obs', 'translator', 'summary', 'words', 'usage'];
+const AXE_SETTINGS = ['computer', 'languages', 'look', 'obs', 'translator', 'summary', 'providers', 'words', 'usage'];
 
 await runOperatorArea({
   name: 'settings',
-  checks: "every Settings section except Presets (its fields, Save for everyone, Interface language placement, Usage, Terms import and paste, file choice and unsent paste), per-screen addresses with Back, Forward and reload, legacy bookmarks, draft and consent persistence across screens, interface language selection, account persistence, account precedence and offline browser-copy fallback, overflow at every width, Axe on the System, Language, Output, Terms and Usage sections",
+  checks: "every Settings section except Presets (its fields, Save for everyone, Interface language placement, Usage, Terms import and paste, file choice and unsent paste), per-screen addresses with Back, Forward and reload, legacy bookmarks, draft and consent persistence across screens, interface language selection, account persistence, account precedence and offline browser-copy fallback, overflow at every width, Axe on the System, Language, Output, OBS, Translation, Summary, AI providers, Terms and Usage sections",
   contrastScreens: SETTINGS_SECTIONS.filter((section) => section !== 'presets').map((section) => ({ address: `settings=${section}`, ready: (page) => page.getByRole('heading', { name: SETTINGS_LABELS[section], exact: true }) })),
   async body({ page, width, colorScheme, output, mock, check }) {
   for(const section of SETTINGS_SECTIONS){
    await openSettings(page,section);
    await check(`settings-${section}`,{scan:AXE_SETTINGS.includes(section)});
+   if(section!=='look') await captureScreenshot(page,{path:output+`/settings-${section}-${colorScheme}-${width}.png`,fullPage:true});
    if(section==='look'){
     const range=page.locator('input[type=range]').first();
     await range.fill('64');
