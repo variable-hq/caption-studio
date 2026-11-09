@@ -163,8 +163,7 @@
 .liveStartBar {
   display: flex;
   flex-wrap: wrap;
-  /* The format select has its label above it, so line controls up along their bottom edge. */
-  align-items: flex-end;
+  align-items: center;
   gap: var(--gap-sm) var(--gap-md);
   padding: var(--gap-md) var(--space-2);
   border: 1px solid var(--line);
@@ -176,11 +175,13 @@
 .liveStartBar .operatorHint { flex: 1 1 260px; min-width: 0; }
 
 .startFormat {
-  display: grid;
+  display: flex;
+  align-items: center;
   gap: var(--gap-sm);
   min-width: 0;
 }
 
+.startFormat > span { white-space: nowrap; }
 .startFormat select { min-width: 0; max-width: 100%; }
 .startFormatHint { flex: 1 1 100%; margin: 0; }
 

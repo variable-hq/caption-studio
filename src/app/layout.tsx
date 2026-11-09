@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Carlito, Inconsolata } from "next/font/google";
 
 import { STORAGE_MIGRATION_SCRIPT } from "@/live/storage-migration";
 
@@ -24,12 +24,15 @@ export const viewport: Viewport = {
 // legacy key migration runs first so the theme read below already sees the new key.
 const BOOT_SCRIPT = `${STORAGE_MIGRATION_SCRIPT}try{var t=localStorage.getItem("caption-studio:theme:v1");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}`;
 
-// Self-hosted at build time by next/font, so no page request goes to a font host.
-const inter = Inter({ subsets: ["latin", "latin-ext"], variable: "--font-inter", display: "swap" });
+// Calibri is licensed and cannot be shipped, so the stacks in globals.css use it where it is
+// installed and fall back to these metric-compatible open fonts. Both are self-hosted at build
+// time by next/font, so no page request goes to a font host.
+const carlito = Carlito({ weight: ["400", "700"], subsets: ["latin", "latin-ext"], variable: "--font-carlito", display: "swap" });
+const inconsolata = Inconsolata({ weight: ["400", "700"], subsets: ["latin", "latin-ext"], variable: "--font-inconsolata", display: "swap" });
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={`${carlito.variable} ${inconsolata.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>

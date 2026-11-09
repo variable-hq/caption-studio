@@ -86,7 +86,7 @@ export function UsageHistory() {
         <summary>{t("usage.byDay")}</summary>
         {days.size === 0 ? <p className="settingHint">{t("usage.nothing")}</p> : null}
         {[...days].sort(([first], [second]) => second.localeCompare(first)).map(([date, day]) => (
-          <div className="statRow" key={date}><span>{date}</span><span>{countsLine(day.calls, day.tokens, day.unknown)}</span></div>
+          <div className="statRow" key={date}><span className="techText">{date}</span><span>{countsLine(day.calls, day.tokens, day.unknown)}</span></div>
         ))}
       </details>
       <details className="advancedActions">
@@ -104,7 +104,7 @@ export function UsageHistory() {
         {groups.size === 0 ? <p className="settingHint">{t("usage.nothing")}</p> : null}
         {[...groups].map(([name, group]) => (
           <div className="statRow" key={name}>
-            <span translate="no">{name}</span>
+            <span className="techText" translate="no">{name}</span>
             <span>{audioCountsLine(group.calls, group.tokens, group.seconds, group.unknown)}</span>
           </div>
         ))}

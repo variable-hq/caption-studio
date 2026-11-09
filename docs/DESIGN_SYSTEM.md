@@ -12,13 +12,14 @@ voice, colour roles, type and spacing roles, and component behaviour.
 ## Tokens
 
 All colour, type, spacing and size values come from custom properties on `:root`.
-`--font-sans` resolves to Inter, self-hosted at build time by `next/font` in
-`src/app/layout.tsx` (`--font-inter`), with system fallbacks after it.
+`--font-sans` is Calibri where installed, else Carlito (metric-compatible, self-hosted at build
+time by `next/font` in `src/app/layout.tsx` as `--font-carlito`). `--font-mono` is Consolas, else
+Inconsolata (`--font-inconsolata`), and is applied to technical text with `.techText`.
 
 | Group | Tokens |
 | --- | --- |
 | Colour | `--ink --muted --line --line-strong --paper --card --surface-muted --surface-strong --accent --accent-hover --on-accent --track --backdrop --focus --danger --danger-bg --on-danger --ok-ink --ok-bg --ok-line --warn-ink --warn-bg --warn-line --shadow --shadow-elevated` |
-| Type | `--text-xs` 11px, `--text-sm` 12px, `--text-base` 14px, `--text-md` 15px, `--text-lg` 18px, `--text-xl` 22px, `--text-2xl` 28px; `--leading-tight` 1.2, `--leading-normal` 1.5; `--weight-regular` 500, `--weight-bold` 700; `--tracking-caps` |
+| Type | `--text-xs` 12px, `--text-sm` 13px, `--text-base` 15px, `--text-md` 16px, `--text-lg` 19px, `--text-xl` 23px, `--text-2xl` 29px; `--leading-tight` 1.2, `--leading-normal` 1.5; `--weight-regular` 400, `--weight-bold` 700; `--tracking-caps` |
 | Space | `--space-0` 4px to `--space-4` 32px; `--gap-sm` 8px, `--gap-md` 12px, `--gap-lg` 18px |
 | Size | `--control-height` 44px (every button and field), `--control-height-sm` 36px (nav tabs only), `--control-padding-x` 14px, `--switch-track-width` 44px, `--switch-track-height` 24px, `--switch-thumb-size` 18px, `--switch-checked-offset` 20px, `--radius-sm/md/lg`, `--content-max` 1160px |
 | Icon | `--chevron-right`, `--shield`: inline SVG masks painted in `currentColor`, so a CSS-only marker follows the row's own colour in both themes |
@@ -107,9 +108,8 @@ The dashboard theme never changes the configured OBS caption colours.
 - Presets preview (Settings › Presets): rows use the `statRow` pattern; kept and not-changed
   rows show their status text in place of a value.
 - Session format: `.startFormat` is a labelled native select with a hint in the Live Start
-  bar, its label above it like every field; the bar lines its controls up along their bottom
-  edge, so the select sits level with Start captions. It wraps to its own row at 680px and
-  narrower. While a session runs, a
+  bar, its label inline before the select and centred with Start captions. It wraps to its own
+  row at 680px and narrower, where the select fills the rest of the row. While a session runs, a
   `.statRow.sessionFormatRow` above Session details shows the format as a read-only
   `.formatTag`. `.formatTag` is also the small tag on each saved transcript in the
   Transcripts list.

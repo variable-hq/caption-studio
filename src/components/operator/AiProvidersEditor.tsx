@@ -107,6 +107,7 @@ export function AiProvidersEditor() {
           <input
             type="text"
             name="transcriptionModel"
+            className="techText"
             autoComplete="off"
             spellCheck={false}
             value={selections.transcription.model}
@@ -134,6 +135,7 @@ export function AiProvidersEditor() {
           <input
             type="text"
             name="translationModel"
+            className="techText"
             autoComplete="off"
             spellCheck={false}
             list="translation-model-suggestions"
@@ -209,6 +211,7 @@ function ProviderKeyField({ provider, saved, inUse, locale, onChange }: Readonly
         <input
           type="password"
           name={inputId}
+          className="techText"
           autoComplete="off"
           spellCheck={false}
           value={value}

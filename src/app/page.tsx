@@ -1617,8 +1617,8 @@ function OperatorDashboardContent() {
               <div className="statRow"><span>{t("live.transcriptions")}</span><span>{formatCount(liveState.transcriptionRequests, locale)}</span></div>
               <div className="statRow"><span>{t("live.translationCalls")}</span><span>{formatCount(liveState.llmUsage.translationRequests, locale)}</span></div>
               <div className="statRow"><span>{t("live.translationTokens")}</span><span>{formatCount(liveState.llmUsage.totalTokens, locale)}</span></div>
-              <div className="statRow"><span>{t("live.speechModel")}</span><span translate="no">{cloudModels?.transcription ?? "—"}</span></div>
-              <div className="statRow"><span>{t("live.translationModel")}</span><span translate="no">{cloudModels?.translation ?? "—"}</span></div>
+              <div className="statRow"><span>{t("live.speechModel")}</span><span className="techText" translate="no">{cloudModels?.transcription ?? "—"}</span></div>
+              <div className="statRow"><span>{t("live.translationModel")}</span><span className="techText" translate="no">{cloudModels?.translation ?? "—"}</span></div>
             </details>
           </section>
         )}
