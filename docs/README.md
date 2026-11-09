@@ -1,6 +1,6 @@
 # Documentation index
 
-Reviewed 7 November 2026 against merged PR #119 (`912a3af`). Maintained specifications
+Reviewed 8 November 2026 against merged PR #120 (`5352f30`). Maintained specifications
 describe merged source, not an assurance that Cloudflare has deployed it. Use the deployment runbook and dated QA
 records to establish release evidence.
 
@@ -68,6 +68,8 @@ records to establish release evidence.
 - [ADR 0038](decisions/0038-plan-based-terms-limits.md) records plan-based limits for saved Terms, with fail-open server enforcement and no stored-data migration.
 - [ADR 0039](decisions/0039-github-actions-validation.md) records the single GitHub Actions
   workflow that validates pull requests in the upstream repository, and what stays local.
+- [ADR 0040](decisions/0040-develop-integration-branch.md) records why feature pull requests
+  merge into `develop` and only confirmed release batches reach `main`, which deploys.
 - [ADR 0012](decisions/0012-model-delegated-profanity-omission.md) records why profanity/slur
   handling was delegated to the translator, and the default-on operator control for faithful
   rendering when that omission rule is disabled.

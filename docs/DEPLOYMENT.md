@@ -1,12 +1,16 @@
 # Deployment runbook
 
-Reviewed 7 November 2026 against merged PR #119 (`912a3af`). This describes the current
+Reviewed 8 November 2026 against merged PR #120 (`5352f30`). This describes the current
 repository configuration.
 Dated deployment and QA evidence is in [cleanup QA](CLEANUP_DEPLOY_QA.md).
 
 ## Connected Cloudflare build
 
-GitHub stores source and PR review. Cloudflare Workers Builds watches `main` only; the
+GitHub stores source and PR review. Feature pull requests merge into `develop`, which
+never builds; `main` only receives release pull requests from `develop` once the batch is
+confirmed ([contributing](../CONTRIBUTING.md#branch-and-commit-workflow),
+[ADR 0040](decisions/0040-develop-integration-branch.md)).
+Cloudflare Workers Builds watches `main` only, so merging a release is the deploy; the
 repository's one GitHub Actions workflow (`validate`) checks pull requests and never builds
 for production or deploys. Use these settings for the connected Worker:
 
@@ -19,7 +23,8 @@ for production or deploys. Use these settings for the connected Worker:
 | Deploy command | `OPEN_NEXT_DEPLOY=true npx wrangler deploy` |
 | Settings › Builds › Previews Base: Builds for Preview branches | Off (since 28 October 2026) |
 
-Keep preview-branch builds off. With them on, every PR branch ran `npm run build` and then
+Keep preview-branch builds off, `develop` included: the build of `main` is the release
+gate, so a new version only exists once a confirmed batch is released. With them on, every PR branch ran `npm run build` and then
 `npx wrangler preview` (open beta), which always failed with "Your Wrangler configuration
 needs a `previews` block to run this command" and warned that Durable Objects are not
 included in previews. This app depends on Durable Objects, Workers AI and Cloudflare Access,
@@ -96,7 +101,7 @@ Keep all four SQLite migrations: v1 creates CaptionRoom; v2 adds SermonJournal a
 AiUsageLedger; v3 adds OperatorPreferences; v4 renames SermonJournal to TranscriptJournal
 (`renamed_classes`). Do not rename/delete established migration tags to repair a build.
 
-The v4 rename is one-way. Workers Builds deploys `main` on merge, so the merge is the deploy:
+The v4 rename is one-way. Workers Builds deploys `main` on merge, so the merge into `main` is the deploy:
 merge it only after the build with session names (PR #100) has finished deploying and with no
 live session running. Once v4 is applied, a build from before it cannot
 bind `TRANSCRIPT_JOURNALS` / `TranscriptJournal`, so rolling back to an earlier build is not

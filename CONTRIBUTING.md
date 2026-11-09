@@ -1,6 +1,6 @@
 # Contributing
 
-Last reviewed 7 November 2026 against merged PR #119 (`912a3af`).
+Last reviewed 8 November 2026 against merged PR #120 (`5352f30`).
 
 Thank you for helping build Caption Studio. The repository is private and has no
 open-source license; access to collaborate does not grant permission to redistribute
@@ -59,8 +59,8 @@ One GitHub Actions workflow, `.github/workflows/validate.yml`, runs `npm run val
 only ([ADR 0039](docs/decisions/0039-github-actions-validation.md)). It checks; it does not
 replace local validation, which stays a required contributor responsibility: include the
 commands and results in the pull request. It runs no browser QA (`npm run qa`,
-`npm run qa:runtime` stay local) and uses no secrets. After merge, Cloudflare's connected
-Workers build—not GitHub—builds and deploys `main`; per-branch preview builds are off
+`npm run qa:runtime` stay local) and uses no secrets. When a release pull request merges
+into `main`, Cloudflare's connected Workers build—not GitHub—builds and deploys it; per-branch preview builds are off
 because previews omit Durable Objects (see
 [Deployment](docs/DEPLOYMENT.md#connected-cloudflare-build)). Do not add a GitHub-hosted
 build or deployment workflow, or give a workflow credentials, without an explicit owner
@@ -107,7 +107,10 @@ text in screenshots or recordings.
 
 ## Branch and commit workflow
 
-Create a short-lived branch from the latest `main`:
+`develop` is the integration branch and GitHub's default; `main` is the production branch
+that Cloudflare builds and deploys on every merge
+([ADR 0040](docs/decisions/0040-develop-integration-branch.md)). Create a short-lived
+branch from the latest `develop` and open its pull request into `develop`:
 
 - `feat/short-description`
 - `fix/short-description`
@@ -124,7 +127,25 @@ guide in [the index](docs/README.md#maintained-guides) for the feature's names a
 identifiers, and correct any claim the change makes false, not only in the guide you set
 out to update. Do not rewrite another contributor's branch without agreement. Merge pull
 requests with a merge commit (GitHub's default), as every PR since #33 has, so each merge
-on `main` names its PR.
+on `develop` and `main` names its PR.
+
+Nothing merges into `main` except a release pull request from `develop`. Open one only
+once every feature merged into `develop` since the last release is confirmed: `npm run
+validate` and `npm run qa` pass on `develop`, and `npm run qa:runtime` too when the batch
+touches Cloudflare or audience routes. List the included pull requests in its description
+and merge it with a merge commit (never squash or rebase), so `develop` and `main` keep
+the same history and the next release does not replay commits. Merging it is the
+deploy—follow [Deployment](docs/DEPLOYMENT.md#connected-cloudflare-build) for any
+migration or binding change in the batch. A production fix follows the same path: merge
+it into `develop`, then release.
+
+Branch protection on both `develop` and `main` blocks direct pushes, force-pushes and
+deletion, and requires a pull request with one approval, a passing `validate` check, a
+branch that is up to date with its base, and resolved conversations; `main` also dismisses
+approvals when new commits arrive. Only repository admins can merge, and they can bypass
+these rules—do so only for an emergency, and say why in the pull request. GitHub does not
+check that a pull request into `main` comes from `develop`; whoever approves the release
+checks that.
 
 ## Pull requests
 
